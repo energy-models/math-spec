@@ -53,10 +53,10 @@ nav:
           - Operators: reference/language/operators.md
           - Piecewise curves and SOS: reference/language/piecewise.md
           - Absence and where: reference/language/absence.md
-          - Reading a loaded model: reference/language/reading.md
           - Errors and limits: reference/language/errors.md
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
+      - Reading a loaded model: reference/reading.md
       - Examples:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md

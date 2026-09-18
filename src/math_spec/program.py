@@ -15,7 +15,7 @@ questions over the walk are :func:`walk_regions`, :func:`walk` and the filters
 beside them. A
 resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
-one: ``docs/reference/language/reading.md``.
+one: ``docs/reference/reading.md``.
 """
 
 from __future__ import annotations

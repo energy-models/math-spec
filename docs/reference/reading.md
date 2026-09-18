@@ -5,10 +5,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Reading a loaded model
 
-The other pages say what a file may declare. This page says what a tool gets
-when it loads one. You need none of it to write a model. It is for whoever writes
-an engine that builds models, a renderer, or a checker, and they read the model
-through two objects:
+The [language pages](language/index.md) say what a file may declare. This page
+says what a tool gets when it loads one. You need none of it to write a model.
+It is for whoever writes an engine that builds models, a renderer, or a
+checker, and they read the model through two objects:
 
 ```text
 to_spec  →  Spec  →  to_program  →  Program
@@ -23,7 +23,7 @@ stands for, every name typed, every operator resolved to a node, and every
 dimension and degree rule already checked.
 
 A `piecewise:` block is what makes the two differ. The curve below
-[expands](piecewise.md) into a weight per breakpoint, a convexity row and one
+[expands](language/piecewise.md) into a weight per breakpoint, a convexity row and one
 row per link, and those are as much part of the model as the constraint you
 typed:
 
@@ -76,11 +76,6 @@ know which it was handed can call `to_program` and be sure of the result.
 | ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts, not its text |
-
-An engine that read `spec.constraints` above would build a model with three
-constraints and a variable missing. That model solves, and the answer is wrong
-with nothing to show why. `Program` is a different type from `Spec`, so an
-engine typed to take a `Program` cannot make that mistake.
 
 !!! note "A `Program` cannot answer what the file wrote"
 
@@ -141,7 +136,7 @@ model does not use the construct, not that the construct does not exist.
 !!! note "The footprint says what the model uses, and never what to do about it"
 
     Whether your solver or file format can take a construct is your question.
-    See [what a solver can take](../../about/limits.md#solver-capability).
+    See [what a solver can take](../about/limits.md#solver-capability).
     Whether a quadratic form is convex is not reported at all, because it depends
     on the numbers.
 
@@ -151,11 +146,9 @@ tree for the detail.
 
 ## Asking whether an axis can be cut
 
-An engine that solves a year in weekly windows has to know whether every row of
-the model fits inside one window. A storage balance that reads the previous
-snapshot does, as long as neighbouring windows overlap by one row. An annual
-emissions cap does not, because it sums over all 52 weeks. The windows solve
-either way, so nothing later would tell you.
+`program.separability` says, per axis, whether every row of the model fits
+inside one window along it: a storage balance that reads the previous snapshot
+does, and an annual emissions cap does not.
 
 ```python
 program.separability['bp'].windowable  # False
@@ -172,10 +165,8 @@ expansion introduced is named under the declaration the expansion emitted.
 
 - `coupled` names each declaration that ties the whole axis together: a sum over
   the axis in a constraint, a grouping that consumes the axis, a wrapped shift,
-  or a set. After the dash, each entry names the one change that would remove the
-  tie: a horizon total becomes a rolling `sum_back`, a wrap becomes an opening
-  state the caller seeds, and a grouping is windowed along the dimension it
-  groups into. The report names the change and never applies it.
+  or a set. After the dash, each entry names the one change that would remove
+  the tie.
 - `undecided` lists each read whose reach only the data can say. Each entry is a
   `Reach`, carrying the declaration, the parameter or relation it reads, and the
   kind of read: an `offset` from a parameter, a `partition` a shift is grouped
@@ -191,27 +182,14 @@ expansion introduced is named under the declaration the expansion emitted.
 - `linking_columns` names each variable the axis does not index, whose column
   every window reads.
 - `ahead` is how many coordinates a window must see past its last row: `0` where
-  every row is pointwise, and `2` for a `shift` of `-2`. What a row reads behind
-  is not reported, because what a window's first rows meet is the opening state
-  the driver seeds.
+  every row is pointwise, and `2` for a `shift` of `-2`.
 - `windowable` is false while anything is coupled or undecided. A restart does
   not count against it.
 
-A sum over the axis ties every window to every other window in a constraint, and
-not in the objective, because an objective is a sum of windows already.
-
-A decomposition cuts the same axis and calls each window a block. `linking_rows`
-and `linking_columns` are the border of that cut. With nothing `undecided` and
-no set over the axis, every row and column they do not name belongs to one
-block. Where `ahead` is `0` the matrix is bordered block-diagonal, which is one
-block per window and the border they share. A positive lookahead means
-neighbouring blocks overlap by that much.
-
-The report does not say whether the windowed answer equals the whole-horizon
-answer: a store carried over one row windows cleanly, and a rolling solve of it
-is still a different answer. It does not say whether the modeller wanted a
-restart, because a `position(t) == 0` seed fires once over a horizon and once per
-window, and both are models somebody means.
+A sum over the axis in the objective ties nothing, because an objective is a
+sum of windows already. The report says nothing about whether the windowed
+answer equals the whole-horizon answer, and nothing about whether a restart was
+meant.
 
 ## Writing a spec back out
 
