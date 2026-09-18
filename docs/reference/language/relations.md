@@ -27,7 +27,7 @@ relations:
 the combination of dimensions that is unique per row: `key: generator` says
 the table has one row per generator. The **values** are what that row
 determines: its bus. With no `values:`, the key is every column, and the table
-is a **bare relation**, a set of rows and nothing more.
+is a **bare relation**.
 
 | Field         |                                                                  |                |
 | ------------- | ---------------------------------------------------------------- | -------------- |
