@@ -136,10 +136,11 @@ a many-to-many relation can say, and all it can say.
 
 ### Walks
 
-A walk consumes one or more columns of a relation, produces one or more, and
-joins on every other key column. The call writes both ends. The operand carries
-every dimension the walk consumes and every one it joins on. The result is what
-the operand had, less the consumed dimensions, plus the produced ones.
+A walk reads a relation from one set of its columns to another. `over=` names
+the columns the call **consumes**, and `into=` names the columns it
+**produces**. Every key column named at neither end is **joined on**: the
+operand carries its dimension, and the result keeps it. A value column named
+at neither end is not read.
 
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
@@ -168,40 +169,83 @@ constraints:
     expression: at(price, by=zone_of, over=zone, into=generator) * p <= 1000
 ```
 
+The three calls read one table three ways:
+
+| call                                               | consumes    | joins on    | produces    | operand               | result                |
+| -------------------------------------------------- | ----------- | ----------- | ----------- | --------------------- | --------------------- |
+| `sum(p, by=zone_of, over=generator, into=zone)`    | `generator` | `period`    | `zone`      | `[generator, period]` | `[zone, period]`      |
+| `sum(p, by=zone_of, over=period, into=zone)`       | `period`    | `generator` | `zone`      | `[generator, period]` | `[generator, zone]`   |
+| `at(price, by=zone_of, over=zone, into=generator)` | `zone`      | `period`    | `generator` | `[zone, period]`      | `[generator, period]` |
+
 `capped_revenue` reads the price of the zone this generator sat in that period.
 The typesetter prints it as $`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$,
 and the joined `period` is the second subscript.
 
-- **A walk names both of its ends, always.** `sum(p, by=gen_bus)` is refused,
-  even where `gen_bus` has one key column and one value column. What a call
-  leaves out, an edit to the relation can change: a table that gained a value
-  column would silently start producing it.
-- **A value column the call does not name is not read.** That is what lets a
-  table grow. `sum(f, by=ends, over=line, into=bus1)` reads `bus1` and ignores
-  `bus0`, and goes on reading `bus1` alone when `ends` gains a third column.
-- **A relation's key is fixed.** Adding or removing a key column makes a
-  different table, so declare a new relation rather than edit the key. Calls
-  through the old one keep their meaning, because the old one still says what it
-  said.
+Three things hold for the shape of the call:
+
 - **Either keyword takes a list.** With
   `gen_bt: { key: generator, values: [bus, technology] }`,
   `sum(p, by=gen_bt, over=generator, into=[bus, technology])` lands on the
   product `bus x technology` in one join.
   `sum(p, by=zone_of, over=[generator, period], into=zone)` consumes both key
   columns at once, so nothing is joined on and `period` leaves with `generator`.
-- **A walk brings the dimensions it lands on.** Producing one the operand
-  already carries is refused. The walk would tie the operand's axis to the one
-  it produces rather than adding it, and the call reads the same either way.
-  Write the factor carrying that dimension outside the operator:
-  `load * sum(p, by=gen_bus, over=generator, into=bus)`, not
-  `sum(load * p, by=gen_bus, over=generator, into=bus)`. A relation into its own
-  dimension is not this case, because there the dimension landed on is the one
-  just consumed.
 - **`into=` needs a `by=`**, because a column belongs to a table. `over=`
   without a `by=` names a dimension, as in `sum(p, over=period)`.
 - **One call walks one table.** `by=` names a single relation. To land on
   columns of two tables at once, declare one relation holding the columns of
   both; to walk them in turn, write one call each.
+
+#### The six rules
+
+Six rules hold for every `sum` and every `at` through a relation. They say what
+a call computes, which of the two operators is legal, and what an edit to the
+file changes. A change to the notation has to keep all six.
+
+1. **The result is the operand, less the consumed dimensions, plus the produced
+   ones.** The operand carries every dimension the call consumes and every one
+   it joins on. In symbols, `result = (operand − consumed) ∪ produced`, where
+   the joined columns are the key columns named at neither end. The table above
+   is this rule three times.
+2. **The result gains a dimension only from the operand, never from an edit to
+   the relation.** That is why both ends are written on every call.
+   `sum(p, by=gen_bus)` is refused, even where `gen_bus` has one key column and
+   one value column. What a call leaves unsaid, an edit to the relation could
+   change: a table that gained a value column would silently start producing
+   it.
+3. **Adding a value column is safe.** A relation that gains one changes no
+   existing call, because a value column the call does not name is not read.
+   `sum(f, by=ends, over=line, into=bus1)` reads `bus1` and ignores `bus0`, and
+   goes on reading `bus1` alone when `ends` gains a third column.
+4. **The key is fixed.** Every call through a relation joins on the key columns
+   it names at neither end. So a key that gains or loses a column re-aims every
+   call at once, and that is a different table. Declare a new relation rather
+   than edit the key. Calls through the old one keep their meaning, because the
+   old one still says what it said.
+5. **An operand may grow.** A call means the same when its operand gains a
+   dimension the relation does not name, and that dimension passes through to
+   the result. Give `p` a `scenario` dimension, and `zone_balance` carries
+   `scenario` too, with the same call. An operand may not grow into a dimension
+   the call lands on. `sum(load * p, by=gen_bus, over=generator, into=bus)` is
+   refused where `load` carries `bus`. The walk would tie the operand's `bus` to
+   the one it produces rather than add it, and the call reads the same either
+   way. Write `load * sum(p, by=gen_bus, over=generator, into=bus)`. A relation
+   into its own dimension is not this case, because there the dimension landed
+   on is the one just consumed ([roles](#roles)).
+6. **`sum` consumes a key column, and `at` consumes none.** Consume no key
+   column and each coordinate finds one row, so nothing is added up. That is a
+   read, and it is `at`'s. Consume one and a coordinate finds many rows, which
+   is `sum`'s. Each operator is refused in the other's case.
+
+What each end may name follows from rule 6, and from nothing else:
+
+| operator | `over=`, consumed                      | `into=`, produced |
+| -------- | -------------------------------------- | ----------------- |
+| `sum`    | any columns, at least one a key column | any columns       |
+| `at`     | value columns only                     | any columns       |
+
+An end may not name a column twice, name a column the other end names, or name
+two columns over one dimension. The operand has one axis per dimension, so
+nothing would say which column its coordinate is read at.
 
 Five refusals draw the line, and each message names the rewrite:
 
@@ -235,6 +279,13 @@ shift() through a relation leaves within= unsaid.
 A partition names the value columns it groups by, so that a relation may gain a value column without changing what this call means.
 Write: shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])
 ```
+
+A partition keeps rule 4 of the [six rules](#the-six-rules). It joins on every
+key column but the one it steps along, so a key that gains a column re-aims the
+call. Declare a new relation. It keeps rule 3 only where the call writes
+`within=`. Omitted, `within=` means every value column, so a relation that
+gains one regroups the call
+([#538](https://github.com/energy-models/math-spec/issues/538)).
 
 A `where` string reads a relation too: a value column at its key, two columns
 of one table compared, or a bare name that tests a row exists
