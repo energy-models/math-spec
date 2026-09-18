@@ -121,16 +121,10 @@ Two rules more hold for these:
    Growing it into a dimension the call lands on is refused: write
    `load * sum(p, by=gen_bus, over=generator, into=bus)`, not
    `sum(load * p, ...)`. A relation onto its own dimension is not this case.
-6. **`sum` consumes a key column, and `at` consumes none.** Consume none and
-   each coordinate finds one row, which is a read. Consume one and it finds
-   many, which is a sum. Each is refused in the other's case.
-
-Rule 6 is all that tells the two ends apart:
-
-| operator | `over=`, consumed                      | `into=`, produced |
-| -------- | -------------------------------------- | ----------------- |
-| `sum`    | any columns, at least one a key column | any columns       |
-| `at`     | value columns only                     | any columns       |
+6. **`sum` consumes at least one key column, and `at` consumes value columns
+   only.** Either produces any columns. That is what tells a sum from a read:
+   a read finds one row per coordinate, and a sum finds many. Each is refused
+   in the other's case.
 
 An end may not name a column twice, name a column the other end names, or
 name two columns over one dimension.
