@@ -126,8 +126,8 @@ Two rules more hold for these:
    a read finds one row per coordinate, and a sum finds many. Each is refused
    in the other's case.
 
-An end may not name a column twice, name a column the other end names, or
-name two columns over one dimension.
+`over=` and `into=` name different columns, and neither names two columns
+over one dimension, since the operand has one axis per dimension.
 
 ### Partitions
 
