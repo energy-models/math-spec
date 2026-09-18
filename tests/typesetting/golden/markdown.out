@@ -235,7 +235,7 @@ p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ g \in \math
 **`zonal_membership`**
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} p_{t,g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} \mathit{units}_{g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
 ```
 
 **`zonal_pullback`**

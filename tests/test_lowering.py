@@ -412,22 +412,22 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
-            'sum(p, by=lk)',
+            'sum(p, by=lk, over=g, into=h)',
             GroupSum(Variable('p'), walks=(LK_WALK,)),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
-            'sum(p, by=[lk])',
+            'sum(p, by=[lk], over=g, into=h)',
             GroupSum(Variable('p'), walks=(LK_WALK,)),
             id='a-one-element-list-is-the-plain-form',
         ),
         pytest.param(
-            'sum(p, by=[lk, lk2])',
+            'sum(p, by=[lk, lk2], over=g, into=[h, z])',
             GroupSum(Variable('p'), walks=(LK_WALK, LK2_WALK)),
             id='two-coordinates-are-one-grouping-with-paired-tuples',
         ),
         pytest.param(
-            'at(r, by=lk)',
+            'at(r, by=lk, over=h, into=g)',
             At(Variable('r'), walks=(Walk(LK, ('h',), ('g',), ()),)),
             id='a-pullback-walks-the-same-table-back',
         ),
@@ -499,14 +499,17 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
             },
             'constraints': {
-                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, over=generator) <= 1'},
+                'zonal': {
+                    'dims': ['snapshot', 'zone'],
+                    'expression': 'sum(p, by=zone_of, over=generator, into=zone) <= 1',
+                },
                 'priced': {
                     'dims': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, into=generator)',
+                    'expression': 'p <= at(price, by=zone_of, into=generator, over=zone)',
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot) <= 1',
+                    'expression': 'sum(p, by=zone_of, over=snapshot, into=zone) <= 1',
                 },
             },
         }
