@@ -73,8 +73,8 @@ column per declared column, named after it.
 - **A partial map is the rows it has.** A generator in no row sits on no bus,
   which is [absence](absence.md), as for a parameter.
 - **A null in any column is refused.**
-- **The members keep the order the table gives them.** A partition steps along
-  that order.
+- **Row order carries nothing.** The order is the
+  [dimension's](dimensions.md).
 
 ## How a relation is used
 
@@ -146,6 +146,6 @@ column, and a bare relation partitions nothing.
 
 ### Tests
 
-A `where` string reads a relation at the frame's own coordinates: a value
-column at its key, two columns of one table compared, or a bare name that
-tests a row exists ([where strings](expressions.md#where-strings)).
+A `where` string uses a relation at the frame's own coordinates: it compares a
+column under `values:` against a label, compares two columns of one table, or
+tests that a row exists ([where strings](expressions.md#where-strings)).
