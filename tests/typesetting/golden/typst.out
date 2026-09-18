@@ -51,7 +51,7 @@ $t minus.square_(v) k$ denotes translation with $v$ standing where index $t-k$ l
 
 $t minus.o^(upright("relation")(t)) k$ denotes a translation counted inside the group a relation puts $t$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t minus.square_(v)^(upright("relation")(t)) k$ is both at once.
 
-$upright("pos")(t)$ denotes where index $t$ sits along its dimension's own order --- the order `shift` walks, not the order labels sort in --- counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $upright("pos")(t)$ against positions.
+$upright("pos")(t)$ denotes where index $t$ sits along its dimension's own order --- the order `shift` steps along, not the order labels sort in --- counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $upright("pos")(t)$ against positions.
 
 $upright("pos")_(upright("relation")(t))(t)$ counts within the group a relation puts $t$ in: the subscript names the map, $cal(T)_(upright("relation")(t))$ is the group it lands in, and that group has a first position of its own.
 

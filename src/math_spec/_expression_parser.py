@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Walk, WhereNode
+    from math_spec.program import Direction, WhereNode
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -115,7 +115,7 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class RelationNode:
-    """A resolved ``by=`` — the relation, and the walk the call takes through it.
+    """A resolved ``by=`` — the relation, and the direction the call reads it in.
 
     ``dimensions`` is the fine side — what ``sum`` consumes and ``at``
     produces — and ``into`` the coarse dims, which ``sum`` produces and ``at``
@@ -126,7 +126,7 @@ class RelationNode:
     name: str
     dimensions: tuple[str, ...]
     into: tuple[str, ...]
-    walk: Walk
+    direction: Direction
 
     @property
     def shown(self) -> str:

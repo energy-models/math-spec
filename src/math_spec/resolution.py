@@ -66,6 +66,7 @@ from math_spec.program import (
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
+    Direction,
     Mask,
     NotNode,
     OrNode,
@@ -78,7 +79,6 @@ from math_spec.program import (
     RelationPairComparisonNode,
     TypedPredicateNode,
     VariableDefinedNode,
-    Walk,
     WhereNode,
 )
 
@@ -576,11 +576,11 @@ class _Resolver:
         roles: Mapping[str, ArithmeticNode],
         over: ArithmeticNode | None,
     ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how the relation is walked.
+        """An operator's ``by=``, with the ``over=`` and ``into=`` that say which direction it is read in.
 
         A relation carries its own dimensions, so the call names columns rather
         than dims: ``over=`` the column consumed, ``into=`` the column
-        produced, every other key column joined on. A value column not walked
+        produced, every other key column joined on. A value column not named
         is not read, and a bare relation's columns are all key. One call
         addresses one table, so several columns of one table are a list and
         several tables are not.
@@ -592,7 +592,7 @@ class _Resolver:
         if len(names) > 1:
             self.errors.append(
                 f'{self.context}: {operator}({key}={shown(names)}) names {len(names)} relations, and one call '
-                f'walks one table. Declare one relation with the columns of all of them, or walk them in turn, '
+                f'reads one table. Declare one relation with the columns of all of them, or read them in turn, '
                 f'one call each.'
             )
             return value
@@ -609,20 +609,20 @@ class _Resolver:
             if 'within' not in named:
                 return value  # the call shape refused it already, with the wording that names the rewrite
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            walk = self._partition_walk(name, operator, over_dim, named['within'])
+            direction = self._partition_direction(name, operator, over_dim, named['within'])
         else:
             if not ({'over', 'into'} <= set(named)):
                 return value  # the call shape refused it already, with the wording that names the rewrite
-            walk = self._walk(name, operator, named['over'], named['into'])
-        if walk is None:
+            direction = self._direction(name, operator, named['over'], named['into'])
+        if direction is None:
             return value
 
-        fine = walk.produced_dims if operator == 'at' else walk.consumed_dims
+        fine = direction.produced_dims if operator == 'at' else direction.consumed_dims
         if operator in ('shift', 'sum_back'):
             coarse: tuple[str, ...] = ()
         else:
-            coarse = walk.consumed_dims if operator == 'at' else walk.produced_dims
-        return RelationNode(name, dimensions=fine, into=coarse, walk=walk)
+            coarse = direction.consumed_dims if operator == 'at' else direction.produced_dims
+        return RelationNode(name, dimensions=fine, into=coarse, direction=direction)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -635,19 +635,19 @@ class _Resolver:
         )
         return None
 
-    def _walk(
+    def _direction(
         self,
         name: str,
         operator: str,
         from_roles: tuple[str, ...],
         into_roles: tuple[str, ...],
-    ) -> Walk | None:
-        """How ``sum`` or ``at`` walks relation *name*, between the columns the call named.
+    ) -> Direction | None:
+        """Which direction ``sum`` or ``at`` reads relation *name* in, between the columns the call named.
 
-        Both ends arrive written: the call shape refuses a walk that leaves
+        Both ends arrive written: the call shape refuses a call that leaves
         one unsaid, so that a relation may gain a value column without
-        changing what this call means. ``at`` needs the walk single-valued
-        and ``sum`` needs it not: a sum that walks to the key has one term
+        changing what this call means. ``at`` needs the read single-valued
+        and ``sum`` needs it not: a sum that lands on the key has one term
         per coordinate and adds up nothing, which is a read, so it is
         refused toward ``at``.
         """
@@ -662,7 +662,7 @@ class _Resolver:
         forward = operator == 'sum'
         if both := sorted(set(from_roles) & set(into_roles)):
             self.errors.append(
-                f'{context}: {call}: over= and into= both name {both}, and a walk goes between two sets of columns.'
+                f'{context}: {call}: over= and into= both name {both}, and a call reads between two sets of columns.'
             )
             return None
         for kwarg, roles in (('over', from_roles), ('into', into_roles)):
@@ -670,28 +670,28 @@ class _Resolver:
             if shared := sorted({d for d in dims if dims.count(d) > 1}):
                 self.errors.append(
                     f'{context}: {call}: {kwarg}={list(roles)} names two columns over {shared}, and the operand '
-                    f'carries each dimension once, so nothing says which column its coordinate is read at. Walk '
+                    f'carries each dimension once, so nothing says which column its coordinate is read at. Read '
                     f'between columns over distinct dimensions.'
                 )
                 return None
         joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
-        walk = Walk(shape, from_roles, into_roles, joined)
-        if not forward and not walk.is_function_read:
+        direction = Direction(shape, from_roles, into_roles, joined)
+        if not forward and not direction.is_function_read:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
                 f'{list(from_roles)} at the columns the operand fixes ({[*into_roles, *joined]}) — its key is '
                 f'{list(shape.key)}. Key the table by columns the read fixes, or read the other way.'
             )
             return None
-        if forward and walk.is_function_read:
+        if forward and direction.is_function_read:
             self.errors.append(
-                f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
+                f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
                 f'at(..., by={name}, over={list(into_roles)}, into={list(from_roles)}), or sum toward '
                 f'a value column.'
             )
             return None
-        return walk
+        return direction
 
     def _known_roles(self, name: str, call: str, roles: tuple[str, ...] | None, kwarg: str) -> bool:
         """Whether every role *kwarg* names is a column of relation *name*, each once; the refusal otherwise."""
@@ -708,12 +708,12 @@ class _Resolver:
             return False
         return True
 
-    def _partition_walk(
-        self, name: str, operator: str, walked_dim: str | None, within_roles: tuple[str, ...]
-    ) -> Walk | None:
-        """How a partition (``shift``, ``sum_back``, ``position``) walks relation *name* along *walked_dim*.
+    def _partition_direction(
+        self, name: str, operator: str, along_dim: str | None, within_roles: tuple[str, ...]
+    ) -> Direction | None:
+        """Which direction a partition (``shift``, ``sum_back``, ``position``) reads relation *name* in along *along_dim*.
 
-        It walks the one key column over that dimension (a key has one column
+        It takes the one key column over that dimension (a key has one column
         per dimension), joins on the other key columns and groups by the value
         columns *within_roles* names. ``None`` where the dimension is not one
         (already refused), the relation has no key column over it, or
@@ -722,20 +722,20 @@ class _Resolver:
         context = self.context
         shape = self.ns.shape_of(name)
         call = f'{operator}(by={name})'
-        if walked_dim is None or not self._known_roles(name, call, within_roles, 'within'):
+        if along_dim is None or not self._known_roles(name, call, within_roles, 'within'):
             return None
         if not shape.values:
             self.errors.append(
                 f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it makes no "
                 f'groups and no coordinate is in exactly one. Move the columns the group is made of under '
-                f'values:, leaving key: the column {operator} walks.'
+                f'values:, leaving key: the column {operator} steps along.'
             )
             return None
-        over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
+        over_keys = [r for r in shape.key if shape.dim(r) == along_dim]
         if not over_keys:
             self.errors.append(
-                f"{context}: {call}: '{name}' has no key column over '{walked_dim}' — its key is "
-                f'{list(shape.key)} — and a partition walks a key column over the dimension it groups.'
+                f"{context}: {call}: '{name}' has no key column over '{along_dim}' — its key is "
+                f'{list(shape.key)} — and a partition steps along a key column over the dimension it groups.'
             )
             return None
         if keyed := [r for r in within_roles if r in shape.key]:
@@ -744,9 +744,9 @@ class _Resolver:
                 f'value columns — its value columns are {list(shape.values)}.'
             )
             return None
-        (walked,) = over_keys
-        joined = tuple(r for r in shape.key if r != walked)
-        return Walk(shape, (walked,), within_roles, joined)
+        (along,) = over_keys
+        joined = tuple(r for r in shape.key if r != along)
+        return Direction(shape, (along,), within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -860,10 +860,10 @@ class _Resolver:
                 f'are {list(ns.shape_of(node.by).values)}.'
             )
             return node
-        walk = self._partition_walk(node.by, 'position', node.dimension, node.into)
-        if walk is None:
+        direction = self._partition_direction(node.by, 'position', node.dimension, node.into)
+        if direction is None:
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, walk)
+        return DimensionPositionNode(node.dimension, node.op, node.position, direction)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``relation <op> relation``."""
