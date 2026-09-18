@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A walk with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  A call with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
   consumes both key columns at once and lands on the product of both value
   columns in one join.
 

@@ -291,7 +291,7 @@ class _Lowering:
 
         ``by=`` names the relation the window stops at the edges of, and rides on
         the node the way it rides on a translation — the dim rules have already
-        held it to one relation over the walked dimension.
+        held it to one relation over the dimension stepped along.
         """
         over_node = node.kwargs['along']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
@@ -345,7 +345,7 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 def _partition_of(node: FunctionCallNode) -> program.Direction | None:
     """The direction a translation partitions by, if the call names a relation.
 
-    That it is a *single* relation, walked *along the translated dimension*, is
+    That it is a *single* relation, stepped *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """

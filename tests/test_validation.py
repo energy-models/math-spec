@@ -793,7 +793,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
                 ("this sum lands on the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
-                id='a-sum-that-walks-to-the-key-is-a-read',
+                id='a-sum-that-lands-on-the-key-is-a-read',
             ),
             pytest.param(
                 {
@@ -977,7 +977,7 @@ class TestRulesDecidedWithoutData:
                     'objective': {'expression': 'sum(sum(q, by=bare, over=k, into=m))'},
                 },
                 ("joins 'bare' on ['h'] through more than one column",),
-                id='a-walk-joining-one-dimension-through-two-columns',
+                id='a-call-joining-one-dimension-through-two-columns',
             ),
             pytest.param(
                 {

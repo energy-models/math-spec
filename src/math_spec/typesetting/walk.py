@@ -984,7 +984,7 @@ class Walk:
             dash = self.format.dash
             notes.append(
                 f"{place} denotes where index {index} sits along its dimension's own order {dash} the order "
-                f'{self.format.mono("shift")} walks, not the order labels sort in {dash} counted from '
+                f'{self.format.mono("shift")} steps along, not the order labels sort in {dash} counted from '
                 f'{self.format.math("0")}. The index itself stays the coordinate, so {index} compares against '
                 f'labels and {place} against positions.'
             )

@@ -342,7 +342,7 @@ class Translate(Expression):
     ``offset`` is an integer, or the name of an integer parameter that does
     not depend on ``dimension`` and carries its sign in the values.
 
-    ``partition`` is a relation walked along ``dimension`` — its consumed
+    ``partition`` is a relation stepped along ``dimension`` — its consumed
     column is a key over that dimension, its produced columns are the group —
     and the translation then happens inside each group: the neighbour is the
     one before in the same group, the edge is the group's, and a wrap closes
@@ -520,7 +520,7 @@ class Direction(NamedTuple):
     ``joined`` is the key roles the call did not name (every role, for a bare
     relation): the join keys on them, and a value role left unnamed is not
     read. For a partition (``shift``, ``sum_back``, ``position``) ``consumed``
-    is the key role over the dimension walked and ``produced`` the value roles
+    is the key role over the dimension stepped along and ``produced`` the value roles
     that make the group, which are the ones ``within=`` named.
     """
 
@@ -1213,7 +1213,7 @@ class DimensionPositionNode:
 
     Both sides are integers, negative counting from the end. With a
     ``partition`` the position is counted within each group the relation makes,
-    walked as :class:`Translate` walks one: its consumed column is the key
+    read as :class:`Translate` reads one: its consumed column is the key
     column over ``name``, the group is its produced columns, and its joined
     columns are the other key columns, whose dimensions the frame carries.
     """

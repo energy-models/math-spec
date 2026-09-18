@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 #: `fixtures.DISPATCH_MODEL` plus buses: a dim rule is mostly about an
 #: expression carrying a dim its frame does not, which needs three dims to
 #: state. `snap_bus` is over `snapshot` so it can partition the axis the
-#: translations walk; `spinup` and `horizon` are the named amount that obeys
-#: the position rules and the one that spans the axis walked; `bus_lead` is
+#: translations step along; `spinup` and `horizon` are the named amount that
+#: obeys the position rules and the one that spans that axis; `bus_lead` is
 #: over a dim `p` does not carry, so it is readable only through a `by=`.
 BASE = {
     'dimensions': {
@@ -111,12 +111,12 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_zone, over=generator, into=zone)',
             {'snapshot', 'zone'},
-            id='a-two-key-relation-consumes-the-key-it-walks-and-keeps-the-other',
+            id='a-two-key-relation-consumes-the-key-it-names-and-keeps-the-other',
         ),
         pytest.param(
             'sum(p, by=gen_zone, over=snapshot, into=zone)',
             {'generator', 'zone'},
-            id='the-same-table-walked-along-its-other-key',
+            id='the-same-table-read-along-its-other-key',
         ),
         pytest.param(
             'at(zone_load, by=gen_zone, into=generator, over=zone)',
@@ -166,7 +166,7 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_bz, into=bus, over=generator)',
             {'snapshot', 'bus'},
-            id='a-value-column-not-walked-is-not-read',
+            id='a-value-column-not-named-is-not-read',
         ),
         pytest.param(
             'sum(p, by=gen_bz, over=generator, into=bus)',
@@ -240,8 +240,8 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         ),
         pytest.param(
             "shift(p, along=snapshot, offset=horizon, edge='wrap')",
-            r'varies along the axis it walks is a permutation rather than a lag',
-            id='a-named-offset-does-not-span-the-axis-it-walks',
+            r'varies over the axis it steps along is a permutation rather than a lag',
+            id='a-named-offset-does-not-span-the-axis-it-steps-along',
         ),
         pytest.param(
             'sum_back(p, along=snapshot, window=cost)',

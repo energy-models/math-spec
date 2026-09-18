@@ -83,7 +83,7 @@ TINY = {
     'constraints': {'c': {'dims': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
-#: `lk` as `sum` walks it: key consumed, value produced, nothing joined.
+#: `lk` as `sum` reads it: key consumed, value produced, nothing joined.
 LK = RelationDeclaration('lk', (('g', 'g'), ('h', 'h')), ('g',))
 LK2 = RelationDeclaration('lk2', (('g', 'g'), ('z', 'z')), ('g',))
 LK_DIRECTION = Direction(LK, ('g',), ('h',), ())
@@ -418,7 +418,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param(
             'at(r, by=lk, over=h, into=g)',
             At(Variable('r'), direction=Direction(LK, ('h',), ('g',), ())),
-            id='a-pullback-walks-the-same-table-back',
+            id='a-pullback-reads-the-same-table-back',
         ),
         pytest.param(
             "shift(p, along=g, offset=1, edge='wrap')",
@@ -511,8 +511,8 @@ def _partition_of(row):
     return partition
 
 
-def test_a_relation_lowers_with_the_walk_each_call_takes():
-    """Every node reading a relation carries its columns, its key and the walk, so a consumer joins on the right columns."""
+def test_a_relation_lowers_with_the_direction_each_call_names():
+    """Every node reading a relation carries its columns, its key and the direction, so a consumer joins on the right columns."""
     program = to_program(
         {
             'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
@@ -557,10 +557,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
         ('zone',),
         ('snapshot',),
         'zone_of',
-    ), 'the dims a consumer reads are read off the walk'
+    ), 'the dims a consumer reads are read off the direction'
     assert program.constraints['history'].lhs == GroupSum(
         Variable('p'), direction=Direction(declared, ('snapshot',), ('zone',), ('generator',))
-    ), 'the same table walked from its other key column'
+    ), 'the same table read from its other key column'
     priced = program.constraints['priced'].rhs
     assert priced == At(Parameter('price'), direction=Direction(declared, ('zone',), ('generator',), ('snapshot',))), (
         'and its adjoint consumes the value column and produces the key column'

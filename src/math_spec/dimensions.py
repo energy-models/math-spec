@@ -255,13 +255,13 @@ _CALL_RULES: dict[str, Callable[[FunctionCallNode, frozenset[str], Spec, str], f
 
 
 class _Amount(NamedTuple):
-    """What an axis-walking operator's errors say about the amount it takes."""
+    """What the errors of an operator that steps along an axis say about the amount it takes."""
 
     #: The word for the amount.
     noun: str
     #: Why negating a named one at the call site is not what the caller means.
     negated: str
-    #: What a named one that varies along the axis it walks becomes.
+    #: What a named one that varies over the axis it steps along becomes.
     varies: str
     #: The least whole number a literal may be.
     minimum: float
@@ -292,7 +292,7 @@ _AMOUNTS = {
 
 
 def _amount_of(node: FunctionCallNode) -> tuple[str, ArithmeticNode]:
-    """The kwarg an axis-walking operator takes its amount through, and the value written there."""
+    """The kwarg an operator that steps along an axis takes its amount through, and the value written there."""
     (kwarg,) = BUILTINS[node.name].required_value_kwargs
     return kwarg, node.kwargs[kwarg]
 
@@ -415,9 +415,9 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         )
     if over in declared.dims:
         raise DimensionError(
-            f'{context}: {node.name}({kwarg}={amount.name}) walks '
+            f'{context}: {node.name}({kwarg}={amount.name}) steps along '
             f"'{over}', but '{amount.name}' is declared over {sorted(declared.dims)}, which "
-            f'carries it. A named {words.noun} that varies along the axis it walks is {words.varies} '
+            f'carries it. A named {words.noun} that varies over the axis it steps along is {words.varies} '
             f"— declare '{amount.name}' over dims '{over}' is not one of."
         )
     partition = node.kwargs.get('by')
@@ -429,7 +429,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
     if stray := sorted(frozenset(declared.dims) - inner - groups):
         raise DimensionError(
             f'{context}: {node.name}({kwarg}={amount.name}) reads its {words.noun} at the coordinate it '
-            f"walks, but '{amount.name}' varies over {stray}, which that coordinate does not carry "
+            f"steps from, but '{amount.name}' varies over {stray}, which that coordinate does not carry "
             f'(dims {sorted(inner)}). A dim the coordinate does not have is no coordinate at all — '
             f"declare '{amount.name}' over dims the expression carries, or group by a relation into "
             f'one of {stray}, so that each group is reached by its own {words.noun}.'

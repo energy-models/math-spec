@@ -167,7 +167,7 @@ a boolean parameter instead.
 ### `position()`
 
 `position(dim)` is where the row sits along the dimension's own order, which is
-the order `shift` walks. A boundary written with it survives a relabelling of
+the order `shift` steps along. A boundary written with it survives a relabelling of
 the index:
 
 ```yaml

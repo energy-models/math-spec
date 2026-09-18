@@ -632,12 +632,12 @@ def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
 
 
 # ---------------------------------------------------------------------------
-# a grouped sum's domain — every column the walk fixes, and no column it does not
+# a grouped sum's domain — every column the direction fixes, and no column it does not
 # ---------------------------------------------------------------------------
 
 
-#: Two tables a walk can leave a value column unread. A walk between
-#: `gen_zone`'s two key columns reads no value column at all, and a walk that
+#: Two tables a call can leave a value column unread. A sum between
+#: `gen_zone`'s two key columns reads no value column at all, and a sum that
 #: consumes one of `gen_bt`'s two value columns leaves the other one.
 UNREAD = {
     'dimensions': {
@@ -655,7 +655,7 @@ UNREAD = {
     'variables': {
         'p': {'dims': ['snapshot', 'generator']},
         'f': {'dims': ['generator', 'bus']},
-        # indexed by the key column the walk consumes alone, so the column it lands on is one it brings
+        # indexed by the key column the sum consumes alone, so the column it lands on is one it brings
         'u': {'dims': ['generator']},
     },
 }
@@ -667,13 +667,13 @@ def _grouped(dims: list[str], expression: str) -> str:
     return next(line for line in to_latex(model, legend=False).splitlines() if line.startswith(r'\text{c}'))
 
 
-def test_a_walk_that_reads_no_value_column_asks_only_that_the_key_has_a_row():
+def test_a_sum_that_reads_no_value_column_asks_only_that_the_key_has_a_row():
     """`sum(u, by=gen_zone, over=generator, into=snapshot)` died with `KeyError: 'zone'`.
 
     The domain was written as a whole row of the table, which needs an index
-    for every column, and this walk goes between the two key columns: it reads
+    for every column, and this sum goes between the two key columns: it reads
     no value column, so there is no index to write in `zone`'s place. What the
-    walk asks of the table is that the key it walks between has a row at all.
+    sum asks of the table is that the key it reads between has a row at all.
     """
     row = _grouped(['snapshot'], 'sum(u, by=gen_zone, over=generator, into=snapshot) <= cap')
     assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}}' in row, (
@@ -681,12 +681,12 @@ def test_a_walk_that_reads_no_value_column_asks_only_that_the_key_has_a_row():
     )
 
 
-def test_a_value_column_the_walk_consumes_is_a_condition_like_a_produced_one():
+def test_a_value_column_the_call_consumes_is_a_condition_like_a_produced_one():
     """`sum(f, by=gen_bt, over=[generator, bus], into=technology)` bound `b` and then
     said nothing about it, so the sum ran over every bus rather than over the
     one the table puts each generator on.
 
-    The conditions were written per *produced* column. A walk fixes a value
+    The conditions were written per *produced* column. A call fixes a value
     column by consuming it too, and either way the column is one lookup at the
     key.
     """
@@ -694,7 +694,7 @@ def test_a_value_column_the_walk_consumes_is_a_condition_like_a_produced_one():
     assert (
         r'\sum_{g \in \mathcal{G},\ b \in \mathcal{B} \,:\, '
         r'\mathrm{gen\_bt.bus}(g) = b \wedge \mathrm{gen\_bt.technology}(g) = e}'
-    ) in row, 'both columns the walk touches are read, in the order the table declares them'
+    ) in row, 'both columns the call touches are read, in the order the table declares them'
 
 
 # ---------------------------------------------------------------------------

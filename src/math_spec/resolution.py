@@ -709,9 +709,9 @@ class _Resolver:
         return True
 
     def _partition_direction(
-        self, name: str, operator: str, walked_dim: str | None, within_roles: tuple[str, ...]
+        self, name: str, operator: str, along_dim: str | None, within_roles: tuple[str, ...]
     ) -> Direction | None:
-        """Which direction a partition (``shift``, ``sum_back``, ``position``) reads relation *name* in along *walked_dim*.
+        """Which direction a partition (``shift``, ``sum_back``, ``position``) reads relation *name* in along *along_dim*.
 
         It takes the one key column over that dimension (a key has one column
         per dimension), joins on the other key columns and groups by the value
@@ -722,7 +722,7 @@ class _Resolver:
         context = self.context
         shape = self.ns.shape_of(name)
         call = f'{operator}(by={name})'
-        if walked_dim is None or not self._known_roles(name, call, within_roles, 'within'):
+        if along_dim is None or not self._known_roles(name, call, within_roles, 'within'):
             return None
         if not shape.values:
             self.errors.append(
@@ -731,10 +731,10 @@ class _Resolver:
                 f'values:, leaving key: the column {operator} steps along.'
             )
             return None
-        over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
+        over_keys = [r for r in shape.key if shape.dim(r) == along_dim]
         if not over_keys:
             self.errors.append(
-                f"{context}: {call}: '{name}' has no key column over '{walked_dim}' — its key is "
+                f"{context}: {call}: '{name}' has no key column over '{along_dim}' — its key is "
                 f'{list(shape.key)} — and a partition steps along a key column over the dimension it groups.'
             )
             return None
@@ -744,9 +744,9 @@ class _Resolver:
                 f'value columns — its value columns are {list(shape.values)}.'
             )
             return None
-        (walked,) = over_keys
-        joined = tuple(r for r in shape.key if r != walked)
-        return Direction(shape, (walked,), within_roles, joined)
+        (along,) = over_keys
+        joined = tuple(r for r in shape.key if r != along)
+        return Direction(shape, (along,), within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
