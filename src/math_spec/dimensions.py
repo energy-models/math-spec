@@ -23,6 +23,7 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
@@ -30,7 +31,7 @@ from math_spec._expression_parser import (
     NumberNode,
     ParameterNode,
     ParsedNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -155,35 +156,33 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
             )
         return inner - {consumed.name}
 
-    assert isinstance(by, RelationNode)
-    direction = by.use
-    assert isinstance(direction, Direction), 'resolution reads sum(by=) in a direction'
+    assert isinstance(by, DirectionNode), 'resolution reads sum(by=) in a direction'
+    direction = by.direction
     if missing := sorted(set(direction.consumed_dims) - inner):
         raise DimensionError(
             _not_carried(
                 context,
-                f'sum(by={by.shown}) consumes {missing}, the dims it reads from,',
+                f'sum(by={direction.name}) consumes {missing}, the dims it reads from,',
                 inner,
                 'drop the sum, or fix the dim',
             )
         )
-    return _read_dims(f'sum(by={by.shown})', direction, inner, context)
+    return _read_dims(f'sum(by={direction.name})', direction, inner, context)
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``at`` is the adjoint of ``sum(by=)``: it consumes the dims a sum produces and produces the ones it consumes."""
     by = node.kwargs['by']
-    assert isinstance(by, RelationNode)
-    direction = by.use
-    assert isinstance(direction, Direction), 'resolution reads at(by=) in a direction'
+    assert isinstance(by, DirectionNode), 'resolution reads at(by=) in a direction'
+    direction = by.direction
     if absent := sorted(set(direction.consumed_dims) - inner):
         raise DimensionError(
-            f'{context}: at(by={by.shown}) reads through '
+            f'{context}: at(by={direction.name}) reads through '
             f'{absent}, which the expression does not carry (dims '
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
-    return _read_dims(f'at(by={by.shown})', direction, inner, context)
+    return _read_dims(f'at(by={direction.name})', direction, inner, context)
 
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
@@ -202,10 +201,10 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     _check_named_amount(node, over.name, inner, schema, context)
     _check_amount_form(node, context)
     _check_edge(node, context)
-    partition = node.kwargs.get('by')
-    if partition is not None:
-        assert isinstance(partition, RelationNode)
-        _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition.use, inner, context)
+    by = node.kwargs.get('by')
+    if by is not None:
+        assert isinstance(by, PartitionNode), "resolution reads a translation's by= as a partition"
+        _check_joined(f'{node.name}(along={over.name}, by={by.partition.name})', by.partition, inner, context)
     return inner
 
 
@@ -430,9 +429,10 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
             f'carries it. A named {words.noun} that varies over the axis it steps along is {words.varies} '
             f"— declare '{amount.name}' over dims '{over}' is not one of."
         )
-    partition = node.kwargs.get('by')
-    use = partition.use if isinstance(partition, RelationNode) else None
-    groups = frozenset(use.dim(v) for v in use.group) if isinstance(use, Partition) else frozenset()
+    by = node.kwargs.get('by')
+    groups = (
+        frozenset(by.partition.dim(v) for v in by.partition.group) if isinstance(by, PartitionNode) else frozenset()
+    )
     if stray := sorted(frozenset(declared.dims) - inner - groups):
         raise DimensionError(
             f'{context}: {node.name}({kwarg}={amount.name}) reads its {words.noun} at the coordinate it '

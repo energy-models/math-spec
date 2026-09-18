@@ -22,13 +22,14 @@ from math_spec._expression_parser import (
     CasesNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
     ParameterNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -45,7 +46,6 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    Partition,
     PredicateOperator,
     RelationComparisonNode,
     RelationDefinedNode,
@@ -447,19 +447,17 @@ class Walk:
 
         if node.name == 'at':
             by = node.kwargs['by']
-            assert isinstance(by, RelationNode)
+            assert isinstance(by, DirectionNode)
             outer = ctx
-            direction = by.use
-            assert isinstance(direction, Direction)
+            direction = by.direction
             at = {r: outer.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
             for read in direction.consumed:
                 ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.name, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
-            assert isinstance(by, RelationNode)
-            direction = by.use
-            assert isinstance(direction, Direction)
+            assert isinstance(by, DirectionNode)
+            direction = by.direction
             dummies: dict[str, str] = {}
             inner = ctx
             for d in direction.consumed_dims:
@@ -509,9 +507,8 @@ class Walk:
         """
         if by is None:
             return ''
-        assert isinstance(by, RelationNode)
-        partition = by.use
-        assert isinstance(partition, Partition)
+        assert isinstance(by, PartitionNode)
+        partition = by.partition
         at = {r: self.symbols.index[partition.dim(r)] for r in (partition.along, *partition.joined)}
         return self._tuple([self._relation_read(partition.name, at, r) for r in partition.group])
 

@@ -25,6 +25,7 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
@@ -35,7 +36,7 @@ from math_spec._expression_parser import (
     NumberNode,
     ParameterNode,
     ParsedNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     VariableNode,
     case_context,
@@ -611,11 +612,11 @@ class _Resolver:
                 return value  # the call shape refused it already, with the wording that names the rewrite
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
             partition = self._partition(name, operator, over_dim, named['within'])
-            return value if partition is None else RelationNode(partition)
+            return value if partition is None else PartitionNode(partition)
         if not ({'over', 'into'} <= set(named)):
             return value  # the call shape refused it already, with the wording that names the rewrite
         direction = self._direction(name, operator, named['over'], named['into'])
-        return value if direction is None else RelationNode(direction)
+        return value if direction is None else DirectionNode(direction)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
