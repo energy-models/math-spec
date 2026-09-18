@@ -553,6 +553,51 @@ class TestPositionResolves:
             assert fragment in str(excinfo.value)
 
 
+class TestAWhereSideIsReadInResolution:
+    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be."""
+
+    @pytest.mark.parametrize(
+        ('where', 'fragments'),
+        [
+            pytest.param(
+                'c > 2 * k', ('a side here is arithmetic, which is not in the language',), id='arithmetic-on-a-side'
+            ),
+            pytest.param('2 < c', ('a side here is arithmetic',), id='a-literal-on-the-left'),
+            pytest.param('sum(c, over=g) >= k', ('a side here is arithmetic',), id='a-reduction-on-a-side'),
+            pytest.param(
+                'position(g) == 1.5',
+                ('compared against an integer index', 'position(g) == <integer>'),
+                id='a-position-against-a-fraction',
+            ),
+            pytest.param('position(g) == c', ('compared against an integer index',), id='a-position-against-a-name'),
+            pytest.param(
+                'position(g, h) == 0',
+                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                id='a-position-with-two-dimensions',
+            ),
+            pytest.param(
+                'position(g, edge=1) == 0',
+                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                id='a-position-with-a-kwarg-it-lacks',
+            ),
+            pytest.param(
+                'position(g, by=[lk, lk2]) == 0',
+                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                id='a-position-by-a-list',
+            ),
+        ],
+    )
+    def test_a_side_the_language_does_not_admit_is_refused(self, where, fragments):
+        message = _refusal(**{'variables.p.where': where})
+        for fragment in fragments:
+            assert fragment in message
+
+    def test_a_signed_literal_and_inf_are_numbers_on_a_side(self):
+        """`-1` and `inf` are the expression grammar's literals, so a where reads them as it reads any number."""
+        spec = _schema(**{'variables.p.where': 'c > -1 AND c < inf'})
+        assert spec.variables['p'].where == 'c > -1 AND c < inf'
+
+
 class TestRulesDecidedWithoutData:
     """Every refusal the schema or the resolver makes with no data bound, one row each."""
 
