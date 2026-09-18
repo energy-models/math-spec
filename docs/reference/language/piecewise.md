@@ -178,38 +178,9 @@ stating lines rather than weights:
   pinned link inside the breakpoint range, so the formulation cannot extrapolate
   along the end segments.
 
-### Writing the curve out by hand
-
 `links:` is a list, so the number of expressions a block ties is written in the
-file. Where that number is data, as when a boiler ties two flows and a CHP unit
-ties three, write the formulation out:
-
-<!-- doctest: skip -->
-
-```yaml
-variables:
-  weight: # the convex combination, one per converter and period
-    dims: [converter, time, bp]
-    where: bp_present # how far each curve runs
-    bounds: { lower: 0, upper: 1 }
-
-sos:
-  on_one_segment: { variable: weight, over: bp, type: 2, big_m: 1 }
-
-constraints:
-  one_operating_point:
-    dims: [converter, time]
-    expression: sum(weight, over=bp) == 1
-  on_the_curve: # one row per flow — this is where the count goes
-    dims: [flow, time]
-    expression: rate == sum(at(weight, by=converter_of, over=converter, into=flow) * bp_rate, over=bp)
-```
-
-Making the tie a row turns the count into data: a converter with a fourth flow is
-a row in a table, not an edit to the model. `sos: type: 2` states the same
-restriction that `method: sos2` emits. The block would only have saved the
-weights and the convexity row, so no block is offered for this case
-([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+file. Where that number is data, write the formulation out
+([a curve by hand](../../howto/curve-by-hand.md)).
 
 ## `sos`
 
