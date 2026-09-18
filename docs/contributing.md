@@ -66,8 +66,9 @@ stale anchor fails it. `pixi run docs-serve` builds the site and serves it at
 
 ??? question "I have changed what a model prints"
 
-    Six pages carry a block that a tool writes, and a test compares each block
-    to its generator. Regenerate rather than edit, and read the diff:
+    Every page that carries a block a tool writes is listed in
+    `tests/test_docs.py`'s `GENERATED` table, and a test compares each block to
+    its generator. Regenerate rather than edit, and read the diff:
 
     ```bash
     pixi run python -m tools.home_math   # docs/index.md and README.md, from examples/dispatch.yaml
@@ -103,8 +104,8 @@ suffix says which layer:
 | Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
 | Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
 
-A node names the coordinate map: the translation
-node is `Translate`, whatever `shift` is spelled. Nothing is abbreviated.
+A node names the coordinate map rather than the operator: the translation node
+is `Translate`, and the operator is `shift`. Nothing is abbreviated.
 
 ## Adding an operator
 
