@@ -100,18 +100,18 @@ A parameter and a variable both declare `dims`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                             | Dim set                           | Error                                                                  |
-| -------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
-| number                           | `{}`                              |                                                                        |
-| parameter / variable             | its `dims`                        |                                                                        |
-| `-x`, `+x`                       | `dims(x)`                         |                                                                        |
-| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                        |
-| `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                    |
-| `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                 |
-| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the walk's refusals, under [the six rules](relations.md#the-six-rules) |
-| `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                               |
-| `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                 |
-| `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                 |
+| Node                             | Dim set                           | Error                                                                                    |
+| -------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| number                           | `{}`                              |                                                                                          |
+| parameter / variable             | its `dims`                        |                                                                                          |
+| `-x`, `+x`                       | `dims(x)`                         |                                                                                          |
+| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                                          |
+| `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                                      |
+| `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                                   |
+| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the walk's refusals, under [how a relation is used](relations.md#how-a-relation-is-used) |
+| `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                                                 |
+| `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                                   |
+| `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                                   |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.

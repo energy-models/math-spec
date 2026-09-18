@@ -76,12 +76,12 @@ column per declared column, named after it.
 - **The members keep the order the table gives them.** A partition steps along
   that order.
 
-## How a relation is read
+## How a relation is used
 
 The declaration fixes no direction. A call names the columns it reads, and a
 key column named at neither end is **joined on**: the operand carries its
 dimension, and the result keeps it. A value column named at neither end is not
-read. A relation is read in four ways:
+read. A relation is used in four ways:
 
 | kind      | what it does                                | written as                                            |
 | --------- | ------------------------------------------- | ----------------------------------------------------- |
@@ -89,6 +89,17 @@ read. A relation is read in four ways:
 | read      | one row's value becomes a coordinate        | `at(x, by=l, over=a, into=b)`                         |
 | partition | the frame stays, and its rows are grouped   | `shift`, `sum_back`, `position` with `by=l, within=c` |
 | test      | a row's presence keeps or cuts a coordinate | the relation's name in a `where`                      |
+
+Four rules hold for every use:
+
+1. **A call names every column it reads.** `sum(p, by=gen_bus)` is refused,
+   so that an edit to the relation never changes what a call means.
+2. **Adding a value column is safe.** A value column the call does not name is
+   not read, so no call changes its meaning.
+3. **The key is fixed.** A key that gains or loses a column re-aims every call
+   that joins on it. Declare a new relation instead.
+4. **An operand may grow.** A dimension the relation does not name passes
+   through to the result.
 
 ### Aggregates and reads
 
@@ -103,25 +114,18 @@ and either may be a list. With
 | `sum(p, by=zone_of, over=period, into=zone)`       | `period`    | `generator` | `zone`      | `[generator, zone]`   |
 | `at(price, by=zone_of, over=zone, into=generator)` | `zone`      | `period`    | `generator` | `[generator, period]` |
 
-#### The six rules
+Two rules more hold for these:
 
 1. **The result is the operand, less the consumed dimensions, plus the
    produced ones.** The operand carries every dimension consumed or joined on.
-2. **Both ends are written on every call.** `sum(p, by=gen_bus)` is refused,
-   so that an edit to the relation never changes a result.
-3. **Adding a value column is safe.** A value column the call does not name is
-   not read.
-4. **The key is fixed.** A key that gains or loses a column re-aims every call
-   that joins on it. Declare a new relation instead.
-5. **An operand may grow.** A dimension the relation does not name passes
-   through to the result. Growing into a dimension the call lands on is
-   refused: write `load * sum(p, by=gen_bus, over=generator, into=bus)`, not
+   Growing it into a dimension the call lands on is refused: write
+   `load * sum(p, by=gen_bus, over=generator, into=bus)`, not
    `sum(load * p, ...)`. A relation onto its own dimension is not this case.
-6. **`sum` consumes a key column, and `at` consumes none.** Consume none and
+2. **`sum` consumes a key column, and `at` consumes none.** Consume none and
    each coordinate finds one row, which is a read. Consume one and it finds
    many, which is a sum. Each is refused in the other's case.
 
-Rule 6 is all that tells the two ends apart:
+The second is all that tells the two ends apart:
 
 | operator | `over=`, consumed                      | `into=`, produced |
 | -------- | -------------------------------------- | ----------------- |
@@ -136,8 +140,8 @@ name two columns over one dimension.
 `shift(x, along=d, by=l, within=c)`, `sum_back(x, along=d, by=l, within=c)`
 and `position(d, by=l, within=c)` step along the key column over `d`, join on
 the other key columns, and group by the value columns `within=` names. The
-frame does not change. `within=` is written whenever `by=` is, so rules 3 and
-4 hold. `within=` may name two columns over one dimension, may not name a key
+frame does not change. `within=` is written whenever `by=` is, so the four
+rules above hold. `within=` may name two columns over one dimension, may not name a key
 column, and a bare relation partitions nothing.
 
 ### Tests

@@ -76,7 +76,7 @@ outflow, with no adjacency matrix and no join written by hand.
 
 `sum(by=)` consumes a key column and produces a value column. What the call
 reads, what its result carries, and the six rules it keeps are on
-[how a relation is read](relations.md#how-a-relation-is-read).
+[how a relation is used](relations.md#how-a-relation-is-used).
 
 The relation's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
