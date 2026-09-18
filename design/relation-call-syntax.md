@@ -34,23 +34,85 @@ and what it produces, or determines both from what it does name.
 
 ## The options
 
-| option | the shape                     | the walk in case 3                           |
-| ------ | ----------------------------- | -------------------------------------------- |
-| **A**  | two keywords, today's words   | `by=slot_of, over=generator, into=bus`       |
-| **B**  | two keywords, the law's words | `by=slot_of, consume=generator, produce=bus` |
-| **C**  | one keyword, an arrow         | `by=slot_of, direction=generator -> bus`     |
-| **D**  | the arrow inside `by=`        | `by=slot_of(generator -> bus)`               |
-| **E**  | dotted columns, both ends     | `over=slot_of.generator, into=slot_of.bus`   |
-| **F**  | dotted columns, the kept set  | `by=slot_of.[period, bus]`                   |
+Six ways to write a walk, and one question about reads that is answered on its
+own. Each is shown on case 3 below: sum `p[generator, period]` through
+`slot_of: {key: [generator, period], values: [bus, technology]}`, consuming
+`generator`, joining on `period`, landing on `bus`.
 
-**F names what the call keeps.** What it consumes is `key` minus the key
-columns it names, which the reader takes from the declaration.
+### A — `by=`, `over=`, `into=`, which is today
 
-One more question is independent of all six, and is answered on its own:
+```
+sum(p, by=slot_of, over=generator, into=bus)
+```
 
-| option | the shape          | the read in case 8                              |
-| ------ | ------------------ | ----------------------------------------------- |
-| **G**  | a read is an index | `price[gen_bus.bus]` in place of `at(price, …)` |
+Three keywords, one per fact. `by=` names the relation, `over=` the columns
+consumed, `into=` the columns produced. It is what the tree holds and what
+every file in `examples/` is written in, so it is the only option that costs
+nothing to adopt.
+
+### B — `by=`, `consume=`, `produce=`
+
+```
+sum(p, by=slot_of, consume=generator, produce=bus)
+```
+
+A's shape in the frame law's own words. It is the one option that reaches a
+call with no relation in it: `sum(p, over=generator)` becomes
+`sum(p, consume=generator)`, in every file, whether or not that file declares a
+relation. In exchange `over` names one thing in a file — the breakpoint axis of
+a `piecewise:` or `sos:` declaration — instead of that plus a call keyword.
+
+### C — the direction is one keyword
+
+```
+sum(p, by=slot_of, direction=generator -> bus)
+```
+
+Two keywords. `by=` names the relation and `direction=` carries both ends as
+one value. An arrow cannot be half written, so the grammar refuses the call
+that names one end, where today the loader refuses it after parsing.
+
+### D — the direction sits inside `by=`
+
+```
+sum(p, by=slot_of(generator -> bus))
+```
+
+One keyword, and the relation and its direction read as one phrase. A
+partition has no direction, so there the parentheses hold the group column
+instead, as `by=cal(week)`.
+
+### E — a column is named after its relation
+
+```
+sum(p, over=slot_of.generator, into=slot_of.bus)
+```
+
+No `by=`: each column carries the relation it belongs to. `into=ends.bus1`
+says on its own what `into=bus1` needs the rest of the call to say, which is
+what the typesetter already prints. The relation's name is written once per
+side rather than once per call.
+
+### F — the call names what it keeps
+
+```
+sum(p, by=slot_of.[period, bus])
+```
+
+One keyword, listing the columns that survive: the key columns joined on, and
+the value columns produced. What the call consumes is the rest of the key, and
+the reader takes it from the declaration. A read runs the other way, so there
+the same `by=` names the column read through, as `at(price, by=gen_bus.bus)`.
+
+### G — a read is an index
+
+```
+price[gen_bus.bus]
+```
+
+Not a way of spelling the walk, so it stacks with any of the six above and is
+decided separately. It replaces `at()` for every read and retires that name.
+The typesetter already prints a read as a subscript.
 
 ## A, B, C and D: what is replaced by what
 
