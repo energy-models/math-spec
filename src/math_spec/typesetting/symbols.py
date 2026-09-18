@@ -263,7 +263,7 @@ def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:
     if not isinstance(section, Mapping):
         msg = f'symbol table: {name}: must be a mapping of names to entries, got {type(section).__name__}.'
         raise SchemaError(msg)
-    return cast('Mapping[str, object]', section)
+    return section
 
 
 def _unknown_entry(name: str, section: str, known: set[str]) -> str:

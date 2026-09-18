@@ -19,7 +19,7 @@ import itertools
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Protocol, Self, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec.program import (
     AndNode,
@@ -130,16 +130,7 @@ Cell = float | str | bool | int | datetime.date | Special
 
 #: What a where comparison is written against: a number, a label, or a date.
 #: ``position()`` counts in integers, which are numbers here.
-type _Literal = float | str | datetime.date
-
-
-class _Ordered(Protocol):
-    """A value that orders against its own kind — what one atom's truth in one cell asks of both sides."""
-
-    def __lt__(self, other: Self, /) -> bool: ...
-    def __le__(self, other: Self, /) -> bool: ...
-    def __gt__(self, other: Self, /) -> bool: ...
-    def __ge__(self, other: Self, /) -> bool: ...
+_Literal = float | str | datetime.date
 
 
 @dataclass(frozen=True)
@@ -484,7 +475,8 @@ def _compare(value: Cell, op: PredicateOperator, literal: _Literal) -> bool:
     raise AssertionError(msg)
 
 
-def _ordered[T: _Ordered](left: T, op: PredicateOperator, right: T) -> bool:
+def _ordered[T: (float, str, datetime.date)](left: T, op: PredicateOperator, right: T) -> bool:
+    """One comparison between two values of one kind — the kinds a literal comes in."""
     match op:
         case '==':
             return left == right

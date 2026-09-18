@@ -28,13 +28,12 @@ from math_spec.program import (
     NotNode,
     OrNode,
     PredicateOperator,
+    WhereNode,
     where_children,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from math_spec.program import WhereNode
 
 # ---------------------------------------------------------------------------
 # AST nodes
@@ -94,7 +93,7 @@ UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode
 #: Every node a parsed where string is built of: the connectives and literals,
 #: the unresolved leaves, and the arithmetic and the two side nodes under a
 #: comparison. What the depth measurement walks.
-type _ParsedWhere = WhereNode | UnresolvedWhereNode | ArithmeticNode | ColumnNode | QuotedNode
+_ParsedWhere = WhereNode | UnresolvedWhereNode | ArithmeticNode | ColumnNode | QuotedNode
 
 
 # ---------------------------------------------------------------------------
