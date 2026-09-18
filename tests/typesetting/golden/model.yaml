@@ -21,15 +21,15 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  gen_bus: { key: generator, value: bus }
-  gen_tech: { key: generator, value: technology } # a second map out of `generator`, to group through both at once
-  zone_of: { key: bus, value: zone }
-  area_of: { key: bus, value: zone } # a second map into the same set, to compare against
-  season_of: { key: snapshot, value: season }
-  gen_zone: { key: [generator, snapshot], value: zone } # a map keyed by two dimensions: a call walks one and joins on the other
-  rep_of: { key: snapshot, value: { rep: snapshot } } # a map into its own dimension: the representative snapshot
+  gen_bus: { key: generator, values: bus }
+  gen_tech: { key: generator, values: technology } # a second map out of `generator`, to group through both at once
+  zone_of: { key: bus, values: zone }
+  area_of: { key: bus, values: zone } # a second map into the same set, to compare against
+  season_of: { key: snapshot, values: season }
+  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { key: snapshot, values: { rep: snapshot } } # a map into its own dimension: the representative snapshot
   connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, walked only by sum with both ends named
-  gen_bt: { key: generator, value: [bus, technology] } # one table with two value columns, walked to both at once
+  gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, walked to both at once
 
 parameters:
   p_max: { dims: [generator] }

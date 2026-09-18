@@ -33,12 +33,12 @@ BASE = {
         'zone': {'dtype': 'str'},
     },
     'relations': {
-        'gen_bus': {'key': 'generator', 'value': 'bus'},
-        'snap_bus': {'key': 'snapshot', 'value': 'bus'},
-        'gen_zone': {'key': ['generator', 'snapshot'], 'value': 'zone'},
-        'rep_of': {'key': 'snapshot', 'value': {'rep': 'snapshot'}},
-        'gen_bz': {'key': 'generator', 'value': ['bus', 'zone']},
-        'pair': {'key': {'g': 'generator'}, 'value': {'b0': 'bus', 'b1': 'bus'}},
+        'gen_bus': {'key': 'generator', 'values': 'bus'},
+        'snap_bus': {'key': 'snapshot', 'values': 'bus'},
+        'gen_zone': {'key': ['generator', 'snapshot'], 'values': 'zone'},
+        'rep_of': {'key': 'snapshot', 'values': {'rep': 'snapshot'}},
+        'gen_bz': {'key': 'generator', 'values': ['bus', 'zone']},
+        'pair': {'key': {'g': 'generator'}, 'values': {'b0': 'bus', 'b1': 'bus'}},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},

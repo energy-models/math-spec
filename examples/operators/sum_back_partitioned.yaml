@@ -13,7 +13,7 @@ dimensions:
   day: { dtype: str }
 
 relations:
-  day_of: { key: hour, value: day }
+  day_of: { key: hour, values: day }
 
 variables:
   started:

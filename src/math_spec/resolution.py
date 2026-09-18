@@ -135,7 +135,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: RelationDeclaration(n, lk.pairs, lk.keys) for n, lk in schema.relations.items()},
+            {n: RelationDeclaration(n, lk.pairs, lk.key_roles) for n, lk in schema.relations.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -764,7 +764,7 @@ class _Resolver:
             self.errors.append(
                 f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it makes no "
                 f'groups and no coordinate is in exactly one. Move the columns the group is made of under '
-                f'value:, leaving key: the column {operator} walks.'
+                f'values:, leaving key: the column {operator} walks.'
             )
             return None
         over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
@@ -793,7 +793,7 @@ class _Resolver:
             self.errors.append(
                 f"{self.context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
                 f'says which column {call.split("(", maxsplit=1)[0]} walks. Name both: {kwarg}= among '
-                f'{list(shape.roles)} — or declare the column it walks to under value:.'
+                f'{list(shape.roles)} — or declare the column it walks to under values:.'
             )
             return None
         self.errors.append(
@@ -822,7 +822,7 @@ class _Resolver:
             f'{context}: {operator}({key}={name}) does not name a relation. '
             f'{did_you_mean(name, ns.relations, label="Relations")}\n'
             f"Declare it under 'relations:' — {name}: {{key: <the columns a row is identified by>, "
-            f'value: <the columns they determine>}}.'
+            f'values: <the columns they determine>}}.'
         )
 
     # -- where strings -----------------------------------------------------
@@ -988,7 +988,7 @@ class _Resolver:
         if not shape.values:
             self.errors.append(
                 f"{context}: '{spelling}' compares a column of '{name}', a bare relation — every column is in its "
-                f'key — so it has no one value per coordinate to compare. Declare that column under value:, or '
+                f'key — so it has no one value per coordinate to compare. Declare that column under values:, or '
                 f"test the bare name — '{name}' — for whether a row exists."
             )
             return None

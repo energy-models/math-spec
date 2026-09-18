@@ -8,7 +8,7 @@ dimensions:
   g: { dtype: str }
   zone: { dtype: str }
 relations:
-  zone_of: { key: g, value: zone }
+  zone_of: { key: g, values: zone }
 parameters:
   cost: { dims: [g] }
   load: { dims: [zone] }
