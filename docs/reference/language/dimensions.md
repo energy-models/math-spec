@@ -183,7 +183,8 @@ and the joined `period` is the second subscript.
   different table, so declare a new relation rather than edit the key. Calls
   through the old one keep their meaning, because the old one still says what it
   said.
-- **Either keyword takes a list.**
+- **Either keyword takes a list.** With
+  `gen_bt: { key: generator, values: [bus, technology] }`,
   `sum(p, by=gen_bt, over=generator, into=[bus, technology])` lands on the
   product `bus x technology` in one join.
   `sum(p, by=zone_of, over=[generator, period], into=zone)` consumes both key
@@ -200,7 +201,7 @@ and the joined `period` is the second subscript.
   without a `by=` names a dimension, as in `sum(p, over=period)`.
 - **One call walks one table.** `by=` names a single relation. To land on
   columns of two tables at once, declare one relation holding the columns of
-  both, as `gen_bt` does above; to walk them in turn, write one call each.
+  both; to walk them in turn, write one call each.
 
 Five refusals draw the line, and each message names the rewrite:
 

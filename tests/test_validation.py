@@ -938,6 +938,22 @@ class TestRulesDecidedWithoutData:
                 id='several-relations-in-one-by',
             ),
             pytest.param(
+                {'objective': {'expression': 'sum(at(c, by=lk, over=h, into=g))'}},
+                ("at(by=lk) reads through ['h'], which the expression does not carry (dims ['g'])",),
+                id='a-read-whose-operand-lacks-the-column-it-reads-through',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    # only a bare relation may key two columns over one dimension: a key that
+                    # determines a value is refused for it at the declaration
+                    'relations.bare': {'key': {'k': 'g', 'j0': 'h', 'j1': 'h', 'm': 'z'}},
+                    'objective': {'expression': 'sum(sum(q, by=bare, over=k, into=m))'},
+                },
+                ("joins 'bare' on ['h'] through more than one column",),
+                id='a-walk-joining-one-dimension-through-two-columns',
+            ),
+            pytest.param(
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': ['g', 'z'], 'values': 'h'},
