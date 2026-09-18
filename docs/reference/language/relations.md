@@ -41,17 +41,21 @@ a column maps a dimension onto itself, the mapping form names them:
 
 ### Cardinalities
 
-| to say                                                        | write                                                                                                               |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| many-to-one, each generator on one bus                        | `{key: generator, values: bus}`                                                                                     |
-| one-to-many, a bus and its generators                         | the same table, read the other way                                                                                  |
-| many-to-many, a generator on several buses                    | `{key: [generator, bus]}`, no `values:`                                                                             |
-| one value per pair, a generator's zone in each period         | `{key: [generator, period], values: zone}`                                                                          |
-| several values per key, a snapshot's month, week and weekday  | `{key: snapshot, values: [month, week, weekday]}`. A call names the column it reads: `into=month`, `within=week`    |
-| two columns over one dimension, a line's two ends             | `{key: line, values: {bus0: bus, bus1: bus}}`                                                                       |
-| a dimension onto itself, a snapshot's representative          | `{key: snapshot, values: {rep: snapshot}}`                                                                          |
-| pairs of one dimension, a snapshot and each of its neighbours | `{key: {from: snapshot, to: snapshot}}`, no `values:`. `sum` walks it either way, and nothing reads a value from it |
-| one-to-one                                                    | not a claim the language has: a key is one set of columns                                                           |
+| intention                                              | written                                               | cardinality                                 |
+| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------- |
+| each generator has one bus                             | `{key: generator, values: bus}`                       | many-to-one                                 |
+| a bus has several generators                           | the same table, read the other way                    | one-to-many                                 |
+| a generator may connect to several buses               | `{key: [generator, bus]}`, no `values:`               | many-to-many                                |
+| a generator has one zone in each period                | `{key: [generator, period], values: zone}`            | many-to-one, keyed by a pair                |
+| a snapshot has a month, a week and a weekday           | `{key: snapshot, values: [month, week, weekday]}`     | many-to-one, several values                 |
+| a line has two ends, both buses                        | `{key: line, values: {bus0: bus, bus1: bus}}`         | many-to-one, two columns over one dimension |
+| a snapshot has a representative snapshot               | `{key: snapshot, values: {rep: snapshot}}`            | many-to-one, onto itself                    |
+| a snapshot has neighbours                              | `{key: {from: snapshot, to: snapshot}}`, no `values:` | many-to-many, onto itself                   |
+| each generator has one bus, and each bus one generator | not a claim the language has                          | one-to-one                                  |
+
+A call names the column it reads, so one calendar table serves `into=month`
+and `within=week` alike. A bare table onto itself is walked by `sum` either
+way, and nothing reads a value from it.
 
 A key that determines a value holds one column per dimension, so
 `{key: {bus0: bus, bus1: bus}, values: line}` is refused. A bare relation may
