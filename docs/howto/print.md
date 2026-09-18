@@ -19,8 +19,6 @@ keep the document current as the file changes.
    the model, `model.symbols.yaml`. Without one, `load` prints as
    $\mathrm{load}_t$; with one it prints as whatever you write:
 
-   <!-- doctest: skip -->
-
    ```yaml
    notation: latex
 
@@ -34,8 +32,7 @@ keep the document current as the file changes.
      capacity: "\\bar p"
    ```
 
-   A key naming nothing in the model is an error, so a table cannot drift
-   from its model silently.
+   A key naming nothing in the model is an error.
 
 3. **Emit a document that compiles.** `--standalone` wraps the fragment in a
    preamble, so the output builds on its own:
@@ -45,11 +42,10 @@ keep the document current as the file changes.
    python -m math_spec typst model.yaml --standalone -o model.typ
    ```
 
-   Then `tectonic model.tex` or `typst compile model.typ`. Typst needs no TeX
-   toolchain. A symbol table is written for one notation, so the Typst render
-   takes a table with `notation: typst` or none; a LaTeX table is refused
-   there. Without `--standalone` the output is a fragment to `\input` or
-   `#include` into a paper.
+   Then `tectonic model.tex` or `typst compile model.typ`. A symbol table is
+   written for one notation, so the Typst render takes a table with
+   `notation: typst` or none. Without `--standalone` the output is a fragment
+   to `\input` or `#include` into a paper.
 
 4. **Keep it current** with a rule in the paper's build:
 

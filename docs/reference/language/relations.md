@@ -23,21 +23,19 @@ relations:
   connection: { key: [generator, bus] } # no values: a generator may connect to several buses
 ```
 
-`key:` and `values:` each name one dimension or a list of them. The **key** is
-the combination of dimensions that is unique per row: `key: generator` says
-the table has one row per generator. The **values** are what that row
-determines: its bus. With no `values:`, the key is every column, and the table
-is a **bare relation**.
+The **key** is the combination of dimensions that is unique per row:
+`key: generator` says the table has one row per generator. The **values** are
+what that row determines: its bus. With no `values:`, the key is every column,
+and the table is a **bare relation**.
 
 | Field         |                                                                  |                |
 | ------------- | ---------------------------------------------------------------- | -------------- |
 | `key`         | required. The columns that identify a row                        |                |
 | `values`      | the columns the key determines. Omitted, the key is every column | default none   |
-| `description` | free text, never parsed                                          | default `null` |
+| `description` | free text                                                        | default `null` |
 
-A column is named after its dimension. Where two columns share a dimension, or
-a column maps a dimension onto itself, the mapping form names them:
-`{bus0: bus, bus1: bus}`.
+A column is named after its dimension. Where two columns share a dimension, the
+mapping form names them: `{bus0: bus, bus1: bus}`.
 
 ### Cardinalities
 
@@ -53,13 +51,9 @@ a column maps a dimension onto itself, the mapping form names them:
 | a snapshot has neighbours                              | `{key: {from: snapshot, to: snapshot}}`, no `values:` | many-to-many, onto itself                   |
 | each generator has one bus, and each bus one generator | not a claim the language has                          | one-to-one                                  |
 
-A call names the column it reads, so one calendar table serves `into=month`
-and `within=week` alike. A bare table onto itself is summed either way, and
-nothing reads a value from it.
-
 A key that determines a value holds one column per dimension, so
 `{key: {bus0: bus, bus1: bus}, values: line}` is refused. A bare relation may
-key two columns over one dimension, because nothing reads it.
+key two columns over one dimension.
 
 ### The data contract
 
@@ -69,9 +63,9 @@ column per declared column, named after it.
 - **One row per key tuple.** A generator on two buses is refused when the data
   binds.
 - **Every value is a label of its dimension.** A value that matches none is
-  refused as a typo, never added as a member.
+  refused, never added as a member.
 - **A partial map is the rows it has.** A generator in no row sits on no bus,
-  which is [absence](absence.md), as for a parameter.
+  which is [absence](absence.md).
 - **A null in any column is refused.**
 - **Row order carries nothing.** The order is the
   [dimension's](dimensions.md).
@@ -81,7 +75,7 @@ column per declared column, named after it.
 The declaration fixes no direction. A call names the columns it reads, and a
 key column named at neither end is **joined on**: the operand carries its
 dimension, and the result keeps it. A value column named at neither end is not
-read. A relation is used in four ways:
+read.
 
 | kind      | what it does                                | written as                                            |
 | --------- | ------------------------------------------- | ----------------------------------------------------- |
@@ -92,21 +86,17 @@ read. A relation is used in four ways:
 
 Four rules hold for every use:
 
-1. **A call names every column it reads.** `sum(p, by=gen_bus)` is refused,
-   so that an edit to the relation never changes what a call means.
-2. **Adding a value column is safe.** A value column the call does not name is
-   not read, so no call changes its meaning.
-3. **The key is fixed.** A key that gains or loses a column re-aims every call
-   that joins on it. Declare a new relation instead.
-4. **An operand may grow.** A dimension the relation does not name passes
-   through to the result.
+1. **A call names every column it reads.** `sum(p, by=gen_bus)` is refused.
+2. **A value column the call does not name is not read.** So adding one to the
+   relation changes no call.
+3. **The key is fixed.** To change it, declare a new relation.
+4. **A dimension the relation does not name passes through** to the result.
 
 ### Aggregates and reads
 
-In both, `over=` names the columns consumed and `into=` the columns produced,
-and either may be a list. With
-`zone_of: { key: [generator, period], values: zone }` and `p` over
-`[generator, period]`:
+`over=` names the columns consumed and `into=` the columns produced, and either
+may be a list. With `zone_of: { key: [generator, period], values: zone }` and
+`p` over `[generator, period]`:
 
 | call                                               | consumes    | joins on    | produces    | result                |
 | -------------------------------------------------- | ----------- | ----------- | ----------- | --------------------- |
@@ -114,29 +104,24 @@ and either may be a list. With
 | `sum(p, by=zone_of, over=period, into=zone)`       | `period`    | `generator` | `zone`      | `[generator, zone]`   |
 | `at(price, by=zone_of, over=zone, into=generator)` | `zone`      | `period`    | `generator` | `[generator, period]` |
 
-Two rules more hold for these:
-
-5. **The result is the operand, less the consumed dimensions, plus the
-   produced ones.** The operand carries every dimension consumed or joined on.
-   Growing it into a dimension the call lands on is refused: write
-   `load * sum(p, by=gen_bus, over=generator, into=bus)`, not
-   `sum(load * p, ...)`. A relation onto its own dimension is not this case.
-6. **`sum` consumes at least one key column, and `at` consumes value columns
-   only.** Either produces any columns. That is what tells a sum from a read:
-   a read finds one row per coordinate, and a sum finds many. Each is refused
-   in the other's case.
-
-`over=` and `into=` name different columns, and neither names two columns
-over one dimension, since the operand has one axis per dimension.
+- **The result is the operand, less the consumed dimensions, plus the produced
+  ones.** The operand carries every dimension consumed or joined on, and none
+  that the call lands on: write `load * sum(p, by=gen_bus, over=generator, into=bus)`,
+  not `sum(load * p, ...)`.
+- **`sum` consumes at least one key column, and `at` consumes value columns
+  only.** A read finds one row per coordinate, and a sum finds many. Each is
+  refused in the other's case.
+- **`over=` and `into=` name different columns**, and neither names two
+  columns over one dimension.
 
 ### Partitions
 
 `shift(x, along=d, by=l, within=c)`, `sum_back(x, along=d, by=l, within=c)`
 and `position(d, by=l, within=c)` step along the key column over `d`, join on
 the other key columns, and group by the value columns `within=` names. The
-frame does not change. `within=` is written whenever `by=` is, so the four
-rules above hold. `within=` may name two columns over one dimension, may not name a key
-column, and a bare relation partitions nothing.
+frame does not change. `within=` is written whenever `by=` is. It may name two
+columns over one dimension, may not name a key column, and a bare relation
+partitions nothing.
 
 ### Tests
 

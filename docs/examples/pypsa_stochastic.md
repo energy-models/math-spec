@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the two-stage class
 
 Rung 14 of [PyPSA in one file](pypsa.md): `n.set_scenarios(...)` with `n.set_risk_preference(alpha, omega)`, stated on rungs 1 and 3 in a
-file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
+file of its own. Its network is the spine plus the script's own additions.
 
 ## Rung 14 — two-stage stochastic, with CVaR
 

@@ -6,9 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the quadratic class
 
 Rung 10 of [PyPSA in one file](pypsa.md): PyPSA's `marginal_cost_quadratic`,
-stated on rung 1's transport surface in a file of its own — the model's
-description below says why. Its reference network starts from the same shared
-spine, `data/base/`, shown once on [the rung ladder's page](pypsa.md#index).
+stated on rung 1's transport surface in a file of its own. Its network is the
+shared spine, shown once on [the rung ladder's page](pypsa.md#index).
 
 ## Rung 10 — quadratic costs
 

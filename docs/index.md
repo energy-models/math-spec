@@ -10,15 +10,13 @@ hide:
 
 # math-spec
 
-**The language an optimisation model is written in, and the math it means.**
-
-Write the math in YAML. Everything decidable without data is decided at load,
-and the file prints as the math it stands for.
+**Write an optimisation model as a YAML file. Check it and print it as math,
+with no data and no solver.**
 
 --8<-- "README.md:badges"
 
 [Read the language](reference/language/index.md){ .md-button .md-button--primary }
-[See every construct as math](reference/notation.md){ .md-button }
+[See the examples](examples/index.md){ .md-button }
 
 </div>
 
@@ -26,73 +24,23 @@ and the file prints as the math it stands for.
 
 <div class="landing" markdown>
 
-<div class="grid cards" markdown>
+## A model is one file
 
-<!-- A card is a list item whose body is indented four spaces: python-markdown
-     needs that much to read it as the item's content, and prettier would
-     realign it to two, which splits every card into a stray rule and a
-     paragraph outside the list. -->
-<!-- prettier-ignore -->
-- :material-file-document-outline: **Declarative math**
-
-    ***
-
-    One file declares the axes, the data, the decisions and the rules. You can
-    read it without knowing what builds it, and no Python state changes what it
-    means. It diffs in review, and it travels as a research artefact.
-
-- :material-shield-check-outline: **Decided before the data**
-
-    ***
-
-    Every expression, every `where` string and every macro template, called or
-    not, is parsed and name-checked at load. A repository of models compiles in
-    CI with no data bound to any of them.
-
-- :material-alert-octagon-outline: **Fail early, fail loud**
-
-    ***
-
-    Nothing is guessed and nothing falls back silently. Where a file does not
-    decide the answer, loading fails, and the message names the construct and
-    its rewrite.
-
-- :material-fence: **A closed language**
-
-    ***
-
-    The operators are a fixed set, and nothing can register another one. A
-    composition of them is a macro. Math the language cannot express is refused,
-    with the rewrite named.
-
-- :material-function-variant: **The file is the document**
-
-    ***
-
-    LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
-    and no second source of truth. It answers _does this YAML say what I meant_
-    before anything is bound or solved.
-
-- :material-source-branch: **One answer per question**
-
-    ***
-
-    An engine, a renderer and a checker read the same file. Wherever they could
-    disagree about what it means, the language decides once, and all three read
-    the answer. What each solver can take, each engine decides for itself.
-
-</div>
-
---8<-- "README.md:flow"
-
-## The whole thing, in one model
+A file declares four things: the axes the model runs over, the data it
+expects, the decisions the solver makes, and the rules those decisions obey.
+The file below is a complete model.
 
 --8<-- "README.md:model"
 
-### The math it prints
+Everything that can be checked without data is checked when the file loads. A
+misspelled name, a `where:` on an undeclared parameter, or a constraint whose
+dimensions do not match its `dims:` is refused with a message that names the
+fix.
 
-Generated from the YAML above, with no data and no solver. Only the notation is a
-choice, and **How** shows the one made here.
+## The math it prints
+
+Printed from the file above, with no data and no solver. **How** shows the
+call.
 
 <!-- home-math:begin -->
 
@@ -225,74 +173,16 @@ choice, and **How** shows the one made here.
 
 <!-- home-math:end -->
 
-### `Spec` and `Program`
-
---8<-- "README.md:load"
-
-[Reading a loaded model](reference/reading.md) says what an engine, a
-renderer or a checker gets when it loads a model.
-
 ## Where to next
 
-<div class="grid cards" markdown>
-
-<!-- prettier-ignore -->
-- :material-book-open-page-variant: **The language**
-
-    ***
-
-    What a YAML file may contain, and what it means: ten rules, ten declaration
-    keys, one closed set of operators.
-
-    [:octicons-arrow-right-24: The language](reference/language/index.md)
-
-- :material-sigma: **Every construct, as math**
-
-    ***
-
-    All of it at once, beside the notation the typesetter gives it, so the
-    notation can be read as one system.
-
-    [:octicons-arrow-right-24: The notation](reference/notation.md)
-
-- :material-format-text: **Typeset the math**
-
-    ***
-
-    LaTeX, Typst and Markdown, the options each takes, and how a symbol table
-    turns derived symbols into conventional ones.
-
-    [:octicons-arrow-right-24: Typeset](reference/typeset.md)
-
-- :material-code-braces: **Reading a loaded model**
-
-    ***
-
-    What an engine, a renderer or a checker gets when it loads a model, and
-    which of the two objects each should read.
-
-    [:octicons-arrow-right-24: Reading a loaded model](reference/reading.md) ·
-    [Python API](reference/math_spec/validation.md)
-
-- :material-fence: **What may enter the language**
-
-    ***
-
-    The test a new operator has to pass, why a solver's own limits stay out of
-    the language, and what has been refused and why.
-
-    [:octicons-arrow-right-24: The limits](about/limits.md)
-
-- :material-scale-balance: **Who decides what**
-
-    ***
-
-    Which decisions the language makes for every tool that reads a file,
-    and which each engine makes for itself.
-
-    [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
-
-</div>
+- [The language](reference/language/index.md): what a file may contain, and
+  what it means.
+- [Examples](examples/index.md): whole models, each beside the math it prints.
+- [Print a model as math](howto/print.md): LaTeX, Typst or Markdown, from the
+  file alone.
+- [Check a model without data](howto/check.md): on your machine and in CI.
+- [Reading a loaded model](reference/reading.md): for whoever writes an engine
+  or a renderer.
 
 ## Install it
 

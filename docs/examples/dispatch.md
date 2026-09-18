@@ -7,13 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 The smallest file that is a whole model: generators with a capacity, an hourly
 load to meet, and a cost to minimise. It is the model on the
-[home page](../index.md) and in the README, and the one the language reference
-varies when it needs a base to change one thing in.
+[home page](../index.md).
 
-The `where:` on `dispatch` deletes the rows where a generator has no capacity, so
-[absence](../reference/language/absence.md) is declared in the file rather than
-checked at run time. `sum(dispatch, over=generator)` names the dimension it reduces, so
-the constraint's `dims` is what remains.
+The `where:` on `dispatch` deletes the rows where a generator has no capacity
+([absence](../reference/language/absence.md)). `sum(dispatch, over=generator)`
+names the dimension it reduces, so the constraint's `dims` is what remains.
 
 <!-- gallery:begin -->
 ```yaml

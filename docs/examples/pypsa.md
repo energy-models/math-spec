@@ -6,12 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA in one file
 
 The model a plain `n.optimize()` builds, stated as one file and grown a rung
-at a time towards
-[milestone 1](https://github.com/energy-models/math-spec/milestone/1). The
-index below lists every row PyPSA emits (PyPSA `1.3.0`,
-`pypsa/optimization/`) and links each to its block in the file once it is
-there. The blocks are generated, so a row that stops loading or changes its
-math fails CI.
+at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
+`pypsa/optimization/`) and links each to its block in the file.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
 their duals are row duals. Regimes are data columns and `where:` masks, never
@@ -20,19 +16,14 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 
 ## Index
 
-A row is **done** and links once the file states it as the one block PyPSA
-builds — on this branch, as it stands; a fix still on its way stays
-not-done, its PR or issue in the note. Three words say the distance:
-**split** — the same feasible region and optimum under a different
-statement: several `where:` blocks, or a bookkeeping difference the note
-names · **open** — not stated yet · **out** — never stated, deliberately:
-emitted only under the keyword, scope or version the note names. A name carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or scenario.
+A row is **done** once the file states it as the one block PyPSA builds.
+**split** means the same feasible region and optimum under a different
+statement, such as several `where:` blocks. **open** means not stated yet.
+**out** means never stated, deliberately: emitted only under the keyword,
+scope or version the note names. A name carrying `{k}` or `{s}` stands for the
+family PyPSA numbers per segment or scenario.
 
-Each rung's banner below states what PyPSA solved its reference network
-to. What an engine makes of the same rung — the objective and prices across
-the fence, and the two linopy models label for label — is that engine's own
-record: lpspec certifies itself against these rungs under
-`differential/pypsa/` in its own tree.
+Each rung's banner states what PyPSA solved its reference network to.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.
