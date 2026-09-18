@@ -9,7 +9,7 @@ Decide whether a column of your data is a
 [dimension](../reference/language/dimensions.md), a
 [relation](../reference/language/relations.md) or a
 [parameter](../reference/language/declarations.md#parameters). What decides is
-what the math does with the column, not what the column holds.
+what the math does with the column.
 
 | The column…                                                                                                                           | is declared as                          | because                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -24,7 +24,5 @@ what the math does with the column, not what the column holds.
 
 Two rules decide the cases the table does not list:
 
-1. **If `b` has one value per `a`, declare `b` as a relation keyed by `a`**,
-   not as a dimension.
-2. **Two dimensions that depend on each other are one relation**, not a `dims`
-   product cut back with a mask.
+1. **If `b` has one value per `a`, declare `b` as a relation keyed by `a`.**
+2. **Two dimensions that depend on each other are one relation.**

@@ -116,12 +116,11 @@ constraints:
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-`window=` takes a number or the name of an integer parameter, never an
-expression. A named width is `dtype: int`, and does not vary along the
+`window=` takes a number or the name of an integer parameter. A named width is `dtype: int`, and does not vary along the
 dimension being summed.
 
 `edge=` takes `'wrap'` or nothing. A window that reaches past the start of the
-axis is **short**, not empty, so no row is lost. `edge='wrap'` makes the window
+axis is **short**, so no row is lost. `edge='wrap'` makes the window
 reach around the axis. A number here is a load error.
 
 `by=` keeps the window inside each group that a relation makes. The relation

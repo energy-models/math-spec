@@ -67,7 +67,7 @@ decrease in that order is refused when the data binds.
 `activity:` names a binary variable, and the weights then sum to that variable
 instead of to 1. So `0` pins the curve off.
 
-The gate is a declaration, not an expression:
+The gate is a declaration:
 
 ```yaml
 variables:

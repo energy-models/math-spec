@@ -42,5 +42,4 @@ file, so it cannot say this. The formulation written out can.
        expression: rate == sum(at(weight, by=converter_of, over=converter, into=flow) * bp_rate, over=bp)
    ```
 
-A converter with a fourth flow is then a row in a table, not an edit to the
-model.
+A converter with a fourth flow is then a row in a table.

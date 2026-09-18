@@ -34,7 +34,7 @@ instead.
 ### What a new primitive has to satisfy
 
 **A macro must be able to call it.** Everything a modeller might pass in goes in
-the value of a keyword argument, such as `over=snapshot`, never in the key.
+the value of a keyword argument, such as `over=snapshot`.
 
 **An operator may read the whole table. It pays one full pass over the data.**
 `sum(p, over=g)` reads one row per generator, and `shift(p, along=t, offset=1)`
@@ -136,9 +136,8 @@ line, that agree on how ports and flows are named. You merge the templates you
 need into one file, wire the components together with a connectivity table in
 the data, and close the system with one `sum(by=)` balance.
 
-The topology is data. Adding a second battery is a row in a table, not a second
-block of YAML, so the file grows with the number of component _types_ and not
-with the number of components.
+The topology is data. Adding a second battery is a row in a table, so the file
+grows with the number of component _types_.
 
 Merging happens before `to_spec`. Every function here takes a `dict` as well as
 a path, so a model assembled in Python is checked exactly as a file is, and

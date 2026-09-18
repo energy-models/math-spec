@@ -68,10 +68,10 @@ sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 `to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
 on a `Program`, it returns the same object unchanged.
 
-| you are                                                                      | take      | because                                       |
-| ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
-| building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
-| reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts, not its text |
+| you are                                                                      | take      | because                                  |
+| ---------------------------------------------------------------------------- | --------- | ---------------------------------------- |
+| building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved |
+| reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts          |
 
 `program.piecewise` keeps what the block assumed about the numbers, such as
 "the breakpoints in `bp_x` increase", as a `checks` tuple. The engine, which has
@@ -114,8 +114,8 @@ sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', '
 ```
 
 Every field is a set. An empty field means this model does not use the
-construct. The footprint says what the model uses, and never what to do about
-it: whether your solver or file format can take a construct is your question
+construct. The footprint says what the model uses. Whether your solver or
+file format can take a construct is your question
 ([what a solver can take](../about/limits.md#solver-capability)). Whether a
 quadratic form is convex is not reported, because it depends on the numbers.
 
