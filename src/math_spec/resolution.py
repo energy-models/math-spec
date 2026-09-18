@@ -839,14 +839,10 @@ class _Resolver:
             return node
         if node.by is None:
             return DimensionPositionNode(node.dimension, node.op, node.position)
-        call = f'position({node.dimension}, by={node.by})'
-        if ns.kind(node.by) != 'relation':
-            self.errors.append(
-                f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
-                f'``by=`` takes a relation with a key column over that dimension. '
-                f'{did_you_mean(node.by, ns.relations, label="Relations")}'
-            )
+        if (problem := self._not_a_relation(node.by, 'position', 'by')) is not None:
+            self.errors.append(problem)
             return node
+        call = f'position({node.dimension}, by={node.by})'
         if node.into is None:
             self.errors.append(
                 f'{context}: {call} leaves within= unsaid. {PARTITION_NAMES_ITS_GROUP} Write '
