@@ -70,7 +70,6 @@ message that names the fix. These ten rules are what it checks.
 | [Operators](operators.md)                                               | `sum`, `sum_back`, `at` and `shift`                                                                           |
 | [Absence and `where`](absence.md)                                       | which rows are built, and which are not                                                                       |
 | [Piecewise curves and SOS](piecewise.md)                                | `piecewise:` and `sos:`                                                                                       |
-| [Reading a loaded model](reading.md)                                    | what a tool gets when it loads a model                                                                        |
 | [Errors and limits](errors.md)                                          | what fails when, and what the language will not express                                                       |
 
 Building the model, solving it and reading the answer back are the work of the

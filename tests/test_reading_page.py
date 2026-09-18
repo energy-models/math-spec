@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""`docs/reference/language/reading.md`, run rather than read.
+"""`docs/reference/reading.md`, run rather than read.
 
 The page states the consumer contract in three answers — what a `Spec`'s
 `constraints:` holds, and what the `Program` lowered from it holds. A page that
@@ -17,7 +17,7 @@ import ast
 import re
 from pathlib import Path
 
-PAGE = Path(__file__).resolve().parents[1] / 'docs' / 'reference' / 'language' / 'reading.md'
+PAGE = Path(__file__).resolve().parents[1] / 'docs' / 'reference' / 'reading.md'
 
 _FENCE = re.compile(r'^```(?P<lang>yaml|python)[^\n]*\n(?P<code>.*?)^```$', re.DOTALL | re.MULTILINE)
 

@@ -229,7 +229,7 @@ choice, and **How** shows the one made here.
 
 --8<-- "README.md:load"
 
-[Reading a loaded model](reference/language/reading.md) says what an engine, a
+[Reading a loaded model](reference/reading.md) says what an engine, a
 renderer or a checker gets when it loads a model.
 
 ## Where to next
@@ -271,7 +271,7 @@ renderer or a checker gets when it loads a model.
     What an engine, a renderer or a checker gets when it loads a model, and
     which of the two objects each should read.
 
-    [:octicons-arrow-right-24: Reading a loaded model](reference/language/reading.md) ·
+    [:octicons-arrow-right-24: Reading a loaded model](reference/reading.md) ·
     [Python API](reference/math_spec/validation.md)
 
 - :material-fence: **What may enter the language**
