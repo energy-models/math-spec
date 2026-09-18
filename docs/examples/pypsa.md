@@ -10,8 +10,7 @@ at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
 `pypsa/optimization/`) and links each to its block in the file.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
-their duals are row duals. Regimes are data columns and `where:` masks, never
-file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
+their duals are row duals. Regimes are data columns and `where:` masks. Names are PyPSA's, `Component_attribute`, with a symbol table
 (`examples/symbols/pypsa.yaml`) making the math read as math.
 
 ## Index
@@ -597,7 +596,7 @@ def build():
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
 | [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(window=min_up_time)`                    |
-| [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
+| [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
 | [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
 

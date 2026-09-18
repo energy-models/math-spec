@@ -22,7 +22,7 @@ A function may join the public API when both of these hold:
 ## Where a new feature lands
 
 When the language gained piecewise-linear curves, it gained a `piecewise:` key
-in the YAML, not a call such as `ms.add_curve(spec, ...)`. A key in the file
+in the YAML. A key in the file
 shows up in a git diff, the typesetter prints it as math, and an engine written
 in another language can read it. So wherever a feature can be a key in the
 file, it is one.

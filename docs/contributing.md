@@ -103,7 +103,7 @@ suffix says which layer:
 | Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
 | Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
 
-A node names the coordinate map, not a spelling in the file: the translation
+A node names the coordinate map: the translation
 node is `Translate`, whatever `shift` is spelled. Nothing is abbreviated.
 
 ## Adding an operator

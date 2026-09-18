@@ -77,9 +77,9 @@ variables:
 
     You write non-negativity. The language does not assume it.
 
-A bound is a name or a number, never arithmetic: `upper: capacity` is accepted,
-and `upper: -rating` is refused. Ship the negated column as data. A bound
-parameter may carry fewer dimensions than the variable, never more.
+A bound is a name or a number: `upper: capacity` is accepted,
+and `upper: -rating` is refused. Ship the negated column as data. The dimensions of
+a bound parameter are a subset of the variable's.
 
 Equal bounds pin a variable ([fix a quantity](../../howto/pin-a-variable.md)).
 A pinned variable is still a variable.

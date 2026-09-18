@@ -63,7 +63,7 @@ column per declared column, named after it.
 - **One row per key tuple.** A generator on two buses is refused when the data
   binds.
 - **Every value is a label of its dimension.** A value that matches none is
-  refused, never added as a member.
+  refused.
 - **A partial map is the rows it has.** A generator in no row sits on no bus,
   which is [absence](absence.md).
 - **A null in any column is refused.**
@@ -106,8 +106,8 @@ may be a list. With `zone_of: { key: [generator, period], values: zone }` and
 
 - **The result is the operand, less the consumed dimensions, plus the produced
   ones.** The operand carries every dimension consumed or joined on, and none
-  that the call lands on: write `load * sum(p, by=gen_bus, over=generator, into=bus)`,
-  not `sum(load * p, ...)`.
+  that the call lands on. `sum(load * p, by=gen_bus, over=generator, into=bus)`
+  is refused; write `load * sum(p, by=gen_bus, over=generator, into=bus)`.
 - **`sum` consumes at least one key column, and `at` consumes value columns
   only.** A read finds one row per coordinate, and a sum finds many. Each is
   refused in the other's case.

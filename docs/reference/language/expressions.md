@@ -46,7 +46,7 @@ A [named expression](named.md) is held to the limit of the place that reads
 it. One that nothing in the math reads is [reported](named.md#reported-expressions),
 and no degree limit applies to it.
 
-`/` needs a divisor that carries no variable and is a single factor, not a sum.
+`/` needs a divisor that carries no variable and is a single factor.
 
 `**` needs a base and an exponent that both carry no variable and neither of
 which adds. `growth ** period` is allowed, and `(1 + rate) ** period` is
@@ -66,10 +66,10 @@ Position decides which kinds of name are legal:
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                          |
 | dimension argument (`over=`, `along=`) | a dimension                                                                                                        |
-| relation argument (`by=`)              | a relation, and never a dimension. `over=`, `into=` and `within=` name its columns                                 |
+| relation argument (`by=`)              | a relation. `over=`, `into=` and `within=` name its columns                                                        |
 | `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                                     |
 | `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                      |
-| the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number. Never a dimension                                                            |
+| the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number                                                                               |
 | `dual` argument (`dual(c)`)            | a constraint. It resolves against the constraints alone ([named expressions](named.md#reading-a-constraints-dual)) |
 
 A bare word in the value of a keyword argument is a name to resolve, which is

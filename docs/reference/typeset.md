@@ -38,7 +38,7 @@ a flag.
 |                      |                        |                                                                                                                                 |
 | -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `symbols`            | `--symbols FILE`       | How the names print. See [symbol tables](#symbol-tables). Default: derived from the names in the file                           |
-| `standalone`         | `--standalone`         | Emit a document that compiles, rather than a fragment to include. Default: a fragment                                           |
+| `standalone`         | `--standalone`         | Emit a document that compiles. Default: a fragment to include                                                                   |
 | `legend`             | `--no-legend`          | Print the table of sets, parameters, variables and definitions above the math. Default: on                                      |
 | `numbered`           | `--no-numbers`         | Number the equations. Default: on                                                                                               |
 | `inline_expressions` | `--inline-expressions` | Substitute each named expression that the math reads into the equations that read it, instead of defining it once. Default: off |
@@ -127,7 +127,7 @@ ms.to_latex('dispatch.yaml', symbols=symbols)
 Pass a dict, a path to a YAML file, or a `ms.SymbolTable`. As a file:
 
 ```yaml
-# dispatch.symbols.yaml — not a model, so nothing here is checked against the schema
+# dispatch.symbols.yaml
 notation: latex
 dimensions:
   snapshot: { index: s, set: "\\mathcal{S}" }
