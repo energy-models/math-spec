@@ -54,8 +54,8 @@ a column maps a dimension onto itself, the mapping form names them:
 | each generator has one bus, and each bus one generator | not a claim the language has                          | one-to-one                                  |
 
 A call names the column it reads, so one calendar table serves `into=month`
-and `within=week` alike. A bare table onto itself is walked by `sum` either
-way, and nothing reads a value from it.
+and `within=week` alike. A bare table onto itself is summed either way, and
+nothing reads a value from it.
 
 A key that determines a value holds one column per dimension, so
 `{key: {bus0: bus, bus1: bus}, values: line}` is refused. A bare relation may
@@ -90,10 +90,10 @@ read. A relation is read in four ways:
 | partition | the frame stays, and its rows are grouped   | `shift`, `sum_back`, `position` with `by=l, within=c` |
 | test      | a row's presence keeps or cuts a coordinate | the relation's name in a `where`                      |
 
-### Walks
+### Aggregates and reads
 
-An aggregate and a read are **walks**: `over=` names the columns consumed, and
-`into=` the columns produced. Either may be a list. With
+In both, `over=` names the columns consumed and `into=` the columns produced,
+and either may be a list. With
 `zone_of: { key: [generator, period], values: zone }` and `p` over
 `[generator, period]`:
 
