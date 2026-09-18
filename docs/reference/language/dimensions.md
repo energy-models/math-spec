@@ -136,13 +136,86 @@ a many-to-many relation can say, and all it can say.
 
 ### Walks
 
-A walk consumes one or more columns of a relation, produces one or more, and
-joins on every other key column. The call writes both ends. The operand carries
-every dimension the walk consumes and every one it joins on. The result is what
-the operand had, less the consumed dimensions, plus the produced ones.
+A relation says which rows exist and what identifies them. An operator says what
+to do with the rows a coordinate finds. The key is the hinge: consume a key
+column and the row is no longer pinned, so many rows share what is left; leave
+the key whole and exactly one row is found.
+
+| a coordinate finds                            | what is done with it          | that is                         | the frame |
+| --------------------------------------------- | ----------------------------- | ------------------------------- | --------- |
+| many rows                                     | they are added up             | `sum`                           | moves     |
+| one row, whose value becomes a coordinate     | the operand is read at it     | `at`                            | moves     |
+| one row, whose value becomes a label          | the coordinate joins a group  | `shift`, `sum_back`, `position` | unchanged |
+| one row or none, whose presence is the answer | the coordinate is kept or cut | a relation in a `where`         | unchanged |
+
+Only the first finds more than one row, which is why only `sum` adds anything
+up. The rest of this section is about the two that move the frame: a partition
+is [below](#partitions), and a `where` is
+[where strings](expressions.md#where-strings).
+
+A call consumes one or more columns of a relation, produces one or more, and
+joins on every other key column. It writes both ends. The operand carries every
+dimension consumed and every one joined on. The result is what the operand had,
+less the consumed dimensions, plus the produced ones.
 
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
+
+#### The rules a call keeps
+
+Six rules hold whatever a `sum` or an `at` looks like: what it computes, which
+operator is legal, and what survives an edit. Any change to the notation is
+measured against them. A relation is read in two other ways, which keep fewer
+of them ([below](#where-the-rules-reach)).
+
+1. **The frame law.** `result = (operand − consumed) ∪ produced`. The operand
+   carries `consumed ∪ joined`, where `joined = key − (consumed ∪ produced)`.
+2. **The result gains a dimension only from the operand**, never from an edit to
+   the relation.
+3. **Adding a value column is safe.** A relation that gains one changes no
+   existing call. A call names both of its ends, and a value column it does not
+   name is not read.
+4. **The key is fixed.** A relation that gains or loses a key column is a
+   different table. Every call through it joins on the key columns it named at
+   neither end, so an edit to the key re-aims them all. Declare a new relation
+   instead.
+5. **An operand may grow.** A call means the same when the operand gains a
+   dimension the relation does not name. That dimension passes through to the
+   result. Growing it into a dimension the call lands on is refused rather than
+   silently joined: `(produced ∩ operand) − consumed` has to be empty.
+6. **`sum` consumes a key column; `at` consumes none.** Each is refused in the
+   other's case.
+
+What the two ends may name follows from rule 6, and nothing else distinguishes
+them:
+
+| operator | `over=`, consumed                      | `into=`, produced |
+| -------- | -------------------------------------- | ----------------- |
+| `sum`    | any columns, at least one a key column | any columns       |
+| `at`     | value columns only                     | any columns       |
+
+A key column named at neither end is joined on, and the operand carries it. A
+value column named at neither end is not read. Neither end may name a column
+twice, name one the other end names, or name two columns over one dimension:
+the operand has one axis per dimension, so nothing would say which column
+indexes it.
+
+#### Where the rules reach
+
+The six above govern the calls that move the frame. The other two readings keep
+less.
+
+A partition names neither end: `along=` picks the key column it steps along,
+and `within=` the value columns the group is made of. The frame law says
+nothing, because the frame does not change. Rule 4 holds with force, since a
+new key column changes which column is stepped along. Rule 3 holds only where
+the call writes `within=`: omitted, it means every value column, so a relation
+that gains one regroups the call
+([#538](https://github.com/energy-models/math-spec/issues/538)).
+
+A `where` builds no direction at all. It reads the relation at the frame's own
+coordinates, so the frame carries the key's dimensions, and nothing is
+consumed, produced or joined.
 
 ```yaml
 dimensions:
