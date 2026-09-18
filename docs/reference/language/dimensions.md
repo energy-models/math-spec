@@ -146,8 +146,9 @@ columns and produces the key.
 
 #### The rules a call keeps
 
-Five rules hold whatever a call looks like. They are what makes a relation safe
-to edit, and any change to the notation is measured against them.
+Six rules hold whatever a call looks like: what it computes, which operator is
+legal, and what survives an edit. Any change to the notation is measured
+against them.
 
 1. **The frame law.** `result = (operand − consumed) ∪ produced`. The operand
    carries `consumed ∪ joined`, where `joined = key − (consumed ∪ produced)`.
@@ -164,6 +165,8 @@ to edit, and any change to the notation is measured against them.
    dimension the relation does not name. That dimension passes through to the
    result. Growing it into a dimension the call lands on is refused rather than
    silently joined: `(produced ∩ operand) − consumed` has to be empty.
+6. **`sum` consumes a key column; `at` consumes none.** Each is refused in the
+   other's case.
 
 ```yaml
 dimensions:
