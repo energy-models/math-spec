@@ -75,6 +75,16 @@ def _factors(node: ArithmeticNode) -> Iterator[ArithmeticNode]:
         yield node
 
 
+def _order(term: tuple[Sign, ArithmeticNode]) -> tuple[str, Sign]:
+    """The key a term of a sum sorts under: the text it prints as, then the sign it is written under.
+
+    The sign is the tie-breaker rather than part of the text, so ``a - b`` and
+    ``b - a`` order their terms alike and differ only in which one is negative.
+    """
+    sign, node = term
+    return str(node), sign
+
+
 def _sum(terms: list[tuple[Sign, ArithmeticNode]]) -> ArithmeticNode:
     """The terms back into one left-leaning spine, a leading minus becoming the sign it was."""
     sign, first = terms[0]
@@ -113,7 +123,7 @@ def normalised(node: ParsedNode) -> ParsedNode:
     if isinstance(node, BinaryOperatorNode):
         if node.op in ('+', '-'):
             terms: list[tuple[Sign, ArithmeticNode]] = [(sign, normalised(term)) for sign, term in _signed_terms(node)]
-            return _sum(sorted(terms, key=lambda term: (str(term[1]), term[0])))
+            return _sum(sorted(terms, key=_order))
         if node.op == '*':
             factors: list[ArithmeticNode] = sorted((normalised(factor) for factor in _factors(node)), key=str)
             product: ArithmeticNode = factors[0]
