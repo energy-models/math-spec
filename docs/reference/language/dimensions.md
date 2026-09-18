@@ -280,12 +280,9 @@ A partition names the value columns it groups by, so that a relation may gain a 
 Write: shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])
 ```
 
-A partition keeps rule 4 of the [six rules](#the-six-rules). It joins on every
-key column but the one it steps along, so a key that gains a column re-aims the
-call. Declare a new relation. It keeps rule 3 only where the call writes
-`within=`. Omitted, `within=` means every value column, so a relation that
-gains one regroups the call
-([#538](https://github.com/energy-models/math-spec/issues/538)).
+Of the [six rules](#the-six-rules), a partition keeps rules 3 and 4. A key
+column added to the relation is one more column every call joins on, so declare
+a new relation.
 
 A `where` string reads a relation too: a value column at its key, two columns
 of one table compared, or a bare name that tests a row exists
