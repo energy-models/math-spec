@@ -19,6 +19,19 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.97](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.96...v0.0.0-alpha.97) (2026-09-18)
+
+
+### Features
+
+* **program:** a walk that says which regions each node stands under ([#482](https://github.com/energy-models/math-spec/issues/482)) ([3f37cbe](https://github.com/energy-models/math-spec/commit/3f37cbeff7122733d3e5ff77d82bc980f4025c0d)), closes [#473](https://github.com/energy-models/math-spec/issues/473)
+* **program:** every axis names its linking rows and linking columns ([#525](https://github.com/energy-models/math-spec/issues/525)) ([588142f](https://github.com/energy-models/math-spec/commit/588142f2dd5ef196078c83cf94ad07818409ff08))
+
+
+### Bug Fixes
+
+* **typesetting:** a grouped sum's domain carries every column its walk fixes ([#513](https://github.com/energy-models/math-spec/issues/513)) ([cd78ca5](https://github.com/energy-models/math-spec/commit/cd78ca5ab53d3c06ee66bb8f7d439ded10c69a4a))
+
 ## [0.0.0-alpha.96](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.95...v0.0.0-alpha.96) (2026-09-17)
 
 
