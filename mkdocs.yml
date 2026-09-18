@@ -38,6 +38,7 @@ nav:
       - Check a model without data: howto/check.md
       - Print a model as math: howto/print.md
       - State a rule that differs by regime: howto/regimes.md
+      - Declare a column of data: howto/declare-a-column.md
   - Reference:
       - Language:
           - reference/language/index.md
