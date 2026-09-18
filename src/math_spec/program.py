@@ -81,6 +81,7 @@ __all__ = [
     'ParameterDeclaration',
     'ParameterDefinedNode',
     'ParameterDtype',
+    'Partition',
     'PiecewiseDeclaration',
     'Power',
     'PredicateOperator',
@@ -342,12 +343,11 @@ class Translate(Expression):
     ``offset`` is an integer, or the name of an integer parameter that does
     not depend on ``dimension`` and carries its sign in the values.
 
-    ``partition`` is a relation stepped along ``dimension`` — its consumed
-    column is a key over that dimension, its produced columns are the group —
-    and the translation then happens inside each group: the neighbour is the
-    one before in the same group, the edge is the group's, and a wrap closes
-    each group onto itself. A coordinate the relation sends nowhere reaches
-    nothing.
+    ``partition`` is a relation with a key column over ``dimension``
+    (:class:`Partition`), and the translation then happens inside each group
+    its ``within=`` columns make: the neighbour is the one before in the same
+    group, the edge is the group's, and a wrap closes each group onto itself.
+    A coordinate the relation sends nowhere reaches nothing.
     """
 
     operand: ExpressionNode
@@ -355,7 +355,7 @@ class Translate(Expression):
     offset: int | str
     wrap: bool
     fill: float | None = None
-    partition: Direction | None = None
+    partition: Partition | None = None
 
 
 @dataclass(frozen=True)
@@ -383,7 +383,7 @@ class Window(Expression):
     dimension: str
     width: int | str
     wrap: bool
-    partition: Direction | None = None
+    partition: Partition | None = None
 
 
 @dataclass(frozen=True)
@@ -519,9 +519,7 @@ class Direction(NamedTuple):
     of ``relation``, which binds every role to its dimension and names the key.
     ``joined`` is the key roles the call did not name (every role, for a bare
     relation): the join keys on them, and a value role left unnamed is not
-    read. For a partition (``shift``, ``sum_back``, ``position``) ``consumed``
-    is the key role over the dimension stepped along and ``produced`` the value roles
-    that make the group, which are the ones ``within=`` named.
+    read.
     """
 
     relation: RelationDeclaration
@@ -565,6 +563,48 @@ class Direction(NamedTuple):
     def is_function_read(self) -> bool:
         """Whether the read is one value per coordinate: the key lies inside what is fixed."""
         return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
+
+
+class Partition(NamedTuple):
+    """One relation as a partition steps along it — the key column stepped along, the group columns, and the key columns joined on.
+
+    ``along``, ``group`` and ``joined`` are *roles* — column names of
+    ``relation``, which binds every role to its dimension and names the key.
+    ``along`` is the one key column over the dimension stepped along, and
+    the frame keeps it. ``group`` is the value columns ``within=`` named,
+    read at the row's key. ``joined`` is the other key columns, whose
+    dimensions the frame carries. Nothing is consumed and nothing is
+    produced: the frame does not change.
+    """
+
+    relation: RelationDeclaration
+    along: str
+    group: tuple[str, ...]
+    joined: tuple[str, ...]
+
+    @property
+    def name(self) -> str:
+        return self.relation.name
+
+    @property
+    def key(self) -> tuple[str, ...]:
+        return self.relation.key
+
+    @property
+    def values(self) -> tuple[str, ...]:
+        return self.relation.values
+
+    def dim(self, role: str) -> str:
+        """The dimension *role* is bound to."""
+        return self.relation.dim(role)
+
+    @property
+    def along_dim(self) -> str:
+        return self.dim(self.along)
+
+    @property
+    def joined_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.joined)
 
 
 @dataclass(frozen=True)
@@ -1212,16 +1252,14 @@ class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
     Both sides are integers, negative counting from the end. With a
-    ``partition`` the position is counted within each group the relation makes,
-    read as :class:`Translate` reads one: its consumed column is the key
-    column over ``name``, the group is its produced columns, and its joined
-    columns are the other key columns, whose dimensions the frame carries.
+    ``partition`` the position is counted within each group the relation makes
+    (:class:`Partition`), whose joined columns' dimensions the frame carries.
     """
 
     name: str
     op: PredicateOperator
     position: int
-    partition: Direction | None = None
+    partition: Partition | None = None
 
 
 @dataclass(frozen=True)

@@ -39,11 +39,13 @@ from math_spec.program import (
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
+    Direction,
     Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    Partition,
     PredicateOperator,
     RelationComparisonNode,
     RelationDefinedNode,
@@ -58,7 +60,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from math_spec.model import RelationBlock, SosBlock, _ExpandedSpec
-    from math_spec.program import Direction
+    from math_spec.program import RelationDeclaration
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -274,15 +276,15 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _relation_read(self, direction: Direction, at: Mapping[str, str], read: str) -> str:
+    def _relation_read(self, relation: RelationDeclaration, at: Mapping[str, str], read: str) -> str:
         """A relation's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
 
         *at* maps each key role to the index it is read at. The function is
         named after the relation alone where the key determines one column, and
         after the column read otherwise.
         """
-        name = direction.name if len(direction.values) == 1 else f'{direction.name}.{read}'
-        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in direction.key], ''))
+        name = relation.name if len(relation.values) == 1 else f'{relation.name}.{read}'
+        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in relation.key], ''))
 
     def _relation_row(self, name: str, key: list[str]) -> str:
         """That relation *name* has a row at *key*, its key columns' indices in declared order.
@@ -307,12 +309,10 @@ class Walk:
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
         """The group a grouped position counts within: the relation's group columns read at the row's key."""
         assert node.partition is not None
-        direction = node.partition
-        keyed = self.format.joined([ctx.subscript(direction.dim(k)) for k in direction.key], '')
-        single = len(direction.values) == 1
-        reads = [
-            self.format.apply(self._column(direction.name, column, single), keyed) for column in direction.produced
-        ]
+        partition = node.partition
+        keyed = self.format.joined([ctx.subscript(partition.dim(k)) for k in partition.key], '')
+        single = len(partition.values) == 1
+        reads = [self.format.apply(self._column(partition.name, column, single), keyed) for column in partition.group]
         return self._tuple(reads)
 
     def _tuple(self, reads: list[str]) -> str:
@@ -459,10 +459,11 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, RelationNode)
             outer = ctx
-            direction = by.direction
+            direction = by.use
+            assert isinstance(direction, Direction)
             at = {r: outer.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
             for read in direction.consumed:
-                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction, at, read))
+                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.relation, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
@@ -471,7 +472,8 @@ class Walk:
             inner = ctx
             for d in by.dimensions:
                 dummies[d], inner = inner.reducing(d)
-            conditions = list(self._grouping(by.direction, dummies, ctx))
+            assert isinstance(by.use, Direction)
+            conditions = list(self._grouping(by.use, dummies, ctx))
             domain = (
                 f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
@@ -505,7 +507,7 @@ class Walk:
         fixed = [r for r in direction.values if r in at]
         if not fixed:
             return [self._relation_row(direction.name, [at[k] for k in direction.key])]
-        return [f'{self._relation_read(direction, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
+        return [f'{self._relation_read(direction.relation, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -517,9 +519,10 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, RelationNode)
-        direction = by.direction
-        at = {r: self.symbols.index[direction.dim(r)] for r in (*direction.consumed, *direction.joined)}
-        return self._tuple([self._relation_read(direction, at, r) for r in direction.produced])
+        partition = by.use
+        assert isinstance(partition, Partition)
+        at = {r: self.symbols.index[partition.dim(r)] for r in (partition.along, *partition.joined)}
+        return self._tuple([self._relation_read(partition.relation, at, r) for r in partition.group])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``window=``: a number, or a parameter's own symbol.

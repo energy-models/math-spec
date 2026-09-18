@@ -45,6 +45,7 @@ from math_spec.program import (
     Mask,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    Partition,
     RelationComparisonNode,
     RelationDefinedNode,
     RelationPairComparisonNode,
@@ -228,18 +229,18 @@ def _check_lands_clear(call: str, produced: set[str], consumed: set[str], inner:
 
 def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
     """The columns a call joins on are read at their dimensions, so the operand carries every one, each once."""
-    direction = by.direction
-    dims = direction.joined_dims
+    use = by.use
+    dims = use.joined_dims
     if missing := sorted(set(dims) - inner):
         raise DimensionError(
-            f'{context}: {call} joins on {missing} (columns {[r for r in direction.joined if direction.dim(r) in missing]} '
-            f"of '{direction.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
+            f'{context}: {call} joins on {missing} (columns {[r for r in use.joined if use.dim(r) in missing]} '
+            f"of '{use.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
             f'read between two of its columns and joined at the others — index the operand by them, or '
             f'read it between different columns.'
         )
     if twice := sorted({d for d in dims if dims.count(d) > 1 or d in by.dimensions}):
         raise DimensionError(
-            f"{context}: {call} joins '{direction.name}' on {twice} through more than one column, and the operand "
+            f"{context}: {call} joins '{use.name}' on {twice} through more than one column, and the operand "
             f'carries each dimension once. Read between different columns, or use a relation whose joined '
             f'columns are over distinct dimensions.'
         )
@@ -421,11 +422,8 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
             f"— declare '{amount.name}' over dims '{over}' is not one of."
         )
     partition = node.kwargs.get('by')
-    groups = (
-        frozenset(partition.direction.dim(v) for v in partition.direction.produced)
-        if isinstance(partition, RelationNode)
-        else frozenset()
-    )
+    use = partition.use if isinstance(partition, RelationNode) else None
+    groups = frozenset(use.dim(v) for v in use.group) if isinstance(use, Partition) else frozenset()
     if stray := sorted(frozenset(declared.dims) - inner - groups):
         raise DimensionError(
             f'{context}: {node.name}({kwarg}={amount.name}) reads its {words.noun} at the coordinate it '
