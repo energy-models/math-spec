@@ -359,7 +359,7 @@ class TestAnUndeclaredKeywordIsRefusedOnce:
 
     SIGNATURE = (
         'The objective: shift() expects '
-        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>[, within=<column>]])"
+        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])"
     )
 
     @pytest.mark.parametrize(
@@ -387,7 +387,7 @@ class TestAnUndeclaredKeywordIsRefusedOnce:
 
     TEMPLATE_SIGNATURE = (
         "Macro 'm': shift() expects "
-        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>[, within=<column>]])"
+        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])"
     )
 
     @pytest.mark.parametrize(
@@ -517,7 +517,7 @@ class TestPositionResolves:
         ('mask', 'position', 'by'),
         [
             ('position(snapshot) == 0', 0, None),
-            ('position(snapshot, by=period_of) == 0', 0, 'period_of'),
+            ('position(snapshot, by=period_of, within=period) == 0', 0, 'period_of'),
         ],
         ids=['first', 'first of each period'],
     )
@@ -536,7 +536,10 @@ class TestPositionResolves:
             ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
             ('position(nope) == 0', ["'nope' is not declared"]),
             ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a relation']),
-            ('position(snapshot, by=starts_at) == 0', ["no key column over 'snapshot'", "its key is ['period']"]),
+            (
+                'position(snapshot, by=starts_at, within=snapshot) == 0',
+                ["no key column over 'snapshot'", "its key is ['period']"],
+            ),
         ],
         ids=['a parameter', 'undeclared', 'by= is not a relation', 'by= is over another dim'],
     )
@@ -725,10 +728,10 @@ class TestRulesDecidedWithoutData:
                 id='a-from-list-naming-two-columns-over-one-dimension',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, over=g))'}},
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, within=h, over=g))'}},
                 (
                     "shift() expects shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>]"
-                    '[, by=<relation>[, within=<column>]])',
+                    '[, by=<relation>, within=<column>])',
                 ),
                 id='a-partition-takes-no-from',
             ),
@@ -757,6 +760,29 @@ class TestRulesDecidedWithoutData:
                 id='a-bare-relation-needs-both-ends-named',
             ),
             pytest.param(
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk))'}},
+                (
+                    'shift() through a relation leaves within= unsaid',
+                    'A partition names the value columns it groups by, so that a relation may gain a value column',
+                ),
+                id='a-partition-names-the-columns-it-groups-by',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum_back(p, along=g, window=2, by=lk))'}},
+                ('sum_back() through a relation leaves within= unsaid',),
+                id='a-window-names-the-columns-it-groups-by',
+            ),
+            pytest.param(
+                {'variables.q.where': 'position(g, by=lk) == 0'},
+                (
+                    'position(g, by=lk) leaves within= unsaid',
+                    'A partition names the value columns it groups by',
+                    'position(g, by=lk, within=<column>)',
+                    "value columns of 'lk' are ['h']",
+                ),
+                id='a-position-names-the-columns-it-counts-within',
+            ),
+            pytest.param(
                 {
                     'relations.rel': {'key': ['g', 'h']},
                     'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
@@ -772,7 +798,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'relations.rel': {'key': ['g', 'h']},
-                    'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=rel))'},
+                    'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=rel, within=h))'},
                 },
                 ("'rel' is a bare relation", 'it makes no groups and no coordinate is in exactly one'),
                 id='a-partition-through-a-bare-relation',
