@@ -864,13 +864,15 @@ class Separability:
     """What building one dimension a window at a time asks of a driver, and what it would break.
 
     A rolling-horizon or myopic driver cuts an axis into windows and builds
-    each on its own. What the program can say is whether every row it builds
-    is then complete inside some window: how far a row reads ahead along the
-    axis, and which declarations tie the axis together so that no window
-    holds them. It cannot say whether the windowed answer is the one a
-    whole-horizon solve would give — a store carried over one row windows
-    cleanly, and a rolling solve of it is still a different answer — which is
-    the driver's design and not the model's.
+    each on its own, and a decomposition cuts the same axis and solves each
+    piece on its own. What the program can say is whether every row it builds
+    is then complete inside one window: how far a row reads ahead along the
+    axis, which declarations tie the axis together so that no window holds
+    them, and — the same fact read as a set — which rows and columns are left
+    over as the border every window shares. It cannot say whether the windowed
+    answer is the one a whole-horizon solve would give — a store carried over
+    one row windows cleanly, and a rolling solve of it is still a different
+    answer — which is the driver's design and not the model's.
 
     What a row reads *behind* is not reported. A window starts where the
     driver puts it, and what its first rows meet there is the edge policy:
@@ -895,6 +897,18 @@ class Separability:
             window restarts at its first row. Whether that is wanted — a seed
             once per window, or once per horizon — is the modeller's, so it is
             reported rather than refused.
+        linking_rows: Each constraint no one window holds whole, in declaration
+            order: one the axis does not index, whose row stands in every
+            window, and one :attr:`coupled` names. A constraint waiting on an
+            :attr:`undecided` reach is not among them, because how far it
+            reaches is the data's to say — the boundary :attr:`windowable`
+            already draws.
+        linking_columns: Each variable the axis does not index, in declaration
+            order, whose column every window reads. A decomposition calls a
+            window a block, and with :attr:`linking_rows` this is the border of
+            a bordered block-diagonal form cut along the axis. The form is
+            exactly that where :attr:`ahead` is ``0``: a positive lookahead is
+            neighbouring blocks overlapping by that much.
     """
 
     dimension: str
@@ -902,6 +916,8 @@ class Separability:
     coupled: Mapping[str, str]
     undecided: tuple[Reach, ...]
     restarts: Mapping[str, str]
+    linking_rows: tuple[str, ...]
+    linking_columns: tuple[str, ...]
 
     @property
     def windowable(self) -> bool:

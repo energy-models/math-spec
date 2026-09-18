@@ -156,6 +156,8 @@ either way, so nothing later would tell you.
 
 ```python
 program.separability['bp'].windowable  # False
+program.separability['generator'].linking_rows  # ('target',)
+program.separability['generator'].linking_columns  # ()
 tied = program.separability['generator'].coupled["constraint 'target'"]
 tied.partition(' — ')[0]  # 'sums over generator'
 'sum_back(window=n)' in tied  # True
@@ -180,6 +182,12 @@ expansion introduced is named under the declaration the expansion emitted.
   not a number, so it stays undecided.
 - `restarts` names each declaration that counts a `position()` along the axis,
   because a window restarts that count at its first row.
+- `linking_rows` names each constraint that no single window holds. Two shapes
+  reach it: a row the axis does not index, which stands in every window, and a
+  row that `coupled` also names. A constraint waiting on an `undecided` reach is
+  not among them, because how far it reaches is the data's to say.
+- `linking_columns` names each variable the axis does not index, whose column
+  every window reads.
 - `ahead` is how many coordinates a window must see past its last row: `0` where
   every row is pointwise, and `2` for a `shift` of `-2`. What a row reads behind
   is not reported, because what a window's first rows meet is the opening state
@@ -189,6 +197,13 @@ expansion introduced is named under the declaration the expansion emitted.
 
 A sum over the axis ties every window to every other window in a constraint, and
 not in the objective, because an objective is a sum of windows already.
+
+A decomposition cuts the same axis and calls each window a block. `linking_rows`
+and `linking_columns` are the border of that cut: every row and column they do
+not name belongs to one block. A file format that annotates blocks writes that
+pair down. Where `ahead` is `0` the matrix is bordered block-diagonal, which is
+one block per window and the border they share. A positive lookahead means
+neighbouring blocks overlap by that much.
 
 The report does not say whether the windowed answer equals the whole-horizon
 answer: a store carried over one row windows cleanly, and a rolling solve of it
