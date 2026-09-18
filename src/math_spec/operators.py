@@ -47,9 +47,6 @@ class Builtin:
     #: One meaning — what leaves the frame — read in the namespace ``by=``
     #: decides.
     dimension_or_role_kwargs: tuple[str, ...] = ()
-    #: Kwargs of which the call carries at most one. Members are excluded from
-    #: the required set; their kind still comes from the tuples above.
-    at_most_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
     #: Kwargs the call may omit. Their *kind* still comes from the tuples
@@ -64,10 +61,8 @@ class Builtin:
     def required(self) -> frozenset[str]:
         """Every keyword the call must carry."""
         return (
-            (frozenset(self.dimension_kwargs) | frozenset(self.relation_kwargs) | frozenset(self.required_value_kwargs))
-            - frozenset(self.at_most_one_of)
-            - frozenset(self.optional_kwargs)
-        )
+            frozenset(self.dimension_kwargs) | frozenset(self.relation_kwargs) | frozenset(self.required_value_kwargs)
+        ) - frozenset(self.optional_kwargs)
 
     def kind_of(
         self, kwarg: str, *, with_relation: bool = False
@@ -155,14 +150,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     """Why a call to *name* does not fit its signature; ``None`` if it fits."""
     builtin = BUILTINS[name]
     keys = set(kwargs)
-    if len(keys & set(builtin.at_most_one_of)) > 1:
-        alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
-        return (
-            f'{name}() takes at most one of {alternatives} — a relation carries '
-            f'its own dimensions, so by= leaves over= nothing to add.\n'
-            f'Write: {builtin.usage}'
-        )
-    optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}
+    optional = {*builtin.edge_kwargs, *builtin.optional_kwargs}
     walks = bool(keys & set(builtin.relation_kwargs))
     required = builtin.required | frozenset(builtin.with_relation) if walks else builtin.required
     optional |= set() if walks else set(builtin.with_relation)
