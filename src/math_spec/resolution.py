@@ -673,15 +673,15 @@ class _Resolver:
         if not forward and not direction.is_function_read:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
-                f'{list(from_roles)} at the columns the operand fixes ({[*into_roles, *joined]}) — its key is '
-                f'{list(shape.key)}. Key the table by columns the read fixes, or read the other way.'
+                f'{list(from_roles)} at the columns the call lands on ({[*into_roles, *joined]}) — its key is '
+                f'{list(shape.key)}. Key the table by the columns the call lands on, or read the other way.'
             )
             return None
         if forward and direction.is_function_read:
             self.errors.append(
                 f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={list(into_roles)}, into={list(from_roles)}), or sum toward '
+                f'at(..., by={name}, over={list(from_roles)}, into={list(into_roles)}), or sum toward '
                 f'a value column.'
             )
             return None

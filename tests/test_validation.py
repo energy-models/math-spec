@@ -787,12 +787,19 @@ class TestRulesDecidedWithoutData:
                     'relations.rel': {'key': ['g', 'h']},
                     'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
                 },
-                ("at reads one value per coordinate, and 'rel' is not single-valued",),
+                (
+                    "at reads one value per coordinate, and 'rel' is not single-valued in ['h'] at the columns "
+                    "the call lands on (['g'])",
+                ),
                 id='at-through-a-bare-relation',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
-                ("this sum lands on the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
+                (
+                    "this sum lands on the key ['g']",
+                    'that is a read, which is',
+                    "at(..., by=lk, over=['h'], into=['g'])",
+                ),
                 id='a-sum-that-lands-on-the-key-is-a-read',
             ),
             pytest.param(

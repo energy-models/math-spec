@@ -282,7 +282,7 @@ class At(Expression):
 
     The dims ``direction`` consumes go and the dims it produces arrive, one
     value per coordinate because the read takes value columns at a key the
-    operand fixes (``Direction.is_function_read``). The join fans out, many
+    result fixes (``Direction.is_function_read``). The join fans out, many
     produced tuples sharing one consumed tuple — at each coordinate of the
     joined columns, which the operand carries and the result keeps.
     """
