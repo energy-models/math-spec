@@ -66,7 +66,7 @@ message that names the fix. These ten rules are what it checks.
 | [Relations](relations.md)                                               | the maps from one axis onto another, and how a call reads one                                                 |
 | [Parameters, variables, constraints and the objective](declarations.md) | the four blocks that carry the math                                                                           |
 | [Expressions](expressions.md)                                           | the arithmetic grammar and the `where` grammar, where each kind of name may stand, and how dimensions combine |
-| [Reported expressions](reported.md)                                     | named quantities that no constraint or objective uses, which you read back after a solve                      |
+| [Named expressions and macros](named.md)                                | quantities the model names once, templates with arguments, and what a solve reports                           |
 | [Operators](operators.md)                                               | `sum`, `sum_back`, `at` and `shift`                                                                           |
 | [Absence and `where`](absence.md)                                       | which rows are built, and which are not                                                                       |
 | [Piecewise curves and SOS](piecewise.md)                                | `piecewise:` and `sos:`                                                                                       |

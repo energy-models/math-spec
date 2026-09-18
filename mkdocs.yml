@@ -47,7 +47,7 @@ nav:
           - Dimensions: reference/language/dimensions.md
           - Relations: reference/language/relations.md
           - Expressions: reference/language/expressions.md
-          - Reported expressions: reference/language/reported.md
+          - Named expressions and macros: reference/language/named.md
           - Operators: reference/language/operators.md
           - Piecewise curves and SOS: reference/language/piecewise.md
           - Absence and where: reference/language/absence.md

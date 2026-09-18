@@ -74,9 +74,15 @@ a flag.
   symbol table touches it.
 - A `piecewise:` block prints as the variables and constraints it expands into,
   because the expansion is the math the solver receives.
+- A [named expression](language/named.md) prints its symbol where it is used
+  and its body once, under a **Definitions** heading between _Subject to_ and
+  _Variable domains_, in declaration order. The symbol is italic where a
+  variable reaches the body and upright where none does. It joins the symbol
+  pool, so a [symbol table](#symbol-tables) can rename it.
 - Inlining reaches only an expression that the math reads. A `cases:` block has
-  no single body to substitute, and a [reported entry](language/reported.md) is
-  read by nothing, so both keep their definition line under either setting.
+  no single body to substitute, and a
+  [reported entry](language/named.md#reported-expressions) is read by nothing,
+  so both keep their definition line under either setting.
 - Wherever the math moves an index, which every `shift` does, the document
   prints a line saying what that notation means.
 - A model that does not load does not print. Typesetting runs the same
