@@ -118,22 +118,16 @@ class RelationNode:
     """A resolved ``by=`` — the relation, and the use the call makes of it.
 
     ``use`` is a :class:`Direction` for ``sum`` and ``at``, and a
-    :class:`Partition` for ``shift`` and ``sum_back``.
-    ``dimensions`` is the fine side — what ``sum`` consumes and ``at``
-    produces — and ``into`` the coarse dims, which ``sum`` produces and ``at``
-    consumes. The roles joined on are the operand's to carry, and the operator
-    passes them through.
+    :class:`Partition` for ``shift`` and ``sum_back``. The roles joined on
+    are the operand's to carry, and the operator passes them through.
     """
 
-    name: str
-    dimensions: tuple[str, ...]
-    into: tuple[str, ...]
     use: Direction | Partition
 
     @property
     def shown(self) -> str:
         """The kwarg value as the author wrote it, for an error message."""
-        return self.name
+        return self.use.name
 
 
 @dataclass(frozen=True)

@@ -492,7 +492,7 @@ class RelationDeclaration(NamedTuple):
 
     name: str
     columns: tuple[tuple[str, str], ...]
-    key: tuple[str, ...] = ()
+    key: tuple[str, ...]
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -531,18 +531,6 @@ class Direction(NamedTuple):
     def name(self) -> str:
         return self.relation.name
 
-    @property
-    def key(self) -> tuple[str, ...]:
-        return self.relation.key
-
-    @property
-    def roles(self) -> tuple[str, ...]:
-        return self.relation.roles
-
-    @property
-    def values(self) -> tuple[str, ...]:
-        return self.relation.values
-
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
         return self.relation.dim(role)
@@ -562,7 +550,7 @@ class Direction(NamedTuple):
     @property
     def is_function_read(self) -> bool:
         """Whether the read is one value per coordinate: the key lies inside what is fixed."""
-        return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
+        return set(self.relation.key) <= {*self.joined, *self.produced}
 
 
 class Partition(NamedTuple):
@@ -585,14 +573,6 @@ class Partition(NamedTuple):
     @property
     def name(self) -> str:
         return self.relation.name
-
-    @property
-    def key(self) -> tuple[str, ...]:
-        return self.relation.key
-
-    @property
-    def values(self) -> tuple[str, ...]:
-        return self.relation.values
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
