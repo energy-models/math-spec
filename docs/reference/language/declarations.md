@@ -90,9 +90,10 @@ A bound is a name or a number, never arithmetic: `upper: capacity` is accepted,
 and `upper: -rating` is refused. Ship the negated column as data. The dimensions
 of a bound parameter must not exceed its `dims`.
 
-Equal bounds pin a variable. A pinned variable is still a variable, so
-`size * on` is `variable * variable`, and a pinned variable cannot stand in
-another variable's `bounds`.
+Equal bounds pin a variable ([fix a quantity](../../howto/pin-a-variable.md)).
+A pinned variable is still a variable, so `size * on` is
+`variable * variable`, and a pinned variable cannot stand in another variable's
+`bounds`.
 
 ## `constraints`
 
