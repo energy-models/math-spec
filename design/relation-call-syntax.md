@@ -52,6 +52,50 @@ One more question is independent of all six, and is answered on its own:
 | ------ | ------------------ | ----------------------------------------------- |
 | **G**  | a read is an index | `price[gen_bus.bus]` in place of `at(price, …)` |
 
+## A, B, C and D: what is replaced by what
+
+A walk puts three facts on the line: the relation **R**, the columns consumed
+**X**, and the columns produced **Y**. All four write those three, and only
+those three.
+
+```
+A   sum(<expr>, by=R, over=X, into=Y)         at(<expr>, by=R, over=X, into=Y)
+B   sum(<expr>, by=R, consume=X, produce=Y)   at(<expr>, by=R, consume=X, produce=Y)
+C   sum(<expr>, by=R, direction=X -> Y)       at(<expr>, by=R, direction=X -> Y)
+D   sum(<expr>, by=R(X -> Y))                 at(<expr>, by=R(X -> Y))
+```
+
+So every pair is one textual edit, and each row reads in both directions:
+
+| between   | the edit                                           |
+| --------- | -------------------------------------------------- |
+| **A ↔ B** | `over=X` ↔ `consume=X`, and `into=Y` ↔ `produce=Y` |
+| **A ↔ C** | `over=X, into=Y` ↔ `direction=X -> Y`              |
+| **A ↔ D** | `by=R, over=X, into=Y` ↔ `by=R(X -> Y)`            |
+| **B ↔ C** | `consume=X, produce=Y` ↔ `direction=X -> Y`        |
+| **B ↔ D** | `by=R, consume=X, produce=Y` ↔ `by=R(X -> Y)`      |
+| **C ↔ D** | `by=R, direction=X -> Y` ↔ `by=R(X -> Y)`          |
+
+`X` and `Y` are copied across unchanged, whether each is one column or a list.
+Nothing is read from the declarations to make the edit, and no call gains or
+loses a fact.
+
+**Two calls are not a walk, and there the rewrite is not this clean.**
+
+| the call            | A                        | B                           | C    | D              |
+| ------------------- | ------------------------ | --------------------------- | ---- | -------------- |
+| a sum with no `by=` | `sum(p, over=generator)` | `sum(p, consume=generator)` | as A | as A           |
+| a partition         | `by=cal, within=week`    | as A                        | as A | `by=cal(week)` |
+
+**B reaches calls that name no relation**, because it renames the keyword those
+calls share with a walk. **D gives its parentheses a second job**, holding a
+group here and a direction above.
+
+**E and F are not on this list.** E copies the relation's name onto each
+column, so the edit writes `R` once per side instead of once per call. F names
+the columns the call keeps, so the edit has to open the declarations to work
+out which of them are key columns. Neither is a search and replace.
+
 ## The model every case uses
 
 ```yaml
@@ -339,10 +383,9 @@ relation rather than any relation of that shape.
 
 ## What actually differs
 
-**A, B, C and D are one language in four spellings.** Each puts the same three
-facts on the line: the relation, the columns consumed, the columns produced. A
-script could rewrite any of them into any other without opening the
-declarations. Nothing in the case set separates them except the words.
+**A, B, C and D are one language in four spellings**, and the edit between any
+two of them is [above](#a-b-c-and-d-what-is-replaced-by-what). Nothing in the
+case set separates them except the words.
 
 **B is the only option that reaches a model with no relation in it.** It costs
 40 calls in `examples/` that write `over=` with no `by=`. What it buys is that
