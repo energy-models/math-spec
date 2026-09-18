@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from math_spec.program import (
     At,
@@ -28,19 +28,35 @@ if TYPE_CHECKING:
     from math_spec.program import ExpressionNode, Program
 
 
-def _built_blocks(program: Program) -> Iterator[tuple[str, tuple[ExpressionNode, ...], Mask | None, bool]]:
-    """Every block that builds rows, labelled as the lowering's own messages label it.
+class _Block(NamedTuple):
+    """One group of expressions the walk judges together, as the lowering's own messages label it.
+
+    ``row`` is the constraint whose rows the block builds, and ``None`` where
+    it builds none — a bound narrows a column, and the objective is one row no
+    window cuts. A coupling reported against a block without a row is still a
+    coupling, and never a linking row.
+    """
+
+    label: str
+    row: str | None
+    nodes: tuple[ExpressionNode, ...]
+    mask: Mask | None
+    reductions_couple: bool
+
+
+def _built_blocks(program: Program) -> Iterator[_Block]:
+    """Every block that builds rows.
 
     A named expression is not one: it is inlined where it is referenced, so
     walking the constraint sides reaches it, and walking it again would
     report one coupling twice.
     """
     for name, block in program.constraints.items():
-        yield f"constraint '{name}'", (block.lhs, block.rhs), block.where, True
+        yield _Block(f"constraint '{name}'", name, (block.lhs, block.rhs), block.where, True)
     for name, variable in program.variables.items():
-        yield f"variable '{name}'", (variable.lower, variable.upper), variable.where, True
+        yield _Block(f"variable '{name}'", None, (variable.lower, variable.upper), variable.where, True)
     if program.objective is not None:
-        yield 'the objective', (program.objective.expression,), None, False
+        yield _Block('the objective', None, (program.objective.expression,), None, False)
 
 
 def separabilities(program: Program) -> dict[str, Separability]:
@@ -56,12 +72,17 @@ def separabilities(program: Program) -> dict[str, Separability]:
     ahead for a negative offset; what one reads behind is the window's edge,
     which is not asked. Each coupling carries the one modelling change that
     would lift it, after the dash.
+
+    The border a decomposition cuts along falls out of the same walk, which is
+    why it is taken here rather than in a pass of its own: a constraint the axis
+    does not index, and one a coupling names, are the rows no window holds.
     """
     ahead = dict.fromkeys(program.dimensions, 0)
     reasons: dict[str, dict[str, dict[str, list[str]]]] = {
         kind: {dimension: {} for dimension in program.dimensions} for kind in ('coupled', 'restarts')
     }
     undecided: dict[str, dict[Reach, None]] = {dimension: {} for dimension in program.dimensions}
+    rows: dict[str, str] = {}
 
     def report(kind: str, dimension: str, label: str, reason: str) -> None:
         reasons[kind][dimension].setdefault(label, []).append(reason)
@@ -69,7 +90,9 @@ def separabilities(program: Program) -> dict[str, Separability]:
     def waits_on(dimension: str, label: str, name: str, kind: Literal['offset', 'partition', 'coordinate']) -> None:
         undecided[dimension][Reach(label, name, kind)] = None
 
-    for label, nodes, mask, reductions_couple in _built_blocks(program):
+    for label, row, nodes, mask, reductions_couple in _built_blocks(program):
+        if row is not None:
+            rows[label] = row
         masks: list[Mask | None] = [mask]
         for node in walk(*nodes):
             if isinstance(node, Cases):
@@ -130,6 +153,22 @@ def separabilities(program: Program) -> dict[str, Separability]:
     def joined(kind: str, dimension: str) -> dict[str, str]:
         return {label: ', '.join(dict.fromkeys(found)) for label, found in reasons[kind][dimension].items()}
 
+    def linking_rows(dimension: str) -> tuple[str, ...]:
+        """Each constraint no one window of *dimension* holds whole, in declaration order.
+
+        Two shapes reach the border by different routes, and a constraint that
+        takes both is still one name: a row the axis does not index stands in
+        every window, and a row a coupling names reads the whole axis. Only a
+        declaration that builds a row can put one here, which is what ``rows``
+        holds the coupled labels to.
+        """
+        coupled = {rows[label] for label in reasons['coupled'][dimension] if label in rows}
+        return tuple(
+            name
+            for name, constraint in program.constraints.items()
+            if dimension not in constraint.dims or name in coupled
+        )
+
     return {
         dimension: Separability(
             dimension=dimension,
@@ -137,6 +176,10 @@ def separabilities(program: Program) -> dict[str, Separability]:
             coupled=joined('coupled', dimension),
             undecided=tuple(undecided[dimension]),
             restarts=joined('restarts', dimension),
+            linking_rows=linking_rows(dimension),
+            linking_columns=tuple(
+                name for name, variable in program.variables.items() if dimension not in variable.dims
+            ),
         )
         for dimension in program.dimensions
     }

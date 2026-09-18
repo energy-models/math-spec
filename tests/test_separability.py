@@ -243,3 +243,79 @@ def test_a_reduction_over_several_axes_couples_every_one_of_them():
     program = ms.to_program({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}})
     assert not program.separability['h'].windowable, 'the reduction consumes h'
     assert not program.separability['u'].windowable, 'and u, in the same node'
+
+
+#: A model with a border along `h`, and none along `u`. `built` is a column
+#: every window of `h` reads, `cap` is a row one coordinate of `h` holds on its
+#: own, `budget` is a row the horizon ties together, and `peak` is a row the
+#: horizon does not index at all.
+BORDER: dict[str, Any] = {
+    'variables': {
+        'p': {'dims': ['h', 'u'], 'bounds': {'lower': 0}},
+        'built': {'dims': ['u'], 'bounds': {'lower': 0}},
+    },
+    'constraints': {
+        'cap': {'dims': ['h', 'u'], 'expression': 'p <= built'},
+        'budget': {'dims': ['u'], 'expression': 'sum(p, over=h) <= built'},
+        'peak': {'dims': ['u'], 'expression': 'built <= budget'},
+    },
+}
+
+
+def test_the_border_of_a_block_form_is_what_no_one_block_holds():
+    """The same walk read as a set. A driver that cuts `h` into blocks builds
+    each block from the rows and columns the axis indexes, and what is left over
+    is the border it shares: the linking rows and the linking columns of a
+    bordered block-diagonal form."""
+    verdict = _verdict(**BORDER)
+    assert verdict.linking_rows == ('budget', 'peak'), (
+        'a row the axis ties together and a row it does not index, in declaration order, and no third'
+    )
+    assert verdict.linking_columns == ('built',), 'the one column every block reads, p being a column per block'
+    along_u = _verdict('u', **BORDER)
+    assert along_u.linking_rows == (), "cut along u instead, every row is one block's own"
+    assert along_u.linking_columns == (), 'and every column is, so that cut needs no border at all'
+
+
+@pytest.mark.parametrize(
+    ('patch', 'rows'),
+    [
+        pytest.param(_rows('p >= 0'), (), id='a-pointwise-row-belongs-to-one-block'),
+        pytest.param(_rows('p >= shift(p, along=h, offset=-2, edge=0)'), (), id='and-so-is-one-a-lookahead-completes'),
+        pytest.param(
+            _rows('p >= shift(p, along=h, offset=width, edge=0)'), (), id='an-undecided-reach-is-not-yet-a-border-row'
+        ),
+        pytest.param(_rows('sum(p, over=h) <= budget', dims=['u']), ('k',), id='a-horizon-total-is-one'),
+        pytest.param(_rows("p >= shift(p, along=h, offset=1, edge='wrap')"), ('k',), id='and-so-is-a-row-that-wraps'),
+    ],
+)
+def test_a_row_reaches_the_border_only_when_no_one_block_holds_it(patch, rows):
+    assert _verdict(**patch).linking_rows == rows, 'the border names each constraint and no other, whole'
+
+
+@pytest.mark.parametrize(
+    ('patch', 'label'),
+    [
+        pytest.param(
+            {
+                'objective': {'sense': 'minimize', 'expression': "sum(shift(p, along=h, offset=1, edge='wrap'))"},
+                **_rows('p >= 0'),
+            },
+            'the objective',
+            id='an-objective-that-wraps-around-the-axis',
+        ),
+        pytest.param(
+            {'sos': {'s': {'variable': 'p', 'over': 'h', 'type': 1, 'big_m': 10}}, **_rows('p >= 0')},
+            "set 's'",
+            id='a-set-the-axis-runs-through',
+        ),
+    ],
+)
+def test_a_coupling_carried_by_a_declaration_that_builds_no_row_stays_off_the_border(patch, label):
+    """The objective is one row that no cut of the axis divides, and a set names
+    columns that already exist. Neither builds a constraint row for a block to
+    hold, so neither reaches the border. The coupling is reported all the same,
+    because a window still cannot honour it."""
+    verdict = _verdict(**patch)
+    assert label in verdict.coupled, 'the coupling is reported against the declaration that carries it'
+    assert verdict.linking_rows == (), 'and the one constraint here is pointwise, so the border holds no row'
