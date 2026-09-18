@@ -43,10 +43,10 @@ result is a scalar. It is `sum(sum(x, over=a), over=b)` written once.
 An operand that is already scalar, and a `over=` naming a dimension the
 operand does not carry, are both errors rather than no-ops.
 
-`sum(x, by=l, over=a, into=b)` sums through a [relation](dimensions.md#relations),
-consuming column `a` and landing the result on column `b`. Both ends are written,
-always. A nodal balance is one `sum(by=)` per kind of component,
-and the network's wiring stays in the relations:
+`sum(x, by=l, over=a, into=b)` sums through a [relation](relations.md),
+consuming column `a` and landing the result on column `b`. A nodal balance is
+one `sum(by=)` per kind of component, and the network's wiring stays in the
+relations:
 
 ```yaml
 dimensions:
@@ -75,10 +75,9 @@ constraints:
 The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
-`sum(by=)` consumes a key column and produces a value column. `over=` and
-`into=` name them, on every call ([walks](dimensions.md#walks)),
-and every other key column is joined on, so each group is one coordinate of it.
-A bare relation, one with no `values:`, is summed with both ends named.
+`sum(by=)` consumes a key column and produces a value column. What the call
+reads, what its result carries, and the six rules it keeps are on
+[how a relation is read](relations.md#how-a-relation-is-read).
 
 The relation's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
@@ -90,9 +89,7 @@ coordinate the data never covered is refused. See [absence](absence.md).
 
 `at(x, by=l, over=a, into=b)` walks the same relation the other way. It consumes
 a value column and produces the key, so it reads one coarse value once for each
-fine label that points at it, and a bare relation is never read by `at`. `over=`
-and `into=` name the columns on every call, and every other key column is read at
-the row's own coordinate ([walks](dimensions.md#walks)).
+fine label that points at it ([walks](relations.md#walks)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus, over=bus, into=line)`.
@@ -234,10 +231,8 @@ group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
 `by=` takes a relation with a key column over the dimension being walked, and
-`within=` names the value columns the group is made of. Both are written
-together, always, so one calendar table serves `within=day` and `within=week`
-alike, and a table that gains a column changes no call
-([partitions](dimensions.md#partitions)). The group columns are what a named
+`within=` names the value columns the group is made of
+([partitions](relations.md#partitions)). The group columns are what a named
 `offset=` may vary over, so each group is reached by its own offset.
 
 A coordinate the relation sends nowhere is in no group, so it reaches nothing, and
