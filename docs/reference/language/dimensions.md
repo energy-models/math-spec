@@ -26,9 +26,8 @@ Every dimension named anywhere in the file is declared here.
 | `dtype`       | `float`, `int`, `str`, `datetime` | default `str`  |
 | `description` | free text, never parsed           | default `null` |
 
-A declaration says that the axis exists and what type its labels have. It never
-lists the labels. The generators, buses and snapshots arrive with the data, and
-**the members keep the order the table gives them**: [`shift`](operators.md#shift),
-`sum_back` and `position()` count along that order. A dimension is never legal
-where a value belongs, because it is a coordinate space and not data. To use
-its labels as data, declare a parameter over it.
+A declaration says that the axis exists and what type its labels have. **The
+dimension holds the authoritative order.** Its members arrive with the data, in
+the order the table gives them. [`shift`](operators.md#shift), `sum_back` and
+`position()` count along that order, and everything indexed by the dimension is
+matched to its members by label.
