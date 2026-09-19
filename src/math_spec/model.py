@@ -582,6 +582,38 @@ PIECEWISE_METHODS = {
 }
 
 
+#: Why ``convex`` and ``lp`` take exactly two links. The two reasons are not
+#: one: ``lp`` needs an abscissa to write a line *against*, and ``convex``
+#: needs one to certify its relaxation against. ``convex``'s own formulation
+#: is n-ary — weights on the simplex and a row per link — and only its
+#: exactness argument is not.
+_TWO_LINKS = {
+    'lp': (
+        'It states the curve as its segment lines, and a line is one quantity against another: without '
+        'a link for the abscissa there is no line to write.'
+    ),
+    'convex': (
+        'It relaxes the weights onto the hull, which is exact only where the optimisation pressure meets '
+        'the curve, and the sign on the bounded link is what names that direction. Past two links there '
+        'is no single direction to check against, so the relaxation would ship uncertified.'
+    ),
+}
+
+#: Why neither takes a link whose row refines the curve. Again two reasons:
+#: ``lp`` cannot tell which of the refined rows is its abscissa, and ``convex``
+#: has no pair of values parameters on one frame to read a shape from.
+_NO_REFINEMENT = {
+    'lp': (
+        'Its segment line is written against an abscissa, and a refinement is one quantity at many fine '
+        'coordinates, so which row plays it is data rather than declaration.'
+    ),
+    'convex': (
+        'It reads one values parameter against another to certify its relaxation, and a refinement puts '
+        'them on different frames, so there is no shape left to check.'
+    ),
+}
+
+
 class PiecewiseBlock(_StrictBlock):
     """N expressions jointly pinned to a breakpoint-indexed piecewise curve.
 
@@ -645,17 +677,15 @@ class PiecewiseBlock(_StrictBlock):
         if (walked := [i for i, link in enumerate(self.links) if link.refined]) and self.method in ('convex', 'lp'):
             msg = (
                 f'method: {self.method} does not take a link whose row refines the curve (link {walked[0]}). '
-                f'Both state the curve as one quantity against another, so each needs a link naming the '
-                f'abscissa — and under a refinement which row plays it is data rather than declaration. Use '
-                f'method: adjacency or sos2, which state the curve through its weights instead.'
+                f'{_NO_REFINEMENT[self.method]} Use method: adjacency or sos2, which state the curve '
+                f'through its weights instead.'
             )
             raise ValueError(msg)
         if self.method in ('convex', 'lp') and len(self.links) != 2:
             msg = (
-                f'method: {self.method} requires exactly two links. It states the curve as one quantity '
-                f'against another — a hull for convex, segment lines for lp — so it needs one link for the '
-                f'abscissa and one for the quantity that is read against it. Use method: adjacency or sos2, '
-                f'which state the curve through its weights and tie as many links as you like.'
+                f'method: {self.method} requires exactly two links. {_TWO_LINKS[self.method]} Use method: '
+                f'adjacency or sos2, which state the curve through its weights and tie as many links as '
+                f'the data says.'
             )
             raise ValueError(msg)
         if self.method == 'lp' and sum(link.sign != '==' for link in self.links) != 1:

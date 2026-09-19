@@ -783,23 +783,25 @@ def test_points_still_nominates_an_unrefined_links_values():
     assert expanded.variables['coupling_lam'].where == 'coupling_points'
 
 
-@pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
-def test_the_two_methods_that_name_an_abscissa_refuse_a_refined_link(method):
-    """Both state the curve as one quantity against another, so each needs a link that plays the x-axis.
+#: Why `convex` and `lp` refuse a refinement. The two reasons are not one, so
+#: neither message may stand in for the other.
+REFINEMENT_REASON = (
+    pytest.param('convex', 'no shape left to check', id='convex'),
+    pytest.param('lp', 'which row plays it is data', id='lp'),
+)
 
-    `lp` writes a segment line and `convex` a hull between two values
-    parameters. Under a refinement the rows are one quantity at many fine
-    coordinates, so which of them is the abscissa is data rather than
-    declaration.
-    """
-    with pytest.raises(LanguageError, match='which row plays it is data'):
+
+@pytest.mark.parametrize(('method', 'match'), REFINEMENT_REASON)
+def test_the_two_restricted_methods_refuse_a_walked_link_for_their_own_reasons(method, match):
+    """`lp` loses the abscissa its line is written against; `convex` loses the pair it reads a shape from."""
+    with pytest.raises(LanguageError, match=match):
         schema_of(REFINED, **{'piecewise.coupling.method': method})
 
 
-@pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
-def test_the_same_two_methods_refuse_a_split_link(method):
-    """A split refines the row the same way a walk does, and leaves the abscissa just as unnamed."""
-    with pytest.raises(LanguageError, match='which row plays it is data'):
+@pytest.mark.parametrize(('method', 'match'), REFINEMENT_REASON)
+def test_the_two_restricted_methods_refuse_a_split_link_too(method, match):
+    """A split refines the row the same way a walk does, and costs each method the same thing."""
+    with pytest.raises(LanguageError, match=match):
         schema_of(SPLIT, **{'piecewise.op.method': method})
 
 
@@ -1038,10 +1040,21 @@ def test_a_single_refined_link_still_needs_pinning():
         )
 
 
-@pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
-def test_the_two_methods_that_name_an_abscissa_take_exactly_two_links(method):
-    """`lp` had no such rule and leaned on the sign cap for it, so three links raised `ValueError`."""
-    with pytest.raises(LanguageError, match='requires exactly two links'):
+@pytest.mark.parametrize(
+    ('method', 'match'),
+    [
+        pytest.param('convex', 'would ship uncertified', id='convex'),
+        pytest.param('lp', 'no line to write', id='lp'),
+    ],
+)
+def test_the_two_restricted_methods_take_exactly_two_links_for_their_own_reasons(method, match):
+    """`lp` had no such rule and leaned on the sign cap for it, so three links raised `ValueError`.
+
+    `convex` builds the same rows for any number of links; what it cannot do
+    past two is certify that relaxing onto the hull is exact, because the sign
+    on the bounded link is what names the direction to check.
+    """
+    with pytest.raises(LanguageError, match=match):
         schema_of(
             THREE_WAY,
             **{

@@ -242,7 +242,7 @@ coordinate, so the relation supplies the arity the second link otherwise would.
 | _over_         | names a column over one of the frame's own dimensions, and needs `by:` beside it       |
 | _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                |
 | `points:`      | names a values parameter of a link that reads no relation, because raggedness is the curve's |
-| `method:`      | `adjacency` or `sos2`. `convex` and `lp` state the curve as one quantity against another, so each needs a link naming the abscissa — and under a refinement which row plays it is data |
+| `method:`      | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from |
 | `where:`       | reaches a link that only gains a dimension. A walk is refused, because it replaces the frame dimension the mask tests — mask the link's own variable instead |
 
 ### Signs
@@ -285,14 +285,17 @@ weights, so the count is whatever the model needs.
 `adjacency` and `sos2` state the same restriction and reach the same optimum.
 They differ in what the solver is handed.
 
-`convex` is a different model. It is exact only for a curve whose curvature
-matches the optimisation pressure, and that match is checked against the
-breakpoint values when the data binds. It takes exactly two links and no
-`activity:`.
+`convex` is a different model. It relaxes the weights onto the hull the
+breakpoints span, which is exact only for a curve whose curvature matches the
+optimisation pressure. That match is checked against the breakpoint values when
+the data binds, and the sign on the bounded link is what names the direction to
+check it in. So `convex` takes exactly two links: the rows it builds would serve
+any number, but past two there is no single direction left to certify the
+relaxation against. It takes no `activity:`.
 
-`lp` states the curve as its segment lines. Like `convex` it takes **exactly two
-links**, because a line is one quantity against another: one link names the
-abscissa and one is bounded by the lines. It takes no `activity:`:
+`lp` states the curve as its segment lines. It takes **exactly two links**,
+because a line is one quantity against another: one link names the abscissa and
+one is bounded by the lines. It takes no `activity:`:
 
 ```yaml
 piecewise:
