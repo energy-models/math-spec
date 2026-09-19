@@ -205,10 +205,12 @@ so.
   those four as one job.
 - **Every file carries an SPDX header**, or an entry in `REUSE.toml`.
   `reuse lint` is part of `lint`, and a new file without either one fails it.
-- **The docs build is `--strict`.** So three things are build failures: a page
-  added with no nav entry in `mkdocs.yml`, a dead cross-link, and a stale
-  anchor. A generated page also belongs in `.prettierignore`. Without that entry,
-  the formatter and the generator fight over the page.
+- **The docs build is `--strict`.** So a dead cross-link and a stale anchor are
+  build failures. A page added with no nav entry in `mkdocs.yml` is not: the
+  site is built by zensical, which validates links and leaves navigation alone,
+  and `tests/test_docs.py::test_every_page_under_docs_has_a_nav_entry` is what
+  asks that question. A generated page also belongs in `.prettierignore`.
+  Without that entry, the formatter and the generator fight over the page.
 
 ## Code
 

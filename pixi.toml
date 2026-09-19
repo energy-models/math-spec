@@ -109,31 +109,36 @@ pre-commit-install = "lefthook install"
 lint = "lefthook run pre-commit --all-files"
 
 [feature.docs.dependencies]
-mkdocs = ">=1.6,<2"
-mkdocs-material = ">=9.5"
+# The site generator. It reads `mkdocs.yml`, and carries the theme, the search
+# index and the renderer in one package, which is what retired mkdocs,
+# mkdocs-material and three plugins nothing configured.
+#
+# Pinned exactly, for the reason ruff and pyrefly are: this is pre-1.0, and
+# what a 0.0.x bump changes is the gate's own output.
+zensical = "==0.0.61"
+# The Python API pages render through mkdocstrings itself — zensical maps the
+# plugin configuration onto it and refuses to build when it is missing. mkdocs
+# arrives as a dependency of mkdocstrings and nothing here calls it.
 mkdocstrings = ">=0.29"
 mkdocstrings-python = ">=1.16"
-mkdocs-bibtex = ">=2.16"
-pymdown-extensions = ">=10.0"
-mkdocs-macros-plugin = ">=1.0"
-mkdocs-table-reader-plugin = ">=3.1"
+pymdown-extensions = ">=11.0"
+# `python -m zensical`, not the `zensical` console script: the site enables
+# `tools.mdx_github_math`, and only `-m` puts the workspace root on `sys.path`
+# for python-markdown to import it from. The script form fails the build with
+# `No module named 'tools'`.
 [feature.docs.tasks.docs-serve]
-cmd = "mkdocs serve"
+cmd = "python -m zensical serve"
 [feature.docs.tasks.docs-build]
-# `--strict` turns every mkdocs warning into a failure, so this catches a dead
-# cross-link, a page added without a nav entry, and an anchor that stopped
-# resolving.
+# `--strict` turns every warning into a failure, so this catches a dead
+# cross-link and an anchor that stopped resolving. It does not catch a page
+# added without a nav entry: zensical validates links and leaves navigation
+# alone, so `tests/test_docs.py::test_every_page_under_docs_has_a_nav_entry`
+# is what asks that question now.
 #
-# `{{ dir }}` is pixi's own arg template and must reach pixi intact. The
-# upstream copier template writes it in a .jinja file without a `raw` block, so
-# copier interpolates it at generation and every repo built from the template
-# gets `-d /html` — an absolute path at the filesystem root, with the declared
-# `dir` argument silently discarded. That is why Read the Docs found no output.
-cmd = "mkdocs build --strict -d {{ dir }}/html"
-# The default matches `site_dir` in mkdocs.yml, so a bare `pixi run docs-build`
-# lands where .gitignore already expects it. Read the Docs passes
-# $READTHEDOCS_OUTPUT instead.
-args = [{ arg = "dir", default = ".docs" }]
+# No `{{ dir }}` argument, because `zensical build` takes no site directory.
+# The site lands where `site_dir` in mkdocs.yml says, and `.readthedocs.yml`
+# copies it into $READTHEDOCS_OUTPUT from there.
+cmd = "python -m zensical build --strict"
 
 # The compile half of the render gate. tectonic rather than a system TeX: it is
 # one self-contained binary that pulls the packages a document asks for, so the
