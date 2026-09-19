@@ -40,7 +40,7 @@ variables:
     bounds: { lower: 0 }
 piecewise:
   curve:
-    over: bp
+    along: bp
     links:
       - [p, bp_x]
       - [cost, bp_y, ">="]

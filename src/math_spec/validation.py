@@ -156,6 +156,11 @@ def validate_expressions(schema: Spec) -> Resolved:
         if expression is not None:
             constraints[cname] = ResolvedConstraint(expression, mask_of(where))
 
+    piecewise = {
+        name: mask_of(resolve_where_text(ex.block.where, ns, f"piecewise '{name}'", errors))
+        for name, ex in schema.expanded_piecewise.items()
+    }
+
     objective = None
     if schema.objective is not None:
         objective = _check_expression(
@@ -165,7 +170,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
+    resolved = Resolved(expressions, variables, constraints, objective, ns.relations, piecewise)
     check_schema(schema, resolved)
     return resolved
 

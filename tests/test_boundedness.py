@@ -71,7 +71,7 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
         pytest.param({'variables.v.bounds': {'lower': 'c'}}, id='a-parameter-bound-is-data'),
         pytest.param({'variables.v.domain': 'binary'}, id='a-binary-is-bounded-by-its-domain'),
         pytest.param({'constraints': {'k': {'dims': ['g'], 'expression': 'v >= c'}}}, id='named-by-a-constraint'),
-        pytest.param({'sos': {'s': {'variable': 'v', 'over': 'g', 'type': 1}}}, id='carried-by-a-set'),
+        pytest.param({'sos': {'s': {'variable': 'v', 'along': 'g', 'type': 1}}}, id='carried-by-a-set'),
         pytest.param({'objective.expression': 'sum(c * v, over=g)'}, id='a-parameter-coefficient-may-be-zero'),
         pytest.param({'objective.expression': 'sum(v - v, over=g)'}, id='both-signs-may-cancel'),
         pytest.param({'objective.expression': 'sum(v * v, over=g)'}, id='a-degree-two-term-carries-no-sign'),
@@ -141,6 +141,6 @@ def test_a_curve_holds_its_variables_through_the_rows_it_emits():
         'dimensions.bp': {'dtype': 'int'},
         'parameters.bx': {'dims': ['bp']},
         'parameters.by': {'dims': ['bp']},
-        'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bx'], ['w', 'by']]}},
+        'piecewise': {'curve': {'along': 'bp', 'links': [['v', 'bx'], ['w', 'by']]}},
     }
     assert _notes(**curve) == [], 'the emitted link rows pin v and w, so neither is unopposed'

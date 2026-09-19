@@ -144,9 +144,9 @@ def separabilities(program: Program) -> dict[str, Separability]:
     for name, block in program.sos.items():
         report(
             'coupled',
-            block.over,
+            block.along,
             f"set '{name}'",
-            f'is a set over {block.over}, which a window would cut — only a window holding every whole set keeps it',
+            f'is a set along {block.along}, which a window would cut — only a window holding every whole set keeps it',
         )
 
     def joined(kind: str, dimension: str) -> dict[str, str]:

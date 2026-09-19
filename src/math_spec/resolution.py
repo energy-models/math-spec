@@ -207,6 +207,8 @@ class Resolved:
             stood, so a walk over one sees the whole chain.
         variables: Each variable's ``where``.
         constraints: Each constraint's comparison and ``where``.
+        piecewise: Each expanded block's own ``where`` — which coordinates
+            have a curve — keyed as ``expanded_piecewise`` is.
         objective: The objective's expression, ``None`` where the file
             declares none.
         relations: Each relation's columns and key, as declared — the one
@@ -219,6 +221,7 @@ class Resolved:
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
     relations: dict[str, RelationDeclaration]
+    piecewise: dict[str, Mask | None]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:

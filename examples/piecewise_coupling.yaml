@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A heat and power system whose converters each run on one piecewise curve
+  tying all of their flows. A boiler ties two flows and a CHP unit three, in
+  one model: the curve reads its weights through `converter_of`, so how many
+  flows a converter ties is a row in that relation rather than a line here.
+
+dimensions:
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  converter:
+    description: units that turn one carrier into others
+    dtype: str
+  flow:
+    description: one carrier entering or leaving one converter
+    dtype: str
+  carrier:
+    description: what a flow carries — gas, heat, electricity
+    dtype: str
+  bp:
+    description: breakpoints of the operating curve
+    dtype: int
+
+relations:
+  converter_of:
+    description: which converter each flow belongs to
+    key: flow
+    values: converter
+  carrier_of:
+    description: what each flow carries
+    key: flow
+    values: carrier
+
+parameters:
+  demand:
+    description: what each carrier has to deliver in each period
+    dims: [carrier, snapshot]
+  price:
+    description: what a unit bought on the market costs
+    dims: [carrier]
+  bp_rate:
+    description: >-
+      the rate of each flow at each corner of its converter's curve — the
+      table that says a CHP's fuel, heat and power move together
+    dims: [flow, bp]
+
+variables:
+  rate:
+    description: >-
+      how much of each flow runs in each period, positive where the flow leaves
+      its converter and negative where it enters
+    dims: [flow, snapshot]
+  bought:
+    description: what the market supplies where the converters do not
+    dims: [carrier, snapshot]
+    bounds:
+      lower: 0
+
+piecewise:
+  operating_point:
+    description: >-
+      every flow of one converter is read off one curve at one operating point,
+      so the converter's flows move together
+    along: bp
+    dims: [converter, snapshot]
+    links:
+      - expression: rate
+        values: bp_rate
+        by: converter_of
+        over: converter
+        into: flow
+    method: sos2
+
+constraints:
+  balance:
+    description: every carrier is delivered by the converters, or bought
+    dims: [carrier, snapshot]
+    expression: sum(rate, by=carrier_of, over=flow, into=carrier) + bought == demand
+
+objective:
+  sense: minimize
+  description: what the market supplies, priced by carrier
+  expression: sum(bought * price)

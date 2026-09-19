@@ -338,7 +338,7 @@
     },
     "PiecewiseBlock": {
       "additionalProperties": false,
-      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).",
+      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``along`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\nThe block builds one curve per coordinate of the **frame**. ``dims:``\ndeclares it; where the file writes none it is inferred as the union of the\nlink expressions' dims. Three keys say something different about those\ncoordinates: ``where:`` which of them have a curve, ``points:`` how far each\ncurve runs along ``along``, and ``activity:`` whether a curve that exists is\nswitched on.\n\nA link naming ``by:`` sits on a refinement of the frame, so the number of\nexpressions one curve ties is data. Such a block declares its ``dims:``,\nbecause the frame can no longer be told from the links.",
       "properties": {
         "activity": {
           "anyOf": [
@@ -352,6 +352,10 @@
           "default": null,
           "title": "Activity"
         },
+        "along": {
+          "title": "Along",
+          "type": "string"
+        },
         "description": {
           "anyOf": [
             {
@@ -363,6 +367,21 @@
           ],
           "default": null,
           "title": "Description"
+        },
+        "dims": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dims"
         },
         "links": {
           "items": {
@@ -382,10 +401,6 @@
           "title": "Method",
           "type": "string"
         },
-        "over": {
-          "title": "Over",
-          "type": "string"
-        },
         "points": {
           "anyOf": [
             {
@@ -397,10 +412,22 @@
           ],
           "default": null,
           "title": "Points"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
         }
       },
       "required": [
-        "over",
+        "along",
         "links"
       ],
       "title": "PiecewiseBlock",
@@ -410,11 +437,59 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "One link of a piecewise block: an expression pinned to a values curve.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]`` and serialised back to exactly that form, so a round trip through\n:meth:`Spec.to_yaml` reproduces the file.",
+          "description": "One link of a piecewise block: an expression pinned to a values curve.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]``, and serialised back to exactly that form, so a round trip through\n:meth:`Spec.to_yaml` reproduces the file.\n\nA link that names ``into:`` sits on a **refinement** of the curve's frame\nrather than on the frame itself, and is written as a mapping. Its row is\n``(frame - over) | into``, the frame law a relation walk already follows, so\none link emits a row per fine coordinate and the weights it reads stay on\nthe curve's own frame. That is what lets one curve tie as many expressions\nas the data says.\n\nTwo forms, one law. ``into:`` alone names a dimension the row gains and the\nweights broadcast across, so every coordinate of it is a tie to the one\noperating point. ``by:``, ``over:`` and ``into:`` together are the\n:func:`at` walk, which loses a frame dimension and gains what the relation\nmaps it to.",
           "properties": {
+            "by": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "By"
+            },
             "expression": {
               "title": "Expression",
               "type": "string"
+            },
+            "into": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Into"
+            },
+            "over": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Over"
             },
             "sign": {
               "default": "==",
@@ -517,8 +592,12 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``along``; the\nmembers are the variable's *existing* coordinates along ``along``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
       "properties": {
+        "along": {
+          "title": "Along",
+          "type": "string"
+        },
         "big_m": {
           "anyOf": [
             {
@@ -543,10 +622,6 @@
           "default": null,
           "title": "Description"
         },
-        "over": {
-          "title": "Over",
-          "type": "string"
-        },
         "type": {
           "enum": [
             1,
@@ -562,7 +637,7 @@
       },
       "required": [
         "variable",
-        "over",
+        "along",
         "type"
       ],
       "title": "SosBlock",

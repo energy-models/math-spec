@@ -49,7 +49,7 @@ piecewise:
     description: >-
       cost read off the generator's curve — convex, so the weights need no
       binaries to keep them on one segment
-    over: bp
+    along: bp
     links:
       - [dispatch, bp_x]
       - [op_cost, bp_y]

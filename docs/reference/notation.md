@@ -996,7 +996,7 @@ names:
 
 ```yaml
 economies_of_scale:
-  over: bp
+  along: bp
   links:
     - [shipment, bp_x]
     - [scaled, bp_y]
@@ -1047,7 +1047,7 @@ names:
 
 ```yaml
 cost_curve:
-  over: bp
+  along: bp
   links:
     - [dispatch, bp_x]
     - [op_cost, bp_y]
@@ -1091,7 +1091,7 @@ names:
 
 ```yaml
 cost_curve:
-  over: bp
+  along: bp
   links:
     - [dispatch, bp_x]
     - [op_cost, bp_y]
@@ -1130,7 +1130,7 @@ names:
 
 ```yaml
 cost_curve:
-  over: bp
+  along: bp
   links:
     - [dispatch, bp_x]
     - [op_cost, bp_y, ">="]
@@ -1158,7 +1158,7 @@ at most two adjacent members nonzero, one set per snapshot
 ```yaml
 adjacent:
   variable: weight
-  over: generator
+  along: generator
   type: 2
 ```
 

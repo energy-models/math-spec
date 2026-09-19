@@ -839,9 +839,9 @@ class Walk:
         family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(dims)))
         return Line(
             label=f'{name} sos',
-            left=self.format.subscript(family, [self._membership(block.over)]),
+            left=self.format.subscript(family, [self._membership(block.along)]),
             right=f'{self._op("in")} {self._op("sos_set")}{block.type}',
-            condition=self._quantifier([d for d in dims if d != block.over], ''),
+            condition=self._quantifier([d for d in dims if d != block.along], ''),
         )
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
