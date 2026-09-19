@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec import piecewise, to_spec
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, schema_of, varied
 from tests.test_sos import CURVE
 from tools.render_tex import models
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 #: The curve masked by one of its own values parameters, the one block whose
 #: rows sit on more than the file's own names.
-MASKED = override(
+MASKED = varied(
     CURVE,
     **{
         'piecewise.cost_curve.method': 'lp',

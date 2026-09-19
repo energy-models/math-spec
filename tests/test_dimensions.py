@@ -15,7 +15,7 @@ from math_spec.errors import SchemaError
 from math_spec.program import Mask, RelationPairComparison
 from math_spec.resolution import Namespace
 from math_spec.validation import to_spec
-from tests.fixtures import expression_of, override, schema_of, where_of
+from tests.fixtures import expression_of, schema_of, varied, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -453,7 +453,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
 
     def _refused(self, expression: str) -> str:
         """The message `to_spec` refuses *expression* with — a `SchemaError`, since every rule here is resolution's."""
-        raw = override(self.BASE, **{'constraints.k.expression': expression})
+        raw = varied(self.BASE, **{'constraints.k.expression': expression})
         with pytest.raises(SchemaError) as caught:
             to_spec(raw)
         return str(caught.value)
@@ -507,7 +507,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         literal zero vacates none, so there is nothing for an `edge=` to answer
         for. A *named* offset may be zero in the data and is not known here.
         """
-        to_spec(override(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, along=g, offset=0)'}))
+        to_spec(varied(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, along=g, offset=0)'}))
 
 
 # ---------------------------------------------------------------------------

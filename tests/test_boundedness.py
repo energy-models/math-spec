@@ -14,9 +14,9 @@ import pytest
 
 from math_spec.boundedness import unbounded_notes
 from math_spec.operators import BUILTIN_NAMES
-from tests.fixtures import SMALL_MODEL, override, schema_of
+from tests.fixtures import SMALL_MODEL, schema_of, varied
 
-BASE = override(
+BASE = varied(
     SMALL_MODEL,
     variables={'v': {'dims': ['g']}, 'w': {'dims': ['g']}},
     objective={'sense': 'minimize', 'expression': 'sum(v, over=g)'},
