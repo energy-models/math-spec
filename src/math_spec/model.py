@@ -769,6 +769,10 @@ class Spec(_StrictBlock):
     relations: dict[str, RelationBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
+    #: What this file reads and does not build (:class:`GivenBlock`): columns
+    #: under ``variables:``, row families under ``constraints:``. Empty in a
+    #: file that stands alone.
+    given: GivenBlock = GivenBlock()
     constraints: dict[str, ConstraintBlock] = {}
     objective: ObjectiveBlock | None = None
     expressions: dict[str, ExpressionBlock] = {}
@@ -776,10 +780,6 @@ class Spec(_StrictBlock):
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
     assumptions: dict[str, AssumptionBlock] = {}
-    #: What this file reads and does not build (:class:`GivenBlock`): columns
-    #: under ``variables:``, row families under ``constraints:``. Empty in a
-    #: file that stands alone.
-    given: GivenBlock = GivenBlock()
 
     @cached_property
     def program(self) -> Program:

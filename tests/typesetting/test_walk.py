@@ -509,7 +509,7 @@ def test_a_given_quantity_is_upright(name: str, expected: str):
     r"""Upright is what the data supplies, and it admits no exception — not for
     a single letter, and not for a Greek name, where an italic `\eta` that
     might be either is worse than an upright `\mathrm{eta}` that is one."""
-    assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX, given=True) == expected
+    assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX, upright=True) == expected
 
 
 @EVERY_FORMAT

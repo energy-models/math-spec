@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -124,20 +124,37 @@ def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_
     )
 
 
+#: A column and a row family this file reads, each named by something that prints.
+GIVEN = override(
+    PLAIN,
+    **{
+        'given.variables.flow': {'dims': ['snapshot']},
+        'given.constraints.clearing': {'dims': ['snapshot']},
+        'expressions.price': 'dual(clearing)',
+        'expressions.drawn': 'flow * 2',
+    },
+)
+
+
 @pytest.mark.parametrize(
-    ('name', 'match'),
+    ('model', 'name', 'match'),
     [
         pytest.param(
+            PLAIN,
             'spent',
             r"'spent' is not a named expression, constraint, assumption, curve or variable.*spend",
             id='a-near-miss',
         ),
-        pytest.param('objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
+        pytest.param(PLAIN, 'objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
+        pytest.param(GIVEN, 'flow', r"'flow' is a given variable.*no line of its own.*legend", id='a-given-variable'),
+        pytest.param(
+            GIVEN, 'clearing', r"'clearing' is a given constraint.*no line of its own.*legend", id='a-given-constraint'
+        ),
     ],
 )
-def test_a_name_declared_as_none_of_the_four_is_refused(name: str, match: str):
+def test_a_name_that_prints_no_line_of_its_own_is_refused(model: dict[str, Any], name: str, match: str):
     with pytest.raises(SchemaError, match=match):
-        typeset_declaration(PLAIN, name, 'latex')
+        typeset_declaration(model, name, 'latex')
 
 
 def test_a_name_shared_by_a_constraint_and_a_variable_is_refused_rather_than_guessed():

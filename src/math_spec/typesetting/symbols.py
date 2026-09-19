@@ -45,22 +45,22 @@ _GREEK = frozenset(
 )  # fmt: skip
 
 
-def _word(name: str, fmt: Format, *, given: bool) -> str:
-    r"""One name as one symbol: upright where *given*, italic where chosen.
+def _word(name: str, fmt: Format, *, upright: bool) -> str:
+    r"""One name as one symbol: *upright* where the data supplies it, italic where chosen.
 
     A Greek name is set as the letter only where chosen. Upright lower-case
     Greek needs ``upgreek``, which the two-package preamble and GitHub's
-    MathJax both lack, so a given ``eta`` prints as ``\mathrm{eta}``; a table
+    MathJax both lack, so an upright ``eta`` prints as ``\mathrm{eta}``; a table
     entry is how an author who loads ``upgreek`` writes ``\upeta``.
     """
-    if given:
+    if upright:
         return fmt.upright(name)
     if name in _GREEK:
         return fmt.greek(name)
     return name if len(name) == 1 else fmt.italic(name)
 
 
-def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, given: bool = False) -> str:
+def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, upright: bool = False) -> str:
     r"""``p`` → ``p``; ``load`` → ``\mathit{load}``; ``p_max`` → ``p^{\mathrm{max}}``.
 
     An underscore is a qualifier, landing in the superscript, only where its
@@ -70,8 +70,8 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
     """
     head, _, tail = name.partition('_')
     if tail and (len(head) == 1 or head in _GREEK or head in declared):
-        return fmt.superscript(_word(head, fmt, given=given), fmt.upright(tail.replace('_', ',')))
-    return _word(name, fmt, given=given)
+        return fmt.superscript(_word(head, fmt, upright=upright), fmt.upright(tail.replace('_', ',')))
+    return _word(name, fmt, upright=upright)
 
 
 def chosen_expressions(program: Program) -> frozenset[str]:
@@ -138,12 +138,12 @@ def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
     declared = frozenset(names)
 
     name = {
-        n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, given=n not in chosen)
+        n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, upright=n not in chosen)
         for n in names
     }
     spoken_for = {s for s in name.values() if len(s) == 1}
     constraint = {
-        n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, given=True)
+        n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, upright=True)
         for n in (*program.constraints, *program.given.constraints)
     }
 

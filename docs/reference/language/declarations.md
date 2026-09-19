@@ -102,13 +102,13 @@ dimensions:
   generator: { dtype: str }
 relations:
   gen_port: { key: generator, values: port }
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
 given:
   variables:
     flow:
       dims: [snapshot, port]
       description: what a port puts into its bus
-variables:
-  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
 constraints:
   gen_injects:
     dims: [snapshot, generator]
@@ -156,7 +156,7 @@ expressions:
 | `dims`        | required. The dimensions the row family runs over |                |
 | `description` | free text                                         | default `null` |
 
-There is no `expression` and no `sense`, because nothing here builds the row.
+There is no `expression` and no `sense`.
 `dual(name)` is the only place a given row family may be named, and the frame
 gives the reported expression its dimensions. A name declared under both
 `constraints:` and `given: constraints:` is refused.
