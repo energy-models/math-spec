@@ -75,7 +75,8 @@ file.
 
    The marker is the declaration itself. Deeper down, `null` is a value the
    schema takes: `dispatch: { where: null }` gives that variable no mask, and
-   leaves the variable in place.
+   leaves the variable in place. Higher up, `constraints: null` is refused,
+   because a section is not a declaration and nulling it removes nothing.
 
 4. **Nest the calls where one patch refines another.** The second call lays
    its patch on the first call's result, so the order is on the page.
@@ -91,7 +92,8 @@ file.
 | some fields of a declaration                                | those fields change, and the rest of the declaration stays                    |
 | a whole declaration under a new name                        | it is added                                                                   |
 | `null` under a declaration's name                           | it is removed                                                                 |
-| a dimension or a relation                                   | it is added, or restated exactly as the base declares it                      |
+| `null` under a section's name                               | it is refused                                                                 |
+| a dimension or a relation                                   | it is added, or restated word for word as the base declares it                |
 | an entry under `given: variables:` or `given: constraints:` | it is edited, added or removed like any declaration, and the other kind stays |
 | `version`, `description`                                    | the patch's value replaces the base's                                         |
 
@@ -115,14 +117,25 @@ Two patches writing one field is refused, both named:
 patches 'pathway' and 'project': both write variables.dispatch.bounds.upper. Patches laid on one base are disjoint, so nothing decides which of two writes wins. Write the change in one patch, or lay one patch on the result of the other: override(override(base, {'pathway': …}), {'project': …}).
 ```
 
-## An axis redeclared
+## A dimension redeclared
 
 A patch may add a dimension or a relation, and may restate one the base
-declares. Changing one under the expressions already written over it is
-refused:
+declares. The restatement is word for word: half a declaration is a second
+reading of the same name. Changing one under the expressions already written
+over it is refused, and so is removing one:
 
 ```text
-patch 'relabelled' declares the dimension 'snapshot' as {'dtype': 'str'}, where its base declares {'dtype': 'int'}. A patch adjusts the math, not the axes the math is already written over: restate the declaration exactly, leave it out, or give the patch an axis of its own under a name of its own.
+patch 'relabelled' declares the dimension 'snapshot' as {'dtype': 'str'}, where its base declares {'dtype': 'int'}. A patch adjusts the math, not the coordinate space the math is already written over: restate the declaration word for word, leave it out, or give the patch a dimension of its own under a name of its own.
+```
+
+## A section set to `null`
+
+A `null` removes the declaration it names. A section holds declarations rather
+than being one, so nulling a section is refused rather than read as emptying
+it:
+
+```text
+patch 'project' sets 'constraints' to null, which removes nothing: the removal marker names one declaration, and a section is not one. Remove the declarations one at a time, each under its own name, or leave the section out of the patch.
 ```
 
 ## A stale removal

@@ -24,12 +24,14 @@ What a patch may say, and what is refused:
 * **Sibling patches are disjoint.** Two patches writing one field is refused,
   both named, so the order they are given in never decides a model. Layering
   is written out as ``override(override(base, …), …)``.
-* **A patch adjusts the math, not the axes.** A ``dimensions`` or ``relations``
-  entry may be added or restated exactly, never changed.
+* **A patch adjusts the math, not the coordinate space.** A ``dimensions`` or
+  ``relations`` entry may be added or restated word for word, never changed and
+  never removed.
 * **A declaration set to** ``null`` **is removed**, and a removal of what the
   base does not declare is refused. The marker is positional: ``constraints:
   {ramp: null}`` removes the constraint, where ``variables: {p: {where: null}}``
-  sets that variable's mask to none, which is a value the schema takes.
+  sets that variable's mask to none, which is a value the schema takes. A whole
+  section set to ``null`` is refused, because it removes nothing.
 * **``given:`` is laid over one kind at a time**, by the same rules as any
   owned section.
 """
@@ -50,8 +52,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 #: The declarations that are the coordinate space rather than the math. A patch
-#: may add one, and may restate one its base already declares; it may not say
-#: something else about it.
+#: may add one, and may restate one its base already declares word for word; it
+#: may not say something else about it, and it may not remove it.
 SHARED_SECTIONS = ('dimensions', 'relations')
 
 #: The declarations a patch edits, creates or removes.
@@ -93,8 +95,8 @@ def override(
     Raises:
         LanguageError: A patch edits or removes a declaration its base does not
             declare; a patch creates one that is not whole; a patch redeclares
-            a dimension or a relation as something else; or two patches write
-            one field.
+            or removes a dimension or a relation; a patch sets a whole section
+            to ``null``; or two patches write one field.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
     read = {name: _declarations(patch) for name, patch in patches.items()}
@@ -225,16 +227,33 @@ def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str) -> dict[st
     laid = dict(base)
     for key, value in patch.items():
         if key == 'given':
-            laid[key] = _given(laid.get(key) or {}, value or {}, name)
+            laid[key] = _given(laid.get(key) or {}, _section(value, key, name), name)
         elif key in SHARED_SECTIONS:
-            laid[key] = _shared(laid.get(key) or {}, value or {}, key, name)
+            laid[key] = _shared(laid.get(key) or {}, _section(value, key, name), key, name)
         elif key in OWNED_SECTIONS:
-            laid[key] = _owned(laid.get(key) or {}, value or {}, _singular(key), _entry_class(Spec, key), name)
+            block = _section(value, key, name)
+            laid[key] = _owned(laid.get(key) or {}, block, _singular(key), _entry_class(Spec, key), name)
         elif key == 'objective':
             laid = _objective(laid, value, name)
         else:
             laid[key] = value
     return laid
+
+
+def _section(value: Any, where: str, name: str) -> dict[str, Any]:
+    """The block a patch writes under one section, a ``null`` section being refused rather than read as empty.
+
+    A section is not a declaration, so the removal marker does not reach it. An
+    empty mapping laid over a base says nothing either, and this is the spelling
+    a writer reaches for when they mean to empty the section.
+    """
+    if value is None:
+        raise LanguageError(
+            f"patch '{name}' sets '{where}' to null, which removes nothing: the removal marker names one "
+            f'declaration, and a section is not one. Remove the declarations one at a time, each under its '
+            f'own name, or leave the section out of the patch.'
+        )
+    return cast('dict[str, Any]', value)
 
 
 def _given(declared: dict[str, Any], patch: dict[str, Any], name: str) -> dict[str, Any]:
@@ -247,37 +266,39 @@ def _given(declared: dict[str, Any], patch: dict[str, Any], name: str) -> dict[s
     for kind, block in patch.items():
         if kind in GIVEN_KINDS:
             cls = _entry_class(GivenBlock, kind)
-            out[kind] = _owned(out.get(kind) or {}, block or {}, GIVEN_KINDS[kind], cls, name)
+            entries = _section(block, f'given: {kind}:', name)
+            out[kind] = _owned(out.get(kind) or {}, entries, GIVEN_KINDS[kind], cls, name)
         else:
             out[kind] = block
     return out
 
 
 def _shared(declared: dict[str, Any], patch: dict[str, Any], section: str, name: str) -> dict[str, Any]:
-    """One ``dimensions`` or ``relations`` block: a patch adds an axis or restates one, never changes it."""
+    """One ``dimensions`` or ``relations`` block: a patch adds one or restates one, never changes or drops it.
+
+    The restatement is compared for equality rather than field by field: a
+    patch that names half a declaration is as much a second reading of the
+    coordinate space as one that names another value.
+    """
     out = dict(declared)
+    singular = _singular(section)
     for key, block in patch.items():
         if block is None:
-            _removed(out, key, _singular(section), name)
-        elif key not in out:
-            out[key] = block
-        elif not _agrees(out[key], block):
             raise LanguageError(
-                f"patch '{name}' declares the {_singular(section)} '{key}' as {block!r}, where its base "
-                f'declares {out[key]!r}. A patch adjusts the math, not the axes the math is already '
-                f'written over: restate the declaration exactly, leave it out, or give the patch an '
-                f'axis of its own under a name of its own.'
+                f"patch '{name}' removes the {singular} '{key}'. The coordinate space is what the math is "
+                f'written over, and a patch adjusts the math rather than the space: leave the {singular} out '
+                f'of the patch, and remove the declarations written over it one at a time.'
+            )
+        if key not in out:
+            out[key] = block
+        elif out[key] != block:
+            raise LanguageError(
+                f"patch '{name}' declares the {singular} '{key}' as {block!r}, where its base "
+                f'declares {out[key]!r}. A patch adjusts the math, not the coordinate space the math is '
+                f'already written over: restate the declaration word for word, leave it out, or give the '
+                f'patch {_a(singular)} of its own under a name of its own.'
             )
     return out
-
-
-def _agrees(under: Any, over: Any) -> bool:
-    """Whether *over* says only what *under* already says, a field the patch omits being no claim."""
-    if isinstance(over, dict):
-        return isinstance(under, dict) and all(
-            key in under and _agrees(under[key], value) for key, value in over.items()
-        )
-    return bool(under == over)
 
 
 def _owned(
