@@ -17,11 +17,13 @@ import json
 import re
 import textwrap
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from math_spec import to_spec
+import yaml
+
+from math_spec import merge, override, to_spec
 from math_spec.typesetting import to_markdown
-from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import ROOT, sidecar_for, splice, tab, without_header
 from tools._page import main as page_main
 from tools.notation import equations
 from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
@@ -29,7 +31,14 @@ from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from math_spec.model import Spec
+
 PAGES = ROOT / 'docs' / 'examples'
+LIBRARY = ROOT / 'examples' / 'library'
+#: How `examples/library/` prints: one table for every fragment, the model
+#: they compose and each variant laid over it. `symbols_for` cuts it to what
+#: one model declares, because a table naming anything else is refused.
+LIBRARY_SYMBOLS = ROOT / 'examples' / 'symbols' / 'library.yaml'
 BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 
 #: Page -> the model it shows. One model per page, because a gallery of
@@ -37,6 +46,20 @@ BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
     'commitment.md': ROOT / 'examples' / 'commitment.yaml',
+    'library/surface.md': LIBRARY / 'surface.yaml',
+    'library/generator.md': LIBRARY / 'generator.yaml',
+    'library/load.md': LIBRARY / 'load.yaml',
+}
+
+#: Page -> the fragments whose composition it shows, and the patches laid over
+#: it. The model is what `merge` returns, which no file in the tree holds, so
+#: the page carries it as YAML beside the math it prints. A patch has no math
+#: of its own, so each one prints as the model it lands on, in a tab of its own.
+COMPOSED = {
+    'library/composed.md': (
+        [LIBRARY / name for name in ('surface.yaml', 'generator.yaml', 'load.yaml')],
+        {path.stem: path for path in sorted((LIBRARY / 'variants').glob('*.yaml'))},
+    ),
 }
 
 #: Page -> the model it shows one declaration at a time — its YAML, then the
@@ -61,6 +84,48 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 def model_block(path: Path) -> str:
     """One model, then the whole document the typesetter prints from it."""
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
+
+
+def symbols_for(model: Spec) -> dict[str, Any]:
+    """The library's symbol table, cut to the dimensions and names *model* declares."""
+    table = yaml.safe_load(LIBRARY_SYMBOLS.read_text())
+    named = {*model.parameters, *model.variables, *model.given.variables, *model.expressions, *model.constraints}
+    return {
+        'notation': table['notation'],
+        'dimensions': {name: symbol for name, symbol in table['dimensions'].items() if name in model.dimensions},
+        'names': {name: symbol for name, symbol in table['names'].items() if name in named},
+    }
+
+
+def library_block(path: Path) -> str:
+    """One fragment of the library, then its document in the notation the whole library prints in."""
+    model = to_spec(path)
+    printed = to_markdown(model, symbols=symbols_for(model), numbered=False)
+    return f'```yaml\n{without_header(path)}\n```\n\n{printed.strip()}'
+
+
+def composed_block(fragments: list[Path], patches: dict[str, Path]) -> str:
+    """The mapping `merge` returns for *fragments* as YAML, then its document as composed and under each patch.
+
+    The composed YAML is generated rather than committed, so the page cannot
+    show a composition the fragments beside it no longer make. A patch is
+    refused on its own, so its tab carries the patch file and then the whole
+    document of the model it is laid over.
+    """
+    composed = merge({path.stem: path for path in fragments})
+    model = to_spec(composed)
+    tabs = [tab('As composed', to_markdown(model, symbols=symbols_for(model), numbered=False).strip())]
+    for name, path in patches.items():
+        patched = to_spec(override(composed, {name: path}))
+        tabs.append(
+            tab(
+                f'With {name}',
+                f'```yaml title="variants/{path.name}"\n{without_header(path)}\n```\n\n'
+                f'{to_markdown(patched, symbols=symbols_for(patched), numbered=False).strip()}',
+            )
+        )
+    dumped = yaml.safe_dump(composed, sort_keys=False, default_flow_style=None, allow_unicode=True, width=100).strip()
+    return f'```yaml\n{dumped}\n```\n\n' + '\n\n'.join(tabs)
 
 
 def probe_block() -> str:
@@ -183,6 +248,10 @@ def block(page: str) -> str:
         return probe_block()
     if page in DECLARED:
         return declared_block(DECLARED[page])
+    if page in COMPOSED:
+        return composed_block(*COMPOSED[page])
+    if page.startswith('library/'):
+        return library_block(MODELS[page])
     return model_block(MODELS[page])
 
 
@@ -194,7 +263,7 @@ def rendered(page: str, text: str) -> str:
 
 
 def pages() -> list[str]:
-    return [*MODELS, *DECLARED, 'operators.md']
+    return [*MODELS, *COMPOSED, *DECLARED, 'operators.md']
 
 
 def main(argv: list[str] | None = None) -> int:

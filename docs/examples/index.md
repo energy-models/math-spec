@@ -17,6 +17,9 @@ Every model is a file under `examples/` in the repository.
 - [PyPSA in one file](pypsa.md) states the model `n.optimize()` builds, one
   declaration at a time. PyPSA's name for each row sits beside the YAML and the
   equation.
+- [A component library](library/index.md) is several files that compose into
+  one model. Each file reads the coupling surface and prints on its own, and the
+  composed page shows what `merge` returns.
 
 The math on these pages is printed by the typesetter from the file above it. See
 [Typeset the math](../reference/typeset.md) to print your own.

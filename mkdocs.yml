@@ -69,6 +69,12 @@ nav:
           - PyPSA, the lossy lines: examples/pypsa_losses.md
           - PyPSA, the two-stage class: examples/pypsa_stochastic.md
           - PyPSA, the multi-period class: examples/pypsa_multi_period.md
+          - A component library:
+              - examples/library/index.md
+              - The coupling surface: examples/library/surface.md
+              - Generators: examples/library/generator.md
+              - Loads: examples/library/load.md
+              - The composed model: examples/library/composed.md
   # Everything a reader does not need in order to write a model: the design
   # arguments, how to contribute, what changed.
   - About:
