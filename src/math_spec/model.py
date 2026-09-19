@@ -536,6 +536,12 @@ class PiecewiseBlock(_StrictBlock):
     names a parameter carrying the ``over`` dim, and *sign* bounds the link by
     the curve instead of pinning it (at most one non-``"=="``, and only with
     exactly two links).
+
+    The block builds one curve per coordinate of the frame, which is the union
+    of the link expressions' dims. Three keys say something different about
+    those coordinates: ``where:`` which of them have a curve, ``points:`` how
+    far each curve runs along ``over``, and ``activity:`` whether a curve that
+    exists is switched on.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
@@ -543,6 +549,8 @@ class PiecewiseBlock(_StrictBlock):
     #: The breakpoint dimension.
     over: str
     links: list[PiecewiseLink]
+    #: Which coordinates of the frame have a curve at all — none builds one everywhere.
+    where: str | None = None
     #: Which of :data:`PIECEWISE_METHODS` restricts the weights.
     method: PiecewiseMethod = 'adjacency'
     #: What the weights sum to — 1 where absent, or a binary that pins the formulation to 0 when it is 0.

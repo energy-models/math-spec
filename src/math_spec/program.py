@@ -660,12 +660,16 @@ class PiecewiseDeclaration:
         breakpoints: The links' values parameters, in link order.
         checks: What the block assumes of the numbers, each carrying its own
             subjects, for the consumer holding them to check.
+        where: Which coordinates have a curve, ``None`` where every one does.
+            The checks are asked only there, so a coordinate the block leaves
+            without a curve is not held to breakpoints it carries no rows for.
     """
 
     over: str
     method: _model.PiecewiseMethod
     breakpoints: tuple[str, ...]
     checks: tuple[Check, ...]
+    where: Mask | None = None
 
 
 def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:

@@ -30,10 +30,11 @@ from math_spec.program import (
     FirstOf,
     Increasing,
     LastOf,
+    Mask,
     MaskOf,
     PiecewiseDeclaration,
 )
-from math_spec.resolution import Namespace, resolve_expression
+from math_spec.resolution import Namespace, mask_of, resolve_expression, resolve_where_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -42,6 +43,20 @@ if TYPE_CHECKING:
 def _nominated(pw: PiecewiseBlock) -> str | None:
     """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
     return pw.points if pw.points in {link.values for link in pw.links} else None
+
+
+def _all_of(*clauses: str | None) -> str | None:
+    """The where admitting a row only where every clause given does, or ``None`` where none of them speaks.
+
+    A lone clause passes through as it was written, so a block with no
+    ``where:`` emits exactly the string it always did. Joined clauses are
+    parenthesised, because a disjunction inside one of them would otherwise
+    bind only its last operand to the ``AND``.
+    """
+    kept = [clause for clause in clauses if clause]
+    if len(kept) <= 1:
+        return kept[0] if kept else None
+    return ' AND '.join(f'({clause})' for clause in kept)
 
 
 #: The suffix on the second gate row, where the gate variable does not exist.
@@ -63,12 +78,17 @@ def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     return 'convex' if pw.curve[1].sign == '>=' else 'concave'
 
 
-def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
+def declaration_of(expanded: ExpandedPiecewise, where: Mask | None = None) -> PiecewiseDeclaration:
     """The facts of one expanded block, as a program carries them.
 
     A curve has an x-axis only where two links tie it, so the increasing
     condition — and the shape it is checked with — exist only there; ``lp``
     alone needs a segment to state a line for; a mask must be one run.
+
+    Args:
+        expanded: The block and the parameters its expansion emitted.
+        where: The block's own ``where:``, lowered — which coordinates have a
+            curve, and so which ones the checks are asked at.
     """
     pw = expanded.block
     checks: list[Check] = []
@@ -86,6 +106,7 @@ def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
         method=pw.method,
         breakpoints=tuple(link.values for link in pw.links),
         checks=tuple(checks),
+        where=where,
     )
 
 
@@ -114,7 +135,9 @@ class _Block:
     and the collision check read the same table. ``points`` is the derived
     mask, written only where ``nominated`` names the values parameter it is
     derived from; ``mask`` is whichever parameter masks the weights, or
-    ``None`` for a whole curve.
+    ``None`` for a whole curve. The block's own ``where`` is a second mask,
+    over the frame rather than the breakpoint dim, and every row the expansion
+    writes holds under both.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -177,9 +200,10 @@ class _Block:
 
     def _weight(self, name: str, **fields: object) -> None:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
+        where = _all_of(self.pw.where, self.mask)
         self._section('variables')[name] = {
             'dims': [*self.frame, self.pw.over],
-            **({'where': self.mask} if self.mask else {}),
+            **({'where': where} if where else {}),
             **fields,
         }
 
@@ -200,19 +224,30 @@ class _Block:
         )
         gated = self._gate_rows()
         for suffix, where, rhs in gated:
-            self._constraint(self.convexity + suffix, list(self.frame), f'sum({self.lam}, over={d}) == {rhs}', where)
+            self._constraint(
+                self.convexity + suffix,
+                list(self.frame),
+                f'sum({self.lam}, over={d}) == {rhs}',
+                _all_of(self.pw.where, where),
+            )
         for cname, link in zip(self.links, self.pw.links, strict=True):
             self._constraint(
                 cname,
                 list(self.frame),
                 f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
+                self.pw.where,
             )
         if self.pw.method == 'sos2':
             self._section('sos')[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
         elif self.pw.method == 'adjacency':
             self._weight(self.seg, domain='binary', bounds={})
             for suffix, where, rhs in gated:
-                self._constraint(self.pick + suffix, list(self.frame), f'sum({self.seg}, over={d}) == {rhs}', where)
+                self._constraint(
+                    self.pick + suffix,
+                    list(self.frame),
+                    f'sum({self.seg}, over={d}) == {rhs}',
+                    _all_of(self.pw.where, where),
+                )
             self._constraint(
                 self.adjacency,
                 [*self.frame, d],
@@ -252,7 +287,10 @@ class _Block:
         sense only because the breakpoints are strictly monotone. The domain rows
         are ``linopy``'s ``_add_lp`` rows under its names; under ``points:`` they
         sit on the derived ``_starts``/``_ends`` flags, which is why the mask has to
-        be a prefix.
+        be a prefix. Every row here is written from the link expressions and the
+        breakpoint values, none of which the block masks, so the block's own
+        ``where`` is conjoined onto each rather than inherited as the weight rows
+        inherit it.
         """
         x_link, y_link = self.pw.curve
         d = self.pw.over
@@ -265,7 +303,7 @@ class _Block:
             [*self.frame, d],
             f'({y_link.expression}) * {run} {y_link.sign} '
             f'{rise} * (({x_link.expression}) - {x_link.values}) + {y_link.values} * {run}',
-            interior,
+            _all_of(self.pw.where, interior),
         )
         edges = ((self.domain_lo, '>=', self.starts), (self.domain_hi, '<=', self.ends))
         axis = ((self.domain_lo, '>=', f'position({d}) == 0'), (self.domain_hi, '<=', f'position({d}) == -1'))
@@ -275,7 +313,9 @@ class _Block:
                 self._parameter(
                     at, self._mask_dims(mask), f'the {"first" if sense == ">=" else "last"} breakpoint of each curve'
                 )
-            self._constraint(cname, [*self.frame, d], f'({x_link.expression}) {sense} {x_link.values}', at)
+            self._constraint(
+                cname, [*self.frame, d], f'({x_link.expression}) {sense} {x_link.values}', _all_of(self.pw.where, at)
+            )
 
     # -- checks ------------------------------------------------------------
 
@@ -316,6 +356,7 @@ class _Block:
         self._widen(frame, self._activity_dims())
         self._values_fit(frame)
         self._points_fit(frame)
+        self._where_fits(frame)
         self._nothing_collides()
         return tuple(frame)
 
@@ -397,6 +438,33 @@ class _Block:
             raise PiecewiseExpansionError(
                 f"{ctx}: points parameter '{pw.points}' carries {stray}, which the links do not — "
                 f"a mask says which of the block's own coordinates exist, and cannot add coordinates"
+            )
+
+    def _where_fits(self, frame: list[str]) -> None:
+        """A block's ``where:`` tests the frame it builds curves over, and never the breakpoint dim.
+
+        Read here rather than left to the emitted declarations, whose refusal
+        would name ``<block>_lam`` — a variable the author never wrote.
+        """
+        pw, ctx = self.pw, self.context
+        if pw.where is None:
+            return
+        errors: list[str] = []
+        resolved = resolve_where_text(pw.where, self.ns, f'{ctx} where', errors)
+        if errors:
+            raise PiecewiseExpansionError('\n'.join(errors))
+        if (mask := mask_of(resolved)) is None:
+            return
+        if pw.over in mask.dims:
+            raise PiecewiseExpansionError(
+                f"{ctx}: where {pw.where!r} tests '{pw.over}', the breakpoint dim. A where says which coordinates "
+                f'have a curve at all, and points: says how far each curve runs along it — move the test there.'
+            )
+        if stray := sorted(mask.dims - set(frame)):
+            raise PiecewiseExpansionError(
+                f'{ctx}: where {pw.where!r} tests {stray}, which no link expression carries — a mask says '
+                f"which of the block's own coordinates have a curve, and cannot add coordinates. Declare a "
+                f'link expression over {stray}, or drop it from the where.'
             )
 
     def _nothing_collides(self) -> None:

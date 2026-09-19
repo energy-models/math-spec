@@ -44,6 +44,7 @@ piecewise:
 | ---------- | ---------------------------------------------------------------------------------------- | ------------------- |
 | `over`     | required. The breakpoint dimension                                                       |                     |
 | `links`    | required. Two or more links                                                              |                     |
+| `where`    | which coordinates have a curve at all ([below](#where))                                  | default `null`      |
 | `method`   | `adjacency`, `sos2`, `convex` or `lp`: how the weights are restricted ([below](#method)) | default `adjacency` |
 | `activity` | a binary variable that gates the curve ([below](#activity))                              | default `null`      |
 | `points`   | how far each curve runs, where the curves are not all the same length ([below](#points)) | default `null`      |
@@ -62,6 +63,36 @@ decrease in that order is refused when the data binds.
     The missing row reads as a breakpoint at the origin, and the table is
     refused when the data binds. To say how far a curve runs, use `points:`.
 
+### `where`
+
+A block builds one curve for every coordinate of its **frame**, which is the
+union of the dims its link expressions carry. `where:` says which of those
+coordinates have a curve:
+
+```yaml
+piecewise:
+  cost_curve:
+    over: bp
+    where: has_curve # only some generators run on a cost curve
+    links:
+      - [dispatch, bp_x]
+      - [op_cost, bp_y]
+```
+
+Off the mask the block builds nothing. There are no weights, no convexity row
+and no link row, so the linked expressions are left free. The breakpoint values
+are not read there either: a generator with no curve needs no row in `bp_x` or
+`bp_y`.
+
+`where:` is not [`activity:`](#activity). A coordinate outside the mask has no
+curve. A gated coordinate has a curve that the solver may switch off, and its
+rows are built either way.
+
+The mask may not carry the breakpoint dimension. It says which coordinates have
+a curve, and [`points:`](#points) says how far each curve runs along that axis.
+A mask carrying a dimension that no link expression carries is refused as well,
+because a mask cannot add coordinates.
+
 ### `activity`
 
 `activity:` names a binary variable, and the weights then sum to that variable
@@ -77,8 +108,9 @@ variables:
     where: committable # only some units have a commitment decision
 ```
 
-Where the gate does not exist, the curve is ungated. To have no curve there
-instead, put `absence: zero` on the gate.
+Where the gate does not exist, the curve is ungated. To pin the curve off
+there instead, put `absence: zero` on the gate. To build no curve there at all,
+use [`where:`](#where).
 
 ### `points`
 

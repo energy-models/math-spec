@@ -161,6 +161,11 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         expressions[name] = program.ExpressionDeclaration(
             _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
         )
+    piecewise = {
+        name: declaration_of(ex, _Lowering(expanded, f"piecewise '{name}'").mask(resolved.piecewise[name]))
+        for name, ex in expanded.expanded_piecewise.items()
+    }
+
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -168,7 +173,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         objective=objective,
         dimensions=dimensions,
         sos=sos,
-        piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
+        piecewise=piecewise,
         named_expressions=expressions,
     )
 

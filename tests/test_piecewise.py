@@ -450,3 +450,125 @@ def test_every_check_has_a_sentence(kind):
     check = next((c for c in curve.checks if isinstance(c, kind)), None)
     assert check is not None, 'the fixture is the block that assumes everything'
     assert check_message('cost_curve', curve, check).startswith("piecewise 'cost_curve':")
+
+
+#: A curve only some members have: the frame is two dims, and the mask names one of them.
+MASKED = override(
+    TWO_DIM,
+    **{
+        'parameters.has_curve': {'dims': ['generator'], 'dtype': 'bool'},
+        'piecewise.cost_curve.where': 'has_curve',
+    },
+)
+#: The same mask on the block that states its curve as segment lines, which emits no weights to inherit one.
+LP_WHERE = override(
+    override(LP, **{'parameters.has_curve': {'dims': ['bp'], 'dtype': 'bool'}}),
+    **{'parameters.has_curve.dims': ['snapshot'], 'piecewise.cost_curve.where': 'has_curve'},
+)
+
+
+@pytest.mark.parametrize(
+    'emitted',
+    [
+        pytest.param('cost_curve_link0', id='link0'),
+        pytest.param('cost_curve_link1', id='link1'),
+        pytest.param('cost_curve_convexity', id='convexity'),
+        pytest.param('cost_curve_pick', id='pick'),
+    ],
+)
+def test_a_where_reaches_every_row_the_block_emits(emitted):
+    """A link row left unmasked is the bug: the weighted sum is empty off the mask, so the row pins `p == 0`.
+
+    The convexity and pick rows are reductions too, and absence does not
+    spread out of one — unmasked they would read `0 == 1` at a member with no
+    curve.
+    """
+    expanded = expand_piecewise(schema_of(MASKED))
+    assert expanded.constraints[emitted].where == 'has_curve'
+
+
+@pytest.mark.parametrize(
+    'emitted', [pytest.param('cost_curve_lam', id='lam'), pytest.param('cost_curve_seg', id='seg')]
+)
+def test_a_where_reaches_the_weights(emitted):
+    assert expand_piecewise(schema_of(MASKED)).variables[emitted].where == 'has_curve'
+
+
+def test_the_adjacency_row_inherits_the_mask_rather_than_restating_it():
+    """Its every term is a weight, and absence spreads through arithmetic — which is how `points:` already reaches it."""
+    expanded = expand_piecewise(schema_of(MASKED))
+    assert expanded.constraints['cost_curve_adjacency'].where is None
+
+
+def test_a_where_and_a_points_both_reach_the_weights():
+    """Two masks, one row: which coordinates have a curve, and how far each curve runs."""
+    schema = schema_of(MASKED, **{'piecewise.cost_curve.points': 'bp_x'})
+    assert expand_piecewise(schema).variables['cost_curve_lam'].where == '(has_curve) AND (cost_curve_points)'
+
+
+def test_a_where_joins_both_gate_rows():
+    """`activity:` splits the convexity row across the gate's own mask, and the block's where holds over both halves."""
+    schema = schema_of(
+        MASKED,
+        **{
+            'variables.u': {'dims': ['snapshot', 'generator'], 'domain': 'binary', 'where': 'committable'},
+            'parameters.committable': {'dims': ['generator'], 'dtype': 'bool'},
+            'piecewise.cost_curve.activity': 'u',
+        },
+    )
+    expanded = expand_piecewise(schema)
+    assert expanded.constraints['cost_curve_convexity'].where == '(has_curve) AND (u)'
+    assert expanded.constraints['cost_curve_convexity_ungated'].where == '(has_curve) AND (NOT u)'
+
+
+def test_a_disjunction_in_a_where_is_grouped_where_it_is_joined():
+    """Unparenthesised, `a OR b AND points` binds the AND to `b` alone and the curve is built off its mask."""
+    schema = schema_of(
+        MASKED,
+        **{
+            'parameters.also_curved': {'dims': ['generator'], 'dtype': 'bool'},
+            'piecewise.cost_curve.where': 'has_curve OR also_curved',
+            'piecewise.cost_curve.points': 'bp_x',
+        },
+    )
+    assert expand_piecewise(schema).variables['cost_curve_lam'].where == (
+        '(has_curve OR also_curved) AND (cost_curve_points)'
+    )
+
+
+@pytest.mark.parametrize(
+    ('patch', 'match'),
+    [
+        pytest.param({'piecewise.cost_curve.where': 'bp_x > 0'}, 'points:', id='the-breakpoint-dim'),
+        pytest.param(
+            {
+                'dimensions.region': {'dtype': 'str'},
+                'parameters.onshore': {'dims': ['region'], 'dtype': 'bool'},
+                'piecewise.cost_curve.where': 'onshore',
+            },
+            'cannot add coordinates',
+            id='outside-the-frame',
+        ),
+        pytest.param({'piecewise.cost_curve.where': 'nowhere'}, 'nowhere', id='naming-nothing'),
+    ],
+)
+def test_a_where_the_block_cannot_read_is_refused(patch, match):
+    with pytest.raises(LanguageError, match=match):
+        schema_of(MASKED, **patch)
+
+
+def test_segment_lines_carry_the_mask_that_no_weight_can_hand_them():
+    """`method: lp` emits no weights, so its three rows take the block's where themselves or stand everywhere."""
+    expanded = expand_piecewise(schema_of(LP_WHERE))
+    assert expanded.constraints['cost_curve_chord'].where == '(has_curve) AND (position(bp) != 0)'
+    assert expanded.constraints['cost_curve_domain_lo'].where == '(has_curve) AND (position(bp) == 0)'
+    assert expanded.constraints['cost_curve_domain_hi'].where == '(has_curve) AND (position(bp) == -1)'
+
+
+def test_the_declaration_carries_the_mask_the_data_guards_are_read_under():
+    """Without it every guard runs at a member with no curve, and refuses the breakpoints it has no rows for."""
+    curve = to_program(MASKED).piecewise['cost_curve']
+    assert curve.where is not None, 'a masked block states which coordinates its checks are asked at'
+    assert curve.where.names_read == frozenset({'has_curve'})
+
+    assert to_program(raw_of(NONCONVEX_YAML)).piecewise['cost_curve'].where is None, 'no where, no mask'
