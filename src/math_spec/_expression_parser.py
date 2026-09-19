@@ -275,7 +275,7 @@ KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
+#: downstream means the expression skipped :func:`~math_spec.resolution.resolve_expression`.
 UnresolvedNode = NameNode | NameListNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.

@@ -92,3 +92,8 @@ def schema_error(exc: ValidationError) -> LanguageError:
         if isinstance(original, LanguageError):
             return type(original)(text)
     return SchemaError(text)
+
+
+def prefixed(context: str, e: ValueError) -> str:
+    """*e* under *context*, once — an expansion error already carries it."""
+    return str(e) if str(e).startswith(context) else f'{context}: {e}'
