@@ -16,18 +16,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 import pyparsing as pp
 
-from math_spec._expression_parser import ARITHMETIC, NAME, children, parse_text
-from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, PredicateOperator, where_children
+from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, parse_text
+from math_spec.program import (
+    AndNode,
+    BooleanLiteralNode,
+    ConnectiveWhereNode,
+    NotNode,
+    OrNode,
+    PredicateOperator,
+    WhereNode,
+    where_children,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from math_spec._expression_parser import ArithmeticNode
-    from math_spec.program import WhereNode
 
 # ---------------------------------------------------------------------------
 # AST nodes
@@ -84,6 +90,11 @@ class UnresolvedComparisonNode:
 #: leaves are still names the schema has not been asked about.
 UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode
 
+#: Every node a parsed where string is built of: the connectives and literals,
+#: the unresolved leaves, and the arithmetic and the two side nodes under a
+#: comparison. What the depth measurement walks.
+_ParsedWhere = WhereNode | UnresolvedWhereNode | ArithmeticNode | ColumnNode | QuotedNode
+
 
 # ---------------------------------------------------------------------------
 # Grammar
@@ -136,14 +147,14 @@ def _build_where_grammar() -> pp.ParserElement:
     return where_expr
 
 
-def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], Any]:
+def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], WhereNode | UnresolvedWhereNode]:
     """A parse action left-folding a flat operator chain into *node_type*."""
 
-    def fold(tokens: pp.ParseResults) -> Any:
-        items = list(tokens)
-        result: WhereNode | UnresolvedWhereNode = items[0]
+    def fold(tokens: pp.ParseResults) -> WhereNode | UnresolvedWhereNode:
+        items: list[WhereNode | UnresolvedWhereNode] = list(tokens)
+        result = items[0]
         for item in items[1:]:
-            result = node_type(cast('WhereNode', result), item)
+            result = node_type(cast('WhereNode', result), cast('WhereNode', item))
         return result
 
     return fold
@@ -179,15 +190,15 @@ _DEEP_REWRITE = (
 )
 
 
-def _nested(node: Any) -> tuple[Any, ...]:
+def _nested(node: _ParsedWhere) -> tuple[_ParsedWhere, ...]:
     """What a where string nests through: a connective's operands, and the arithmetic on a comparison's sides."""
     if isinstance(node, UnresolvedComparisonNode):
         return (node.left, node.right)
-    if isinstance(node, UnresolvedNameNode | ColumnNode | QuotedNode):
-        return ()
-    if isinstance(node, AndNode | OrNode | NotNode | BooleanLiteralNode):
+    if isinstance(node, ArithmeticNode):
+        return children(node)
+    if isinstance(node, ConnectiveWhereNode):
         return where_children(node)
-    return children(node)
+    return ()
 
 
 @lru_cache(maxsize=4096)

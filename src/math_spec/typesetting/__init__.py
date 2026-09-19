@@ -26,7 +26,7 @@ or from a shell::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal, TypedDict, Unpack
 
 from math_spec.errors import SchemaError, did_you_mean
 from math_spec.piecewise import expand_piecewise
@@ -66,10 +66,20 @@ FORMATS: dict[FormatName, Format] = {
 }
 
 
+class _Options(TypedDict, total=False):
+    """The keyword arguments :func:`typeset` takes, which the three per-format doors forward whole."""
+
+    symbols: str | Path | Mapping[str, object] | SymbolTable | None
+    standalone: bool
+    legend: bool
+    numbered: bool
+    inline_expressions: bool
+
+
 def _walk(
-    model: str | Path | dict[str, Any] | Spec,
+    model: str | Path | Mapping[str, object] | Spec,
     fmt: FormatName,
-    symbols: str | Path | Mapping[str, Any] | SymbolTable | None,
+    symbols: str | Path | Mapping[str, object] | SymbolTable | None,
     *,
     inline_expressions: bool,
 ) -> Walk:
@@ -91,10 +101,10 @@ def _walk(
 
 
 def typeset(
-    model: str | Path | dict[str, Any] | Spec,
+    model: str | Path | Mapping[str, object] | Spec,
     fmt: FormatName,
     *,
-    symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
+    symbols: str | Path | Mapping[str, object] | SymbolTable | None = None,
     standalone: bool = False,
     legend: bool = True,
     numbered: bool = True,
@@ -148,11 +158,11 @@ def typeset(
 
 
 def typeset_declaration(
-    model: str | Path | dict[str, Any] | Spec,
+    model: str | Path | Mapping[str, object] | Spec,
     name: str,
     fmt: FormatName,
     *,
-    symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
+    symbols: str | Path | Mapping[str, object] | SymbolTable | None = None,
     inline_expressions: bool = True,
 ) -> str:
     """Render one declaration as the bare line the document prints for it.
@@ -199,16 +209,16 @@ def typeset_declaration(
     return walk.format.equation(walk.line(name))
 
 
-def to_latex(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
+def to_latex(model: str | Path | Mapping[str, object] | Spec, **options: Unpack[_Options]) -> str:
     """Render *model* as LaTeX (amsmath ``align``). See :func:`typeset`."""
     return typeset(model, 'latex', **options)
 
 
-def to_typst(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
+def to_typst(model: str | Path | Mapping[str, object] | Spec, **options: Unpack[_Options]) -> str:
     """Render *model* as Typst. See :func:`typeset`."""
     return typeset(model, 'typst', **options)
 
 
-def to_markdown(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
+def to_markdown(model: str | Path | Mapping[str, object] | Spec, **options: Unpack[_Options]) -> str:
     """Render *model* as GitHub-flavoured Markdown. See :func:`typeset`."""
     return typeset(model, 'markdown', **options)

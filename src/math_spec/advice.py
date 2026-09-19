@@ -17,14 +17,14 @@ from math_spec.lowering import to_program
 from math_spec.program import At, GroupSum, walk
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
-    from typing import Any
 
     from math_spec.model import Spec
     from math_spec.program import Program
 
 
-def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice, ...]:
+def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
     """Everything the language advises about *model* — never an error, decidable without data.
 
     Args:
