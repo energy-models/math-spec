@@ -34,11 +34,10 @@ from math_spec.errors import did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Mapping
 
     from pydantic import GetJsonSchemaHandler, SerializerFunctionWrapHandler
     from pydantic.config import ExtraValues
-    from pydantic.json_schema import JsonSchemaValue
     from pydantic_core import CoreSchema
 
     from math_spec.resolution import Resolved
@@ -136,8 +135,8 @@ CURVATURES = frozenset(get_args(Curvature))
 
 
 def _also_written_as(
-    core_schema: CoreSchema, handler: GetJsonSchemaHandler, shorthand: JsonSchemaValue
-) -> JsonSchemaValue:
+    core_schema: CoreSchema, handler: GetJsonSchemaHandler, shorthand: Mapping[str, object]
+) -> dict[str, object]:
     """The block's own schema, widened to a *shorthand* its before-validator takes.
 
     A ``mode='before'`` rewrite is invisible to pydantic, which generates the
@@ -263,7 +262,7 @@ class BoundsBlock(_StrictBlock):
 
     @field_validator('lower', 'upper', mode='before')
     @classmethod
-    def _a_number_or_a_name(cls, v: object, info: ValidationInfo) -> object:
+    def _a_number_or_a_name(cls, v: object, info: ValidationInfo[object]) -> object:
         if isinstance(v, bool):
             msg = f'bounds.{info.field_name} is a boolean, and a bound is a number or a parameter name.'
             raise ValueError(msg)
@@ -458,7 +457,7 @@ class ExpressionBlock(_StrictBlock):
 
     @classmethod
     @override
-    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> dict[str, object]:
         """The published schema admits the bare string the one-line form is written as."""
         return _also_written_as(core_schema, handler, {'type': 'string'})
 
@@ -549,7 +548,7 @@ class PiecewiseLink(_StrictBlock):
 
     @classmethod
     @override
-    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> dict[str, object]:
         """The published schema admits the ``[expression, values, sign?]`` form every link is written as."""
         list_form = {'type': 'array', 'items': {'type': 'string'}, 'minItems': 2, 'maxItems': 3}
         return _also_written_as(core_schema, handler, list_form)
