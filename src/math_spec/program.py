@@ -26,7 +26,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
-from math_spec._expression_parser import ComparisonOperator, DirectionNode, ParameterNode, PartitionNode, nodes
+from math_spec._expression_parser import ComparisonOperator
 from math_spec._sealed import Sealed
 from math_spec.errors import did_you_mean
 
@@ -1412,7 +1412,8 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     A comparison on a dimension names no declaration — a coordinate is not
     data to feed — a relation pair names both maps it compares, and a
     comparison of expressions names every parameter and relation its sides
-    read. ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
+    read, answered on the program's form of it since only a program mask is
+    asked. ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
     node added without a reading is a type error at this one branch rather
     than a name silently dropped at the first model to use it.
     """
@@ -1430,19 +1431,8 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
         case ExpressionComparisonNode():
             return _names_under(atom.left, atom.right)
         case ArithmeticComparisonNode():
-            return frozenset(
-                name
-                for node in nodes(atom.left, atom.right)
-                for name in (
-                    (node.name,)
-                    if isinstance(node, ParameterNode)
-                    else (node.direction.name,)
-                    if isinstance(node, DirectionNode)
-                    else (node.partition.name,)
-                    if isinstance(node, PartitionNode)
-                    else ()
-                )
-            )
+            msg = 'a resolved mask is asked what it reads; lowering rebuilds it first, and the program mask answers.'
+            raise AssertionError(msg)
         case DimensionComparisonNode() | DimensionPositionNode():
             return frozenset()
         case _:
