@@ -16,6 +16,7 @@ a name has to hold to be allowed in.
      mkdocstrings resolves the collision to the module and renders neither, so
      the function is asked for by its full path. -->
 
+<!-- prettier-ignore -->
 ::: math_spec.advice.advice
     options:
       show_root_heading: true

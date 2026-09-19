@@ -86,7 +86,6 @@ nav:
 
 theme:
   name: material
-  language: en
 
   palette:
     # Dark first = default for new visitors (no auto/system-pref entry).
@@ -96,18 +95,14 @@ theme:
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-4
+        icon: lucide/moon
         name: Switch to light mode
     - scheme: default
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-7
+        icon: lucide/sun
         name: Switch to dark mode
-
-  font:
-    text: Roboto
-    code: JetBrains Mono
 
   icon:
     repo: fontawesome/brands/github
@@ -124,7 +119,6 @@ theme:
     - navigation.top
     - navigation.footer
     - toc.follow
-    - search.suggest
     - search.highlight
     - search.share
     - content.code.copy
@@ -143,8 +137,6 @@ site_dir: .docs
 markdown_extensions:
   - admonition
   - attr_list
-  - def_list
-  - footnotes
   - md_in_html
   # A list that starts at 5 renders from 5, as it does on GitHub.
   - sane_lists
@@ -158,19 +150,16 @@ markdown_extensions:
       generic: true
   - pymdownx.superfences:
       custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
         # A ```math fence is how GitHub takes block math verbatim, and is what
         # this project's own typesetter prints. Arithmatex reads `$$…$$`, so
         # the fence hands it over — indented inside a tab or a list included,
         # which is why this is superfences' job and not a hook's regex.
         - name: math
           class: arithmatex
-          format: !!python/object/apply:pymdownx.arithmatex.arithmatex_fenced_format { kwds: { which: generic } }
+          format: { object: pymdownx.arithmatex.arithmatex_fenced_format, kwds: { which: generic } }
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: zensical.extensions.emoji.twemoji
+      emoji_generator: zensical.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -200,7 +189,7 @@ markdown_extensions:
       # drops. The default slugifier collapses that to one, so such a link
       # would 404 on the site while working in the repository. Same file,
       # same anchor, both renderings.
-      slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
+      slugify: { object: pymdownx.slugs.slugify, kwds: { case: lower } }
 plugins:
   - search
   - autorefs
