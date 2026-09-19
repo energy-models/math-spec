@@ -159,7 +159,8 @@ balance.
 The topology is data. Adding a second battery is a row in a table, so the file
 grows with the number of component _types_.
 
-A fragment reads the coupling surface it is written against, and declares that
+A fragment reads the [coupling surface](../examples/library/surface.md) it is
+written against, and declares that
 column under
 [`given: variables:`](../reference/language/declarations.md#given). So it
 loads on its own, and prints as math on its own.
@@ -167,8 +168,8 @@ loads on its own, and prints as math on its own.
 Composition happens before `to_spec`, and two verbs do it. `merge` composes
 fragments as peers: a name two of them declare is refused, and a given
 declaration is folded into the fragment that introduces the name. `override`
-lays a patch over a base a field at a time, which is what a project that
-extends a model it does not own writes instead of a copy. It refuses a patch
+lays a patch over a base, one field at a time. A project that extends a model
+it does not own writes a patch instead of a copy. It refuses a patch
 that lands on nothing, two patches that write one field, and a dimension or a
 relation redeclared under the math. The recipe for both is in
 [compose a model from several files](../howto/compose.md).

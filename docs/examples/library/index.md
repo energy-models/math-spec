@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # A component library
 
-Several files that each say part of a model, and compose into one. The surface
+Several files each say part of a model and compose into one. The surface
 declares what the components share. Each component file declares its own math
 against the surface, and [`merge`](../../howto/compose.md) makes the model.
 Every file here loads and prints on its own, so the unit you pick from is the
@@ -38,7 +38,7 @@ examples/library/
 
 - **One file per thing you would pick on its own.** `merge` takes a whole
   fragment or none of it, so a model with no storage never mentions storage.
-- **One surface.** Every component file is written against it.
+- **Every component file is written against one surface.**
 - **Every name carries the component class it belongs to.** `merge` does not
   rename. `Generator_` and `Load_` keep the files apart, and the surface owns
   `Port_`, `port` and `bus`.

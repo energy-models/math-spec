@@ -139,8 +139,8 @@ declaration for a consumer to bind
 
 ### `given: constraints`
 
-A given constraint is a row family this file reads the dual of and another
-model builds.
+A given constraint is a row family that another model builds. This file reads
+its dual.
 
 ```yaml
 dimensions:
