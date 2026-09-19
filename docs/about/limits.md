@@ -164,14 +164,17 @@ column under
 [`given: variables:`](../reference/language/declarations.md#given). So it
 loads on its own, and prints as math on its own.
 
-Merging happens before `to_spec`. Every function here takes a `dict` as well as
-a path, so a model assembled in Python is checked exactly as a file is, and
-`Spec.to_yaml()` writes the file a reviewer reads. A `dict` may hold only what a
-file may hold. A built-in merge, and namespaces so that two fragments can each
-declare a `p`, are both things a library does before it hands over a `dict`.
-
-A project that extends a model it does not own writes a patch, not a copy.
-`override` lays the patch over the base a field at a time, and refuses a patch
+Composition happens before `to_spec`, and two verbs do it. `merge` composes
+fragments as peers: a name two of them declare is refused, and a given
+declaration is folded into the fragment that introduces the name. `override`
+lays a patch over a base a field at a time, which is what a project that
+extends a model it does not own writes instead of a copy. It refuses a patch
 that lands on nothing, two patches that write one field, and a dimension or a
-relation redeclared under the math. The recipe is in
+relation redeclared under the math. The recipe for both is in
 [compose a model from several files](../howto/compose.md).
+
+Every function here takes a `dict` as well as a path, so a model assembled in
+Python is checked exactly as a file is, and `Spec.to_yaml()` writes the file a
+reviewer reads. A `dict` may hold only what a file may hold. Namespaces, so
+that two fragments can each declare a `p`, are a library's business before it
+hands over a `dict`.

@@ -128,6 +128,11 @@ An expression reads a given variable as it reads any other. A name declared
 under both `variables:` and `given: variables:` is refused. The typeset legend
 lists a given variable under _Given_, and prints no domain line for it.
 
+[`merge`](../../howto/compose.md#a-library-of-components) folds a given
+declaration into the declaration of another fragment that introduces the name,
+so a composed library carries none of them. The folded declaration is the
+introducer's, and what the reader states has to say the same or less.
+
 Where nothing in this language introduces the column, the program carries the
 declaration for a consumer to bind
 ([what a program does not build](../reading.md#what-a-program-does-not-build)).

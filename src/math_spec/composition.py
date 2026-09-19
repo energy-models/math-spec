@@ -4,9 +4,30 @@
 
 """Several files into one model, before any of them is validated.
 
+Two verbs, and they answer different questions. :func:`merge` composes
+**peers**: fragments that each own part of the math, where a name two of them
+declare is a collision and the order they are given in means nothing.
 :func:`override` lays **patches** over a **base**: what a framework ships and a
-project extends. A patch says only what it changes, because declarations are
-laid over a field at a time::
+project extends, where a name the patch declares is the point. They compose as
+``override(merge({...}), {...})``, which builds the model and then configures
+the run.
+
+What :func:`merge` does with each section:
+
+* **A dimension or a relation every fragment may declare**, and the ones that
+  do have to say the same thing about it. Prose is not a claim, so two
+  descriptions of one dimension agree, and the first fragment's is carried.
+* **Every other declaration is owned.** A name two fragments declare is refused,
+  both named.
+* **The objectives are summed**, each term in parentheses, and the senses have
+  to agree.
+* **A given declaration is folded** into the declaration that introduces the
+  name, once the reader is checked to say the same as the introducer or less.
+  Two fragments that both only read a name have to read it the same way. What
+  no fragment introduces stays under ``given:`` for a consumer to bind.
+
+A patch says only what it changes, because declarations are laid over a field
+at a time::
 
     constraints:
       ramp: {dims: [snapshot, generator, investment_period]}
@@ -59,7 +80,9 @@ SHARED_SECTIONS = ('dimensions', 'relations')
 #: The declarations a patch edits, creates or removes.
 OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macros', 'piecewise', 'sos')
 
-#: What ``given:`` holds, by the key each kind sits under and what one entry of it is called.
+#: What ``given:`` holds, by the key each kind sits under and what one entry of
+#: it is called. The key is the introducing section's name too, which is what
+#: lets :func:`merge` fold a given declaration into the one that introduces it.
 GIVEN_KINDS = {'variables': 'given variable', 'constraints': 'given constraint'}
 
 #: Every section keyed by declaration name. ``objective`` is one declaration
@@ -72,6 +95,166 @@ IRREGULAR = {
     'sos': 'special-ordered set',
     'objective': 'objective',
 }
+
+
+def merge(
+    fragments: Mapping[str, str | Path | dict[str, Any] | Spec], description: str | None = None
+) -> dict[str, Any]:
+    """*fragments* composed as peers, each owning the math it declares.
+
+    Args:
+        fragments: What each fragment is called, to the fragment: a YAML path,
+            YAML text, a mapping, or a loaded :class:`~math_spec.model.Spec`.
+            The name is what an error calls it. The order they are given in
+            does not reach the result.
+        description: What the composed model is. A fragment's own
+            ``description`` is about the fragment, and is not carried.
+
+    Returns:
+        One mapping, ready for :func:`~math_spec.validation.to_spec`. Nothing
+        in it has been resolved, name-checked or lowered, and it shares no
+        object with any fragment. A given declaration a sibling introduces is
+        folded away; one nothing introduces stays under ``given:``.
+
+    Raises:
+        LanguageError: Two fragments declare one name; two fragments say
+            different things about one dimension, relation or given
+            declaration; a fragment reads a name as something other than what
+            its sibling introduces; two fragments pin different language
+            versions; or their objectives run opposite ways.
+        FileNotFoundError: A ``str`` with no newline that names no file.
+    """
+    read = {name: deepcopy(_declarations(fragment)) for name, fragment in fragments.items()}
+    merged: dict[str, Any] = {'version': _one_version(read)}
+    if description is not None:
+        merged['description'] = description
+    for section in SHARED_SECTIONS:
+        if agreed := _agreed(read, section, _singular(section)):
+            merged[section] = agreed
+    for section in OWNED_SECTIONS:
+        if claimed := _claimed(read, section):
+            merged[section] = claimed
+    if given := _folded(read, merged):
+        merged['given'] = given
+    if (objective := _summed_objective(read)) is not None:
+        merged['objective'] = objective
+    return merged
+
+
+def _one_version(read: Mapping[str, dict[str, Any]]) -> int:
+    """The language version every fragment is written against, a fragment saying nothing being version 0."""
+    declared = {name: sections.get('version', 0) for name, sections in read.items()}
+    if len(set(declared.values())) > 1:
+        spelled = ', '.join(f"'{name}' says {version}" for name, version in sorted(declared.items()))
+        raise LanguageError(
+            f'the fragments are written against different language versions: {spelled}. One model has '
+            f'one version, so write the same one in each. A fragment that declares none is version 0.'
+        )
+    return next(iter(declared.values()), 0)
+
+
+def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> str:
+    """The first fragment declaring *key* under *section*, for a message that names both sides."""
+    return next(name for name, sections in read.items() if key in (sections.get(section) or {}))
+
+
+def _agreed(read: Mapping[str, dict[str, Any]], section: str, label: str) -> dict[str, Any]:
+    """One block every fragment may declare, peers that say the same thing folded together.
+
+    Equality of the claims rather than "the same or less": between peers
+    neither declaration is the one being restated, so a field only one of them
+    writes is a difference nothing settles.
+    """
+    merged: dict[str, Any] = {}
+    for name, sections in read.items():
+        for key, block in (sections.get(section) or {}).items():
+            if key in merged and _claims(merged[key]) != _claims(block):
+                raise LanguageError(
+                    f"fragments '{_author_of(read, section, key)}' and '{name}' say different things about "
+                    f'the {label} {key!r}: {merged[key]!r} against {block!r}. A declaration two fragments '
+                    f'share is one both say the same thing about: make the two identical, or give one of '
+                    f'them a name of its own.'
+                )
+            merged.setdefault(key, block)
+    return merged
+
+
+def _claims(block: Any) -> Any:
+    """*block* without its prose, which is what the declaration says rather than a remark about it."""
+    return {key: value for key, value in block.items() if key != 'description'} if isinstance(block, dict) else block
+
+
+def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
+    """One block of owned declarations, a name claimed twice being the refusal."""
+    merged: dict[str, Any] = {}
+    for name, sections in read.items():
+        for key, block in (sections.get(section) or {}).items():
+            if key in merged:
+                raise LanguageError(
+                    f"fragments '{_author_of(read, section, key)}' and '{name}' both declare the "
+                    f'{_singular(section)} {key!r}. Two of the same kind of thing are two rows of a dimension '
+                    f'rather than two fragments: merge the fragment once, and let the data carry both. '
+                    f'Different math under one spelling is a rename: call one of them something else.'
+                )
+            merged[key] = block
+    return merged
+
+
+def _folded(read: Mapping[str, dict[str, Any]], merged: Mapping[str, Any]) -> dict[str, Any]:
+    """The ``given:`` block the composition still carries, once every reading a sibling introduces is spent.
+
+    A given declaration is what a fragment expects of a name a sibling owns.
+    Where the sibling is in the composition the expectation is checked and
+    then dropped, so the composed model declares the name once.
+    """
+    asked = {name: sections.get('given') or {} for name, sections in read.items()}
+    left: dict[str, Any] = {}
+    for kind, label in GIVEN_KINDS.items():
+        cls = _entry_class(GivenBlock, kind)
+        introduced = merged.get(kind) or {}
+        agreed = _agreed(asked, kind, label)
+        for key, block in agreed.items():
+            if key in introduced and not _says_less(cls, block, introduced[key]):
+                raise LanguageError(
+                    f"fragment '{_author_of(asked, kind, key)}' reads the {label} {key!r} as {block!r}, where "
+                    f"'{_author_of(read, kind, key)}' introduces it as {introduced[key]!r}. A given declaration "
+                    f'says the same as the declaration it is folded into, or less: restate the frame as the '
+                    f'introducer declares it, or leave the field out.'
+                )
+        if remaining := {key: block for key, block in agreed.items() if key not in introduced}:
+            left[kind] = remaining
+    return left
+
+
+def _says_less(cls: type[BaseModel], reader: Any, introducer: Any) -> bool:
+    """Whether every claim *reader* makes is one *introducer* makes too, a field left to its default counting as said."""
+    fields = cls.model_fields
+    return all(
+        introducer.get(key, fields[key].default if key in fields else None) == value
+        for key, value in _claims(reader).items()
+    )
+
+
+def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """Every fragment's objective summed, each term in parentheses, or ``None`` where none declares one.
+
+    The senses have to agree: a sum has one sense, and negating the odd one
+    out would be this function deciding what a model means.
+    """
+    declared = {name: sections['objective'] for name, sections in read.items() if sections.get('objective')}
+    if not declared:
+        return None
+    senses = {name: objective.get('sense', 'minimize') for name, objective in declared.items()}
+    if len(set(senses.values())) > 1:
+        spelled = ', '.join(f"'{name}' {sense}s" for name, sense in sorted(senses.items()))
+        raise LanguageError(
+            f'the fragments disagree about which way the objective runs: {spelled}. A composed model has '
+            f'one objective and one sense, so write every fragment against the same one: negate the terms '
+            f'of the odd one out rather than its sense.'
+        )
+    terms = [objective['expression'] for objective in declared.values()]
+    joined = terms[0] if len(terms) == 1 else ' + '.join(f'({term})' for term in terms)
+    return {'sense': next(iter(senses.values())), 'expression': joined}
 
 
 def override(

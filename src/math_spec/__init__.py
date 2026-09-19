@@ -13,7 +13,7 @@ program instead.
 
 from math_spec import program
 from math_spec.advice import advice
-from math_spec.composition import override
+from math_spec.composition import merge, override
 from math_spec.errors import Advice, AdviceKind, DimensionError, LanguageError, MathSpecError, SchemaError, did_you_mean
 from math_spec.model import Spec
 from math_spec.operators import BUILTIN_NAMES
@@ -41,6 +41,7 @@ __all__ = [
     'SymbolTable',
     'advice',
     'did_you_mean',
+    'merge',
     'override',
     'program',
     'to_latex',
