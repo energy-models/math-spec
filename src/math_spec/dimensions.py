@@ -90,14 +90,14 @@ def _dims(
         return frozenset(schema.parameters[node.name].dims)
 
     if isinstance(node, VariableNode):
-        return frozenset(schema.variables[node.name].dims)
+        return frozenset({**schema.variables, **schema.given.variables}[node.name].dims)
 
     if isinstance(node, UnresolvedNode | KwargNode):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
     if isinstance(node, DualNode):
-        return frozenset(schema.constraints[node.constraint].dims)
+        return frozenset({**schema.constraints, **schema.given.constraints}[node.constraint].dims)
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)

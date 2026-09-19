@@ -308,6 +308,49 @@ class VariableBlock(_StrictBlock):
         return self
 
 
+class GivenVariableBlock(_StrictBlock):
+    """A column this file reads and another file introduces.
+
+    The frame and the domain are all this file states. The file that introduces
+    the column owns its bounds and its mask.
+    """
+
+    _label: ClassVar[str] = 'a given variable declaration'
+
+    dims: list[str]
+    domain: VariableDomain = 'continuous'
+    description: str | None = None
+
+
+class GivenConstraintBlock(_StrictBlock):
+    """A row family this file reads the dual of and another model builds.
+
+    The frame says how many duals there are and what indexes them, which is
+    what ``dual()`` needs. There is no ``expression:``, because nothing here
+    builds a row.
+    """
+
+    _label: ClassVar[str] = 'a given constraint declaration'
+
+    dims: list[str]
+    description: str | None = None
+
+
+class GivenBlock(_StrictBlock):
+    """What this file reads and does not build, by kind. Closed at the two kinds."""
+
+    _label: ClassVar[str] = 'a given block'
+
+    #: Columns another file introduces (:class:`GivenVariableBlock`).
+    variables: dict[str, GivenVariableBlock] = {}
+    #: Row families another model builds (:class:`GivenConstraintBlock`).
+    constraints: dict[str, GivenConstraintBlock] = {}
+
+    def __bool__(self) -> bool:
+        """Whether the file reads anything it does not build."""
+        return bool(self.variables or self.constraints)
+
+
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
 
@@ -693,7 +736,7 @@ class Spec(_StrictBlock):
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the ten declaration sections plus ``version`` and
+    The API is the eleven declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
     this class is pydantic's, not a contract this package keeps.
@@ -724,6 +767,10 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+    #: What this file reads and does not build (:class:`GivenBlock`): columns
+    #: under ``variables:``, row families under ``constraints:``. Empty in a
+    #: file that stands alone.
+    given: GivenBlock = GivenBlock()
 
     def relations_of(self, dimension: str) -> dict[str, RelationBlock]:
         """The relations with a column over *dimension*, by name."""
@@ -783,13 +830,16 @@ class Spec(_StrictBlock):
 
         Read off the model's own mappings rather than a list of sections, so a
         section added later cannot be forgotten here — every mapping a Spec
-        carries is keyed by a declaration name.
+        carries is keyed by a declaration name. ``given:`` nests its two
+        mappings one level down, so they are read off :class:`GivenBlock` the
+        same way.
         """
+        sections = [*self, *((f'given: {kind}', group) for kind, group in self.given)]
         errors = [
             f'{section}: {name!r} is not a name. A declaration is named the way an expression '
             f'writes it — a letter or an underscore, then letters, digits or underscores — so '
             f'nothing can refer to this one. Rename it.'
-            for section, value in self
+            for section, value in sections
             if isinstance(value, dict)
             for name in value
             if not re.fullmatch(NAME, name)
@@ -808,10 +858,24 @@ class Spec(_StrictBlock):
             *self._relation_targets(),
             *self._bound_names(),
             *self._sos_shapes(),
+            *self._given_constraint_collisions(),
         ]
         if errors:
             raise ValueError('\n'.join(errors))
         return self
+
+    def _given_constraint_collisions(self) -> Iterator[str]:
+        """A row family is either built here or given, never both.
+
+        Constraint names sit outside the flat namespace :meth:`_name_collisions`
+        walks, so this is the one place the two constraint sections meet.
+        """
+        for name in self.given.constraints:
+            if name in self.constraints:
+                yield (
+                    f"Given constraint '{name}' is also declared under 'constraints:'. A row family is "
+                    f'either built by this file or given to it — drop one of the two.'
+                )
 
     def _name_collisions(self) -> Iterator[str]:
         """A name is declared once, and never as a built-in operator."""
@@ -820,6 +884,7 @@ class Spec(_StrictBlock):
             ('relation', self.relations),
             ('parameter', self.parameters),
             ('variable', self.variables),
+            ('given variable', self.given.variables),
             ('named expression', self.expressions),
             ('macro', self.macros),
         ]
@@ -845,6 +910,8 @@ class Spec(_StrictBlock):
         frames = [
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.dims) for name, v in self.variables.items()),
+            *(('Given variable', name, g.dims) for name, g in self.given.variables.items()),
+            *(('Given constraint', name, g.dims) for name, g in self.given.constraints.items()),
             *(('Constraint', name, c.dims) for name, c in self.constraints.items()),
             *(('Named expression', name, e.dims or []) for name, e in self.expressions.items()),
         ]

@@ -12,7 +12,7 @@ or keyword. For the rules a model itself has to obey, read
 
 ## How a new construct enters
 
-A request for something new is one of three kinds, and the kind decides what it
+A request for something new is one of four kinds, and the kind decides what it
 costs to add.
 
 - **A macro** is a template with arguments, written in the file under `macros:`.
@@ -26,8 +26,14 @@ costs to add.
 - **A formulation** is a block that expands into ordinary variables and
   constraints before the model is built. `piecewise:` is the only one. It costs
   as much as a primitive to build, but composes as freely as a macro.
+- **A declaration section** is a block of declarations of one kind, such as
+  `variables:` or `given:`. One enters where it states something no section
+  states, where a file decides it without data, and where the typesetter prints
+  it. `given:` entered on all three. No other section says that a column
+  belongs to another file, and that is what lets a component file load and
+  print on its own.
 
-A request that is none of the three is refused, and the
+A request that is none of the four is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
 instead.
 
@@ -131,16 +137,22 @@ That another tool has a feature is not by itself a reason to add it.
 
 ## Composition (component libraries)
 
-A component library is a set of templates, such as a boiler, a battery and a
-line, that agree on how ports and flows are named. You merge the templates you
-need into one file, wire the components together with a connectivity table in
-the data, and close the system with one `sum(by=)` balance.
+A component library is a set of fragments, one file per component type, such
+as a boiler, a battery and a line. The fragments agree on how ports and flows
+are named. You merge the fragments you need into one file, wire the components together
+with a connectivity table in the data, and close the system with one `sum(by=)`
+balance.
 
 The topology is data. Adding a second battery is a row in a table, so the file
 grows with the number of component _types_.
 
+A fragment reads the coupling surface it is written against, and declares that
+column under
+[`given: variables:`](../reference/language/declarations.md#given). So it
+loads on its own, and prints as math on its own.
+
 Merging happens before `to_spec`. Every function here takes a `dict` as well as
 a path, so a model assembled in Python is checked exactly as a file is, and
 `Spec.to_yaml()` writes the file a reviewer reads. A `dict` may hold only what a
-file may hold. A built-in merge, and namespaces so that two templates can each
+file may hold. A built-in merge, and namespaces so that two fragments can each
 declare a `p`, are both things a library does before it hands over a `dict`.

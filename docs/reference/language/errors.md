@@ -34,6 +34,7 @@ loads.
 | `kind`          | The file has…                                                                                       | The advice says…                                                      |
 | --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                  | remove it, or keep it knowingly if its declarations are still to come |
+| `given`         | a column or a row family it reads and does not build ([given](declarations.md#given))               | a consumer binds it to the model this one is layered onto             |
 | `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have | give it a finite bound, or the constraint that was meant to define it |
 
 ```text
