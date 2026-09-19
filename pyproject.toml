@@ -154,6 +154,10 @@ strict-callable-subtyping = true
 # Where a rule is genuinely wrong about one line, suppress that line with
 # `# pyrefly: ignore[rule-name]` and a reason -- do not turn the rule off here.
 #
+# `explicit-any` is the one `Any` the rest of this table does not reach. An
+# *unannotated* parameter is `implicit-any-parameter`, which the preset already
+# refuses; what was left is the `Any` a signature writes down.
+#
 # `implicit-any-lambda` is left on and suppressed per line in the two grammars.
 # A lambda takes no annotation, and giving the parse action a typed callback
 # only moves the error: pyparsing returns `ParseResults`, whose `__getitem__`
@@ -161,6 +165,7 @@ strict-callable-subtyping = true
 # than switched off so a lambda outside those grammars still has to say what
 # it takes.
 [tool.pyrefly.errors]
+explicit-any = "error"
 implicit-import = "error"
 missing-import = "error"
 no-any-return-explicit = "error"
