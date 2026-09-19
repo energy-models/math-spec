@@ -109,14 +109,14 @@ def declaration_of(expanded: ExpandedPiecewise, where: Mask | None = None) -> Pi
     curvature = _curvature_required(pw)
     if curvature is not None:
         x, y = pw.curve
-        checks.append(Increasing(x.values, pw.over))
-        checks.append(Curved(x.values, y.values, pw.over, curvature))
+        checks.append(Increasing(x.values, pw.along))
+        checks.append(Curved(x.values, y.values, pw.along, curvature))
     if pw.method == 'lp':
-        checks.append(AtLeastTwo(pw.over, expanded.points))
+        checks.append(AtLeastTwo(pw.along, expanded.points))
     if expanded.points is not None:
         checks.append(Contiguous(expanded.points, _nominated(pw)))
     return PiecewiseDeclaration(
-        over=pw.over,
+        along=pw.along,
         method=pw.method,
         breakpoints=tuple(link.values for link in pw.links),
         checks=tuple(checks),
@@ -216,7 +216,7 @@ class _Block:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
         where = _all_of(self.pw.where, self.mask)
         self._section('variables')[name] = {
-            'dims': [*self.frame, self.pw.over],
+            'dims': [*self.frame, self.pw.along],
             **({'where': where} if where else {}),
             **fields,
         }
@@ -230,7 +230,7 @@ class _Block:
 
     def _weights(self) -> None:
         """The convex-combination form: weights, their convexity, a row per link, and the method's restriction."""
-        d = self.pw.over
+        d = self.pw.along
         self._weight(
             self.lam,
             bounds={'lower': 0.0, 'upper': 1.0},
@@ -252,7 +252,7 @@ class _Block:
                 self.pw.where,
             )
         if self.pw.method == 'sos2':
-            self._section('sos')[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
+            self._section('sos')[self.name] = {'variable': self.lam, 'along': d, 'type': 2}
         elif self.pw.method == 'adjacency':
             self._weight(self.seg, domain='binary', bounds={})
             for suffix, where, rhs in gated:
@@ -318,7 +318,7 @@ class _Block:
         inherit it.
         """
         x_link, y_link = self.pw.curve
-        d = self.pw.over
+        d = self.pw.along
         mask = self.mask
         run = f'({x_link.values} - shift({x_link.values}, along={d}, offset=1, edge=0))'
         rise = f'({y_link.values} - shift({y_link.values}, along={d}, offset=1, edge=0))'
@@ -374,8 +374,8 @@ class _Block:
         to the emitted declarations the refusal would name ``<block>_link0``, a
         constraint the author never wrote.
         """
-        if self.pw.over not in self.schema.dimensions:
-            raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, self.pw.over))
+        if self.pw.along not in self.schema.dimensions:
+            raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, self.pw.along))
         frame: list[str] = []
         if self.pw.dims is None:
             self._widen(frame, self._link_dims())
@@ -401,9 +401,9 @@ class _Block:
         for d in dims:
             if d not in self.schema.dimensions:
                 raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, d))
-            if d == self.pw.over:
+            if d == self.pw.along:
                 raise PiecewiseExpansionError(
-                    f"{ctx}: dims carries '{self.pw.over}', the breakpoint dim. The frame is what the block "
+                    f"{ctx}: dims carries '{self.pw.along}', the breakpoint dim. The frame is what the block "
                     f'builds one curve per, and every curve runs along the breakpoints — drop it from dims:.'
                 )
         if len(set(dims)) != len(dims):
@@ -465,9 +465,9 @@ class _Block:
             self._check_values(i, link)
             own = self._link_frame(i, link, frame)
             found = self._expr_dims(link.expression, f'{self.context} link {i}')
-            if self.pw.over in found:
+            if self.pw.along in found:
                 raise PiecewiseExpansionError(
-                    f"{self.context}: link {i} expression already carries the breakpoint dim '{self.pw.over}'"
+                    f"{self.context}: link {i} expression already carries the breakpoint dim '{self.pw.along}'"
                 )
             if stray := sorted(found - set(own)):
                 raise PiecewiseExpansionError(
@@ -484,9 +484,9 @@ class _Block:
         """
         for what, found in dims:
             for d in (d for d in self.schema.dimensions if d in found):
-                if d == self.pw.over:
+                if d == self.pw.along:
                     raise PiecewiseExpansionError(
-                        f"{self.context}: {what} already carries the breakpoint dim '{self.pw.over}'"
+                        f"{self.context}: {what} already carries the breakpoint dim '{self.pw.along}'"
                     )
                 if d not in frame:
                     frame.append(d)
@@ -496,10 +496,10 @@ class _Block:
         values = link.values
         if values not in self.schema.parameters:
             raise PiecewiseExpansionError(f"{self.context}: link {i} values references undeclared parameter '{values}'")
-        if self.pw.over not in self.schema.parameters[values].dims:
+        if self.pw.along not in self.schema.parameters[values].dims:
             raise PiecewiseExpansionError(
                 f"{self.context}: link {i} values parameter '{values}' must carry dim "
-                f"'{self.pw.over}' (has {self.schema.parameters[values].dims})"
+                f"'{self.pw.along}' (has {self.schema.parameters[values].dims})"
             )
 
     def _link_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
@@ -531,7 +531,7 @@ class _Block:
         """
         for i, link in enumerate(self.pw.links):
             own = self._link_frame(i, link, frame)
-            if stray := [d for d in self.schema.parameters[link.values].dims if d != self.pw.over and d not in own]:
+            if stray := [d for d in self.schema.parameters[link.values].dims if d != self.pw.along and d not in own]:
                 raise PiecewiseExpansionError(
                     f"{self.context}: link {i} values parameter '{link.values}' carries {stray}, which its "
                     f"row's frame {own} does not — the link builds one curve per coordinate of {own}, so a "
@@ -562,12 +562,12 @@ class _Block:
                 f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
             )
         mask = self.schema.parameters[pw.points].dims
-        if pw.over not in mask:
+        if pw.along not in mask:
             raise PiecewiseExpansionError(
-                f"{ctx}: points parameter '{pw.points}' must carry dim '{pw.over}' — "
+                f"{ctx}: points parameter '{pw.points}' must carry dim '{pw.along}' — "
                 f'it says how far each curve runs along it (has {mask})'
             )
-        if stray := [d for d in mask if d != pw.over and d not in frame]:
+        if stray := [d for d in mask if d != pw.along and d not in frame]:
             raise PiecewiseExpansionError(
                 f"{ctx}: points parameter '{pw.points}' carries {stray}, which the links do not — "
                 f"a mask says which of the block's own coordinates exist, and cannot add coordinates"
@@ -588,9 +588,9 @@ class _Block:
             raise PiecewiseExpansionError('\n'.join(errors))
         if (mask := mask_of(resolved)) is None:
             return
-        if pw.over in mask.dims:
+        if pw.along in mask.dims:
             raise PiecewiseExpansionError(
-                f"{ctx}: where {pw.where!r} tests '{pw.over}', the breakpoint dim. A where says which coordinates "
+                f"{ctx}: where {pw.where!r} tests '{pw.along}', the breakpoint dim. A where says which coordinates "
                 f'have a curve at all, and points: says how far each curve runs along it — move the test there.'
             )
         if stray := sorted(mask.dims - set(frame)):

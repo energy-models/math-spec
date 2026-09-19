@@ -65,7 +65,7 @@ piecewise:
     description: >-
       every flow of one converter is read off one curve at one operating point,
       so the converter's flows move together
-    over: bp
+    along: bp
     dims: [converter, snapshot]
     links:
       - expression: rate

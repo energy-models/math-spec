@@ -18,7 +18,7 @@ together.
 ```yaml
 piecewise:
   chp:
-    over: bp # breakpoint dimension
+    along: bp # the dimension each curve runs along
     links:
       - [power, power_bp] # [expression, values-parameter]
       - [fuel, fuel_bp]
@@ -28,7 +28,7 @@ piecewise:
 
   # a two-link block may bound one side instead of pinning it
   fuel_cap:
-    over: bp
+    along: bp
     links:
       - [power, power_bp]
       - [fuel, fuel_bp, "<="]
@@ -37,13 +37,13 @@ piecewise:
 | Part of a link |                                                                                                                                              |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | _expression_   | Any affine expression. The simplest is a bare variable name                                                                                  |
-| _values_       | A parameter that carries the `over` dimension, plus any dimensions the link expressions carry. A dimension the links do not carry is refused |
+| _values_       | A parameter that carries the `along` dimension, plus any dimensions the link expressions carry. A dimension the links do not carry is refused |
 | _sign_         | `<=` or `>=`. At most one per block, and only in a block with exactly two links. It bounds the link instead of pinning it                    |
 | _by_, _over_, _into_ | A relation and the columns the link reads the curve's weights through. The link then sits on a refinement of the frame ([below](#a-link-through-a-relation)) |
 
 | Key        |                                                                                          |                     |
 | ---------- | ---------------------------------------------------------------------------------------- | ------------------- |
-| `over`     | required. The breakpoint dimension                                                       |                     |
+| `along`    | required. The dimension each curve runs along                                            |                     |
 | `links`    | required. Two or more links                                                              |                     |
 | `dims`     | the curve's frame ([below](#dims))                                                       | inferred            |
 | `where`    | which coordinates have a curve at all ([below](#where))                                  | default `null`      |
@@ -57,7 +57,7 @@ row per link tying its expression to the weighted breakpoints. That expansion
 is what the rest of the model sees, and what the
 [typeset output](../typeset.md) prints.
 
-The breakpoint order is the declared order of `over`. A curve whose breakpoints
+The breakpoint order is the declared order of `along`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
 
 !!! warning "A values parameter short of a row does not build a shorter curve"
@@ -87,7 +87,7 @@ have a curve:
 ```yaml
 piecewise:
   cost_curve:
-    over: bp
+    along: bp
     where: has_curve # only some generators run on a cost curve
     links:
       - [dispatch, bp_x]
@@ -136,7 +136,7 @@ parameter has rows:
 ```yaml
 piecewise:
   cost_curve:
-    over: bp
+    along: bp
     points: bp_x # this curve runs as far as its own breakpoints do
     links:
       - [p, bp_x]
@@ -163,7 +163,7 @@ relations:
 
 piecewise:
   coupling:
-    over: bp
+    along: bp
     dims: [generator, snapshot] # one curve per generator
     links:
       - { expression: power, values: bp_power, by: generator_of, over: generator, into: flow }
@@ -176,7 +176,9 @@ with two share the block. A sixth flow is a row in `generator_of`, not an edit t
 the model.
 
 `by:`, `over:` and `into:` are the [`at`](operators.md#at) walk, and mean there
-what they mean everywhere. The block writes
+what they mean everywhere. A link's `over:` names a relation column the walk
+consumes; the block's `along:` names the dimension each curve runs along, and a
+walk never consumes that. The block writes
 `at(coupling_lam, by=generator_of, over=generator, into=flow)` into that link's
 row, so the weights stay on the curve's frame and the model never names them. A
 link's row is built over the frame with the consumed dimension replaced by the
@@ -223,7 +225,7 @@ of them bounded with `<=` or `>=`, and no `activity:`:
 ```yaml
 piecewise:
   cost_curve:
-    over: bp
+    along: bp
     method: lp
     links:
       - [p, bp_x]
@@ -243,7 +245,7 @@ variable, and how many members of that family may be non-zero at once.
 sos:
   pick_one_size:
     variable: build # the variable the set is over
-    over: size # the dimension it runs along — one set per coordinate of the rest
+    along: size # the dimension it runs along — one set per coordinate of the rest
     type: 1 # 1: at most one non-zero; 2: at most two, and consecutive
     big_m: 500 # optional, and only read by a solver that has to reformulate
 ```
@@ -256,7 +258,7 @@ naming the same variable is a load error.
 
 Membership belongs to the variable. Its `where` decides which coordinates exist,
 so a masked-out member is not in the set. The order is the declared order of
-the `over` dimension.
+the `along` dimension.
 
 A solver with no concept of a set is handed binaries and big-M rows instead.
 That rewrite is mixed-integer, so it gives up its duals, and it needs a finite

@@ -600,15 +600,15 @@ Derivation = MaskOf | FirstOf | LastOf
 
 @dataclass(frozen=True)
 class Increasing:
-    """*parameter* is strictly increasing along *over* within each curve — the x-axis a method sorts by."""
+    """*parameter* is strictly increasing along *along* within each curve — the x-axis a method sorts by."""
 
     parameter: str
-    over: str
+    along: str
 
 
 @dataclass(frozen=True)
 class Curved:
-    """*y* over *x* bends, along *over*, the way *curvature* says.
+    """*y* over *x* bends, along *along*, the way *curvature* says.
 
     That is the shape the method is exact for. ``either`` is the hull's
     weaker condition: any single bend, so only a mixed curve fails it.
@@ -616,15 +616,15 @@ class Curved:
 
     x: str
     y: str
-    over: str
+    along: str
     curvature: _model.Curvature
 
 
 @dataclass(frozen=True)
 class AtLeastTwo:
-    """Each curve has at least two breakpoints — every position along *over*, or those *mask* admits."""
+    """Each curve has at least two breakpoints — every position along *along*, or those *mask* admits."""
 
-    over: str
+    along: str
     mask: str | None
 
 
@@ -655,7 +655,7 @@ class PiecewiseDeclaration:
     and what the block assumes of it.
 
     Attributes:
-        over: The breakpoint dimension.
+        along: The dimension each curve runs along.
         method: How the weights are restricted.
         breakpoints: The links' values parameters, in link order.
         checks: What the block assumes of the numbers, each carrying its own
@@ -665,7 +665,7 @@ class PiecewiseDeclaration:
             without a curve is not held to breakpoints it carries no rows for.
     """
 
-    over: str
+    along: str
     method: _model.PiecewiseMethod
     breakpoints: tuple[str, ...]
     checks: tuple[Check, ...]
@@ -753,7 +753,7 @@ class ConstraintDeclaration:
 
 @dataclass(frozen=True)
 class SosDeclaration:
-    """One special-ordered set per coordinate of the variable's ``dims`` minus ``over``.
+    """One special-ordered set per coordinate of the variable's ``dims`` minus ``along``.
 
     The only declaration that adds neither a column nor a row: it names
     columns a consumer already has and says what may be nonzero among them. Which
@@ -767,7 +767,7 @@ class SosDeclaration:
     """
 
     variable: str
-    over: str
+    along: str
     sos_type: Literal[1, 2]
     big_m: float | None = None
 

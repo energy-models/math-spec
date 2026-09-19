@@ -574,7 +574,7 @@ class PiecewiseBlock(_StrictBlock):
     Mirrors ``linopy.Spec.add_piecewise_formulation``. Each link is
     ``[expression, values_parameter]`` or ``[expression, values_parameter,
     sign]``: *expression* is any affine expression string, *values_parameter*
-    names a parameter carrying the ``over`` dim, and *sign* bounds the link by
+    names a parameter carrying the ``along`` dim, and *sign* bounds the link by
     the curve instead of pinning it (at most one non-``"=="``, and only with
     exactly two links).
 
@@ -582,7 +582,7 @@ class PiecewiseBlock(_StrictBlock):
     declares it; where the file writes none it is inferred as the union of the
     link expressions' dims. Three keys say something different about those
     coordinates: ``where:`` which of them have a curve, ``points:`` how far each
-    curve runs along ``over``, and ``activity:`` whether a curve that exists is
+    curve runs along ``along``, and ``activity:`` whether a curve that exists is
     switched on.
 
     A link naming ``by:`` sits on a refinement of the frame, so the number of
@@ -592,8 +592,8 @@ class PiecewiseBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a piecewise declaration'
 
-    #: The breakpoint dimension.
-    over: str
+    #: The dimension each curve runs along — its breakpoints, in that dimension's declared order.
+    along: str
     links: list[PiecewiseLink]
     #: The curve's frame — one curve per coordinate of it. Inferred from the links where absent.
     dims: list[str] | None = None
@@ -696,8 +696,8 @@ SOS_TYPES = frozenset(get_args(SosType))
 class SosBlock(_StrictBlock):
     """A special-ordered set over one dimension of one variable.
 
-    One set per coordinate of the variable's ``dims`` minus ``over``; the
-    members are the variable's *existing* coordinates along ``over``, in that
+    One set per coordinate of the variable's ``dims`` minus ``along``; the
+    members are the variable's *existing* coordinates along ``along``, in that
     dimension's declared order, and ``big_m`` is the optional cap a consumer
     that reformulates the set puts on its linking rows.
 
@@ -710,7 +710,8 @@ class SosBlock(_StrictBlock):
     _label: ClassVar[str] = 'a sos declaration'
 
     variable: str
-    over: str
+    #: The dimension the set runs along — one set per coordinate of the rest.
+    along: str
     type: SosType
     big_m: float | None = None
     description: str | None = None
@@ -1031,17 +1032,17 @@ class Spec(_StrictBlock):
         claimed: dict[str, str] = {}
         for sname, block in self.sos.items():
             context = f"Sos '{sname}'"
-            if block.over not in self.dimensions:
-                yield (undeclared_dimension('Sos', sname, block.over))
+            if block.along not in self.dimensions:
+                yield (undeclared_dimension('Sos', sname, block.along))
             elif block.variable not in self.variables:
                 yield (
                     f"{context}: '{block.variable}' is not a declared variable.\n"
                     f'  Variables: {sorted(self.variables)}\n'
                     f'A set is over one variable, so a parameter or an expression cannot carry one.'
                 )
-            elif block.over not in self.variables[block.variable].dims:
+            elif block.along not in self.variables[block.variable].dims:
                 yield (
-                    f"{context}: over '{block.over}' is not a dim of variable "
+                    f"{context}: along '{block.along}' is not a dim of variable "
                     f"'{block.variable}' (dims {self.variables[block.variable].dims}). The set runs "
                     f"along one of the variable's own dims — one set per coordinate of the rest."
                 )

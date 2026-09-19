@@ -150,7 +150,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     sos = {
         sname: program.SosDeclaration(
             sdef.variable,
-            sdef.over,
+            sdef.along,
             sos_type=sdef.type,
             big_m=sdef.big_m,
         )

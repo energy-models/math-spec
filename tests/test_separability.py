@@ -311,7 +311,7 @@ def test_a_row_reaches_the_border_only_when_no_one_block_holds_it(patch, rows):
             id='an-objective-that-wraps-around-the-axis',
         ),
         pytest.param(
-            {'sos': {'s': {'variable': 'p', 'over': 'h', 'type': 1, 'big_m': 10}}, **_rows('p >= 0')},
+            {'sos': {'s': {'variable': 'p', 'along': 'h', 'type': 1, 'big_m': 10}}, **_rows('p >= 0')},
             "set 's'",
             id='a-set-the-axis-runs-through',
         ),

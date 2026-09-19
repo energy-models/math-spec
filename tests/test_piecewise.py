@@ -55,7 +55,7 @@ variables:
 
 piecewise:
   cost_curve:
-    over: bp
+    along: bp
     links:
       - [p, bp_x]
       - [op_cost, bp_y]
@@ -118,7 +118,7 @@ def test_expansion_emits_the_lambda_declarations():
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
     with pytest.raises(PiecewiseExpansionError, match="emitted sos 'cost_curve' collides"):
-        schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'over': 'snapshot', 'type': 1}})
+        schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'along': 'snapshot', 'type': 1}})
 
 
 @pytest.mark.parametrize('method', [pytest.param('incremental', id='unknown'), pytest.param(['sos2'], id='a list')])
@@ -596,7 +596,7 @@ REFINED = {
     },
     'piecewise': {
         'coupling': {
-            'over': 'bp',
+            'along': 'bp',
             'dims': ['generator', 'snapshot'],
             'links': [
                 {
