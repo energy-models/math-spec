@@ -250,7 +250,7 @@ def block(page: str) -> str:
         return declared_block(DECLARED[page])
     if page in COMPOSED:
         return composed_block(*COMPOSED[page])
-    if page.startswith('library/'):
+    if MODELS[page].parent == LIBRARY:
         return library_block(MODELS[page])
     return model_block(MODELS[page])
 

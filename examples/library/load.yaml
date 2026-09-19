@@ -13,7 +13,7 @@ given:
   variables:
     Port_p:
       dims: [snapshot, port]
-      description: the surface introduces this column, and this file pins it at its own ports
+      description: the surface introduces this flow, and this file pins it at its own ports
 parameters:
   Load_p_set: { dims: [snapshot, load], description: "`Load-p_set` — what a load takes in a snapshot" }
 constraints:

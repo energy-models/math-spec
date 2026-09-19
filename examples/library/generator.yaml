@@ -16,7 +16,7 @@ given:
   variables:
     Port_p:
       dims: [snapshot, port]
-      description: the surface introduces this column, and this file pins it at its own ports
+      description: the surface introduces this flow, and this file pins it at its own ports
 parameters:
   Generator_p_nom: { dims: [generator], description: nominal power }
   Generator_marginal_cost: { dims: [generator], description: cost of one unit of output }

@@ -25,7 +25,7 @@ given:
   variables:
     Port_p:
       dims: [snapshot, port]
-      description: the surface introduces this column, and this file pins it at its own ports
+      description: the surface introduces this flow, and this file pins it at its own ports
 parameters:
   Load_p_set: { dims: [snapshot, load], description: "`Load-p_set` — what a load takes in a snapshot" }
 constraints:
@@ -57,7 +57,7 @@ PyPSA's `Load`, wired to a port rather than straight to a bus. What it takes is 
 
 | Symbol | Meaning |
 |---|---|
-| $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — the surface introduces this column, and this file pins it at its own ports |
+| $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — the surface introduces this flow, and this file pins it at its own ports |
 
 #### Subject to
 
