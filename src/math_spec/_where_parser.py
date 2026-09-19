@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 import pyparsing as pp
 
@@ -156,14 +156,14 @@ def _build_where_grammar() -> pp.ParserElement:
     return where_expr
 
 
-def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], Any]:
+def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], WhereNode | UnresolvedWhereNode]:
     """A parse action left-folding a flat operator chain into *node_type*."""
 
-    def fold(tokens: pp.ParseResults) -> Any:
-        items = list(tokens)
-        result: WhereNode | UnresolvedWhereNode = items[0]
+    def fold(tokens: pp.ParseResults) -> WhereNode | UnresolvedWhereNode:
+        items: list[WhereNode | UnresolvedWhereNode] = list(tokens)
+        result = items[0]
         for item in items[1:]:
-            result = node_type(cast('WhereNode', result), item)
+            result = node_type(cast('WhereNode', result), cast('WhereNode', item))
         return result
 
     return fold

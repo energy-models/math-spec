@@ -13,7 +13,7 @@ import math
 import re
 from collections import Counter
 from functools import cached_property
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, cast, get_args, override
+from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
     BaseModel,
@@ -34,10 +34,10 @@ from math_spec.errors import did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Mapping
 
-    from pydantic import GetJsonSchemaHandler
-    from pydantic.json_schema import JsonSchemaValue
+    from pydantic import GetJsonSchemaHandler, SerializerFunctionWrapHandler
+    from pydantic.config import ExtraValues
     from pydantic_core import CoreSchema
 
     from math_spec.resolution import Resolved
@@ -58,7 +58,7 @@ class _StrictBlock(BaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def _reject_unknown_keys(cls, data: Any) -> Any:
+    def _reject_unknown_keys(cls, data: object) -> object:
         """Name the near-miss, which is what a typo actually needs.
 
         pydantic's own ``extra='forbid'`` is the backstop; this runs first
@@ -135,8 +135,8 @@ CURVATURES = frozenset(get_args(Curvature))
 
 
 def _also_written_as(
-    core_schema: CoreSchema, handler: GetJsonSchemaHandler, shorthand: JsonSchemaValue
-) -> JsonSchemaValue:
+    core_schema: CoreSchema, handler: GetJsonSchemaHandler, shorthand: Mapping[str, object]
+) -> dict[str, object]:
     """The block's own schema, widened to a *shorthand* its before-validator takes.
 
     A ``mode='before'`` rewrite is invisible to pydantic, which generates the
@@ -262,7 +262,7 @@ class BoundsBlock(_StrictBlock):
 
     @field_validator('lower', 'upper', mode='before')
     @classmethod
-    def _a_number_or_a_name(cls, v: Any, info: ValidationInfo) -> Any:
+    def _a_number_or_a_name(cls, v: object, info: ValidationInfo[object]) -> object:
         if isinstance(v, bool):
             msg = f'bounds.{info.field_name} is a boolean, and a bound is a number or a parameter name.'
             raise ValueError(msg)
@@ -353,7 +353,7 @@ class MacroBlock(_StrictBlock):
         return self
 
 
-def _number_is_an_expression(value: Any) -> Any:
+def _number_is_an_expression(value: object) -> object:
     """``expression: 0`` is how a file writes a constant — YAML reads it as an int.
 
     Booleans are left to fail: ``true`` is not arithmetic, and an error naming
@@ -415,7 +415,7 @@ class ExpressionBlock(_StrictBlock):
 
     @model_validator(mode='before')
     @classmethod
-    def _from_string(cls, data: Any) -> Any:
+    def _from_string(cls, data: object) -> object:
         return {'expression': data} if isinstance(data, str) else data
 
     @model_validator(mode='after')
@@ -457,14 +457,14 @@ class ExpressionBlock(_StrictBlock):
 
     @classmethod
     @override
-    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> dict[str, object]:
         """The published schema admits the bare string the one-line form is written as."""
         return _also_written_as(core_schema, handler, {'type': 'string'})
 
     @model_serializer
-    def _as_written(self) -> str | dict[str, Any]:
+    def _as_written(self) -> str | dict[str, object]:
         if self.cases:
-            written: dict[str, Any] = {'dims': list(self.dims or [])}
+            written: dict[str, object] = {'dims': list(self.dims or [])}
             if self.description is not None:
                 written['description'] = self.description
             written['cases'] = {name: case.model_dump() for name, case in self.cases.items()}
@@ -492,7 +492,7 @@ class PiecewiseLink(_StrictBlock):
 
     @model_validator(mode='before')
     @classmethod
-    def _from_list(cls, data: Any) -> Any:
+    def _from_list(cls, data: object) -> object:
         if isinstance(data, list):
             if not 2 <= len(data) <= 3:
                 msg = f'each link must be [expression, values] or [expression, values, sign], got {data!r}'
@@ -502,7 +502,7 @@ class PiecewiseLink(_StrictBlock):
 
     @classmethod
     @override
-    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> dict[str, object]:
         """The published schema admits the ``[expression, values, sign?]`` form every link is written as."""
         list_form = {'type': 'array', 'items': {'type': 'string'}, 'minItems': 2, 'maxItems': 3}
         return _also_written_as(core_schema, handler, list_form)
@@ -561,7 +561,7 @@ class PiecewiseBlock(_StrictBlock):
 
     @field_validator('method', mode='wrap')
     @classmethod
-    def _check_method(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> PiecewiseMethod:
+    def _check_method(cls, v: object, handler: ValidatorFunctionWrapHandler) -> PiecewiseMethod:
         try:
             return cast('PiecewiseMethod', handler(v))
         except ValidationError:
@@ -633,7 +633,7 @@ class SosBlock(_StrictBlock):
 
     @field_validator('type', mode='wrap')
     @classmethod
-    def _check_type(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> SosType:
+    def _check_type(cls, v: object, handler: ValidatorFunctionWrapHandler) -> SosType:
         orders = ' or '.join(str(t) for t in sorted(SOS_TYPES))
         msg = f'sos type must be {orders}, got {v!r}. A set of any other order is not a construct solvers carry.'
         if type(v) is not int:  # True == 1 == 1.0, and a set of order True is nothing
@@ -665,7 +665,7 @@ def undeclared_dimension(kind: str, name: str, dimension: str) -> str:
     return f"{kind} '{name}' references undeclared dimension '{dimension}'. Declare it under 'dimensions:'."
 
 
-def _without_absence(value: Any) -> Any:
+def _without_absence(value: object) -> object:
     """*value* with every absent entry stripped, recursively — see :meth:`Spec._drop_absence`."""
     if not isinstance(value, dict):
         return value
@@ -677,7 +677,7 @@ def _without_absence(value: Any) -> Any:
     return kept
 
 
-def _is_absent(value: Any) -> bool:
+def _is_absent(value: object) -> bool:
     """Whether *value* is a null or an infinite bound."""
     if value is None:
         return True
@@ -731,14 +731,32 @@ class Spec(_StrictBlock):
 
     @classmethod
     @override
-    def model_validate(cls, *args: Any, **kwargs: Any) -> Self:
+    def model_validate(
+        cls,
+        obj: object,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: object = None,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> Self:
         """Validate a mapping, raising this package's exception tree rather than pydantic's.
 
         ``__init__`` is not wrapped the same way, because defining one makes
         pydantic run every after-validator twice.
         """
         try:
-            return super().model_validate(*args, **kwargs)
+            return super().model_validate(
+                obj,
+                strict=strict,
+                extra=extra,
+                from_attributes=from_attributes,
+                context=context,
+                by_alias=by_alias,
+                by_name=by_name,
+            )
         except ValidationError as exc:
             raise schema_error(exc) from None
 
@@ -758,16 +776,16 @@ class Spec(_StrictBlock):
         raise ValueError(msg)
 
     @model_serializer(mode='wrap')
-    def _drop_absence(self, handler: Any) -> dict[str, Any]:
+    def _drop_absence(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         """Absence is not serialised: a null, an infinite bound, a mapping that stripping emptied, a section declaring nothing.
 
         An empty list stays, being a value rather than an absence (``dims:
         []`` is a scalar). On the serializer so that ``model_dump``,
         :meth:`to_dict` and :meth:`to_yaml` agree.
         """
-        return cast('dict[str, Any]', _without_absence(handler(self)))
+        return cast('dict[str, object]', _without_absence(handler(self)))
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """The model as plain data. ``to_spec(m.to_dict())`` reproduces it."""
         return self.model_dump()
 
