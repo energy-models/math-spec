@@ -6,9 +6,10 @@
 
 A name the patch declares is the point, and what is pinned for it is the
 opposite: every collision the caller did not ask for is an error naming both
-sides. A patch that lands on nothing, two patches writing one field, and an
-axis redeclared under the expressions written over it are the three, and each
-one is a model that would otherwise load and mean something nobody wrote.
+sides. A patch that lands on nothing, two patches writing one field, a
+dimension redeclared or removed under the expressions written over it, and a
+whole section set to null are each a model that would otherwise load and mean
+something nobody wrote.
 """
 
 from __future__ import annotations
@@ -25,6 +26,15 @@ from tests.fixtures import DISPATCH_MODEL
 CARBON = {
     'parameters': {'co2': {'dims': ['generator']}},
     'constraints': {'co2_cap': {'dims': [], 'expression': 'sum(p * co2) <= 100'}},
+}
+
+#: A base that reads a solved model: one given column, one given constraint and
+#: an expression over the constraint, so a patch to `given:` is checked by
+#: `to_spec` rather than only laid.
+GIVEN_BASE = {
+    'dimensions': {'g': {'dtype': 'str'}},
+    'given': {'variables': {'p': {'dims': ['g']}}, 'constraints': {'cap': {'dims': ['g']}}},
+    'expressions': {'price': {'expression': 'dual(cap)'}},
 }
 
 #: `DISPATCH_MODEL` with no objective, for the patches that ask about one.
@@ -177,20 +187,56 @@ def test_layering_is_written_out_as_nesting():
     assert twice['variables']['p']['where'] == 'cost > 0'
 
 
-def test_a_patch_adds_an_axis_and_may_restate_one_it_shares():
+def test_a_patch_adds_a_dimension_and_may_restate_one_it_shares():
     laid = override(
         DISPATCH_MODEL,
         {'periods': {'dimensions': {'snapshot': {'dtype': 'int'}, 'investment_period': {'dtype': 'int'}}}},
     )
     assert sorted(laid['dimensions']) == ['generator', 'investment_period', 'snapshot'], (
-        'the axis the patch adds joins the two the base declares, and the restated one is not doubled'
+        'the dimension the patch adds joins the two the base declares, and the restated one is not doubled'
     )
 
 
-def test_a_patch_that_redeclares_an_axis_is_refused():
-    """An axis changed under the expressions already written over it is a different model, silently."""
-    with pytest.raises(LanguageError, match=r'adjusts the math, not the axes'):
-        override(DISPATCH_MODEL, {'relabelled': {'dimensions': {'snapshot': {'dtype': 'str'}}}})
+@pytest.mark.parametrize(
+    ('patch', 'says'),
+    [
+        pytest.param(
+            {'dimensions': {'snapshot': {'dtype': 'str'}}},
+            'adjusts the math, not the coordinate space',
+            id='declared-as-something-else',
+        ),
+        pytest.param(
+            {'dimensions': {'snapshot': {}}},
+            'restate the declaration word for word',
+            id='restated-in-part',
+        ),
+        pytest.param(
+            {'dimensions': {'snapshot': None}},
+            'remove the declarations written over it one at a time',
+            id='removed',
+        ),
+    ],
+)
+def test_a_patch_that_rewrites_a_dimension_is_refused(patch, says):
+    """A dimension changed under the expressions already written over it is a different model, silently."""
+    with pytest.raises(LanguageError) as raised:
+        override(DISPATCH_MODEL, {'relabelled': patch})
+    assert says in str(raised.value), 'the refusal names the rewrite rather than only what is wrong'
+
+
+@pytest.mark.parametrize(
+    'patch',
+    [
+        pytest.param({'constraints': None}, id='an-owned-section'),
+        pytest.param({'dimensions': None}, id='a-shared-section'),
+        pytest.param({'given': {'variables': None}}, id='one-kind-of-given'),
+    ],
+)
+def test_a_whole_section_set_to_null_is_refused(patch):
+    """Nulling a section reads as emptying it, and laying it silently changed nothing at all."""
+    with pytest.raises(LanguageError, match=r'removes nothing') as raised:
+        override(DISPATCH_MODEL, {'blank': patch})
+    assert 'one at a time' in str(raised.value), 'the refusal names the rewrite, which is one null per declaration'
 
 
 def test_the_objective_is_laid_over_field_by_field():
@@ -228,17 +274,25 @@ def test_an_objective_a_base_does_not_declare_is_refused(patch, says):
 
 def test_a_patch_over_one_kind_of_given_leaves_the_other_alone():
     """`given:` is laid over a kind at a time, so patching the columns cannot drop the row families."""
-    base = {
-        'dimensions': {'g': {'dtype': 'str'}},
-        'given': {'variables': {'p': {'dims': ['g']}}, 'constraints': {'cap': {'dims': ['g']}}},
-        'expressions': {'price': {'expression': 'dual(cap)'}},
-    }
-    laid = override(base, {'wider': {'given': {'variables': {'p': {'domain': 'binary'}}}}})
+    laid = override(GIVEN_BASE, {'wider': {'given': {'variables': {'p': {'domain': 'binary'}}}}})
     assert laid['given']['variables']['p'] == {'dims': ['g'], 'domain': 'binary'}, (
         'the given column is edited field by field like any declaration'
     )
     assert sorted(laid['given']['constraints']) == ['cap'], 'the kind the patch did not name is still there'
     assert to_spec(laid).given.variables['p'].domain == 'binary'
+
+
+@pytest.mark.parametrize(
+    ('base', 'reads'),
+    [
+        pytest.param(GIVEN_BASE, ['p', 'q'], id='a-base-that-already-reads'),
+        pytest.param({'dimensions': {'g': {'dtype': 'str'}}}, ['q'], id='a-base-that-reads-nothing-yet'),
+    ],
+)
+def test_a_whole_given_entry_is_created_and_the_model_loads(base, reads):
+    """A patch adds a column to read, whether or not the base opened the block."""
+    laid = override(base, {'solved': {'given': {'variables': {'q': {'dims': ['g']}}}}})
+    assert sorted(to_spec(laid).given.variables) == reads, 'the created column joins whatever the base read'
 
 
 def test_a_patch_is_a_path_as_readily_as_a_mapping(tmp_path):

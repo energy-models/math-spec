@@ -159,6 +159,6 @@ declare a `p`, are both things a library does before it hands over a `dict`.
 
 A project that extends a model it does not own writes a patch, not a copy.
 `override` lays the patch over the base a field at a time, and refuses a patch
-that lands on nothing, two patches that write one field, and an axis redeclared
-under the math. The recipe is in
+that lands on nothing, two patches that write one field, and a dimension or a
+relation redeclared under the math. The recipe is in
 [compose a model from several files](../howto/compose.md).
