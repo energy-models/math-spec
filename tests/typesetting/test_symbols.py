@@ -12,7 +12,7 @@ import pytest
 
 from math_spec.errors import SchemaError
 from math_spec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
-from tests.fixtures import DISPATCH_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, varied
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
 
 
-WITH_MARGINAL_COST = override(
+WITH_MARGINAL_COST = varied(
     DISPATCH_MODEL,
     **{'parameters.marginal_cost': {'dims': ['generator']}, 'objective.expression': 'sum(p * marginal_cost)'},
 )
@@ -55,7 +55,7 @@ def test_the_table_prints_verbatim_and_the_rest_is_still_derived(render, symbols
         assert fragment in out
 
 
-DESCRIBED = override(
+DESCRIBED = varied(
     DISPATCH_MODEL,
     **{
         'dimensions.generator.description': 'dispatchable units',

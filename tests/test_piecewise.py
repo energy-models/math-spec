@@ -31,7 +31,7 @@ from math_spec.program import (
     MaskOf,
     check_message,
 )
-from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
+from tests.fixtures import DISPATCH_MODEL, raw_of, schema_of, varied
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
 #: binaries and links is not something a smaller one can stand in for.
@@ -69,12 +69,12 @@ objective:
   sense: minimize
   expression: sum(op_cost, over=snapshot)
 """
-GATED = override(
+GATED = varied(
     raw_of(NONCONVEX_YAML),
     **{'variables.u': {'dims': ['snapshot'], 'domain': 'binary'}, 'piecewise.cost_curve.activity': 'u'},
 )
 #: The convex curve stated as its segment lines, plus a binary the method cannot gate on.
-LP = override(
+LP = varied(
     raw_of(NONCONVEX_YAML),
     **{
         'piecewise.cost_curve.method': 'lp',
@@ -83,9 +83,9 @@ LP = override(
     },
 )
 #: The ``lp`` curve masked by one of its own values-parameters, so every check a block can carry is on it.
-LP_MASKED = override(LP, **{'piecewise.cost_curve.points': 'bp_x'})
+LP_MASKED = varied(LP, **{'piecewise.cost_curve.points': 'bp_x'})
 #: Two dims in the frame, so the emitted ``dims`` has an order to get wrong.
-TWO_DIM = override(
+TWO_DIM = varied(
     raw_of(NONCONVEX_YAML),
     **{
         'dimensions.generator': {'dtype': 'str'},
@@ -356,14 +356,14 @@ def test_a_gate_that_is_not_a_variable_is_refused(activity, match):
 
 
 #: ``lp`` bounded the other way: the same curve read as its lower envelope.
-LP_CONCAVE = override(
+LP_CONCAVE = varied(
     raw_of(NONCONVEX_YAML),
     **{
         'piecewise.cost_curve.method': 'lp',
         'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '<=']],
     },
 )
-CONVEX = override(raw_of(NONCONVEX_YAML), **{'piecewise.cost_curve.method': 'convex'})
+CONVEX = varied(raw_of(NONCONVEX_YAML), **{'piecewise.cost_curve.method': 'convex'})
 
 
 #: Named so the completeness check below can read the answers back off them.
@@ -419,7 +419,7 @@ def test_an_emitted_parameter_says_how_it_is_filled():
 def test_a_file_supplied_mask_derives_nothing():
     """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check still names it."""
     program = to_program(
-        override(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'})
+        varied(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'})
     )
 
     assert program.parameters['reach'].derivation is None, 'the file declared it, so the caller binds it'

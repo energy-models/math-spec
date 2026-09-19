@@ -41,6 +41,7 @@ nav:
       - Declare a column of data: howto/declare-a-column.md
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
       - Write a piecewise curve out by hand: howto/curve-by-hand.md
+      - Compose a model from several files: howto/compose.md
   - Reference:
       - Language:
           - reference/language/index.md

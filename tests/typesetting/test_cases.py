@@ -15,7 +15,7 @@ from math_spec import to_latex, to_spec, typeset
 from math_spec.piecewise import expand_piecewise
 from math_spec.typesetting.symbols import chosen_expressions
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
-from tests.fixtures import override
+from tests.fixtures import varied
 from tests.typesetting.fixtures import EVERY_FORMAT
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ BY_REGION = {
 }
 
 #: The dispatch model, with a quantity defined by region and a constraint using it.
-CASED = override(
+CASED = varied(
     DISPATCH,
     **{
         'expressions.headroom': BY_REGION,
@@ -41,7 +41,7 @@ CASED = override(
 
 #: One cased expression reached only through another's case. `opening_cost` has
 #: no variable of its own — its route to one runs through `headroom`.
-_NESTED = override(
+_NESTED = varied(
     CASED,
     **{
         'expressions.headroom.cases.opening.expression': 'p',
@@ -83,7 +83,7 @@ def test_the_last_arm_prints_as_the_fallback_rather_than_a_condition(name: Forma
 @EVERY_FORMAT
 def test_a_declared_definition_prints_whether_or_not_a_row_names_it(name: FormatName, fmt: Format):
     """The rule a variable's domain follows: the file declared it, so it prints."""
-    unused = override(CASED, **{'constraints.spare.expression': 'p <= p_max'})
+    unused = varied(CASED, **{'constraints.spare.expression': 'p <= p_max'})
     rendered = typeset(unused, name, legend=False)
     assert rendered.count(fmt.subscript(fmt.upright('headroom'), ['t', 'g'])) == 1, 'the definition, and no use'
     assert 'Definitions' in rendered
@@ -111,7 +111,7 @@ def test_a_cased_expression_is_chosen_when_a_value_reaching_it_is(
     returns, and one case holding a variable is enough. The `otherwise:` is a
     value of the quantity like any case's, so a walk reading only the cases
     prints a solved quantity upright."""
-    rendered = typeset(override(CASED, **patch), name, legend=False)
+    rendered = typeset(varied(CASED, **patch), name, legend=False)
     italic, upright = (fmt.subscript(face('headroom'), ['t', 'g']) for face in (fmt.italic, fmt.upright))
     assert (italic in rendered) is chosen, 'the quantity is chosen exactly when a value reaching it holds a variable'
     assert (upright in rendered) is not chosen, 'and given otherwise, however its regions are chosen'
@@ -145,7 +145,7 @@ def test_the_table_may_rename_a_named_expression_cased_or_plain():
     tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
     assert r'\bar h_{t,g}' in tex
 
-    plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
+    plain = varied(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
     tex = to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
     assert 's_{t} & =' in tex, 'the definition prints under the spelling the table gave'
 
@@ -159,7 +159,7 @@ def test_the_definitions_print_in_declaration_order():
     carrying two of them would churn on every regeneration.
     """
     declared = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']
-    tex = to_latex(override(CASED, **{f'expressions.{n}': BY_REGION for n in declared}), legend=False)
+    tex = to_latex(varied(CASED, **{f'expressions.{n}': BY_REGION for n in declared}), legend=False)
     section = tex[tex.index('Definitions') : tex.index('Variable domains')]
     labels = re.findall(r'^\\text\{(\w+)\} &&', section, flags=re.MULTILINE)
     assert labels == ['headroom', *declared], "declaration order, the file's own"

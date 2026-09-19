@@ -156,3 +156,9 @@ a path, so a model assembled in Python is checked exactly as a file is, and
 `Spec.to_yaml()` writes the file a reviewer reads. A `dict` may hold only what a
 file may hold. A built-in merge, and namespaces so that two fragments can each
 declare a `p`, are both things a library does before it hands over a `dict`.
+
+A project that extends a model it does not own writes a patch, not a copy.
+`override` lays the patch over the base a field at a time, and refuses a patch
+that lands on nothing, two patches that write one field, and an axis redeclared
+under the math. The recipe is in
+[compose a model from several files](../howto/compose.md).

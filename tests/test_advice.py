@@ -17,20 +17,20 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec import ADVICE_KINDS, advice, to_program, to_spec
-from tests.fixtures import SMALL_MODEL, override
+from tests.fixtures import SMALL_MODEL, varied
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
-TARGET_ONLY = override(
+TARGET_ONLY = varied(
     SMALL_MODEL,
     variables={'p': {'dims': ['g']}},
     objective={'sense': 'minimize', 'expression': 'sum(p * c)'},
 )
 
 #: The same with the relation gone, so nothing reaches ``h`` at all.
-UNREACHED = override(TARGET_ONLY, relations={})
+UNREACHED = varied(TARGET_ONLY, relations={})
 
 
 def test_a_dimension_nothing_reaches_is_named():
@@ -51,14 +51,14 @@ def test_a_dimension_nothing_reaches_is_named():
     ],
 )
 def test_a_dimension_something_reaches_is_in_use(patch):
-    assert not advice(override(TARGET_ONLY, **patch)), (
+    assert not advice(varied(TARGET_ONLY, **patch)), (
         'a dimension a relation targets, a declaration indexes or a grouping lands on is in use'
     )
 
 
 #: A model with one note of each kind: nothing reaches `h`, and `p` is driven
 #: down by the objective with an open lower bound and no constraint on it.
-BOTH_KINDS = override(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
+BOTH_KINDS = varied(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
 
 
 def test_both_kinds_of_note_come_through_the_one_door():
