@@ -95,6 +95,7 @@ def test_a_column_read_and_not_built_is_advised():
     (note,) = advice(READS_A_COLUMN)
     assert (note.kind, note.subject) == ('given', 'flow')
     assert 'binds it to the model' in str(note), 'the note says whose job the column is'
+    assert 'merge()' in str(note), 'and names the verb that folds the reading away where a sibling builds it'
 
 
 def test_every_kind_a_consumer_can_pin_against_is_produced_here():

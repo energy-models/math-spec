@@ -19,12 +19,13 @@ What :func:`merge` does with each section:
   descriptions of one dimension agree, and the first fragment's is carried.
 * **Every other declaration is owned.** A name two fragments declare is refused,
   both named.
-* **The objectives are summed**, each term in parentheses, and the senses have
-  to agree.
+* **The objectives are summed**, each term in parentheses, in the fragments'
+  name order, and the senses have to agree.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
-  Two fragments that both only read a name have to read it the same way. What
-  no fragment introduces stays under ``given:`` for a consumer to bind.
+  Two fragments that both only read a name have to read it the same way, and a
+  fragment that declares a name and reads it as well is refused. What no
+  fragment introduces stays under ``given:`` for a consumer to bind.
 
 A patch says only what it changes, because declarations are laid over a field
 at a time::
@@ -120,12 +121,15 @@ def merge(
         LanguageError: Two fragments declare one name; two fragments say
             different things about one dimension, relation or given
             declaration; a fragment reads a name as something other than what
-            its sibling introduces; two fragments pin different language
-            versions; or their objectives run opposite ways.
+            its sibling introduces; a fragment declares a name and reads it as
+            well; two fragments pin different language versions; or their
+            objectives run opposite ways.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
     read = {name: deepcopy(_declarations(fragment)) for name, fragment in fragments.items()}
-    merged: dict[str, Any] = {'version': _one_version(read)}
+    merged: dict[str, Any] = {}
+    if (version := _one_version(read)) is not None:
+        merged['version'] = version
     if description is not None:
         merged['description'] = description
     for section in SHARED_SECTIONS:
@@ -141,16 +145,21 @@ def merge(
     return merged
 
 
-def _one_version(read: Mapping[str, dict[str, Any]]) -> int:
-    """The language version every fragment is written against, a fragment saying nothing being version 0."""
-    declared = {name: sections.get('version', 0) for name, sections in read.items()}
+def _one_version(read: Mapping[str, dict[str, Any]]) -> int | None:
+    """The language version the fragments are written against, or ``None`` where none of them writes one.
+
+    A fragment that writes none is version 0, which is the schema's default, so
+    a composition of such fragments claims no version rather than writing the
+    default out as though a file had asked for it.
+    """
+    declared = {name: sections['version'] for name, sections in read.items() if 'version' in sections}
     if len(set(declared.values())) > 1:
         spelled = ', '.join(f"'{name}' says {version}" for name, version in sorted(declared.items()))
         raise LanguageError(
             f'the fragments are written against different language versions: {spelled}. One model has '
-            f'one version, so write the same one in each. A fragment that declares none is version 0.'
+            f'one version, so write the same one in each, or leave it out of the fragments that do not pin it.'
         )
-    return next(iter(declared.values()), 0)
+    return next(iter(declared.values()), None)
 
 
 def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> str:
@@ -208,6 +217,7 @@ def _folded(read: Mapping[str, dict[str, Any]], merged: Mapping[str, Any]) -> di
     then dropped, so the composed model declares the name once.
     """
     asked = {name: sections.get('given') or {} for name, sections in read.items()}
+    _reads_only_what_it_does_not_build(read, asked)
     left: dict[str, Any] = {}
     for kind, label in GIVEN_KINDS.items():
         cls = _entry_class(GivenBlock, kind)
@@ -226,6 +236,26 @@ def _folded(read: Mapping[str, dict[str, Any]], merged: Mapping[str, Any]) -> di
     return left
 
 
+def _reads_only_what_it_does_not_build(read: Mapping[str, dict[str, Any]], asked: Mapping[str, dict[str, Any]]) -> None:
+    """Refuse a fragment that declares a name and reads it under ``given:`` too.
+
+    :func:`~math_spec.validation.to_spec` refuses such a file, so folding the
+    reading away silently would put a fragment that loads nowhere on its own
+    into a composition that loads.
+    """
+    for name, given in asked.items():
+        for kind in GIVEN_KINDS:
+            built = read[name].get(kind) or {}
+            for key in given.get(kind) or {}:
+                if key in built:
+                    raise LanguageError(
+                        f"fragment '{name}' declares the {_singular(kind)} {key!r} and reads it under "
+                        f"'given: {kind}:' as well. A given declaration is what one file expects of another, "
+                        f'and this fragment builds the name itself: drop the given entry, or move the '
+                        f'declaration to the fragment this one reads it from.'
+                    )
+
+
 def _says_less(cls: type[BaseModel], reader: Any, introducer: Any) -> bool:
     """Whether every claim *reader* makes is one *introducer* makes too, a field left to its default counting as said."""
     fields = cls.model_fields
@@ -238,8 +268,10 @@ def _says_less(cls: type[BaseModel], reader: Any, introducer: Any) -> bool:
 def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
     """Every fragment's objective summed, each term in parentheses, or ``None`` where none declares one.
 
-    The senses have to agree: a sum has one sense, and negating the odd one
-    out would be this function deciding what a model means.
+    The terms are summed in the fragments' name order, so the order they were
+    passed in does not reach the expression. The senses have to agree: a sum has
+    one sense, and negating the odd one out would be this function deciding what
+    a model means.
     """
     declared = {name: sections['objective'] for name, sections in read.items() if sections.get('objective')}
     if not declared:
@@ -252,7 +284,7 @@ def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | No
             f'one objective and one sense, so write every fragment against the same one: negate the terms '
             f'of the odd one out rather than its sense.'
         )
-    terms = [objective['expression'] for objective in declared.values()]
+    terms = [objective['expression'] for _, objective in sorted(declared.items())]
     joined = terms[0] if len(terms) == 1 else ' + '.join(f'({term})' for term in terms)
     return {'sense': next(iter(senses.values())), 'expression': joined}
 
@@ -292,7 +324,7 @@ def override(
 
 
 def _declarations(source: str | Path | dict[str, Any] | Spec) -> dict[str, Any]:
-    """A base or a patch as the mapping it declares, whatever shape it arrived in.
+    """A fragment, a base or a patch as the mapping it declares, whatever shape it arrived in.
 
     Deliberately not :func:`~math_spec.validation.to_spec`: a patch carrying a
     ``null`` or naming only the field it changes is not a model, and validating

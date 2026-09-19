@@ -92,8 +92,18 @@ def test_the_balance_does_not_grow_when_a_component_type_is_added():
     assert three == four, 'the balance is written once, whatever is plugged into it'
 
 
-def test_merging_is_order_independent():
-    assert merge(LIBRARY) == merge(dict(reversed(list(LIBRARY.items()))))
+@pytest.mark.parametrize(
+    'fragments',
+    [
+        pytest.param(LIBRARY, id='one-objective'),
+        pytest.param(
+            {**LIBRARY, 'demand': {**DEMAND, 'objective': {'sense': 'minimize', 'expression': 'sum(dem_load)'}}},
+            id='an-objective-in-two-fragments',
+        ),
+    ],
+)
+def test_merging_is_order_independent(fragments):
+    assert merge(fragments) == merge(dict(reversed(list(fragments.items()))))
 
 
 def test_the_fragments_are_never_mutated_and_share_nothing_with_the_result():
@@ -105,20 +115,41 @@ def test_the_fragments_are_never_mutated_and_share_nothing_with_the_result():
     )
 
 
-def test_a_name_two_fragments_declare_is_refused():
-    twin = {**DEMAND, 'parameters': {'gen_cost': {'dims': ['demand']}}}
+@pytest.mark.parametrize(
+    ('fragments', 'says'),
+    [
+        pytest.param(
+            {'supply': SUPPLY, 'demand': {**DEMAND, 'parameters': {'gen_cost': {'dims': ['demand']}}}},
+            'two rows of a dimension',
+            id='one-name-declared-twice',
+        ),
+        pytest.param(
+            {
+                'supply': SUPPLY,
+                'demand': {**DEMAND, 'dimensions': {**DEMAND['dimensions'], 'snapshot': {'dtype': 'str'}}},
+            },
+            'give one of them a name of its own',
+            id='one-dimension-described-two-ways',
+        ),
+        pytest.param(
+            {'supply': SUPPLY, 'demand': {**DEMAND, 'objective': {'sense': 'maximize', 'expression': 'sum(dem_load)'}}},
+            'negate the terms',
+            id='objectives-that-run-opposite-ways',
+        ),
+        pytest.param(
+            {'supply': {**SUPPLY, 'version': 0}, 'demand': {**DEMAND, 'version': 1}},
+            'One model has one version',
+            id='two-language-versions',
+        ),
+    ],
+)
+def test_a_disagreement_between_fragments_is_refused(fragments, says):
+    """No order of the fragments settles any of these, so each is a refusal rather than a rule."""
     with pytest.raises(LanguageError) as raised:
-        merge({'supply': SUPPLY, 'twin': twin})
+        merge(fragments)
     message = str(raised.value)
-    assert "'supply'" in message and "'twin'" in message, 'a collision names both fragments'
-    assert 'two rows of a dimension' in message, 'the message names the rewrite it usually is'
-
-
-def test_a_dimension_two_fragments_describe_differently_is_refused():
-    relabelled = {**DEMAND, 'dimensions': {**DEMAND['dimensions'], 'snapshot': {'dtype': 'str'}}}
-    with pytest.raises(LanguageError, match=r'say different things about the dimension') as raised:
-        merge({'supply': SUPPLY, 'demand': relabelled})
-    assert 'a name of its own' in str(raised.value), 'the refusal names the rewrite'
+    assert says in message, 'the refusal names the rewrite rather than only what is wrong'
+    assert all(f"'{name}'" in message for name in fragments), 'a disagreement names both fragments'
 
 
 def test_two_descriptions_of_one_dimension_agree_and_the_first_is_carried():
@@ -126,29 +157,27 @@ def test_two_descriptions_of_one_dimension_agree_and_the_first_is_carried():
     first = {**SUPPLY, 'dimensions': {**SUPPLY['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'an hour'}}}
     second = {**DEMAND, 'dimensions': {**DEMAND['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'a step'}}}
     composed = merge({'supply': first, 'demand': second})
-    assert composed['dimensions']['snapshot'] == {'dtype': 'int', 'description': 'an hour'}
+    assert composed['dimensions']['snapshot'] == {'dtype': 'int', 'description': 'an hour'}, (
+        "the claim is carried whole, under the first fragment's wording of the prose"
+    )
 
 
 def test_the_objectives_are_summed_each_term_parenthesised():
     """`a + b * k` reassociates, so an unparenthesised join composes a different objective."""
     priced = {**DEMAND, 'objective': {'sense': 'minimize', 'expression': 'sum(dem_load) * 2'}}
     composed = merge({'surface': SURFACE, 'supply': SUPPLY, 'demand': priced})
-    assert composed['objective']['expression'] == '(sum(gen_p * gen_cost)) + (sum(dem_load) * 2)'
+    assert composed['objective']['expression'] == '(sum(dem_load) * 2) + (sum(gen_p * gen_cost))', (
+        "the terms are summed in the fragments' name order, which no argument order can change"
+    )
 
 
 def test_one_fragment_s_objective_is_carried_as_it_was_written():
     assert merge(LIBRARY)['objective']['expression'] == SUPPLY['objective']['expression']
 
 
-def test_objectives_that_run_opposite_ways_are_refused():
-    maximised = {**DEMAND, 'objective': {'sense': 'maximize', 'expression': 'sum(dem_load)'}}
-    with pytest.raises(LanguageError, match=r'which way the objective runs'):
-        merge({'supply': SUPPLY, 'demand': maximised})
-
-
-def test_fragments_pinning_different_versions_are_refused():
-    with pytest.raises(LanguageError, match=r'different language versions'):
-        merge({'supply': {**SUPPLY, 'version': 0}, 'demand': {**DEMAND, 'version': 1}})
+def test_a_version_no_fragment_pins_is_left_out():
+    assert 'version' not in merge(LIBRARY), 'a composition claims a version only where a fragment wrote one'
+    assert merge({**LIBRARY, 'supply': {**SUPPLY, 'version': 0}})['version'] == 0
 
 
 def test_the_description_belongs_to_the_composition():
