@@ -78,6 +78,20 @@ relation.
 `dims:` may not carry the breakpoint dimension. Every curve runs along that
 axis, so it is not something the block builds one curve per.
 
+**A link expression carries exactly the dimensions its row is built over**,
+which is the frame, or the refinement of it a relation walk names. A dimension
+the expression carries and the row does not multiplies the rows the link
+builds. A dimension the row carries and the expression does not repeats one row
+across it, which pins the expression to a single operating point along a
+dimension the curve varies over. Both are refused, and the message names which
+one it is.
+
+A quantity that varies along a dimension the curve does not, such as a rate per
+period read off a curve that has none, is said by adding that dimension to
+`dims:`. The curve then varies along it too. Whether the breakpoint values also
+vary along it is the data's business: values that do not carry it give one curve
+shape and a per-period operating point.
+
 ### `where`
 
 A block builds one curve for every coordinate of its **frame**, which `dims:`

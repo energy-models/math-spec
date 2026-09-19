@@ -178,6 +178,7 @@ class _Block:
         self.links = tuple(f'{name}_link{i}' for i in range(len(pw.links)))
         self.mask = self.points if self.nominated is not None else pw.points
         self.ns = Namespace(schema)
+        self._expression_dims: dict[int, frozenset[str]] = {}
         self.context = f"piecewise '{name}'"
         self.frame = self._validated_frame()
         self.record: dict[str, object] = {'block': self._section('piecewise')[name], 'points': self.mask}
@@ -376,13 +377,15 @@ class _Block:
         """
         if self.pw.along not in self.schema.dimensions:
             raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, self.pw.along))
+        for i, link in enumerate(self.pw.links):
+            self._check_values(i, link)
         frame: list[str] = []
         if self.pw.dims is None:
             self._widen(frame, self._link_dims())
         else:
             frame.extend(self._declared_frame())
-            self._links_fit(frame)
         self._widen(frame, self._activity_dims())
+        self._links_fit(frame)
         self._values_fit(frame)
         self._points_fit(frame)
         self._where_fits(frame)
@@ -460,11 +463,17 @@ class _Block:
         return refined
 
     def _links_fit(self, frame: list[str]) -> None:
-        """Every link expression stands on its own frame, which a declared ``dims:`` no longer infers from it."""
+        """Every link expression carries exactly its row's frame — the rule a constraint's own ``dims:`` holds to.
+
+        Both directions are refused because both broadcast one side of the row.
+        A stray dim multiplies the rows the link builds; a missing one repeats
+        the same row across it, which pins the expression to one operating point
+        along a dimension the curve varies over. Neither is sayable another way,
+        so neither is guessed.
+        """
         for i, link in enumerate(self.pw.links):
-            self._check_values(i, link)
             own = self._link_frame(i, link, frame)
-            found = self._expr_dims(link.expression, f'{self.context} link {i}')
+            found = self._dims_of(i, link)
             if self.pw.along in found:
                 raise PiecewiseExpansionError(
                     f"{self.context}: link {i} expression already carries the breakpoint dim '{self.pw.along}'"
@@ -475,6 +484,22 @@ class _Block:
                     f'not — every stray dim multiplies the rows the link builds. Add it to dims:, sum it out, '
                     f'or read it through a relation with by, over and into.'
                 )
+            if missing := sorted(set(own) - found):
+                raise PiecewiseExpansionError(f'{self.context}: {self._too_coarse(i, missing, own)}')
+
+    def _too_coarse(self, i: int, missing: list[str], own: list[str]) -> str:
+        """Why a link varying less than its row is refused, and the rewrite — which differs by where the frame came from."""
+        repeated = (
+            f"link {i} expression does not carry {missing}, which its row's frame {own} does — the same "
+            f'row would repeat across {missing}, pinning the expression to one operating point along '
+            f'{"it" if len(missing) == 1 else "them"}. '
+        )
+        if self.pw.dims is None:
+            return repeated + (
+                f"The frame is the union of the link expressions' dims, so another link carries {missing}. "
+                f'Declare dims: to say which curve the block builds, or vary this expression along {missing}.'
+            )
+        return repeated + f'Drop {missing} from dims:, or vary the expression along {missing}.'
 
     def _widen(self, frame: list[str], dims: Iterable[tuple[str, frozenset[str]]]) -> None:
         """Add each labelled dim set to *frame* in declaration order, refusing the breakpoint dim.
@@ -503,10 +528,15 @@ class _Block:
             )
 
     def _link_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
-        """Each link's expression dims, its values parameter checked first — the inferred frame is their union."""
+        """Each link expression's dims — the inferred frame is their union."""
         for i, link in enumerate(self.pw.links):
-            self._check_values(i, link)
-            yield f'link {i} expression', self._expr_dims(link.expression, f'{self.context} link {i}')
+            yield f'link {i} expression', self._dims_of(i, link)
+
+    def _dims_of(self, i: int, link: PiecewiseLink) -> frozenset[str]:
+        """One link expression's dims, parsed once — the inferred frame reads them before the fit does."""
+        if i not in self._expression_dims:
+            self._expression_dims[i] = self._expr_dims(link.expression, f'{self.context} link {i}')
+        return self._expression_dims[i]
 
     def _activity_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
         """The gate's dims, if the block names one: a declared binary variable."""

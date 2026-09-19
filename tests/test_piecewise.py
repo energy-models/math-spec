@@ -788,3 +788,75 @@ def test_the_two_methods_that_check_a_curvature_refuse_a_refined_link(method):
     """Each compares the two values parameters to prove its shape, and a refined link puts them on two frames."""
     with pytest.raises(LanguageError, match='reads through a relation'):
         schema_of(REFINED, **{'piecewise.coupling.method': method})
+
+
+def test_links_that_disagree_on_their_dims_are_refused_rather_than_read_as_one_curve_each():
+    """Two links at different grains built one curve per fine coordinate, and loaded clean.
+
+    `power` is per flow and `fuel` per generator, so the inferred frame was
+    their union and the block built a curve per (snapshot, flow, generator) —
+    N unrelated curves each separately pinning the same `fuel`, which is not
+    the coupling the file reads as.
+    """
+    with pytest.raises(LanguageError, match=r'does not carry \[.generator.\]'):
+        schema_of(
+            REFINED,
+            **{
+                'piecewise.coupling.dims': None,
+                'piecewise.coupling.links': [['power', 'bp_power'], ['fuel', 'bp_fuel']],
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ('patch', 'match'),
+    [
+        pytest.param(
+            {'variables.power.dims': ['flow', 'snapshot', 'period']},
+            r'carries \[.period.\]',
+            id='finer-than-its-row',
+        ),
+        pytest.param(
+            {
+                'piecewise.coupling.dims': ['generator', 'snapshot', 'period'],
+                'variables.fuel.dims': ['generator', 'snapshot', 'period'],
+            },
+            r'does not carry \[.period.\]',
+            id='coarser-than-its-row',
+        ),
+    ],
+)
+def test_a_link_spanning_a_dimension_its_row_does_not_is_refused_both_ways(patch, match):
+    """A curve and the quantity on it vary together or the file says which — neither direction is guessed."""
+    model = override(
+        REFINED,
+        **{
+            'dimensions.period': {'dtype': 'int'},
+            'parameters.load': {'dims': ['snapshot', 'period']},
+            'constraints.balance': {'dims': ['snapshot', 'period'], 'expression': 'sum(power, over=flow) == load'},
+        },
+    )
+    with pytest.raises(LanguageError, match=match):
+        schema_of(model, **patch)
+
+
+def test_a_period_the_curve_and_its_links_both_carry_loads():
+    """The rewrite both refusals name: put the dimension in dims:, and the curve varies along it."""
+    expanded = expand_piecewise(
+        schema_of(
+            REFINED,
+            **{
+                'dimensions.period': {'dtype': 'int'},
+                'parameters.load': {'dims': ['snapshot', 'period']},
+                'constraints.balance': {
+                    'dims': ['snapshot', 'period'],
+                    'expression': 'sum(power, over=flow) == load',
+                },
+                'variables.power.dims': ['flow', 'snapshot', 'period'],
+                'variables.fuel.dims': ['generator', 'snapshot', 'period'],
+                'piecewise.coupling.dims': ['generator', 'snapshot', 'period'],
+            },
+        )
+    )
+    assert expanded.variables['coupling_lam'].dims == ['generator', 'snapshot', 'period', 'bp']
+    assert expanded.constraints['coupling_link0'].dims == ['flow', 'snapshot', 'period']
