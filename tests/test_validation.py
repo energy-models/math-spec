@@ -522,7 +522,7 @@ class TestPositionResolves:
         ids=['first', 'first of each period'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
-        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        resolved = where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         assert resolved is not None
         node = resolved.root
         assert isinstance(node, DimensionPositionNode)
@@ -548,7 +548,7 @@ class TestPositionResolves:
     )
     def test_it_refuses(self, mask: str, fragments: list[str]):
         with pytest.raises(LanguageError) as excinfo:
-            where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+            where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
 

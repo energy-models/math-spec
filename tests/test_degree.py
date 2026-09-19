@@ -22,7 +22,7 @@ SCHEMA = schema_of(SMALL_MODEL)
 
 
 def _ast(text: str):
-    return expression_of(text, SCHEMA, Namespace.of(SCHEMA), 'test')
+    return expression_of(text, Namespace(SCHEMA), 'test')
 
 
 @pytest.mark.parametrize(
@@ -113,7 +113,7 @@ def test_carries_variable_refuses_an_unresolved_name():
 
 def _dual_ast(text: str):
     schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
-    return expression_of(text, schema, Namespace.of(schema), 'test')
+    return expression_of(text, Namespace(schema), 'test')
 
 
 def test_a_dual_carries_no_variable():
@@ -154,5 +154,5 @@ def test_calls_dual_finds_a_dual_inside_a_cased_arm():
             },
         },
     )
-    ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
+    ast = expression_of('dcase', Namespace(schema), 'test')
     assert calls_dual(ast) is True
