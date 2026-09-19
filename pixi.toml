@@ -115,7 +115,7 @@ lint = "lefthook run pre-commit --all-files"
 #
 # Pinned exactly, for the reason ruff and pyrefly are: this is pre-1.0, and
 # what a 0.0.x bump changes is the gate's own output.
-zensical = "==0.0.61"
+zensical = "==0.0.63"
 # The Python API pages render through mkdocstrings itself — zensical maps the
 # plugin configuration onto it and refuses to build when it is missing. mkdocs
 # arrives as a dependency of mkdocstrings and nothing here calls it.
