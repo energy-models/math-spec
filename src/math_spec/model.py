@@ -13,7 +13,7 @@ import math
 import re
 from collections import Counter
 from functools import cached_property
-from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, cast, get_args, override
+from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, TypedDict, cast, get_args, override
 
 from pydantic import (
     BaseModel,
@@ -474,6 +474,40 @@ class ExpressionBlock(_StrictBlock):
         if self.description is None:
             return self.expression
         return {'expression': self.expression, 'description': self.description}
+
+
+class WrittenCase(TypedDict):
+    """One entry under ``cases:``, in the shape a file writes it.
+
+    Both keys are required, as :class:`ExpressionCase` requires them.
+    """
+
+    when: str
+    expression: str | float
+
+
+class WrittenExpression(TypedDict, total=False):
+    """One ``expressions:`` entry as a mapping, in the shape a file writes it.
+
+    For a caller that builds the mapping in code rather than reading it from
+    YAML: the keys are checked where the caller writes them, instead of at
+    :func:`~math_spec.to_spec`.
+
+    Every key is optional, because which *combination* is a model is
+    :class:`ExpressionBlock`'s own rule — one ``expression:``, or ``cases:``
+    with the ``dims:`` and ``otherwise:`` they need. This says which keys
+    exist and what each takes; loading still decides the rest, and still
+    refuses a key that is not here.
+
+    Example:
+        >>> written: WrittenExpression = {'expression': 'sum(p, over=generator)'}
+    """
+
+    expression: str | float
+    dims: list[str]
+    cases: dict[str, WrittenCase]
+    otherwise: str | float
+    description: str
 
 
 class PiecewiseLink(_StrictBlock):

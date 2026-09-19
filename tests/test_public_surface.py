@@ -36,6 +36,8 @@ SURFACE = frozenset(
         # the declaration vocabularies a consumer pins its own tables against
         'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE', 'ADVICE_KINDS',
         'CURVATURES', 'SosBlock',
+        # what a caller writing an expressions: entry in code annotates it with
+        'WrittenExpression', 'WrittenCase',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
     }

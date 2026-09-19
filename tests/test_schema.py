@@ -2,12 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The published JSON Schema is the pydantic models, verbatim.
+"""What the package publishes about the YAML surface is the pydantic models, verbatim.
 
 `schema/math-spec.schema.json` is a generated artefact that ships in the
 repository so an editor can offer completion without importing the package.
 Nothing regenerates it on the way to a release, so the only thing keeping it
 equal to the models is this file.
+
+`WrittenExpression` and `WrittenCase` are the same surface a second time, for
+a caller that builds an `expressions:` entry in code. They are written by hand
+rather than generated, so the same job falls here.
 """
 
 import json
@@ -78,4 +82,26 @@ def test_the_piecewise_method_vocabulary_has_one_home():
     """`PiecewiseMethod` types the field and `PIECEWISE_METHODS` says what each emits."""
     assert set(get_args(model.PiecewiseMethod)) == set(model.PIECEWISE_METHODS), (
         'the typed methods and the emitting ones disagree, so a method is accepted that emits nothing or the reverse'
+    )
+
+
+@pytest.mark.parametrize(
+    ('written', 'definition'),
+    [
+        pytest.param(model.WrittenExpression, 'ExpressionBlock', id='expression'),
+        pytest.param(model.WrittenCase, 'ExpressionCase', id='case'),
+    ],
+)
+def test_the_written_form_takes_the_keys_its_block_takes(written, definition):
+    """A field added to the block and not to the TypedDict would leave a caller
+    annotating the key it just gained as an error, and one removed would leave
+    them annotating a key the loader now refuses. Read off the schema rather
+    than the model, because that is the rendering the shorthand forms reach."""
+    published = json.loads(schema.PATH.read_text())['$defs'][definition]
+    mapping = next(form for form in published.get('anyOf', [published]) if 'properties' in form)
+    assert set(written.__annotations__) == set(mapping['properties']), (
+        f'{written.__name__} and {definition} no longer take the same keys'
+    )
+    assert written.__required_keys__ == frozenset(mapping.get('required', ())), (
+        f'{written.__name__} and {definition} disagree about which keys are required'
     )

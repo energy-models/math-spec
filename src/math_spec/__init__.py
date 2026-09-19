@@ -32,6 +32,8 @@ from math_spec.model import (
     VARIABLE_DOMAINS,
     SosBlock,
     Spec,
+    WrittenCase,
+    WrittenExpression,
 )
 from math_spec.operators import (
     BUILTIN_NAMES,
@@ -70,6 +72,8 @@ __all__ = [
     'SosBlock',
     'Spec',
     'SymbolTable',
+    'WrittenCase',
+    'WrittenExpression',
     'advice',
     'call_shape_error',
     'did_you_mean',
