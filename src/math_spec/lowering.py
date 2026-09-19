@@ -38,9 +38,8 @@ from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
-    from typing import Any
 
     from math_spec.model import Spec, _ExpandedSpec
 
@@ -58,7 +57,7 @@ def _none_of(masks: list[program.Mask]) -> program.Mask:
     return remainder
 
 
-def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
+def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program) -> program.Program:
     """*spec* as a :class:`~math_spec.program.Program` — the public door.
 
     Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
