@@ -186,6 +186,30 @@ def test_two_fragments_must_read_one_column_the_same_way():
         merge({'supply': SUPPLY, 'other': other})
 
 
+@pytest.mark.parametrize(
+    ('fragment', 'says'),
+    [
+        pytest.param(
+            {**SUPPLY, 'given': {'variables': {'gen_p': {'dims': ['snapshot', 'generator']}}}},
+            "the variable 'gen_p'",
+            id='a-column-it-builds',
+        ),
+        pytest.param(
+            {**SUPPLY, 'given': {'constraints': {'gen_injects': {'dims': ['snapshot', 'generator']}}}},
+            "the constraint 'gen_injects'",
+            id='a-row-family-it-builds',
+        ),
+    ],
+)
+def test_a_fragment_that_reads_what_it_builds_is_refused(fragment, says):
+    """`to_spec` refuses such a file, and folding it silently would put it in a model that loads."""
+    with pytest.raises(LanguageError) as raised:
+        merge({'surface': SURFACE, 'supply': fragment})
+    message = str(raised.value)
+    assert says in message and "'supply'" in message, 'the refusal names the fragment and the name it reads twice'
+    assert 'drop the given' in message, 'the refusal names the rewrite'
+
+
 def test_a_given_declaration_nothing_introduces_stays_for_a_consumer_to_bind():
     composed = merge({'supply': SUPPLY, 'other': {'dimensions': {'snapshot': {'dtype': 'int'}}}})
     assert composed['given'] == SUPPLY['given'], 'a name no fragment introduces is still read, and is carried'

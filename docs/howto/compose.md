@@ -96,7 +96,8 @@ file, and the two compose as `override(merge({…}), {…})`.
 
    `merge` folds each given declaration into the declaration that introduces
    it, so `spec` declares `Port_p` once and carries no `given:`. The objectives
-   of the fragments are summed, each term in parentheses.
+   of the fragments are summed, each term in parentheses, in the order the
+   fragment names sort in.
 
 4. **Add a component type without touching the balance.** A component file
    pins the flow at its own port rather than adding a term to the balance, so
@@ -106,16 +107,16 @@ file, and the two compose as `override(merge({…}), {…})`.
 
 ## What a fragment may share
 
-| The entry                                                   | What happens                                                                             |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| a dimension or a relation                                   | every fragment may declare it, and the ones that do say the same thing about it          |
-| a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried             |
-| any other declaration                                       | one fragment declares it, and a second is refused                                        |
-| an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it         |
-| a given entry no fragment introduces                        | it stays under `given:` for a consumer to bind                                           |
-| `objective`                                                 | the terms are summed, each in parentheses, and the senses agree                          |
-| `version`                                                   | every fragment says the same one, and a fragment that says none is version 0             |
-| `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=` |
+| The entry                                                   | What happens                                                                              |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| a dimension or a relation                                   | every fragment may declare it, and the ones that do say the same thing about it           |
+| a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried              |
+| any other declaration                                       | one fragment declares it, and a second is refused                                         |
+| an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it          |
+| a given entry no fragment introduces                        | it stays under `given:` for a consumer to bind                                            |
+| `objective`                                                 | the terms are summed in fragment-name order, each in parentheses, and the senses agree    |
+| `version`                                                   | the fragments that write one say the same one, and a composition nothing pins writes none |
+| `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=`  |
 
 ## A name two fragments declare
 
@@ -138,6 +139,16 @@ fragment 'generator' reads the given variable 'Port_p' as {'dims': ['snapshot', 
 
 Two fragments that both only read a column have to read it the same way, and
 a difference is refused as it is for a dimension.
+
+## A name one fragment both builds and reads
+
+A fragment reads what another file builds. A fragment that declares a name and
+reads it as well is a file `to_spec` refuses on its own, so `merge` refuses it
+too rather than folding the reading away:
+
+```text
+fragment 'generator' declares the variable 'Generator_p' and reads it under 'given: variables:' as well. A given declaration is what one file expects of another, and this fragment builds the name itself: drop the given entry, or move the declaration to the fragment this one reads it from.
+```
 
 ## A base and its patches
 
