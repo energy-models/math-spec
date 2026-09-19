@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Literal, assert_never, overload
 
 import math_spec.degree as degree
 from math_spec._expression_parser import (
@@ -55,7 +56,7 @@ if TYPE_CHECKING:
     from math_spec.program import WhereNode
 
 
-def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
+def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -80,7 +81,7 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
         raise SchemaError(msg)
     if isinstance(model, Spec):
         return model
-    return Spec.model_validate(model if isinstance(model, dict) else read_model(model))
+    return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
 
 
 def _once(errors: list[str]) -> str:
