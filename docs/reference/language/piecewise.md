@@ -185,6 +185,10 @@ produced one — `[flow, snapshot]` above.
 The three are written together. A walk states which columns it consumes and
 which it produces, and neither is defaulted.
 
+A block whose links are all refined needs only one of them. Two links is what
+a curve needs when a link is one row; a refined link is one row per fine
+coordinate, so the relation supplies the arity the second link otherwise would.
+
 | A refined link |                                                                                        |
 | -------------- | -------------------------------------------------------------------------------------- |
 | the block      | declares `dims:`, because the links no longer say what the frame is                    |
@@ -192,6 +196,7 @@ which it produces, and neither is defaulted.
 | _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                |
 | `points:`      | names a values parameter of a link that reads no relation, because raggedness is the curve's |
 | `method:`      | `adjacency` or `sos2`. `convex` and `lp` prove a curvature by comparing the two values parameters, which a refinement puts on two frames |
+| `where:`       | is refused. The mask tests the curve's frame and the row is built over a refinement of it — mask the link's own variable instead |
 
 ### `method`
 

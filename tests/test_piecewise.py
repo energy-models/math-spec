@@ -701,6 +701,71 @@ def test_a_refined_block_the_language_cannot_read_is_refused(patch, match):
         schema_of(REFINED, **patch)
 
 
+def test_a_block_mask_that_cannot_reach_a_refined_link_is_refused():
+    """The mask is on the curve's frame and the row is on a refinement, so the row would pin its expression to zero.
+
+    Left to the emitted declarations the refusal is a dimension error about
+    `coupling_link0`; emitted without the mask it is the silent `rate == 0`
+    that `where:` exists to prevent.
+    """
+    with pytest.raises(LanguageError, match="Mask the link's own variable"):
+        schema_of(
+            REFINED,
+            **{
+                'parameters.curved': {'dims': ['generator'], 'dtype': 'bool'},
+                'piecewise.coupling.where': 'curved',
+            },
+        )
+
+
+def test_the_rewrite_that_refusal_names_leaves_the_refined_row_unbuilt():
+    """A mask on the link's own variable takes its row with it, which is what absence through arithmetic does."""
+    expanded = expand_piecewise(
+        schema_of(
+            REFINED,
+            **{
+                'parameters.on_a_curve': {'dims': ['flow'], 'dtype': 'bool'},
+                'variables.power.where': 'on_a_curve',
+            },
+        )
+    )
+    assert expanded.variables['power'].where == 'on_a_curve'
+
+
+def test_one_refined_link_is_a_curve_because_the_relation_gives_it_its_arity():
+    """A converter whose coupled quantities are all flows of one variable is one link, and it ties them all.
+
+    Two links is what a curve needs when a link is one row. A refined link is
+    one row per fine coordinate, so the relation supplies the arity that the
+    second link otherwise would.
+    """
+    expanded = expand_piecewise(
+        schema_of(
+            REFINED,
+            **{
+                'piecewise.coupling.links': [
+                    {
+                        'expression': 'power',
+                        'values': 'bp_power',
+                        'by': 'generator_of',
+                        'over': 'generator',
+                        'into': 'flow',
+                    }
+                ],
+                'objective.expression': 'sum(power)',
+            },
+        )
+    )
+    assert expanded.constraints['coupling_convexity'].dims == ['generator', 'snapshot'], 'one curve per generator'
+    assert expanded.constraints['coupling_link0'].dims == ['flow', 'snapshot'], 'one row per flow, sharing it'
+    assert 'coupling_link1' not in expanded.constraints
+
+
+def test_one_unrefined_link_is_still_a_bound_rather_than_a_curve():
+    with pytest.raises(LanguageError, match='a bound rather than a curve'):
+        schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.links': [['p', 'bp_x']]})
+
+
 def test_points_naming_a_refined_links_values_is_refused():
     """`bp_power` is per flow and the weights are per generator, so the derived mask cannot reach them.
 

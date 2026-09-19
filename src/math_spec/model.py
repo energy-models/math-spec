@@ -651,6 +651,14 @@ class PiecewiseBlock(_StrictBlock):
         if self.activity is not None and self.method in ('convex', 'lp'):
             msg = f'activity is not supported with method: {self.method}.'
             raise ValueError(msg)
+        if self.where is not None and (masked := [i for i, link in enumerate(self.links) if link.refined]):
+            msg = (
+                f'where: does not reach link {masked[0]}, which reads through a relation. The mask tests the '
+                f"curve's frame and that link's row is built over a refinement of it, so the row would read "
+                f"its weights as absent and pin the expression to zero. Mask the link's own variable "
+                f'instead — a where: on it over the fine dimension leaves the row unbuilt.'
+            )
+            raise ValueError(msg)
         if self.dims is None and (refined := [i for i, link in enumerate(self.links) if link.refined]):
             msg = (
                 f'link {refined[0]} reads through a relation, so the block declares the curve it builds with '
@@ -663,8 +671,12 @@ class PiecewiseBlock(_StrictBlock):
     @field_validator('links')
     @classmethod
     def _check_links(cls, v: list[PiecewiseLink]) -> list[PiecewiseLink]:
-        if len(v) < 2:
-            msg = 'piecewise needs at least two links ([expression, values, sign?]).'
+        if len(v) < 2 and not any(link.refined for link in v):
+            msg = (
+                'piecewise needs at least two links ([expression, values, sign?]). One quantity on a curve is '
+                'a bound rather than a curve — a curve ties two or more through shared weights. A single link '
+                'reading through a relation is enough, because the relation says how many rows it builds.'
+            )
             raise ValueError(msg)
         non_eq = [link.sign for link in v if link.sign != '==']
         if len(non_eq) > 1:
