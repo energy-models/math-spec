@@ -36,7 +36,7 @@ from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
-from math_spec.model import Spec
+from math_spec.model import ExpandedPiecewise, Spec, _ExpandedSpec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
 from math_spec.program import BooleanLiteralNode
 from math_spec.resolution import (
@@ -105,7 +105,9 @@ def validate_expressions(schema: Spec) -> Resolved:
     - every referenced name resolves, and every operator is a built-in whose
       dimension arguments name declared dimensions;
     - where strings parse *and* resolve — an unknown name there is an error,
-      not a silently-empty mask;
+      not a silently-empty mask, and a ``piecewise:`` block's own ``where`` is
+      among them once the spec is expanded, a spec that is not carrying no
+      expanded block to read one from;
     - macro formals may shadow model names but not a declared dimension, since
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
@@ -156,9 +158,10 @@ def validate_expressions(schema: Spec) -> Resolved:
         if expression is not None:
             constraints[cname] = ResolvedConstraint(expression, mask_of(where))
 
+    blocks: dict[str, ExpandedPiecewise] = schema.expanded_piecewise if isinstance(schema, _ExpandedSpec) else {}
     piecewise = {
         name: mask_of(resolve_where_text(ex.block.where, ns, f"piecewise '{name}'", errors))
-        for name, ex in schema.expanded_piecewise.items()
+        for name, ex in blocks.items()
     }
 
     objective = None
