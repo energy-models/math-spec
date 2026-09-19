@@ -39,7 +39,8 @@ piecewise:
 | _expression_   | Any affine expression. The simplest is a bare variable name                                                                                  |
 | _values_       | A parameter that carries the `along` dimension, plus any dimensions the link expressions carry. A dimension the links do not carry is refused |
 | _sign_         | `<=` or `>=`. At most one per block, and only in a block with exactly two links. It bounds the link instead of pinning it                    |
-| _by_, _over_, _into_ | A relation and the columns the link reads the curve's weights through. The link then sits on a refinement of the frame ([below](#a-link-through-a-relation)) |
+| _into_         | A dimension the link's row gains, so every coordinate of it is a tie to the one operating point ([below](#a-link-that-refines-the-curve))                    |
+| _by_, _over_   | A relation and the columns the walk consumes, where the refinement is reached through one rather than simply gained                          |
 
 | Key        |                                                                                          |                     |
 | ---------- | ---------------------------------------------------------------------------------------- | ------------------- |
@@ -164,12 +165,42 @@ parameter instead.
 The marked breakpoints must be consecutive. They need not start at the head of
 the axis. A gap, or a curve with no points, is refused when the data binds.
 
-### A link through a relation
+### A link that refines the curve
 
 `links:` is a list, so the number of *kinds* of link a block ties is written in
-the file. The number of **rows** each link builds is data. A link naming `by:`
-reads the curve's weights through a relation, so one link entry builds one row
-per fine coordinate:
+the file. The number of **rows** each link builds is data. A link that names
+`into:` builds one row per fine coordinate, all reading the one set of weights.
+
+Its row is `(frame - over) | into`, which is the frame law a
+[relation](relations.md#how-a-relation-is-used) walk already follows. Two forms
+fall out of it:
+
+| written | the row | the weights |
+| --- | --- | --- |
+| `into: carrier` | the frame, plus `carrier` | broadcast across `carrier` |
+| `by: converter_of, over: converter, into: flow` | the frame, less `converter`, plus `flow` | read through the relation |
+
+**`into:` alone names a dimension the row gains.** Every coordinate of it is a
+tie to the one operating point, so a converter's carriers move together:
+
+```yaml
+piecewise:
+  op:
+    along: bp
+    dims: [converter, snapshot] # one curve per converter
+    links:
+      - { expression: rate, values: bp_rate, into: carrier }
+```
+
+`rate` is over `[converter, carrier, snapshot]` and `bp_rate` over
+`[converter, carrier, bp]`, so each carrier has its own breakpoint column and
+reads the same weights. The dimension `into:` names may not be one the curve's
+`dims:` already carries: the curve builds one per coordinate of those, so they
+cannot also index a link's ties.
+
+**`by:`, `over:` and `into:` together** reach the refinement through a relation
+instead, which is what a ragged fan-out needs — one converter tying two flows and
+another five:
 
 ```yaml
 relations:
@@ -208,11 +239,11 @@ coordinate, so the relation supplies the arity the second link otherwise would.
 | A refined link |                                                                                        |
 | -------------- | -------------------------------------------------------------------------------------- |
 | the block      | declares `dims:`, because the links no longer say what the frame is                    |
-| _over_         | names a column over one of the frame's own dimensions                                  |
+| _over_         | names a column over one of the frame's own dimensions, and needs `by:` beside it       |
 | _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                |
 | `points:`      | names a values parameter of a link that reads no relation, because raggedness is the curve's |
-| `method:`      | `adjacency` or `sos2`. `convex` and `lp` prove a curvature by comparing the two values parameters, which a refinement puts on two frames |
-| `where:`       | is refused. The mask tests the curve's frame and the row is built over a refinement of it — mask the link's own variable instead |
+| `method:`      | `adjacency` or `sos2`. `convex` and `lp` state the curve as one quantity against another, so each needs a link naming the abscissa — and under a refinement which row plays it is data |
+| `where:`       | reaches a link that only gains a dimension. A walk is refused, because it replaces the frame dimension the mask tests — mask the link's own variable instead |
 
 ### `method`
 

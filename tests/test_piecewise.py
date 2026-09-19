@@ -784,10 +784,23 @@ def test_points_still_nominates_an_unrefined_links_values():
 
 
 @pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
-def test_the_two_methods_that_check_a_curvature_refuse_a_refined_link(method):
-    """Each compares the two values parameters to prove its shape, and a refined link puts them on two frames."""
-    with pytest.raises(LanguageError, match='reads through a relation'):
+def test_the_two_methods_that_name_an_abscissa_refuse_a_refined_link(method):
+    """Both state the curve as one quantity against another, so each needs a link that plays the x-axis.
+
+    `lp` writes a segment line and `convex` a hull between two values
+    parameters. Under a refinement the rows are one quantity at many fine
+    coordinates, so which of them is the abscissa is data rather than
+    declaration.
+    """
+    with pytest.raises(LanguageError, match='which row plays it is data'):
         schema_of(REFINED, **{'piecewise.coupling.method': method})
+
+
+@pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
+def test_the_same_two_methods_refuse_a_split_link(method):
+    """A split refines the row the same way a walk does, and leaves the abscissa just as unnamed."""
+    with pytest.raises(LanguageError, match='which row plays it is data'):
+        schema_of(SPLIT, **{'piecewise.op.method': method})
 
 
 def test_links_that_disagree_on_their_dims_are_refused_rather_than_read_as_one_curve_each():
@@ -860,3 +873,110 @@ def test_a_period_the_curve_and_its_links_both_carry_loads():
     )
     assert expanded.variables['coupling_lam'].dims == ['generator', 'snapshot', 'period', 'bp']
     assert expanded.constraints['coupling_link0'].dims == ['flow', 'snapshot', 'period']
+
+
+#: A converter whose ties are indexed by a dimension of its own rather than by a
+#: relation: every carrier of a converter is a tie to the one operating point.
+SPLIT = {
+    'dimensions': {
+        'snapshot': {'dtype': 'int'},
+        'converter': {'dtype': 'str'},
+        'carrier': {'dtype': 'str'},
+        'bp': {'dtype': 'int'},
+    },
+    'parameters': {
+        'demand': {'dims': ['carrier', 'snapshot']},
+        'bp_rate': {'dims': ['converter', 'carrier', 'bp']},
+    },
+    'variables': {'rate': {'dims': ['converter', 'carrier', 'snapshot']}},
+    'piecewise': {
+        'op': {
+            'along': 'bp',
+            'dims': ['converter', 'snapshot'],
+            'links': [{'expression': 'rate', 'values': 'bp_rate', 'into': 'carrier'}],
+        }
+    },
+    'constraints': {'balance': {'dims': ['carrier', 'snapshot'], 'expression': 'sum(rate, over=converter) == demand'}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(rate)'},
+}
+
+
+def test_a_link_split_along_a_dimension_reads_the_curve_once_per_coordinate_of_it():
+    """`into:` with no `by:` gains a dimension and consumes none, so the weights broadcast across it."""
+    expanded = expand_piecewise(schema_of(SPLIT))
+    assert expanded.variables['op_lam'].dims == ['converter', 'snapshot', 'bp'], 'one curve per converter'
+    assert expanded.constraints['op_convexity'].dims == ['converter', 'snapshot']
+    link = expanded.constraints['op_link0']
+    assert link.dims == ['converter', 'snapshot', 'carrier'], 'the frame, plus the dimension the link spans'
+    assert link.expression == '(rate) == sum(op_lam * bp_rate, over=bp)', 'no walk — the weights broadcast'
+
+
+def test_a_split_link_is_a_curve_on_its_own():
+    """Its rows share one set of weights, which is the coupling a second link would otherwise supply."""
+    assert 'op_link1' not in expand_piecewise(schema_of(SPLIT)).constraints
+
+
+def test_a_block_mask_reaches_a_split_link():
+    """Unlike a relation walk, a split keeps every dimension the frame has, so the mask still tests them."""
+    expanded = expand_piecewise(
+        schema_of(
+            SPLIT,
+            **{
+                'parameters.has_curve': {'dims': ['converter'], 'dtype': 'bool'},
+                'piecewise.op.where': 'has_curve',
+            },
+        )
+    )
+    assert expanded.constraints['op_link0'].where == 'has_curve'
+
+
+@pytest.mark.parametrize(
+    ('patch', 'match'),
+    [
+        pytest.param(
+            {'piecewise.op.links': [{'expression': 'rate', 'values': 'bp_rate', 'over': 'carrier'}]},
+            'into',
+            id='over-without-a-relation',
+        ),
+        pytest.param({'piecewise.op.dims': None}, 'dims:', id='a-split-without-a-declared-frame'),
+        pytest.param(
+            {'piecewise.op.links': [{'expression': 'rate', 'values': 'bp_rate', 'into': 'bp'}]},
+            'breakpoint dim',
+            id='splitting-along-the-breakpoint-dim',
+        ),
+        pytest.param(
+            {'piecewise.op.links': [{'expression': 'rate', 'values': 'bp_rate', 'into': 'converter'}]},
+            'already carries',
+            id='splitting-along-a-dim-the-frame-has',
+        ),
+    ],
+)
+def test_a_split_the_language_cannot_read_is_refused(patch, match):
+    with pytest.raises(LanguageError, match=match):
+        schema_of(SPLIT, **patch)
+
+
+def test_a_split_link_and_a_walked_one_live_in_one_block():
+    """The two forms are one law — a row gains `into` and loses `over` — so a block may use both."""
+    model = override(
+        SPLIT,
+        **{
+            'dimensions.flow': {'dtype': 'str'},
+            'relations.converter_of': {'key': 'flow', 'values': 'converter'},
+            'parameters.bp_power': {'dims': ['flow', 'bp']},
+            'variables.power': {'dims': ['flow', 'snapshot']},
+            'piecewise.op.links': [
+                {'expression': 'rate', 'values': 'bp_rate', 'into': 'carrier'},
+                {
+                    'expression': 'power',
+                    'values': 'bp_power',
+                    'by': 'converter_of',
+                    'over': 'converter',
+                    'into': 'flow',
+                },
+            ],
+        },
+    )
+    expanded = expand_piecewise(schema_of(model))
+    assert expanded.constraints['op_link0'].dims == ['converter', 'snapshot', 'carrier'], 'gains carrier'
+    assert expanded.constraints['op_link1'].dims == ['flow', 'snapshot'], 'loses converter, gains flow'

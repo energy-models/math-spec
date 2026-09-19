@@ -484,11 +484,18 @@ class PiecewiseLink(_StrictBlock):
     sign]``, and serialised back to exactly that form, so a round trip through
     :meth:`Spec.to_yaml` reproduces the file.
 
-    A link naming ``by:`` sits on a **refinement** of the curve's frame rather
-    than on the frame itself, and is written as a mapping. ``by``, ``over`` and
-    ``into`` are the relation walk :func:`at` takes, so one link emits a row per
-    fine coordinate and the weights it reads stay on the curve's own frame. That
-    is what lets one curve tie as many expressions as the relation gives it.
+    A link that names ``into:`` sits on a **refinement** of the curve's frame
+    rather than on the frame itself, and is written as a mapping. Its row is
+    ``(frame - over) | into``, the frame law a relation walk already follows, so
+    one link emits a row per fine coordinate and the weights it reads stay on
+    the curve's own frame. That is what lets one curve tie as many expressions
+    as the data says.
+
+    Two forms, one law. ``into:`` alone names a dimension the row gains and the
+    weights broadcast across, so every coordinate of it is a tie to the one
+    operating point. ``by:``, ``over:`` and ``into:`` together are the
+    :func:`at` walk, which loses a frame dimension and gains what the relation
+    maps it to.
     """
 
     _label: ClassVar[str] = 'a piecewise link'
@@ -496,27 +503,36 @@ class PiecewiseLink(_StrictBlock):
     expression: str
     values: str
     sign: LinkSign = '=='
-    #: The relation the link reads the curve's weights through.
+    #: The relation the link reads the curve's weights through, where it walks one.
     by: str | None = None
-    #: The relation columns the walk consumes — the curve frame's own.
+    #: What the row loses: the relation columns the walk consumes, over the curve frame's own dims.
     over: str | list[str] | None = None
-    #: The relation columns the walk produces — the link row's.
+    #: What the row gains: a dimension it spans, or the relation columns the walk produces.
     into: str | list[str] | None = None
 
     @property
     def refined(self) -> bool:
-        """Whether the link sits on a refinement of the curve's frame rather than on the frame."""
+        """Whether the link's row is a refinement of the curve's frame rather than the frame itself."""
+        return self.into is not None
+
+    @property
+    def walks(self) -> bool:
+        """Whether the refinement is reached through a relation, rather than a dimension the row simply gains."""
         return self.by is not None
 
     @model_validator(mode='after')
     def _check_walk(self) -> PiecewiseLink:
-        named = {'by': self.by, 'over': self.over, 'into': self.into}
-        if (written := {k for k, v in named.items() if v is not None}) and written != set(named):
-            missing = sorted(set(named) - written)
+        if self.by is not None and (missing := [k for k in ('over', 'into') if getattr(self, k) is None]):
             msg = (
                 f'a link reading through a relation names by, over and into together — {missing} '
                 f'{"is" if len(missing) == 1 else "are"} missing. A walk states which columns it '
                 f'consumes and which it produces; neither is defaulted.'
+            )
+            raise ValueError(msg)
+        if self.by is None and self.over is not None:
+            msg = (
+                'over: on a link names the columns a relation walk consumes, so it needs by: beside it. '
+                'A link that only spans a dimension loses none, and names that dimension with into:.'
             )
             raise ValueError(msg)
         return self
@@ -542,14 +558,12 @@ class PiecewiseLink(_StrictBlock):
     def _as_written(self) -> list[str] | dict[str, str | list[str]]:
         """The list form, or the mapping form a walk cannot be written in a list."""
         if self.refined:
-            assert self.by is not None and self.over is not None and self.into is not None
-            written: dict[str, str | list[str]] = {
-                'expression': self.expression,
-                'values': self.values,
-                'by': self.by,
-                'over': self.over,
-                'into': self.into,
-            }
+            assert self.into is not None
+            written: dict[str, str | list[str]] = {'expression': self.expression, 'values': self.values}
+            if self.by is not None:
+                assert self.over is not None
+                written |= {'by': self.by, 'over': self.over}
+            written['into'] = self.into
             return written if self.sign == '==' else {**written, 'sign': self.sign}
         return [self.expression, self.values] if self.sign == '==' else [self.expression, self.values, self.sign]
 
@@ -630,10 +644,10 @@ class PiecewiseBlock(_StrictBlock):
     def _check_method_shape(self) -> PiecewiseBlock:
         if (walked := [i for i, link in enumerate(self.links) if link.refined]) and self.method in ('convex', 'lp'):
             msg = (
-                f'method: {self.method} does not take a link that reads through a relation (link {walked[0]}). '
-                f'Both state one side of a y=f(x) curve, and the curvature is checked by comparing the two '
-                f'values parameters — which sit on different frames once a link is refined. Use method: '
-                f'adjacency or sos2, which take a curve of any shape.'
+                f'method: {self.method} does not take a link whose row refines the curve (link {walked[0]}). '
+                f'Both state the curve as one quantity against another, so each needs a link naming the '
+                f'abscissa — and under a refinement which row plays it is data rather than declaration. Use '
+                f'method: adjacency or sos2, which state the curve through its weights instead.'
             )
             raise ValueError(msg)
         if self.method == 'convex' and len(self.links) != 2:
@@ -651,7 +665,7 @@ class PiecewiseBlock(_StrictBlock):
         if self.activity is not None and self.method in ('convex', 'lp'):
             msg = f'activity is not supported with method: {self.method}.'
             raise ValueError(msg)
-        if self.where is not None and (masked := [i for i, link in enumerate(self.links) if link.refined]):
+        if self.where is not None and (masked := [i for i, link in enumerate(self.links) if link.walks]):
             msg = (
                 f'where: does not reach link {masked[0]}, which reads through a relation. The mask tests the '
                 f"curve's frame and that link's row is built over a refinement of it, so the row would read "

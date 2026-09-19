@@ -276,7 +276,7 @@ class _Block:
         the model never names them — which is the whole reason the block emits
         the row rather than the file writing it.
         """
-        if not link.refined:
+        if not link.walks:
             return self.lam
         return f'at({self.lam}, by={link.by}, over={_columns(link.over)}, into={_columns(link.into)})'
 
@@ -448,7 +448,7 @@ class _Block:
         """
         if not link.refined:
             return list(frame)
-        consumed, produced = self._walk(i, link)
+        consumed, produced = self._walk(i, link) if link.walks else (frozenset(), self._spans(i, link, frame))
         if missing := sorted(consumed - set(frame)):
             raise PiecewiseExpansionError(
                 f"{self.context} link {i}: over reaches {missing}, which the curve's dims {frame} do not "
@@ -460,7 +460,29 @@ class _Block:
                 refined.extend(p for p in self.schema.dimensions if p in produced and p not in refined)
             elif d not in refined:
                 refined.append(d)
+        refined.extend(p for p in self.schema.dimensions if p in produced and p not in refined)
         return refined
+
+    def _spans(self, i: int, link: PiecewiseLink, frame: list[str]) -> frozenset[str]:
+        """The dims a link spans without walking a relation — declared dimensions the curve does not already carry."""
+        ctx = f'{self.context} link {i}'
+        assert link.into is not None
+        named = [link.into] if isinstance(link.into, str) else list(link.into)
+        for d in named:
+            if d not in self.schema.dimensions:
+                raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, d))
+            if d == self.pw.along:
+                raise PiecewiseExpansionError(
+                    f"{ctx}: into names '{d}', the breakpoint dim. A link spans the dimension its ties are "
+                    f'indexed by, and every tie runs along the breakpoints.'
+                )
+            if d in frame:
+                raise PiecewiseExpansionError(
+                    f"{ctx}: into names '{d}', which the curve's dims already carries. The curve builds one "
+                    f"per coordinate of it, so it cannot also index this link's ties — drop it from dims:, "
+                    f'or split along a dimension of its own.'
+                )
+        return frozenset(named)
 
     def _links_fit(self, frame: list[str]) -> None:
         """Every link expression carries exactly its row's frame — the rule a constraint's own ``dims:`` holds to.
