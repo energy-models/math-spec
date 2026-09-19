@@ -13,7 +13,7 @@ import string
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import math_spec.degree as degree
 from math_spec._yaml import read_yaml
@@ -193,12 +193,13 @@ class SymbolTable:
     names: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, source: str | Path | Mapping[str, Any]) -> SymbolTable:
+    def load(cls, source: str | Path | Mapping[str, object]) -> SymbolTable:
         """A table from a YAML path or the mapping it parses to.
 
         Raises:
-            SchemaError: An unknown section, a malformed dimension, or a
-                ``notation:`` that is missing or not ``latex``/``typst``.
+            SchemaError: An unknown section, a section or a dimension that is
+                not a mapping, or a ``notation:`` that is missing or not
+                ``latex``/``typst``.
         """
         raw = dict(source) if isinstance(source, Mapping) else read_yaml(Path(source))
         unknown = set(raw) - {'notation', 'dimensions', 'names'}
@@ -215,7 +216,7 @@ class SymbolTable:
 
         indices: dict[str, str] = {}
         sets: dict[str, str] = {}
-        for dim, spec in (raw.get('dimensions') or {}).items():
+        for dim, spec in _section(raw, 'dimensions').items():
             if not isinstance(spec, Mapping):
                 msg = f"symbol table: dimension '{dim}' must be a mapping like {{index: t, set: '\\\\mathcal{{T}}'}}"
                 raise SchemaError(msg)
@@ -232,7 +233,7 @@ class SymbolTable:
             notation=cast('Notation', notation),
             indices=indices,
             sets=sets,
-            names={k: str(v) for k, v in (raw.get('names') or {}).items()},
+            names={k: str(v) for k, v in _section(raw, 'names').items()},
         )
 
     def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
@@ -248,6 +249,21 @@ class SymbolTable:
         if errors:
             raise SchemaError('\n'.join(sorted(errors)))
         return self
+
+
+def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:
+    """The *name* section of a symbol table as the mapping it has to be, empty where it is absent or null.
+
+    Raises:
+        SchemaError: The section is something else, such as a list.
+    """
+    section = raw.get(name)
+    if section is None:
+        return {}
+    if not isinstance(section, Mapping):
+        msg = f'symbol table: {name}: must be a mapping of names to entries, got {type(section).__name__}.'
+        raise SchemaError(msg)
+    return section
 
 
 def _unknown_entry(name: str, section: str, known: set[str]) -> str:

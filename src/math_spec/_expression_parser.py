@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, get_args
+from typing import TYPE_CHECKING, Literal, assert_never, cast, get_args
 
 import pyparsing as pp
 
@@ -409,16 +409,17 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
     return FunctionCallNode(name=name, args=tuple(args), kwargs=kwargs)
 
 
-def _make_left_assoc(tokens: pp.ParseResults) -> Any:
+def _make_left_assoc(tokens: pp.ParseResults) -> ArithmeticNode:
+    result: ArithmeticNode
     result, *rest = tokens
     for op, right in zip(rest[::2], rest[1::2], strict=True):
         result = BinaryOperatorNode(op, result, right)
     return result
 
 
-def _make_power(tokens: pp.ParseResults) -> Any:
+def _make_power(tokens: pp.ParseResults) -> ArithmeticNode:
     """A base and at most one exponent — right-associative, since the exponent is itself a ``unary``."""
-    items = list(tokens)
+    items: list[ArithmeticNode] = list(tokens)
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
 
@@ -458,20 +459,22 @@ def _too_deep(what: str, text: str, found: int | None, rewrite: str) -> str:
     return f'The {what} {measured}, past the {MAX_DEPTH} levels the language admits: {shown!r}\n{rewrite}'
 
 
-def parse_text(
+def parse_text[T](
     grammar: pp.ParserElement,
     text: str,
     what: str,
     rewrite: Callable[[str, int], str | None],
-    child_of: Callable[[Any], tuple[Any, ...]],
+    child_of: Callable[[T], tuple[T, ...]],
     deep_rewrite: str,
-) -> Any:
+) -> T:
     """Parse the whole of *text* with *grammar*, or raise :class:`SchemaError` naming *what* failed to parse.
 
     *rewrite* is asked for the predictable mistake at the failure position; its
     sentence, if any, precedes the grammar's own complaint. A tree nesting past
     :data:`MAX_DEPTH`, measured through *child_of*, is refused with
-    *deep_rewrite* — and so is one the parser itself ran out of stack on.
+    *deep_rewrite* — and so is one the parser itself ran out of stack on. The
+    node comes back as the type *child_of* walks, which is the grammar's word
+    for what it builds.
     """
     try:
         result = grammar.parse_string(text, parse_all=True)
@@ -481,7 +484,7 @@ def parse_text(
         raise SchemaError(msg) from e
     except RecursionError:
         raise SchemaError(_too_deep(what, text, None, deep_rewrite)) from None
-    node = result[0]
+    node = cast('T', result[0])
     found = depth(node, child_of)
     if found > MAX_DEPTH:
         raise SchemaError(_too_deep(what, text, found, deep_rewrite))
@@ -535,4 +538,4 @@ def parse_expression(text: str) -> ParsedNode:
             lone ``=``, ``^`` for power — is named with its rewrite before the
             grammar's own complaint.
     """
-    return cast('ParsedNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE))
+    return parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE)
