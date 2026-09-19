@@ -16,10 +16,10 @@ from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.lowering import to_program
 from math_spec.program import DimensionPositionNode
-from math_spec.resolution import Namespace, where_of
+from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -153,13 +153,13 @@ class TestValidateExpressions:
             ),
             pytest.param(
                 {'constraints': {'cap': {'dims': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
-                "'bad' not found",
+                'a where compares expressions, and one side names a variable',
                 id='where',
             ),
         ],
     )
     def test_a_bound_or_where_cannot_name_an_expression(self, patch, fragment):
-        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve whatever the entry's body."""
+        """A bound names a parameter and nothing else; a where reads the entry as arithmetic, and a body carrying a variable is refused there."""
         with pytest.raises(LanguageError) as exc:
             _schema(**_NONLINEAR_ENTRY, **patch)
         assert fragment in str(exc.value)
@@ -522,7 +522,7 @@ class TestPositionResolves:
         ids=['first', 'first of each period'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
-        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        resolved = where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         assert resolved is not None
         node = resolved.root
         assert isinstance(node, DimensionPositionNode)
@@ -548,22 +548,21 @@ class TestPositionResolves:
     )
     def test_it_refuses(self, mask: str, fragments: list[str]):
         with pytest.raises(LanguageError) as excinfo:
-            where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+            where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
 
 
 class TestAWhereSideIsReadInResolution:
-    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be."""
+    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be.
+
+    A ``position()`` call is held to its shape, a literal is the expression grammar's, and
+    everything else on a side is a comparison of expressions, decided with no data bound.
+    """
 
     @pytest.mark.parametrize(
         ('where', 'fragments'),
         [
-            pytest.param(
-                'c > 2 * k', ('a side here is arithmetic, which is not in the language',), id='arithmetic-on-a-side'
-            ),
-            pytest.param('2 < c', ('a side here is arithmetic',), id='a-literal-on-the-left'),
-            pytest.param('sum(c, over=g) >= k', ('a side here is arithmetic',), id='a-reduction-on-a-side'),
             pytest.param(
                 'position(g) == 1.5',
                 ('compared against an integer index', 'position(g) == <integer>'),
@@ -596,6 +595,117 @@ class TestAWhereSideIsReadInResolution:
         """`-1` and `inf` are the expression grammar's literals, so a where reads them as it reads any number."""
         spec = _schema(**{'variables.p.where': 'c > -1 AND c < inf'})
         assert spec.variables['p'].where == 'c > -1 AND c < inf'
+
+    @pytest.mark.parametrize(
+        ('patch', 'where'),
+        [
+            pytest.param({}, 'c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param({}, 'c > k', id='two-parameters'),
+            pytest.param({}, '2 < c', id='a-literal-on-the-left'),
+            pytest.param({'macros.half': {'args': ['x'], 'template': 'x / 2'}}, 'c <= half(k)', id='a-macro'),
+            pytest.param({'expressions.e': 'c * 2'}, 'e > 0', id='a-named-expression-on-the-left'),
+            pytest.param({'expressions.e': 'c * 2'}, 'k < e', id='a-named-expression-on-the-right'),
+            pytest.param(
+                {'parameters.d': {'dims': ['h']}},
+                'c <= at(d, by=lk, over=h, into=g)',
+                id='a-pullback-through-a-relation',
+            ),
+            pytest.param(
+                {}, 'c - shift(c, along=g, offset=1, edge=0) <= k AND position(g) > 0', id='a-translation-with-its-edge'
+            ),
+        ],
+    )
+    def test_a_where_comparing_expressions_loads(self, patch, where):
+        spec = _schema(**patch, **{'variables.p.where': where})
+        assert spec.variables['p'].where == where
+
+    def test_a_reduction_on_a_side_leaves_the_frame_it_reduced(self):
+        spec = _schema(
+            constraints={'t': {'dims': [], 'where': 'sum(c, over=g) >= k', 'expression': 'sum(p, over=g) <= k'}}
+        )
+        assert list(spec.constraints) == ['t']
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'variables.p.where': 'c > 2 * q'},
+                ('one side names a variable', 'built before variables exist'),
+                id='a-variable-inside-arithmetic',
+            ),
+            pytest.param(
+                {'constraints': {'x': {'dims': ['g'], 'expression': 'p <= c'}}, 'variables.p.where': 'dual(x) * 2 > 0'},
+                ('one side reads a dual', 'test the data instead'),
+                id='a-dual-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': 'tag * 2 > 0'},
+                ("'tag' is declared dtype: str, and an expression is arithmetic",),
+                id='a-label-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c > flag'},
+                ("'flag' is declared dtype: bool, and an expression is arithmetic",),
+                id='a-flag-against-a-parameter',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c / (k + 1) > 0'},
+                ('a divisor must be a single Constant/Parameter factor',),
+                id='a-divisor-that-adds',
+            ),
+            pytest.param(
+                {'variables.p.where': 'shift(c, along=g, offset=1) <= k'},
+                ('shift() over a variable-free expression leaves vacated positions with no value',),
+                id='a-translation-with-no-edge',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c * nope > 0'},
+                ("'nope' not found",),
+                id='an-unknown-name-inside-arithmetic',
+            ),
+            pytest.param(
+                {'parameters.d': {'dims': ['h']}, 'variables.p.where': 'c > d * 2'},
+                ("a where-comparison of expressions reads dims ['h'] outside the frame ['g']",),
+                id='a-side-outside-the-frame',
+            ),
+            pytest.param(
+                {'variables.p.where': 'lk.h > 2 * k'},
+                ("'lk.h' is a column of a relation", 'not read in arithmetic'),
+                id='a-relation-column-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': "2 * k == 'x'"},
+                ("'x' is a quoted label, which is compared against one name",),
+                id='a-label-against-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': 'position(g) + 1 == 0'},
+                ("Unknown operator 'position'",),
+                id='a-position-inside-arithmetic',
+            ),
+        ],
+    )
+    def test_a_bad_comparison_of_expressions_is_refused_at_load(self, patch, fragments):
+        message = _refusal(**patch)
+        for fragment in fragments:
+            assert fragment in message
+
+    def test_a_case_comparing_expressions_is_refused_as_undecidable(self):
+        """Two cases split by arithmetic cannot be proved apart without the numbers, and the rewrite is named."""
+        message = _refusal(
+            expressions={
+                'e': {
+                    'dims': ['g'],
+                    'cases': {
+                        'wide': {'when': 'c > 2 * k', 'expression': 'c'},
+                        'narrow': {'when': 'c <= 2 * k', 'expression': 'k'},
+                    },
+                    'otherwise': 0,
+                }
+            }
+        )
+        assert 'cannot be told apart before the data arrives: it compares expressions' in message
+        assert 'precompute the test as a boolean parameter' in message
 
 
 class TestRulesDecidedWithoutData:
@@ -1042,9 +1152,6 @@ class TestRulesDecidedWithoutData:
                 },
                 ('compares relations keyed over different dimensions',),
                 id='where-two-relations-with-different-keys',
-            ),
-            pytest.param(
-                {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
             ),
             pytest.param(
                 {'variables.p.where': 'c > q'},

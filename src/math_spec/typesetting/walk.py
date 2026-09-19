@@ -37,10 +37,12 @@ from math_spec._expression_parser import (
 from math_spec.dimensions import dims_of
 from math_spec.program import (
     AndNode,
+    ArithmeticComparisonNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
     Direction,
+    ExpressionComparisonNode,
     Mask,
     NotNode,
     OrNode,
@@ -582,6 +584,14 @@ class Walk:
         if isinstance(node, ParameterComparisonNode):
             left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
+
+        if isinstance(node, ArithmeticComparisonNode):
+            left, right = self._expression(node.left, ctx), self._expression(node.right, ctx)
+            return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
+
+        if isinstance(node, ExpressionComparisonNode):
+            msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
+            raise AssertionError(msg)
 
         if isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, int | float):
