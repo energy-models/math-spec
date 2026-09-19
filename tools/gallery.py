@@ -63,8 +63,15 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 
 
 def model_block(path: Path) -> str:
-    """One model, then the whole document the typesetter prints from it."""
-    return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
+    """One model, then the whole document the typesetter prints from it.
+
+    Under the model's own symbol table where it has one, as
+    :func:`declared_block` is: a weight named after the block that declared it
+    is right in the file and unreadable in the equation that names it six
+    times.
+    """
+    page = to_markdown(path, symbols=sidecar_for(path), numbered=False)
+    return f'```yaml\n{without_header(path)}\n```\n\n{page.strip()}'
 
 
 def probe_block() -> str:
