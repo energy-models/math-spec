@@ -1180,6 +1180,26 @@ class TestRulesDecidedWithoutData:
         for fragment in fragments:
             assert fragment in message
 
+    def test_the_at_a_sum_landing_on_the_key_names_is_one_the_language_takes(self):
+        """A refusal that names a call is holding out a rewrite, so the rewrite has to load.
+
+        Was: the message swapped the direction's ends, answering a sum refused
+        for landing on the key with `at(..., over=<into>, into=<over>)` — which
+        `at` refuses in turn, for reading a column that is not single-valued
+        at the one the operand fixes. Both operators take `over=` as the
+        column the read consumes, so the rewrite is the author's own spelling
+        with `at` in place of `sum`.
+
+        Reading the call out of the message rather than restating it is the
+        point: a fragment can agree with a message that names a call nothing
+        accepts.
+        """
+        message = _refusal(objective={'expression': 'sum(sum(q, by=lk, over=h, into=g))'})
+        named = re.search(r'Write (at\(.*?\)), or sum', message)
+        assert named is not None, f'the refusal holds out no at() to write instead: {message}'
+        rewrite = named.group(1).replace("'", '').replace('...', 'r')
+        _schema(objective={'expression': f'sum({rewrite})'})
+
 
 class TestTheFrontDoor:
     def test_a_list_of_models_is_not_a_model(self):
