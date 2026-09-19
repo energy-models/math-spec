@@ -52,7 +52,8 @@ def _given(program: Program) -> list[Advice]:
             'given',
             name,
             f"{kind} '{name}' is read here and built elsewhere: a consumer binds it to the model this "
-            f'one is layered onto, checks the frame, and refuses where it cannot bind it.',
+            f'one is layered onto, checks the frame, and refuses where it cannot bind it. A fragment is '
+            f'composed instead: merge() folds it into the file that introduces it.',
         )
         for kind, group in (('variable', program.given.variables), ('row family', program.given.constraints))
         for name in group

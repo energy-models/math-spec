@@ -25,8 +25,8 @@ SURFACE = frozenset(
     {
         # the two public states, and the conversion to each
         'Spec', 'to_spec', 'program', 'to_program',
-        # the file-level verb that lays patches over a base
-        'override',
+        # the two file-level verbs: peers composed, and patches laid over a base
+        'merge', 'override',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',

@@ -5,11 +5,139 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Compose a model from several files
 
-Build one model out of files that each say part of it. `override` lays
-**patches** over a **base**: the model a framework ships, and the change a
-project makes to it. It hands back one mapping, which
+Build one model out of files that each say part of it. `merge` composes
+**fragments**: the files of a component library, each owning part of the math.
+`override` lays **patches** over a **base**: the model a framework ships, and
+the change a project makes to it. Each hands back one mapping, which
 [`to_spec`](../reference/language/errors.md#what-to_spec-checks) loads like any
-file.
+file, and the two compose as `override(merge({…}), {…})`.
+
+## A library of components
+
+1. **Write the coupling surface as a model.** One flow per port, one balance
+   per bus. Nothing in it names a component type.
+
+   ```yaml title="surface.yaml"
+   dimensions:
+     snapshot: { dtype: int }
+     bus: { dtype: str }
+     port: { dtype: str }
+   relations:
+     Port_bus: { key: port, values: bus }
+   variables:
+     Port_p:
+       dims: [snapshot, port]
+       description: what a port puts into its bus
+   constraints:
+     Bus_balance:
+       dims: [snapshot, bus]
+       expression: sum(Port_p, by=Port_bus, over=port, into=bus) == 0
+   ```
+
+2. **Write each component file against that surface.** It declares its own
+   dimension, its own math, and one relation into `port`. It names `Port_p`
+   under [`given`](../reference/language/declarations.md#given), because the
+   surface introduces that column and this file only reads it.
+
+   ```yaml title="generator.yaml"
+   dimensions:
+     snapshot: { dtype: int }
+     port: { dtype: str }
+     generator: { dtype: str }
+   relations:
+     Generator_port: { key: generator, values: port }
+   given:
+     variables:
+       Port_p: { dims: [snapshot, port] }
+   parameters:
+     Generator_p_nom: { dims: [generator] }
+     Generator_marginal_cost: { dims: [generator] }
+   variables:
+     Generator_p: { dims: [snapshot, generator], bounds: { lower: 0, upper: Generator_p_nom } }
+   constraints:
+     Generator_injection:
+       dims: [snapshot, generator]
+       expression: at(Port_p, by=Generator_port, over=port, into=generator) == Generator_p
+   objective:
+     sense: minimize
+     expression: sum(Generator_p * Generator_marginal_cost)
+   ```
+
+   ```yaml title="load.yaml"
+   dimensions:
+     snapshot: { dtype: int }
+     port: { dtype: str }
+     load: { dtype: str }
+   relations:
+     Load_port: { key: load, values: port }
+   given:
+     variables:
+       Port_p: { dims: [snapshot, port] }
+   parameters:
+     Load_p_set: { dims: [snapshot, load] }
+   constraints:
+     Load_withdrawal:
+       dims: [snapshot, load]
+       expression: at(Port_p, by=Load_port, over=port, into=load) == -Load_p_set
+   ```
+
+   Each file loads on its own and prints as math on its own.
+
+3. **Merge the files you need.** Each fragment is given a name, and that name
+   is what a refusal calls it. The order the fragments are given in does not
+   change the model.
+
+   ```python
+   import math_spec as ms
+
+   model = ms.merge({'surface': 'surface.yaml', 'generator': 'generator.yaml', 'load': 'load.yaml'})
+   spec = ms.to_spec(model)
+   ```
+
+   `merge` folds each given declaration into the declaration that introduces
+   it, so `spec` declares `Port_p` once and carries no `given:`. The objectives
+   of the fragments are summed, each term in parentheses.
+
+4. **Add a component type without touching the balance.** A component file
+   pins the flow at its own port rather than adding a term to the balance, so
+   `Bus_balance` is written once and stays as it is however many files are
+   merged. What grows is the data: which ports exist, and which bus each one
+   sits on.
+
+## What a fragment may share
+
+| The entry                                                   | What happens                                                                             |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| a dimension or a relation                                   | every fragment may declare it, and the ones that do say the same thing about it          |
+| a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried             |
+| any other declaration                                       | one fragment declares it, and a second is refused                                        |
+| an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it         |
+| a given entry no fragment introduces                        | it stays under `given:` for a consumer to bind                                           |
+| `objective`                                                 | the terms are summed, each in parentheses, and the senses agree                          |
+| `version`                                                   | every fragment says the same one, and a fragment that says none is version 0             |
+| `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=` |
+
+## A name two fragments declare
+
+Fragments own their math, so a name two of them declare is refused, both
+named. Here two files each say what a generator fleet is:
+
+```text
+fragments 'gas' and 'coal' both declare the parameter 'Generator_p_nom'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the fragment once, and let the data carry both. Different math under one spelling is a rename: call one of them something else.
+```
+
+## A column read one way and introduced another
+
+What a fragment states about a column it reads has to agree with the fragment
+that introduces the column. The reader may say less, such as the frame with no
+`domain`, and may not say something else:
+
+```text
+fragment 'generator' reads the given variable 'Port_p' as {'dims': ['snapshot', 'generator']}, where 'surface' introduces it as {'dims': ['snapshot', 'port'], 'description': 'what a port puts into its bus'}. A given declaration says the same as the declaration it is folded into, or less: restate the frame as the introducer declares it, or leave the field out.
+```
+
+Two fragments that both only read a column have to read it the same way, and
+a difference is refused as it is for a dimension.
 
 ## A base and its patches
 
