@@ -56,7 +56,7 @@ def schema() -> Spec:
 
 def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
     """Resolve each case's `when` against *schema*, then decide every pair."""
-    namespace = Namespace.of(schema)
+    namespace = Namespace(schema)
     return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, namespace.dtypes))
 
 
@@ -260,7 +260,7 @@ class TestSoundness:
 
     @pytest.mark.parametrize('seed', [1, 7])
     def test_a_pair_proved_apart_stays_apart_on_a_finer_grid(self, schema: Spec, seed: int):
-        namespace = Namespace.of(schema)
+        namespace = Namespace(schema)
         atoms = [_mask(text, namespace, 'a probe') for text in self.ATOMS]
         subjects = {
             'capacity': Subject('param', 'capacity'),

@@ -101,64 +101,42 @@ DeclarationKind = Literal['variable', 'parameter', 'dimension', 'relation']
 
 
 class Namespace:
-    """The declared names of one schema, by kind.
+    """The declared names of one schema, by kind — the whole of what a file may name, read once.
 
     A name has one kind: model.py refuses one declared under two sections.
     """
 
     __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'parameters', 'relations', 'schema', 'variables')
 
-    def __init__(
-        self,
-        variables: Iterable[str],
-        parameters: Iterable[str],
-        dimensions: Iterable[str],
-        relations: Mapping[str, RelationDeclaration],
-        dtypes: Mapping[str, DeclaredDtype],
-        leaf_dims: Mapping[str, tuple[str, ...]],
-        constraints: Iterable[str],
-        schema: Spec,
-    ) -> None:
-        #: The schema the names come from — what a where comparison's sides
-        #: are expanded and dim-checked against, since those read operators
-        #: and named expressions that the flat listing above cannot answer for.
+    def __init__(self, schema: Spec) -> None:
+        #: The schema the names come from — what an expression is expanded and
+        #: dim-checked against, since macros, named expressions and the dim
+        #: rules read declarations the flat listing below does not carry.
         self.schema = schema
-        self.variables = frozenset(variables)
-        self.parameters = frozenset(parameters)
-        self.dimensions = frozenset(dimensions)
+        self.variables = frozenset(schema.variables)
+        self.parameters = frozenset(schema.parameters)
+        self.dimensions = frozenset(schema.dimensions)
         #: The declared constraint names, off the flat namespace: a bare name
         #: never reaches them, so a model may name a constraint after a variable.
         #: Consulted only in ``dual()``'s argument position.
-        self.constraints = frozenset(constraints)
+        self.constraints = frozenset(schema.constraints)
         #: name -> declared dtype, for dimensions, parameters and relations alike;
         #: what a where comparison checks its literal against.
-        self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
+        self.dtypes: dict[str, DeclaredDtype] = {
+            **{p: pd.dtype for p, pd in schema.parameters.items()},
+            **{d: dd.dtype for d, dd in schema.dimensions.items()},
+        }
         #: relation name -> its columns and key, as declared.
-        self.relations: dict[str, RelationDeclaration] = dict(relations)
+        self.relations: dict[str, RelationDeclaration] = {
+            n: RelationDeclaration(n, lk.pairs, lk.key_roles) for n, lk in schema.relations.items()
+        }
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a relation leaf carries ``over``.
-        self.leaf_dims: dict[str, tuple[str, ...]] = dict(leaf_dims)
-
-    @classmethod
-    def of(cls, schema: Spec) -> Namespace:
-        """Build the namespace of *schema*, the whole of what a file may name."""
-        return cls(
-            schema.variables,
-            schema.parameters,
-            schema.dimensions,
-            {n: RelationDeclaration(n, lk.pairs, lk.key_roles) for n, lk in schema.relations.items()},
-            {
-                **{p: pd.dtype for p, pd in schema.parameters.items()},
-                **{d: dd.dtype for d, dd in schema.dimensions.items()},
-            },
-            {
-                **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
-                **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
-            },
-            schema.constraints,
-            schema,
-        )
+        self.leaf_dims: dict[str, tuple[str, ...]] = {
+            **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
+            **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
+        }
 
     def kind(self, name: str) -> DeclarationKind | None:
         """What *name* was declared as, or ``None`` where the file declares it nowhere."""
@@ -263,7 +241,7 @@ class Resolved:
 # ---------------------------------------------------------------------------
 
 
-def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ParsedNode:
+def expression_of(text: str, ns: Namespace, context: str) -> ParsedNode:
     """Parse, expand and resolve *text* in one call, raising rather than collecting.
 
     A declaration's tree is on :class:`Resolved`; this is for a text that is
@@ -273,7 +251,7 @@ def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> Parse
         LanguageError: Listing every problem the text has.
     """
     errors: list[str] = []
-    resolved = resolve_expression(parse_and_expand(text, schema, context), ns, context, errors)
+    resolved = resolve_expression(parse_and_expand(text, ns.schema, context), ns, context, errors)
     if errors:
         raise LanguageError('\n'.join(errors))
     assert resolved is not None
