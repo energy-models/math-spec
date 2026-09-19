@@ -35,8 +35,8 @@ def test_every_fragment_loads_and_prints_on_its_own(name):
 @pytest.mark.parametrize('name', ['generator', 'load'])
 def test_a_component_file_reads_the_surface_and_introduces_no_flow(name):
     spec = to_spec(FRAGMENTS[name])
-    assert sorted(spec.given.variables) == ['Port_p'], 'the flow is the one column a component file reads'
-    assert 'Port_p' not in spec.variables, 'the surface introduces the column, and a component file only reads it'
+    assert sorted(spec.given.variables) == ['Port_p'], 'the port flow is the one name a component file reads'
+    assert 'Port_p' not in spec.variables, 'the surface introduces the flow, and a component file only reads it'
 
 
 def test_the_library_composes_into_one_model():
@@ -51,11 +51,18 @@ def test_the_library_composes_into_one_model():
     )
 
 
-def test_the_balance_is_written_once_however_many_fragments_are_merged():
-    one = to_spec(merge({'surface': FRAGMENTS['surface'], 'load': FRAGMENTS['load']}))
-    both = to_spec(merge(FRAGMENTS))
-    assert one.constraints['Bus_nodal_balance'] == both.constraints['Bus_nodal_balance'], (
-        'a component file pins the flow at its own port, so adding one leaves the balance as the surface wrote it'
+@pytest.mark.parametrize(
+    'names',
+    [
+        pytest.param(('surface', 'load'), id='one component file'),
+        pytest.param(('surface', 'generator', 'load'), id='the whole library'),
+    ],
+)
+def test_the_balance_is_written_once_however_many_fragments_are_merged(names):
+    merged = to_spec(merge({name: FRAGMENTS[name] for name in names}))
+    surface = to_spec(FRAGMENTS['surface'])
+    assert merged.constraints['Bus_nodal_balance'] == surface.constraints['Bus_nodal_balance'], (
+        'a component file pins the flow at its own port, so merging leaves the balance as the surface wrote it'
     )
 
 
@@ -96,7 +103,6 @@ def test_the_variant_needs_the_fragment_it_patches():
 
 def test_every_variant_in_the_library_is_typeset_on_the_composed_page():
     """A patch prints only as the model it lands on, so one with no tab is a patch nothing prints."""
-    _, patches = gallery.COMPOSED['library/composed.md']
-    assert patches == {path.stem: path for path in (LIBRARY / 'variants').glob('*.yaml')}, (
-        'every file under variants/ takes a tab on the composed page, under its own name'
-    )
+    page = (gallery.PAGES / 'library' / 'composed.md').read_text()
+    missing = [path.name for path in (LIBRARY / 'variants').glob('*.yaml') if f'=== "With {path.stem}"' not in page]
+    assert not missing, f'the composed page gives {missing} no tab, so what they print is on no page'

@@ -40,7 +40,7 @@ given:
   variables:
     Port_p:
       dims: [snapshot, port]
-      description: the surface introduces this column, and this file pins it at its own ports
+      description: the surface introduces this flow, and this file pins it at its own ports
 parameters:
   Generator_p_nom: { dims: [generator], description: nominal power }
   Generator_marginal_cost: { dims: [generator], description: cost of one unit of output }
@@ -88,7 +88,7 @@ PyPSA's `Generator`, wired to a port rather than straight to a bus, and cut to w
 
 | Symbol | Meaning |
 |---|---|
-| $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — the surface introduces this column, and this file pins it at its own ports |
+| $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — the surface introduces this flow, and this file pins it at its own ports |
 
 #### Objective
 

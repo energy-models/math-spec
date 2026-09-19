@@ -29,7 +29,7 @@ examples/library/
 
 | Page                               | What it shows                                                  |
 | ---------------------------------- | -------------------------------------------------------------- |
-| [The coupling surface](surface.md) | the spine, and the sign convention                             |
+| [The coupling surface](surface.md) | the surface, and the sign convention                           |
 | [Generators](generator.md)         | a file that reads `Port_p` and prices its output               |
 | [Loads](load.md)                   | a file with no variable of its own                             |
 | [The composed model](composed.md)  | what `merge` returns, and the math it prints with each variant |
@@ -38,10 +38,9 @@ examples/library/
 
 - **One file per thing you would pick on its own.** `merge` takes a whole
   fragment or none of it, so a model with no storage never mentions storage.
-- **One surface.** Two surface files would be two conventions, and no
-  component file could say which one it meant.
+- **One surface.** Every component file is written against it.
 - **Every name carries the component class it belongs to.** `merge` does not
-  rename, so `Generator_` and `Load_` keep the files apart. The surface owns
+  rename. `Generator_` and `Load_` keep the files apart, and the surface owns
   `Port_`, `port` and `bus`.
 - **A fragment is what a system has. A patch is how a component is
   formulated.** A second kind of component is a peer, and `merge` composes it.

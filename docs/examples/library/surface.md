@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # The coupling surface
 
-The spine every other file in the library is written against. It declares one
+The surface every other file in the library is written against. It declares one
 `Port_p` per port, one balance per bus, and the relation that says which bus a
 port sits on. Nothing in it names a component class, so it is the one file that
 does not change when a component class is added.
