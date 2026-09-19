@@ -4,9 +4,6 @@
 
 version: 2
 
-mkdocs:
-  configuration: mkdocs.yml
-
 build:
   os: ubuntu-24.04
   tools:
@@ -24,4 +21,8 @@ build:
       - pixi install -e default --frozen
     build:
       html:
-        - pixi run docs-build $READTHEDOCS_OUTPUT
+        - pixi run docs-build
+        # `zensical build` takes no site directory, so the site lands in
+        # `site_dir` from mkdocs.yml and is copied from there. Read the Docs
+        # publishes whatever is under $READTHEDOCS_OUTPUT/html.
+        - mkdir -p $READTHEDOCS_OUTPUT && cp -a .docs $READTHEDOCS_OUTPUT/html

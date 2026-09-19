@@ -69,8 +69,9 @@ in `docs/examples/`) or explanation (`docs/about/`) — the four kinds of
 has to meet, and the sentence-level bar, are in
 [the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
 Every page needs a `nav:` entry in `mkdocs.yml`, links inside `docs/` are
-relative, and a link outside it is the full GitHub URL; `pixi run docs-build`
-is `--strict` and refuses the rest.
+relative, and a link outside it is the full GitHub URL. `pixi run docs-build`
+is `--strict` and refuses a dead link or a stale anchor; `pixi run test` is
+what refuses a page with no nav entry.
 
 ### Commit messages
 

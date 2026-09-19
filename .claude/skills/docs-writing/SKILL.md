@@ -87,9 +87,11 @@ each block to its generator byte for byte. The catalogue in
 `docs/examples/index.md` is hand-written: one bullet per page, saying why a
 reader would open it.
 
-**The Python API pages are built, not written.** mkdocs renders
-`reference/math_spec/` from the docstrings at build time, so their prose is
-the docstring rules in `AGENTS.md`.
+**The Python API pages are built, not written.** mkdocstrings renders
+`reference/api/` from the docstrings at build time, so their prose is the
+docstring rules in `AGENTS.md`. There is one page per module that declares an
+`__all__`, which is the list `tests/test_public_surface.py` pins. A module a
+consumer may not import gets no page.
 
 Mixing kinds is the most common failure. Rationale inside a reference section
 makes the rules unskimmable, and rules inside an explanation page make the
@@ -322,8 +324,10 @@ PY
 ## 9. Mechanics
 
 - **A new page needs a nav entry in `mkdocs.yml`.** The docs build is
-  `--strict`, so a page without one fails it, as do a dead cross-link and a
-  stale anchor.
+  `--strict`, so a dead cross-link and a stale anchor fail it. A page with no
+  nav entry does not fail the build — zensical validates links and leaves
+  navigation alone — so `pixi run test` is what reports it, in
+  `tests/test_docs.py`.
 - **A new page carries the SPDX header** — `math-spec contributors`,
   `CC-BY-4.0` — in an HTML comment at the top, or as YAML comments inside the
   front matter where the page has one, as `docs/index.md` does. `reuse lint`

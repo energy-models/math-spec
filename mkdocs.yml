@@ -31,8 +31,8 @@ nav:
   # follow the same split. There is no tutorial yet; the first one opens a
   # `Tutorials:` section here, above the how-to guides. The model pages are
   # reference in their own form and sit at the end of the Reference section,
-  # after the pages a reader looks things up in; `docs/static/hooks.py` puts
-  # the Python API in front of them.
+  # after the pages a reader looks things up in, with the Python API in front
+  # of them.
   - How-to guides:
       - Installation: howto/installation.md
       - Check a model without data: howto/check.md
@@ -57,6 +57,13 @@ nav:
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
       - Reading a loaded model: reference/reading.md
+      # One page per module that declares an `__all__`, which is the same list
+      # `tests/test_public_surface.py` pins — the internal modules are not
+      # documented, because a consumer may not import them.
+      - Python API:
+          - math_spec: reference/api/math_spec.md
+          - math_spec.program: reference/api/program.md
+          - math_spec.typesetting: reference/api/typesetting.md
       - Examples:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md
@@ -75,7 +82,7 @@ nav:
       - What counts as language: about/what-counts-as-language.md
       - What counts as public API: about/what-counts-as-public-api.md
       - Contributing: contributing.md
-      - Changelog: CHANGELOG.md
+      - Changelog: changelog.md
 
 theme:
   name: material
@@ -171,7 +178,17 @@ markdown_extensions:
   # No `style_plain_text`: it makes every plain inline code span render as
   # shell, and most of the ones here are YAML keys and Python names.
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  # `check_paths` so a renamed include fails the build rather than rendering
+  # as nothing. `docs/index.md` pulls sections of the README through this, and
+  # `docs/changelog.md` is the whole of CHANGELOG.md.
+  - pymdownx.snippets:
+      check_paths: true
+  # The other half of the math, beside the `arithmatex` entry above: the
+  # verbatim `$`…`$` pair the typesetter prints for GitHub, rewritten into the
+  # `$…$` arithmatex reads. It is a preprocessor rather than a hook because
+  # zensical has no hooks, and because the suite can then load it without a
+  # site.
+  - tools.mdx_github_math
   - pymdownx.tabbed:
       alternate_style: true
   - toc:
@@ -184,8 +201,6 @@ markdown_extensions:
       # would 404 on the site while working in the repository. Same file,
       # same anchor, both renderings.
       slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
-hooks:
-  - docs/static/hooks.py
 plugins:
   - search
   - autorefs
