@@ -112,7 +112,7 @@ def resolved(text: str, schema: Spec) -> ArithmeticNode:
     asserts those never reach it. The ``'t'`` is the error-context label the
     resolver stamps on refusals, not a dimension.
     """
-    return expression_of(text, schema, Namespace.of(schema), 't')
+    return expression_of(text, Namespace(schema), 't')
 
 
 @pytest.fixture
@@ -172,8 +172,8 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
-    ns = Namespace.of(dispatch_schema)
-    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
+    ns = Namespace(dispatch_schema)
+    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+2)', ns, 't')
     assert isinstance(node, FunctionCallNode)
     assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
 
@@ -219,7 +219,7 @@ def test_a_where_is_one_resolved_predicate_with_every_literal_folded(dispatch_sc
 
     A `BooleanLiteralNode` is a node a consumer meets at the root or nowhere.
     """
-    mask = where_of(where, Namespace.of(dispatch_schema), 't')
+    mask = where_of(where, Namespace(dispatch_schema), 't')
     assert (mask.root if mask is not None else None) == expected, (
         'the Mask carries exactly the resolved predicate, folded at resolution however the file spelled it'
     )
@@ -238,7 +238,7 @@ def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
     """It used to be a scalar-False mask in the eager lane: a model that
     builds, solves, and is silently empty. Resolution makes it a load error."""
     with pytest.raises(LanguageError, match="'no_such_param' not found"):
-        where_of('no_such_param', Namespace.of(dispatch_schema), 't')
+        where_of('no_such_param', Namespace(dispatch_schema), 't')
 
 
 def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_program):
@@ -949,7 +949,7 @@ def test_the_lowered_regions_are_still_proved_apart():
     regions = _cases_in(to_program(spec)).regions
     named = {f'region{i}': r.when.root for i, r in enumerate(regions)}
 
-    assert list(overlapping(named, Namespace.of(spec).dtypes)) == [], 'no two lowered regions can claim one coordinate'
+    assert list(overlapping(named, Namespace(spec).dtypes)) == [], 'no two lowered regions can claim one coordinate'
 
 
 def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():

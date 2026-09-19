@@ -140,7 +140,7 @@ class _Block:
         self.domain_hi = f'{name}_domain_hi'
         self.links = tuple(f'{name}_link{i}' for i in range(len(pw.links)))
         self.mask = self.points if self.nominated is not None else pw.points
-        self.ns = Namespace.of(schema)
+        self.ns = Namespace(schema)
         self.context = f"piecewise '{name}'"
         self.frame = self._validated_frame()
         self.record: dict[str, Any] = {'block': raw['piecewise'][name], 'points': self.mask}

@@ -118,7 +118,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         DimensionError: The first dim rule a declaration breaks, once every
             name resolves.
     """
-    ns = Namespace.of(schema)
+    ns = Namespace(schema)
     errors: list[str] = []
 
     for mname, macro in schema.macros.items():
@@ -139,7 +139,7 @@ def validate_expressions(schema: Spec) -> Resolved:
 
     expressions: dict[str, CasesNode | DefinitionNode] = {}
     for ename, block in schema.expressions.items():
-        if (node := _named(ename, block, schema, ns, errors)) is not None:
+        if (node := _named(ename, block, ns, errors)) is not None:
             expressions[ename] = node
 
     variables = {
@@ -151,14 +151,14 @@ def validate_expressions(schema: Spec) -> Resolved:
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         where = resolve_where_text(cdef.where, ns, context, errors)
-        expression = _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
+        expression = _check_expression(cdef.expression, ns, context, errors, comparison=True, ceiling=2)
         if expression is not None:
             constraints[cname] = ResolvedConstraint(expression, mask_of(where))
 
     objective = None
     if schema.objective is not None:
         objective = _check_expression(
-            schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
+            schema.objective.expression, ns, 'The objective', errors, comparison=False, ceiling=2
         )
 
     if errors:
@@ -169,9 +169,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     return resolved
 
 
-def _named(
-    name: str, block: ExpressionBlock, schema: Spec, ns: Namespace, errors: list[str]
-) -> CasesNode | DefinitionNode | None:
+def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) -> CasesNode | DefinitionNode | None:
     """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
 
     A cased entry's arms are checked one by one, so every fault is collected
@@ -180,7 +178,7 @@ def _named(
     context = f"Named expression '{name}'"
     if not block.cases:
         assert block.expression is not None
-        body = _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
+        body = _check_expression(block.expression, ns, context, errors, comparison=False, ceiling=None)
         return None if body is None else DefinitionNode(name, body)
 
     found = len(errors)
@@ -193,13 +191,11 @@ def _named(
             errors.append(_constant_arm(arm_context, value=when.value))
         elif when is not None:
             masks[case_name] = when
-        value = _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
+        value = _check_expression(case.expression, ns, arm_context, errors, comparison=False, ceiling=None)
         if when is not None and value is not None:
             arms.append(CaseArm(case_name, when, value))
     assert block.otherwise is not None
-    fallback = _check_expression(
-        block.otherwise, schema, ns, case_context(name, None), errors, comparison=False, ceiling=None
-    )
+    fallback = _check_expression(block.otherwise, ns, case_context(name, None), errors, comparison=False, ceiling=None)
     if len(errors) > found or fallback is None:
         return None
     errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
@@ -231,7 +227,6 @@ def _constant_arm(context: str, *, value: bool) -> str:
 @overload
 def _check_expression(
     expression: str,
-    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -242,7 +237,6 @@ def _check_expression(
 @overload
 def _check_expression(
     expression: str,
-    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -254,7 +248,6 @@ def _check_expression(
 
 def _check_expression(
     expression: str,
-    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -273,7 +266,7 @@ def _check_expression(
     declared.
     """
     try:
-        ast = parse_and_expand(expression, schema, context)
+        ast = parse_and_expand(expression, ns.schema, context)
     except ValueError as e:
         errors.append(_prefixed(context, e))
         return None

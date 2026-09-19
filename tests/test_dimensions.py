@@ -68,12 +68,12 @@ def _schema(**overrides) -> Spec:
 
 def _dims(expr: str) -> frozenset[str]:
     s = _schema()
-    return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
+    return dims_of(expression_of(expr, Namespace(s), 't'), s, 't')
 
 
 @pytest.fixture
 def namespace() -> Namespace:
-    return Namespace.of(_schema())
+    return Namespace(_schema())
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ def test_dim_inference(expr, expected):
 
 def _dims_with(expr: str, **overrides) -> frozenset[str]:
     s = _schema(**overrides)
-    return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
+    return dims_of(expression_of(expr, Namespace(s), 't'), s, 't')
 
 
 def test_a_dual_carries_the_constraints_own_frame():
