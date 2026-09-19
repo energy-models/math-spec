@@ -38,7 +38,7 @@ piecewise:
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | _expression_   | Any affine expression. The simplest is a bare variable name                                                                                  |
 | _values_       | A parameter that carries the `along` dimension, plus any dimensions the link expressions carry. A dimension the links do not carry is refused |
-| _sign_         | `<=` or `>=`. At most one per block, and only in a block with exactly two links. It bounds the link instead of pinning it                    |
+| _sign_         | `<=` or `>=`. It bounds the link by the curve instead of pinning it to it. Any number of links may carry one, as long as at least one link does not ([below](#signs))                    |
 | _into_         | A dimension the link's row gains, so every coordinate of it is a tie to the one operating point ([below](#a-link-that-refines-the-curve))                    |
 | _by_, _over_   | A relation and the columns the walk consumes, where the refinement is reached through one rather than simply gained                          |
 
@@ -245,6 +245,32 @@ coordinate, so the relation supplies the arity the second link otherwise would.
 | `method:`      | `adjacency` or `sos2`. `convex` and `lp` state the curve as one quantity against another, so each needs a link naming the abscissa — and under a refinement which row plays it is data |
 | `where:`       | reaches a link that only gains a dimension. A walk is refused, because it replaces the frame dimension the mask tests — mask the link's own variable instead |
 
+### Signs
+
+A link with no sign is **pinned** to the curve: its expression equals the
+weighted breakpoints. A link carrying `<=` or `>=` is **bounded** by the curve
+instead, and each link carries its own.
+
+**At least one link is pinned.** A pinned link fixes the operating point every
+other link is read at. With every link bounded the weights are free, and the
+block no longer says that its quantities sit together on a curve — it says only
+that some point on the curve satisfies the bounds. That is a different model,
+so it is refused rather than guessed.
+
+```yaml
+piecewise:
+  chp:
+    along: bp
+    links:
+      - [power, power_bp] # pinned: it fixes the operating point
+      - [fuel, fuel_bp, ">="] # bounded below by the curve
+      - [heat, heat_bp, "<="] # bounded above, at that same point
+```
+
+`convex` and `lp` take exactly two links, so there a sign is one link's at
+most. Under `adjacency` and `sos2` each link is its own row against the shared
+weights, so the count is whatever the model needs.
+
 ### `method`
 
 `method` says how the weights are restricted once they exist.
@@ -264,8 +290,9 @@ matches the optimisation pressure, and that match is checked against the
 breakpoint values when the data binds. It takes exactly two links and no
 `activity:`.
 
-`lp` states the curve as its segment lines. It needs **exactly two links**, one
-of them bounded with `<=` or `>=`, and no `activity:`:
+`lp` states the curve as its segment lines. Like `convex` it takes **exactly two
+links**, because a line is one quantity against another: one link names the
+abscissa and one is bounded by the lines. It takes no `activity:`:
 
 ```yaml
 piecewise:

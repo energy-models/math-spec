@@ -197,8 +197,8 @@ def test_any_affine_expression_is_a_legal_link(link):
         pytest.param(
             NONCONVEX_YAML,
             {'piecewise.cost_curve.links': [['p', 'bp_x', '<='], ['op_cost', 'bp_y', '>=']]},
-            'at most one link',
-            id='at-most-one-link',
+            'nothing pins the operating point',
+            id='every-link-bounded',
         ),
         pytest.param(
             NONCONVEX_YAML,
@@ -242,8 +242,8 @@ def test_any_affine_expression_is_a_legal_link(link):
         pytest.param(
             LP,
             {'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y'], ['p', 'bp_x']]},
-            'needs exactly one link bounded by the curve',
-            id='lp-with-three-links-none-bounded',
+            'requires exactly two links',
+            id='lp-with-three-links',
         ),
         pytest.param(
             LP,
@@ -980,3 +980,72 @@ def test_a_split_link_and_a_walked_one_live_in_one_block():
     expanded = expand_piecewise(schema_of(model))
     assert expanded.constraints['op_link0'].dims == ['converter', 'snapshot', 'carrier'], 'gains carrier'
     assert expanded.constraints['op_link1'].dims == ['flow', 'snapshot'], 'loses converter, gains flow'
+
+
+#: Three quantities on one curve, two of them bounded rather than pinned.
+THREE_WAY = override(
+    NONCONVEX_YAML if isinstance(NONCONVEX_YAML, dict) else raw_of(NONCONVEX_YAML),
+    **{
+        'parameters.bp_z': {'dims': ['bp']},
+        'variables.heat': {'dims': ['snapshot'], 'bounds': {'lower': 0}},
+    },
+)
+
+
+@pytest.mark.parametrize(
+    'links',
+    [
+        pytest.param([['p', 'bp_x'], ['op_cost', 'bp_y', '>='], ['heat', 'bp_z']], id='three-links-one-bounded'),
+        pytest.param(
+            [['p', 'bp_x'], ['op_cost', 'bp_y', '>='], ['heat', 'bp_z', '<=']],
+            id='two-bounded-signs-at-once',
+        ),
+        pytest.param([['p', 'bp_x'], ['op_cost', 'bp_y', '>=']], id='the-two-link-case-that-always-worked'),
+    ],
+)
+def test_a_curve_bounds_as_many_links_as_it_likes_while_one_pins_it(links):
+    """Under adjacency each link is its own row against the shared weights, so a sign is per link.
+
+    The old rule capped a block at one non-`==` sign and only with exactly two
+    links. Nothing in the emission needed that: `_weights` writes
+    `(expr) sign sum(lam * values, along=bp)` per link and reaches for no other.
+    """
+    expanded = expand_piecewise(schema_of(THREE_WAY, **{'piecewise.cost_curve.links': links}))
+    emitted = [expanded.constraints[f'cost_curve_link{i}'].expression for i in range(len(links))]
+    for link, expression in zip(links, emitted, strict=True):
+        sign = link[2] if len(link) == 3 else '=='
+        assert f') {sign} sum(' in expression, f'link on {link[0]} carries its own {sign}'
+
+
+def test_a_single_refined_link_still_needs_pinning():
+    """A refinement supplies the arity, not the pin — its rows all bound and none fixes the operating point."""
+    with pytest.raises(LanguageError, match='nothing pins the operating point'):
+        schema_of(
+            REFINED,
+            **{
+                'piecewise.coupling.links': [
+                    {
+                        'expression': 'power',
+                        'values': 'bp_power',
+                        'by': 'generator_of',
+                        'over': 'generator',
+                        'into': 'flow',
+                        'sign': '<=',
+                    }
+                ],
+                'objective.expression': 'sum(power)',
+            },
+        )
+
+
+@pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
+def test_the_two_methods_that_name_an_abscissa_take_exactly_two_links(method):
+    """`lp` had no such rule and leaned on the sign cap for it, so three links raised `ValueError`."""
+    with pytest.raises(LanguageError, match='requires exactly two links'):
+        schema_of(
+            THREE_WAY,
+            **{
+                'piecewise.cost_curve.method': method,
+                'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>='], ['heat', 'bp_z']],
+            },
+        )

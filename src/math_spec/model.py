@@ -650,10 +650,12 @@ class PiecewiseBlock(_StrictBlock):
                 f'method: adjacency or sos2, which state the curve through its weights instead.'
             )
             raise ValueError(msg)
-        if self.method == 'convex' and len(self.links) != 2:
+        if self.method in ('convex', 'lp') and len(self.links) != 2:
             msg = (
-                'method: convex requires exactly two links (the hull relaxation '
-                'is only well-defined for a single y=f(x) curve).'
+                f'method: {self.method} requires exactly two links. It states the curve as one quantity '
+                f'against another — a hull for convex, segment lines for lp — so it needs one link for the '
+                f'abscissa and one for the quantity that is read against it. Use method: adjacency or sos2, '
+                f'which state the curve through its weights and tie as many links as you like.'
             )
             raise ValueError(msg)
         if self.method == 'lp' and sum(link.sign != '==' for link in self.links) != 1:
@@ -689,15 +691,15 @@ class PiecewiseBlock(_StrictBlock):
             msg = (
                 'piecewise needs at least two links ([expression, values, sign?]). One quantity on a curve is '
                 'a bound rather than a curve — a curve ties two or more through shared weights. A single link '
-                'reading through a relation is enough, because the relation says how many rows it builds.'
+                'that refines the curve is enough, because how many rows it builds is data.'
             )
             raise ValueError(msg)
-        non_eq = [link.sign for link in v if link.sign != '==']
-        if len(non_eq) > 1:
-            msg = "at most one link may carry a non-'==' sign."
-            raise ValueError(msg)
-        if non_eq and len(v) != 2:
-            msg = "a non-'==' sign is only supported with exactly two links."
+        if all(link.sign != '==' for link in v):
+            msg = (
+                'every link is bounded by the curve, so nothing pins the operating point they are read '
+                'at. The weights are then free, and the block states only that some point on the curve '
+                "satisfies the bounds. Pin at least one link with '=='."
+            )
             raise ValueError(msg)
         return v
 
