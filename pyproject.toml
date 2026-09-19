@@ -148,8 +148,8 @@ preset = "strict"
 strict-callable-subtyping = true
 
 # Warn-by-default rules promoted to error, so a regression fails the gate
-# instead of scrolling past. All of these are already clean; each one is a
-# gate, not a TODO.
+# instead of scrolling past. Each one is a gate, not a TODO: all are clean,
+# and `explicit-any` is clean in every file the list below does not name.
 #
 # Where a rule is genuinely wrong about one line, suppress that line with
 # `# pyrefly: ignore[rule-name]` and a reason -- do not turn the rule off here.
@@ -161,6 +161,7 @@ strict-callable-subtyping = true
 # than switched off so a lambda outside those grammars still has to say what
 # it takes.
 [tool.pyrefly.errors]
+explicit-any = "error"
 implicit-import = "error"
 missing-import = "error"
 no-any-return-explicit = "error"
@@ -178,6 +179,63 @@ unresolvable-dunder-all = "error"
 untyped-import = "error"
 unused-ignore = "error"
 variance-mismatch = "error"
+
+# `explicit-any` refuses the `Any` that a signature writes down, which is the
+# one way a widened signature still got into the package: an *unannotated*
+# parameter is already `implicit-any-parameter`, which the strict preset
+# refuses.
+#
+# A line that must say `Any` says so with `# pyrefly: ignore[explicit-any]` and
+# a reason, as it does for every other rule above. `unused-ignore` is an error,
+# so that pragma fails the gate on the day the line stops needing it.
+#
+# The files below still say `Any`, and the rule is off in each one until they
+# stop. This list is the backlog, so it only shrinks: a file that leaves it
+# cannot come back, because the rule is on everywhere else.
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/_expression_parser.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/_where_parser.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/_yaml.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/advice.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/exclusivity.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/lowering.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/model.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/piecewise.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/typesetting/__init__.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/typesetting/symbols.py"
+errors = { explicit-any = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "src/math_spec/validation.py"
+errors = { explicit-any = false }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
