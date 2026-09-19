@@ -39,11 +39,13 @@ piecewise:
 | _expression_   | Any affine expression. The simplest is a bare variable name                                                                                  |
 | _values_       | A parameter that carries the `over` dimension, plus any dimensions the link expressions carry. A dimension the links do not carry is refused |
 | _sign_         | `<=` or `>=`. At most one per block, and only in a block with exactly two links. It bounds the link instead of pinning it                    |
+| _by_, _over_, _into_ | A relation and the columns the link reads the curve's weights through. The link then sits on a refinement of the frame ([below](#a-link-through-a-relation)) |
 
 | Key        |                                                                                          |                     |
 | ---------- | ---------------------------------------------------------------------------------------- | ------------------- |
 | `over`     | required. The breakpoint dimension                                                       |                     |
 | `links`    | required. Two or more links                                                              |                     |
+| `dims`     | the curve's frame ([below](#dims))                                                       | inferred            |
 | `where`    | which coordinates have a curve at all ([below](#where))                                  | default `null`      |
 | `method`   | `adjacency`, `sos2`, `convex` or `lp`: how the weights are restricted ([below](#method)) | default `adjacency` |
 | `activity` | a binary variable that gates the curve ([below](#activity))                              | default `null`      |
@@ -63,11 +65,24 @@ decrease in that order is refused when the data binds.
     The missing row reads as a breakpoint at the origin, and the table is
     refused when the data binds. To say how far a curve runs, use `points:`.
 
+### `dims`
+
+A block builds one curve for every coordinate of its **frame**. `dims:` states
+the frame. Where the file writes none, the frame is the union of the dims the
+link expressions carry.
+
+A block whose links all sit on the frame needs no `dims:`. Write it where the
+links no longer say what the frame is, which is any block with a link through a
+relation.
+
+`dims:` may not carry the breakpoint dimension. Every curve runs along that
+axis, so it is not something the block builds one curve per.
+
 ### `where`
 
-A block builds one curve for every coordinate of its **frame**, which is the
-union of the dims its link expressions carry. `where:` says which of those
-coordinates have a curve:
+A block builds one curve for every coordinate of its **frame**, which `dims:`
+states or the link expressions imply. `where:` says which of those coordinates
+have a curve:
 
 ```yaml
 piecewise:
@@ -135,6 +150,49 @@ parameter instead.
 The marked breakpoints must be consecutive. They need not start at the head of
 the axis. A gap, or a curve with no points, is refused when the data binds.
 
+### A link through a relation
+
+`links:` is a list, so the number of *kinds* of link a block ties is written in
+the file. The number of **rows** each link builds is data. A link naming `by:`
+reads the curve's weights through a relation, so one link entry builds one row
+per fine coordinate:
+
+```yaml
+relations:
+  generator_of: { key: flow, values: generator }
+
+piecewise:
+  coupling:
+    over: bp
+    dims: [generator, snapshot] # one curve per generator
+    links:
+      - { expression: power, values: bp_power, by: generator_of, over: generator, into: flow }
+      - [fuel, bp_fuel]
+```
+
+`power` is per flow and the curve is per generator, so the first link builds one
+row for each of a generator's flows. A generator with five flows and a generator
+with two share the block. A sixth flow is a row in `generator_of`, not an edit to
+the model.
+
+`by:`, `over:` and `into:` are the [`at`](operators.md#at) walk, and mean there
+what they mean everywhere. The block writes
+`at(coupling_lam, by=generator_of, over=generator, into=flow)` into that link's
+row, so the weights stay on the curve's frame and the model never names them. A
+link's row is built over the frame with the consumed dimension replaced by the
+produced one — `[flow, snapshot]` above.
+
+The three are written together. A walk states which columns it consumes and
+which it produces, and neither is defaulted.
+
+| A refined link |                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------- |
+| the block      | declares `dims:`, because the links no longer say what the frame is                    |
+| _over_         | names a column over one of the frame's own dimensions                                  |
+| _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                |
+| `points:`      | names a values parameter of a link that reads no relation, because raggedness is the curve's |
+| `method:`      | `adjacency` or `sos2`. `convex` and `lp` prove a curvature by comparing the two values parameters, which a refinement puts on two frames |
+
 ### `method`
 
 `method` says how the weights are restricted once they exist.
@@ -170,10 +228,6 @@ piecewise:
 `>=` requires a convex curve and `<=` a concave one, checked against the values
 when the data binds. The two domain rows hold the pinned link inside the
 breakpoint range.
-
-`links:` is a list, so the number of expressions a block ties is written in the
-file. Where that number is data, write the formulation out
-([a curve by hand](../../howto/curve-by-hand.md)).
 
 ## `sos`
 

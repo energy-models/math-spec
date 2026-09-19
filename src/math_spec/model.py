@@ -481,8 +481,14 @@ class PiecewiseLink(_StrictBlock):
     """One link of a piecewise block: an expression pinned to a values curve.
 
     Written in YAML as ``[expression, values]`` or ``[expression, values,
-    sign]`` and serialised back to exactly that form, so a round trip through
+    sign]``, and serialised back to exactly that form, so a round trip through
     :meth:`Spec.to_yaml` reproduces the file.
+
+    A link naming ``by:`` sits on a **refinement** of the curve's frame rather
+    than on the frame itself, and is written as a mapping. ``by``, ``over`` and
+    ``into`` are the relation walk :func:`at` takes, so one link emits a row per
+    fine coordinate and the weights it reads stay on the curve's own frame. That
+    is what lets one curve tie as many expressions as the relation gives it.
     """
 
     _label: ClassVar[str] = 'a piecewise link'
@@ -490,6 +496,30 @@ class PiecewiseLink(_StrictBlock):
     expression: str
     values: str
     sign: LinkSign = '=='
+    #: The relation the link reads the curve's weights through.
+    by: str | None = None
+    #: The relation columns the walk consumes — the curve frame's own.
+    over: str | list[str] | None = None
+    #: The relation columns the walk produces — the link row's.
+    into: str | list[str] | None = None
+
+    @property
+    def refined(self) -> bool:
+        """Whether the link sits on a refinement of the curve's frame rather than on the frame."""
+        return self.by is not None
+
+    @model_validator(mode='after')
+    def _check_walk(self) -> PiecewiseLink:
+        named = {'by': self.by, 'over': self.over, 'into': self.into}
+        if (written := {k for k, v in named.items() if v is not None}) and written != set(named):
+            missing = sorted(set(named) - written)
+            msg = (
+                f'a link reading through a relation names by, over and into together — {missing} '
+                f'{"is" if len(missing) == 1 else "are"} missing. A walk states which columns it '
+                f'consumes and which it produces; neither is defaulted.'
+            )
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode='before')
     @classmethod
@@ -509,7 +539,18 @@ class PiecewiseLink(_StrictBlock):
         return _also_written_as(core_schema, handler, list_form)
 
     @model_serializer
-    def _as_list(self) -> list[str]:
+    def _as_written(self) -> list[str] | dict[str, str | list[str]]:
+        """The list form, or the mapping form a walk cannot be written in a list."""
+        if self.refined:
+            assert self.by is not None and self.over is not None and self.into is not None
+            written: dict[str, str | list[str]] = {
+                'expression': self.expression,
+                'values': self.values,
+                'by': self.by,
+                'over': self.over,
+                'into': self.into,
+            }
+            return written if self.sign == '==' else {**written, 'sign': self.sign}
         return [self.expression, self.values] if self.sign == '==' else [self.expression, self.values, self.sign]
 
 
@@ -537,11 +578,16 @@ class PiecewiseBlock(_StrictBlock):
     the curve instead of pinning it (at most one non-``"=="``, and only with
     exactly two links).
 
-    The block builds one curve per coordinate of the frame, which is the union
-    of the link expressions' dims. Three keys say something different about
-    those coordinates: ``where:`` which of them have a curve, ``points:`` how
-    far each curve runs along ``over``, and ``activity:`` whether a curve that
-    exists is switched on.
+    The block builds one curve per coordinate of the **frame**. ``dims:``
+    declares it; where the file writes none it is inferred as the union of the
+    link expressions' dims. Three keys say something different about those
+    coordinates: ``where:`` which of them have a curve, ``points:`` how far each
+    curve runs along ``over``, and ``activity:`` whether a curve that exists is
+    switched on.
+
+    A link naming ``by:`` sits on a refinement of the frame, so the number of
+    expressions one curve ties is data. Such a block declares its ``dims:``,
+    because the frame can no longer be told from the links.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
@@ -549,6 +595,8 @@ class PiecewiseBlock(_StrictBlock):
     #: The breakpoint dimension.
     over: str
     links: list[PiecewiseLink]
+    #: The curve's frame — one curve per coordinate of it. Inferred from the links where absent.
+    dims: list[str] | None = None
     #: Which coordinates of the frame have a curve at all — none builds one everywhere.
     where: str | None = None
     #: Which of :data:`PIECEWISE_METHODS` restricts the weights.
@@ -580,6 +628,14 @@ class PiecewiseBlock(_StrictBlock):
 
     @model_validator(mode='after')
     def _check_method_shape(self) -> PiecewiseBlock:
+        if (walked := [i for i, link in enumerate(self.links) if link.refined]) and self.method in ('convex', 'lp'):
+            msg = (
+                f'method: {self.method} does not take a link that reads through a relation (link {walked[0]}). '
+                f'Both state one side of a y=f(x) curve, and the curvature is checked by comparing the two '
+                f'values parameters — which sit on different frames once a link is refined. Use method: '
+                f'adjacency or sos2, which take a curve of any shape.'
+            )
+            raise ValueError(msg)
         if self.method == 'convex' and len(self.links) != 2:
             msg = (
                 'method: convex requires exactly two links (the hull relaxation '
@@ -594,6 +650,13 @@ class PiecewiseBlock(_StrictBlock):
             raise ValueError(msg)
         if self.activity is not None and self.method in ('convex', 'lp'):
             msg = f'activity is not supported with method: {self.method}.'
+            raise ValueError(msg)
+        if self.dims is None and (refined := [i for i, link in enumerate(self.links) if link.refined]):
+            msg = (
+                f'link {refined[0]} reads through a relation, so the block declares the curve it builds with '
+                f'dims:. A refined link carries a dim the curve does not, and the frame can no longer be read '
+                f'off the links.'
+            )
             raise ValueError(msg)
         return self
 

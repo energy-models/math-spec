@@ -338,7 +338,7 @@
     },
     "PiecewiseBlock": {
       "additionalProperties": false,
-      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\nThe block builds one curve per coordinate of the frame, which is the union\nof the link expressions' dims. Three keys say something different about\nthose coordinates: ``where:`` which of them have a curve, ``points:`` how\nfar each curve runs along ``over``, and ``activity:`` whether a curve that\nexists is switched on.",
+      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\nThe block builds one curve per coordinate of the **frame**. ``dims:``\ndeclares it; where the file writes none it is inferred as the union of the\nlink expressions' dims. Three keys say something different about those\ncoordinates: ``where:`` which of them have a curve, ``points:`` how far each\ncurve runs along ``over``, and ``activity:`` whether a curve that exists is\nswitched on.\n\nA link naming ``by:`` sits on a refinement of the frame, so the number of\nexpressions one curve ties is data. Such a block declares its ``dims:``,\nbecause the frame can no longer be told from the links.",
       "properties": {
         "activity": {
           "anyOf": [
@@ -363,6 +363,21 @@
           ],
           "default": null,
           "title": "Description"
+        },
+        "dims": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dims"
         },
         "links": {
           "items": {
@@ -422,11 +437,59 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "One link of a piecewise block: an expression pinned to a values curve.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]`` and serialised back to exactly that form, so a round trip through\n:meth:`Spec.to_yaml` reproduces the file.",
+          "description": "One link of a piecewise block: an expression pinned to a values curve.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]``, and serialised back to exactly that form, so a round trip through\n:meth:`Spec.to_yaml` reproduces the file.\n\nA link naming ``by:`` sits on a **refinement** of the curve's frame rather\nthan on the frame itself, and is written as a mapping. ``by``, ``over`` and\n``into`` are the relation walk :func:`at` takes, so one link emits a row per\nfine coordinate and the weights it reads stay on the curve's own frame. That\nis what lets one curve tie as many expressions as the relation gives it.",
           "properties": {
+            "by": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "By"
+            },
             "expression": {
               "title": "Expression",
               "type": "string"
+            },
+            "into": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Into"
+            },
+            "over": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Over"
             },
             "sign": {
               "default": "==",

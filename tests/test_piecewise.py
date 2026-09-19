@@ -15,7 +15,7 @@ from typing import get_args
 
 import pytest
 
-from math_spec import CURVATURES
+from math_spec import CURVATURES, to_spec
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
 from math_spec.lowering import lower_program, to_program
 from math_spec.model import _ExpandedSpec
@@ -572,3 +572,148 @@ def test_the_declaration_carries_the_mask_the_data_guards_are_read_under():
     assert curve.where.names_read == frozenset({'has_curve'})
 
     assert to_program(raw_of(NONCONVEX_YAML)).piecewise['cost_curve'].where is None, 'no where, no mask'
+
+
+#: fluxopt's converter: one curve per generator, tying however many flows the
+#: relation gives it. The link that carries `flow` sits on a refinement of the
+#: curve's frame, which is why the frame has to be declared rather than inferred.
+REFINED = {
+    'dimensions': {
+        'snapshot': {'dtype': 'int'},
+        'generator': {'dtype': 'str'},
+        'flow': {'dtype': 'str'},
+        'bp': {'dtype': 'int'},
+    },
+    'relations': {'generator_of': {'key': 'flow', 'values': 'generator'}},
+    'parameters': {
+        'load': {'dims': ['snapshot']},
+        'bp_power': {'dims': ['flow', 'bp']},
+        'bp_fuel': {'dims': ['generator', 'bp']},
+    },
+    'variables': {
+        'power': {'dims': ['flow', 'snapshot'], 'bounds': {'lower': 0}},
+        'fuel': {'dims': ['generator', 'snapshot'], 'bounds': {'lower': 0}},
+    },
+    'piecewise': {
+        'coupling': {
+            'over': 'bp',
+            'dims': ['generator', 'snapshot'],
+            'links': [
+                {
+                    'expression': 'power',
+                    'values': 'bp_power',
+                    'by': 'generator_of',
+                    'over': 'generator',
+                    'into': 'flow',
+                },
+                ['fuel', 'bp_fuel'],
+            ],
+        }
+    },
+    'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'sum(power, over=flow) == load'}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(fuel)'},
+}
+
+
+def test_a_declared_frame_builds_one_curve_per_coordinate_of_it():
+    """The curve is per generator, though one of its links is per flow — which the inferred frame could not say."""
+    expanded = expand_piecewise(schema_of(REFINED))
+    assert expanded.variables['coupling_lam'].dims == ['generator', 'snapshot', 'bp']
+    assert expanded.constraints['coupling_convexity'].dims == ['generator', 'snapshot']
+
+
+def test_a_refined_link_emits_one_row_per_fine_coordinate():
+    """The link reads the curve's weights through the relation, so a generator's flows share one curve."""
+    link = expand_piecewise(schema_of(REFINED)).constraints['coupling_link0']
+    assert link.dims == ['flow', 'snapshot'], 'the frame with the consumed dim replaced by the produced one'
+    assert link.expression == (
+        '(power) == sum(at(coupling_lam, by=generator_of, over=generator, into=flow) * bp_power, over=bp)'
+    )
+
+
+def test_an_unrefined_link_beside_a_refined_one_stays_on_the_curve_frame():
+    link = expand_piecewise(schema_of(REFINED)).constraints['coupling_link1']
+    assert link.dims == ['generator', 'snapshot']
+    assert link.expression == '(fuel) == sum(coupling_lam * bp_fuel, over=bp)'
+
+
+def test_a_refined_links_values_follow_its_own_frame():
+    """`bp_power` is per flow, which the curve's frame does not carry — the link's frame is what it is read against."""
+    assert 'coupling_link0' in expand_piecewise(schema_of(REFINED)).constraints
+
+
+def test_the_checks_still_name_the_values_parameters_a_refined_block_ties():
+    curve = to_program(REFINED).piecewise['coupling']
+    assert curve.breakpoints == ('bp_power', 'bp_fuel'), 'the values parameters, in link order'
+
+
+def test_a_refined_block_round_trips_through_yaml():
+    """A link the file wrote as a mapping cannot serialise back as a two-item list."""
+    schema = schema_of(REFINED)
+    assert to_spec(raw_of(schema.to_yaml())).piecewise['coupling'] == schema.piecewise['coupling']
+
+
+@pytest.mark.parametrize(
+    ('patch', 'match'),
+    [
+        pytest.param({'piecewise.coupling.dims': None}, 'dims:', id='refined-link-without-a-declared-frame'),
+        pytest.param(
+            {'piecewise.coupling.links': [{'expression': 'power', 'values': 'bp_power', 'by': 'generator_of'}]},
+            'into',
+            id='a-walk-that-does-not-name-both-ends',
+        ),
+        pytest.param(
+            {'piecewise.coupling.dims': ['generator', 'snapshot', 'bp']},
+            'breakpoint dim',
+            id='a-frame-carrying-the-breakpoint-dim',
+        ),
+        pytest.param(
+            {'piecewise.coupling.dims': ['generator']},
+            'snapshot',
+            id='a-frame-a-link-expression-leaves',
+        ),
+        pytest.param(
+            {
+                'piecewise.coupling.links': [
+                    {
+                        'expression': 'power',
+                        'values': 'bp_power',
+                        'by': 'nowhere_of',
+                        'over': 'generator',
+                        'into': 'flow',
+                    },
+                    ['fuel', 'bp_fuel'],
+                ]
+            },
+            'nowhere_of',
+            id='a-walk-through-an-undeclared-relation',
+        ),
+    ],
+)
+def test_a_refined_block_the_language_cannot_read_is_refused(patch, match):
+    with pytest.raises(LanguageError, match=match):
+        schema_of(REFINED, **patch)
+
+
+def test_points_naming_a_refined_links_values_is_refused():
+    """`bp_power` is per flow and the weights are per generator, so the derived mask cannot reach them.
+
+    Left to the emitted declarations the refusal names `coupling_lam`, a
+    variable the file never wrote.
+    """
+    with pytest.raises(LanguageError, match='Raggedness is a property of the curve'):
+        schema_of(REFINED, **{'piecewise.coupling.points': 'bp_power'})
+
+
+def test_points_still_nominates_an_unrefined_links_values():
+    """The curve's own frame is where raggedness lives, and an unrefined link's values sit on it."""
+    expanded = expand_piecewise(schema_of(REFINED, **{'piecewise.coupling.points': 'bp_fuel'}))
+    assert expanded.parameters['coupling_points'].dims == ['generator', 'bp']
+    assert expanded.variables['coupling_lam'].where == 'coupling_points'
+
+
+@pytest.mark.parametrize('method', [pytest.param('convex', id='convex'), pytest.param('lp', id='lp')])
+def test_the_two_methods_that_check_a_curvature_refuse_a_refined_link(method):
+    """Each compares the two values parameters to prove its shape, and a refined link puts them on two frames."""
+    with pytest.raises(LanguageError, match='reads through a relation'):
+        schema_of(REFINED, **{'piecewise.coupling.method': method})

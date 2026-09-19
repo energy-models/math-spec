@@ -20,7 +20,15 @@ from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
-from math_spec.model import Curvature, ExpandedPiecewise, PiecewiseBlock, Spec, _ExpandedSpec, undeclared_dimension
+from math_spec.model import (
+    Curvature,
+    ExpandedPiecewise,
+    PiecewiseBlock,
+    PiecewiseLink,
+    Spec,
+    _ExpandedSpec,
+    undeclared_dimension,
+)
 from math_spec.program import (
     AtLeastTwo,
     Check,
@@ -57,6 +65,12 @@ def _all_of(*clauses: str | None) -> str | None:
     if len(kept) <= 1:
         return kept[0] if kept else None
     return ' AND '.join(f'({clause})' for clause in kept)
+
+
+def _columns(written: str | list[str] | None) -> str:
+    """One relation column as its bare name, several as the bracketed list the operators take."""
+    assert written is not None
+    return written if isinstance(written, str) else f'[{", ".join(written)}]'
 
 
 #: The suffix on the second gate row, where the gate variable does not exist.
@@ -230,11 +244,11 @@ class _Block:
                 f'sum({self.lam}, over={d}) == {rhs}',
                 _all_of(self.pw.where, where),
             )
-        for cname, link in zip(self.links, self.pw.links, strict=True):
+        for i, (cname, link) in enumerate(zip(self.links, self.pw.links, strict=True)):
             self._constraint(
                 cname,
-                list(self.frame),
-                f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
+                self._link_frame(i, link, list(self.frame)),
+                f'({link.expression}) {link.sign} sum({self._weights_read(link)} * {link.values}, over={d})',
                 self.pw.where,
             )
         if self.pw.method == 'sos2':
@@ -253,6 +267,17 @@ class _Block:
                 [*self.frame, d],
                 f'{self.lam} <= {self.seg} + shift({self.seg}, along={d}, offset=1, edge=0)',
             )
+
+    def _weights_read(self, link: PiecewiseLink) -> str:
+        """How one link reads the curve's weights: by name, or through the relation that refines its frame.
+
+        The walk is an ``at``, so the weights stay on the curve's own frame and
+        the model never names them — which is the whole reason the block emits
+        the row rather than the file writing it.
+        """
+        if not link.refined:
+            return self.lam
+        return f'at({self.lam}, by={link.by}, over={_columns(link.over)}, into={_columns(link.into)})'
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
         """What the weights sum to, as ``(name suffix, where, right-hand side)``.
@@ -342,7 +367,7 @@ class _Block:
         )
 
     def _validated_frame(self) -> tuple[str, ...]:
-        """Check every name the block writes and infer its frame: the union of the links' and the gate's dims.
+        """Check every name the block writes and settle its frame, declared by ``dims:`` or read off the links.
 
         A values parameter is checked against the frame in a second pass, since
         the last link's expression widens the frame as readily as the first; left
@@ -352,13 +377,104 @@ class _Block:
         if self.pw.over not in self.schema.dimensions:
             raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, self.pw.over))
         frame: list[str] = []
-        self._widen(frame, self._link_dims())
+        if self.pw.dims is None:
+            self._widen(frame, self._link_dims())
+        else:
+            frame.extend(self._declared_frame())
+            self._links_fit(frame)
         self._widen(frame, self._activity_dims())
         self._values_fit(frame)
         self._points_fit(frame)
         self._where_fits(frame)
         self._nothing_collides()
         return tuple(frame)
+
+    def _declared_frame(self) -> list[str]:
+        """The frame ``dims:`` states, in the order the file wrote it.
+
+        Declared order rather than declaration order: ``dims:`` is the same key
+        a variable and a constraint carry, and there the file's order is the
+        emitted one.
+        """
+        ctx, dims = self.context, self.pw.dims
+        assert dims is not None
+        for d in dims:
+            if d not in self.schema.dimensions:
+                raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, d))
+            if d == self.pw.over:
+                raise PiecewiseExpansionError(
+                    f"{ctx}: dims carries '{self.pw.over}', the breakpoint dim. The frame is what the block "
+                    f'builds one curve per, and every curve runs along the breakpoints — drop it from dims:.'
+                )
+        if len(set(dims)) != len(dims):
+            raise PiecewiseExpansionError(f'{ctx}: dims repeats a dimension: {dims}')
+        return list(dims)
+
+    def _walk(self, i: int, link: PiecewiseLink) -> tuple[frozenset[str], frozenset[str]]:
+        """The dims one refined link's walk consumes and produces, its relation and columns checked to exist."""
+        ctx = f'{self.context} link {i}'
+        assert link.by is not None and link.over is not None and link.into is not None
+        if link.by not in self.schema.relations:
+            raise PiecewiseExpansionError(
+                f"{ctx}: by references undeclared relation '{link.by}'. A refined link reads the curve's "
+                f'weights through a declared relation — declare it, or drop by, over and into.'
+            )
+        roles = dict(self.schema.relations[link.by].pairs)
+        sides: list[frozenset[str]] = []
+        for side, written in (('over', link.over), ('into', link.into)):
+            named = [written] if isinstance(written, str) else list(written)
+            if stray := [c for c in named if c not in roles]:
+                raise PiecewiseExpansionError(
+                    f"{ctx}: {side} names {stray}, which relation '{link.by}' has no column for "
+                    f'(it has {sorted(roles)})'
+                )
+            sides.append(frozenset(roles[c] for c in named))
+        consumed, produced = sides
+        if shared := sorted(consumed & produced):
+            raise PiecewiseExpansionError(
+                f'{ctx}: over and into both reach {shared}, so the walk consumes and produces one dimension. '
+                f'Name different columns on each side.'
+            )
+        return consumed, produced
+
+    def _link_frame(self, i: int, link: PiecewiseLink, frame: list[str]) -> list[str]:
+        """The dims one link's row is built over: the curve's frame, or its refinement through the link's relation.
+
+        The produced dims stand where the consumed ones did, so a refined row
+        reads in the shape of the curve it ties rather than in relation order.
+        """
+        if not link.refined:
+            return list(frame)
+        consumed, produced = self._walk(i, link)
+        if missing := sorted(consumed - set(frame)):
+            raise PiecewiseExpansionError(
+                f"{self.context} link {i}: over reaches {missing}, which the curve's dims {frame} do not "
+                f"carry. A walk consumes the frame's own dimension — name one of {frame}, or declare it in dims:."
+            )
+        refined: list[str] = []
+        for d in frame:
+            if d in consumed:
+                refined.extend(p for p in self.schema.dimensions if p in produced and p not in refined)
+            elif d not in refined:
+                refined.append(d)
+        return refined
+
+    def _links_fit(self, frame: list[str]) -> None:
+        """Every link expression stands on its own frame, which a declared ``dims:`` no longer infers from it."""
+        for i, link in enumerate(self.pw.links):
+            self._check_values(i, link)
+            own = self._link_frame(i, link, frame)
+            found = self._expr_dims(link.expression, f'{self.context} link {i}')
+            if self.pw.over in found:
+                raise PiecewiseExpansionError(
+                    f"{self.context}: link {i} expression already carries the breakpoint dim '{self.pw.over}'"
+                )
+            if stray := sorted(found - set(own)):
+                raise PiecewiseExpansionError(
+                    f"{self.context}: link {i} expression carries {stray}, which its row's frame {own} does "
+                    f'not — every stray dim multiplies the rows the link builds. Add it to dims:, sum it out, '
+                    f'or read it through a relation with by, over and into.'
+                )
 
     def _widen(self, frame: list[str], dims: Iterable[tuple[str, frozenset[str]]]) -> None:
         """Add each labelled dim set to *frame* in declaration order, refusing the breakpoint dim.
@@ -375,20 +491,21 @@ class _Block:
                 if d not in frame:
                     frame.append(d)
 
+    def _check_values(self, i: int, link: PiecewiseLink) -> None:
+        """A link's values parameter exists and runs along the breakpoint dim."""
+        values = link.values
+        if values not in self.schema.parameters:
+            raise PiecewiseExpansionError(f"{self.context}: link {i} values references undeclared parameter '{values}'")
+        if self.pw.over not in self.schema.parameters[values].dims:
+            raise PiecewiseExpansionError(
+                f"{self.context}: link {i} values parameter '{values}' must carry dim "
+                f"'{self.pw.over}' (has {self.schema.parameters[values].dims})"
+            )
+
     def _link_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
-        """Each link's expression dims, its values parameter checked to exist and to run along the breakpoint dim."""
-        schema, pw = self.schema, self.pw
-        for i, link in enumerate(pw.links):
-            values = link.values
-            if values not in schema.parameters:
-                raise PiecewiseExpansionError(
-                    f"{self.context}: link {i} values references undeclared parameter '{values}'"
-                )
-            if pw.over not in schema.parameters[values].dims:
-                raise PiecewiseExpansionError(
-                    f"{self.context}: link {i} values parameter '{values}' must carry dim "
-                    f"'{pw.over}' (has {schema.parameters[values].dims})"
-                )
+        """Each link's expression dims, its values parameter checked first — the inferred frame is their union."""
+        for i, link in enumerate(self.pw.links):
+            self._check_values(i, link)
             yield f'link {i} expression', self._expr_dims(link.expression, f'{self.context} link {i}')
 
     def _activity_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
@@ -406,20 +523,36 @@ class _Block:
         yield 'activity', self._expr_dims(activity, f'{self.context} activity')
 
     def _values_fit(self, frame: list[str]) -> None:
-        """A values parameter varies along the frame and the breakpoint dim, and nothing else."""
+        """A values parameter varies along its own link's frame and the breakpoint dim, and nothing else.
+
+        Its own link's, because a refined link's curve is read per fine
+        coordinate: ``bp_power`` is per flow where the block's frame is per
+        converter, and comparing it against the frame would refuse it.
+        """
         for i, link in enumerate(self.pw.links):
-            if stray := [d for d in self.schema.parameters[link.values].dims if d != self.pw.over and d not in frame]:
+            own = self._link_frame(i, link, frame)
+            if stray := [d for d in self.schema.parameters[link.values].dims if d != self.pw.over and d not in own]:
                 raise PiecewiseExpansionError(
-                    f"{self.context}: link {i} values parameter '{link.values}' carries {stray}, which no link "
-                    f'expression does — the block builds one curve per coordinate of {frame}, so a curve '
-                    f'varying along {stray} has nothing to vary against. Declare a link expression over '
+                    f"{self.context}: link {i} values parameter '{link.values}' carries {stray}, which its "
+                    f"row's frame {own} does not — the link builds one curve per coordinate of {own}, so a "
+                    f'curve varying along {stray} has nothing to vary against. Declare a link expression over '
                     f"it, or drop it from '{link.values}'."
                 )
 
     def _points_fit(self, frame: list[str]) -> None:
         """A ``points:`` naming a parameter of its own is a bool mask along the breakpoint dim, inside the frame."""
         pw, ctx = self.pw, self.context
-        if pw.points is None or self.nominated is not None:
+        if pw.points is None:
+            return
+        for i, link in enumerate(pw.links):
+            if link.values == pw.points and link.refined:
+                raise PiecewiseExpansionError(
+                    f"{ctx}: points names '{pw.points}', which is link {i}'s values parameter and sits on that "
+                    f"link's own frame rather than the curve's. Raggedness is a property of the curve — name "
+                    f'the values parameter of a link that reads no relation, or declare a bool mask over '
+                    f'{list(self.pw.dims or ())} and the breakpoint dim.'
+                )
+        if self.nominated is not None:
             return
         if pw.points not in self.schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
