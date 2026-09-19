@@ -40,18 +40,18 @@ That file is a complete model. The pages below give the exact rules.
 
 ## The pages
 
-|                                                                         |                                                                           |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [File shape](file.md)                                                   | the ten keys, `version` and `description`                                 |
-| [Dimensions](dimensions.md)                                             | the axes                                                                  |
-| [Relations](relations.md)                                               | the maps from one axis onto another                                       |
-| [Parameters, variables, constraints and the objective](declarations.md) | the four blocks that carry the math                                       |
-| [Expressions](expressions.md)                                           | the arithmetic grammar, the `where` grammar, and how dimensions combine   |
-| [Named expressions and macros](named.md)                                | quantities named once, templates with arguments, and what a solve reports |
-| [Operators](operators.md)                                               | `sum`, `sum_back`, `at` and `shift`                                       |
-| [Absence and `where`](absence.md)                                       | which rows are built, and which are not                                   |
-| [Piecewise curves and SOS](piecewise.md)                                | `piecewise:` and `sos:`                                                   |
-| [Errors and limits](errors.md)                                          | what fails when, and what the language will not express                   |
+|                                                                                |                                                                           |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [File shape](file.md)                                                          | the eleven keys, `version` and `description`                              |
+| [Dimensions](dimensions.md)                                                    | the axes                                                                  |
+| [Relations](relations.md)                                                      | the maps from one axis onto another                                       |
+| [Parameters, variables, constraints, the objective and given](declarations.md) | the four blocks that carry the math, and `given:`                         |
+| [Expressions](expressions.md)                                                  | the arithmetic grammar, the `where` grammar, and how dimensions combine   |
+| [Named expressions and macros](named.md)                                       | quantities named once, templates with arguments, and what a solve reports |
+| [Operators](operators.md)                                                      | `sum`, `sum_back`, `at` and `shift`                                       |
+| [Absence and `where`](absence.md)                                              | which rows are built, and which are not                                   |
+| [Piecewise curves and SOS](piecewise.md)                                       | `piecewise:` and `sos:`                                                   |
+| [Errors and limits](errors.md)                                                 | what fails when, and what the language will not express                   |
 
 ## The ten rules
 
@@ -60,7 +60,7 @@ message that names the fix. These are the rules it checks.
 
 | #   | Rule                                                                                                                                                                  |                                                                 |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 1   | A file has ten declaration keys, plus `version` and `description`. An unknown key is refused, with the nearest valid key named.                                       | [File shape](file.md)                                           |
+| 1   | A file has eleven declaration keys, plus `version` and `description`. An unknown key is refused, with the nearest valid key named.                                    | [File shape](file.md)                                           |
 | 2   | Everything that can be checked without data is checked when the file loads.                                                                                           | [Errors](errors.md)                                             |
 | 3   | Every name is declared once. A parameter and a dimension both called `snapshot` is refused.                                                                           | [Names](expressions.md#name-resolution)                         |
 | 4   | Where a name may stand depends on what it is. A dimension follows `over=` or `along=`, and is never multiplied.                                                       | [Names](expressions.md#name-resolution)                         |

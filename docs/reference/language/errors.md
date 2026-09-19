@@ -35,6 +35,7 @@ loads.
 | --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                  | remove it, or keep it knowingly if its declarations are still to come |
 | `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have | give it a finite bound, or the constraint that was meant to define it |
+| `given`         | a declaration under [`given:`](declarations.md#given), which the file reads and does not build      | a consumer binds it to the host model, or refuses the program         |
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and

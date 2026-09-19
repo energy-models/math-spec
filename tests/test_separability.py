@@ -283,6 +283,18 @@ def test_the_border_of_a_block_form_is_what_no_one_block_holds():
     assert along_u.linking_columns == (), 'and every column is, so that cut needs no border at all'
 
 
+def test_a_column_the_file_reads_and_does_not_build_stands_on_the_border_too():
+    """Every block reads the column whoever builds it, so where it is built does not move the border."""
+    given = {
+        **BORDER,
+        'variables': {'p': BORDER['variables']['p']},
+        'given': {'variables': {'built': {'dims': ['u']}}},
+    }
+    assert _verdict(**given).linking_columns == _verdict(**BORDER).linking_columns == ('built',), (
+        'the border names the given column as it names the built one'
+    )
+
+
 @pytest.mark.parametrize(
     ('patch', 'rows'),
     [

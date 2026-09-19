@@ -100,6 +100,45 @@ A predicate you build yourself answers the same four questions: wrap it in
 so a boolean literal stands at a mask's root or nowhere. A `Region`'s `when`
 arrives as a `Mask` too. The node classes live in `math_spec.program`.
 
+## What a program does not build
+
+`program.given.variables` and `program.given.constraints` name what the model
+reads and does not build. Every other group is a build instruction: a column
+for each entry of `variables`, a row family for each entry of `constraints`.
+These two groups are names to look up in the model this one is layered onto.
+Each maps a name to a `GivenDeclaration`, which carries the `dims`.
+
+```python
+layer = to_program(
+    {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
+        'given': {
+            'variables': {'p': {'dims': ['snapshot', 'bus']}},
+            'constraints': {'balance': {'dims': ['snapshot', 'bus']}},
+        },
+        'parameters': {'rate': {'dims': ['bus']}},
+        'constraints': {'cap': {'dims': [], 'expression': 'sum(p * rate) <= 100'}},
+        'expressions': {'price': {'expression': 'dual(balance)'}},
+    }
+)
+
+sorted(layer.variables)  # []
+sorted(layer.given.variables)  # ['p']
+layer.given.constraints['balance'].dims  # ('snapshot', 'bus')
+```
+
+A consumer that builds the program does three things with each name:
+
+1. **Bind it** to a column or a row family the host model holds.
+2. **Check the frame.** `dims` is the file's one claim about the shape, and the
+   binder settles it.
+3. **Refuse what it cannot bind, and name it.** It builds no column and no row
+   family in the name's place.
+
+A consumer with no host refuses a program whose two groups are not both empty.
+[`advice`](language/errors.md#what-advice-warns-about) reports one note of kind
+`given` per declaration a consumer must bind.
+
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one model uses.

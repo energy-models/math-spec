@@ -33,11 +33,30 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
             answer alike.
 
     Returns:
-        The never-an-axis advice in declaration order, then the unboundedness
-        advice; ``str()`` of each is its sentence.
+        The never-an-axis advice in declaration order, then one note per
+        declaration the program reads and does not build, then the
+        unboundedness advice; ``str()`` of each is its sentence.
     """
     program = to_program(model)
-    return tuple(_never_an_axis(program) + unbounded_notes(program))
+    return tuple(_never_an_axis(program) + _given(program) + unbounded_notes(program))
+
+
+def _given(program: Program) -> list[Advice]:
+    """One note per declaration a consumer has to bind before it builds anything.
+
+    A note rather than a refusal: the file is a model somebody meant, and only
+    the consumer knows whether it holds the model this one is laid onto.
+    """
+    return [
+        Advice(
+            'given',
+            name,
+            f"{kind} '{name}' is read here and built elsewhere: a consumer binds it to the model this "
+            f'one is layered onto, and refuses where it cannot.',
+        )
+        for kind, group in (('variable', program.given.variables), ('row family', program.given.constraints))
+        for name in group
+    ]
 
 
 def _never_an_axis(program: Program) -> list[Advice]:
@@ -45,10 +64,18 @@ def _never_an_axis(program: Program) -> list[Advice]:
 
     A dimension a relation has a column over is reached: its members are the
     labels that column is checked against, and a ``where`` selects on them,
-    so it is in use even where nothing is indexed by it.
+    so it is in use even where nothing is indexed by it. A frame the file
+    reads and does not build indexes its dimensions like any other.
     """
     reached: set[str] = set()
-    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
+    frames = (
+        *program.parameters.values(),
+        *program.variables.values(),
+        *program.constraints.values(),
+        *program.given.variables.values(),
+        *program.given.constraints.values(),
+    )
+    for declaration in frames:
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
     reached |= {dim for lk in program.relations.values() for dim in lk.dims}

@@ -3,10 +3,11 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Parameters, variables, constraints and the objective
+# Parameters, variables, constraints, the objective and given
 
-These four blocks carry the math. Each takes an optional `description:`, free
-text that the [typeset](../typeset.md#descriptions) legend prints.
+These four blocks carry the math, and `given` names what another file builds.
+Each takes an optional `description:`, free text that the
+[typeset](../typeset.md#descriptions) legend prints.
 
 ## `parameters`
 
@@ -121,6 +122,80 @@ that use it.
 
 Two regimes of one rule are two blocks, each under its own `where:`
 ([state a rule that differs by regime](../../howto/regimes.md)).
+
+## `given`
+
+`given:` names what this file reads and does not build. It takes two keys,
+`variables` and `constraints`, and no other.
+
+A name declared under `given:` and built in the same file is refused. A `p`
+under `given: variables:` and a `p` under `variables:` is one name in two
+places.
+
+A loaded program carries both groups for a consumer to bind
+([what a program does not build](../reading.md#what-a-program-does-not-build)).
+
+### `given: variables`
+
+A given variable is a column another file builds. An expression reads it as it
+reads any variable, and the dimensions are checked at load.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_port: { key: generator, values: port }
+given:
+  variables:
+    flow:
+      dims: [snapshot, port]
+      description: what a port puts into its bus
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+constraints:
+  gen_injects:
+    dims: [snapshot, generator]
+    expression: at(flow, by=gen_port, over=port, into=generator) == gen_p
+```
+
+| Field         |                                                   |                |
+| ------------- | ------------------------------------------------- | -------------- |
+| `dims`        | required. The dimensions the column is indexed by |                |
+| `description` | free text                                         | default `null` |
+
+A given variable takes no `domain`, no `bounds` and no `where`. The file that
+builds the column carries all three. The typeset legend lists a given variable
+under _Given_, and the math prints it as any variable, with no domain line.
+
+### `given: constraints`
+
+A given constraint is a row family another model builds. This file reads its
+dual, and `dual(name)` in a [reported expression](named.md#reported-expressions)
+is the one place a given constraint may stand.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  constraints:
+    balance:
+      dims: [snapshot, bus]
+      description: the host model clears each bus
+expressions:
+  price:
+    expression: dual(balance)
+```
+
+| Field         |                                                   |                |
+| ------------- | ------------------------------------------------- | -------------- |
+| `dims`        | required. The dimensions the row family runs over |                |
+| `description` | free text                                         | default `null` |
+
+A given constraint takes no `expression`, no `where` and no `sense`. The frame
+gives `dual(name)` its dimensions.
 
 ## `objective`
 

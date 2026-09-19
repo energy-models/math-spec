@@ -177,7 +177,9 @@ def separabilities(program: Program) -> dict[str, Separability]:
             restarts=joined('restarts', dimension),
             linking_rows=linking_rows(dimension),
             linking_columns=tuple(
-                name for name, variable in program.variables.items() if dimension not in variable.dims
+                name
+                for name, variable in {**program.variables, **program.given.variables}.items()
+                if dimension not in variable.dims
             ),
         )
         for dimension in program.dimensions

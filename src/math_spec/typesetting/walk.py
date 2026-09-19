@@ -356,7 +356,7 @@ class Walk:
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
 
         if isinstance(node, VariableNode):
-            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].dims)), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variable_frames[node.name].dims)), _ATOM
 
         if isinstance(node, UnaryOperatorNode):
             if node.op == '+':
@@ -867,6 +867,20 @@ class Walk:
             self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.dims))}', block.description)
             for v, block in self.schema.variables.items()
         ]
+        given = [
+            *(
+                self._entry(self.symbols.name[g], f'{fmt.mono(g)}{self._over(list(block.dims))}', block.description)
+                for g, block in self.schema.given.variables.items()
+            ),
+            *(
+                self._entry(
+                    self.format.subscript(self._op('dual'), [self.symbols.constraint[g]]),
+                    f'{fmt.mono(g)}{self._over(list(block.dims))}, a row family this file reads the dual of',
+                    block.description,
+                )
+                for g, block in self.schema.given.constraints.items()
+            ),
+        ]
         definitions = [
             self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self.frames[e])}', block.description)
             for e, block in self.schema.expressions.items()
@@ -876,6 +890,7 @@ class Walk:
             Glossary('Sets', sets),
             Glossary('Parameters', parameters),
             Glossary('Variables', variables),
+            Glossary('Given', given),
             Glossary('Definitions', definitions),
         )
         return [group for group in groups if group.entries]

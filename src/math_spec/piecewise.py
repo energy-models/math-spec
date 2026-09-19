@@ -347,6 +347,11 @@ class _Block:
         activity = self.pw.activity
         if activity is None:
             return
+        if activity in self.schema.given.variables:
+            raise PiecewiseExpansionError(
+                f"{self.context}: activity '{activity}' is a column this file reads, not one it builds. A gate is a "
+                f"binary variable this file builds — declare '{activity}' under 'variables:', or drop activity:."
+            )
         if activity not in self.schema.variables:
             raise PiecewiseExpansionError(
                 f"{self.context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "

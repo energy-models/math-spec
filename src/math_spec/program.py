@@ -64,6 +64,8 @@ __all__ = [
     'FanIn',
     'FirstOf',
     'Footprint',
+    'GivenDeclaration',
+    'GivenTargets',
     'GroupSum',
     'Increasing',
     'LastOf',
@@ -747,6 +749,41 @@ class VariableDeclaration:
 
 
 @dataclass(frozen=True)
+class GivenDeclaration:
+    """A column or a row family this program reads and does not build.
+
+    The frame is the whole declaration. A consumer looks the name up in the
+    model it lays this program onto, checks the frame against what it finds,
+    and refuses what it cannot bind.
+    """
+
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class GivenTargets:
+    """What a program reads and does not build, by kind.
+
+    Both groups are empty in a program built from one whole model. A consumer
+    binds every name here before it builds anything.
+    """
+
+    #: Columns to bind, by name.
+    variables: Mapping[str, GivenDeclaration] = Sealed({})
+    #: Row families to bind, by name, read back after the solve.
+    constraints: Mapping[str, GivenDeclaration] = Sealed({})
+
+    def __post_init__(self) -> None:
+        """Seal both groups, so a program handed out cannot be written to."""
+        for f in fields(self):
+            object.__setattr__(self, f.name, Sealed(getattr(self, f.name)))
+
+    def __bool__(self) -> bool:
+        """Whether the program reads anything it does not build."""
+        return bool(self.variables or self.constraints)
+
+
+@dataclass(frozen=True)
 class ConstraintDeclaration:
     """``lhs sense rhs`` for each coord combination of ``dims``.
 
@@ -895,8 +932,8 @@ class Separability:
             order: one the axis does not index, whose row stands in every
             window, and one :attr:`coupled` names. A reach the data decides is
             not one, so a row waiting on :attr:`undecided` may span two windows.
-        linking_columns: Each variable the axis does not index, in declaration
-            order, whose column every window reads. A decomposition calls a
+        linking_columns: Each variable the axis does not index, built here or
+            given, in declaration order, whose column every window reads. A decomposition calls a
             window a block, and with :attr:`linking_rows` this is the border of
             a bordered block-diagonal form cut along the axis, whole where
             nothing is :attr:`undecided` and no set runs through it. A set
@@ -978,6 +1015,11 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    #: What this program reads and does not build (:class:`GivenTargets`). A
+    #: consumer binds each name to what the model it is layered onto already
+    #: holds; nothing here emits a column, so a build reads :attr:`variables`
+    #: and never this.
+    given: GivenTargets = GivenTargets()
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""

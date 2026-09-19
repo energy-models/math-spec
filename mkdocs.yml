@@ -45,7 +45,7 @@ nav:
       - Language:
           - reference/language/index.md
           - File shape: reference/language/file.md
-          - Parameters, variables, constraints and the objective: reference/language/declarations.md
+          - Parameters, variables, constraints, the objective and given: reference/language/declarations.md
           - Dimensions: reference/language/dimensions.md
           - Relations: reference/language/relations.md
           - Expressions: reference/language/expressions.md

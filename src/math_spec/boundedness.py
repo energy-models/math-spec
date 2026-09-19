@@ -63,12 +63,13 @@ def unbounded_notes(program: Program) -> list[Advice]:
 
     Returns:
         One note per variable that is unbounded on the side its objective term
-        improves toward and named by no constraint.
+        improves toward and named by no constraint. A given variable gets none:
+        its bounds are the owner's, and this file cannot read them.
     """
     if program.objective is None:
         return []
 
-    constrained = {block.variable for block in program.sos.values()}
+    constrained = set(program.given.variables) | {block.variable for block in program.sos.values()}
     for constraint in program.constraints.values():
         constrained |= variables_of(constraint.lhs, constraint.rhs)
 

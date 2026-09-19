@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # File shape
 
-A model file is a YAML mapping with **ten declaration keys**, plus `version`
-and `description`. Any subset of the ten is accepted.
+A model file is a YAML mapping with **eleven declaration keys**, plus
+`version` and `description`. Any subset of the eleven is accepted.
 
 | Key           |                                                                                                   |
 | ------------- | ------------------------------------------------------------------------------------------------- |
@@ -15,6 +15,7 @@ and `description`. Any subset of the ten is accepted.
 | `parameters`  | the data the model expects ([declarations](declarations.md))                                      |
 | `variables`   | what the solver decides                                                                           |
 | `constraints` | the rules those decisions obey                                                                    |
+| `given`       | what this file reads and another file builds ([given](declarations.md#given))                     |
 | `objective`   | what is minimised or maximised                                                                    |
 | `expressions` | named quantities, reusable in the math and readable after a solve ([named expressions](named.md)) |
 | `macros`      | templates that take arguments ([macros](named.md#macros))                                         |

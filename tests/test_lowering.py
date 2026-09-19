@@ -1034,8 +1034,9 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
         {
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
+            'given': {'variables': {'imported': {'dims': ['t']}}},
             'variables': {'p': {'dims': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, over=g) + imported >= load'}},
             'expressions': {'spend': 'sum(p * cost, over=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
@@ -1047,6 +1048,8 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
     assert copy.separability == program.separability
     with pytest.raises(TypeError, match='does not support item assignment'):
         copy.variables['q'] = copy.variables['p']
+    with pytest.raises(TypeError, match='does not support item assignment'):
+        copy.given.variables['q'] = copy.given.variables['imported']
 
 
 def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
