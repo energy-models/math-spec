@@ -761,16 +761,16 @@ class Spec(_StrictBlock):
     relations: dict[str, RelationBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
+    #: What this file reads and does not build (:class:`GivenBlock`): columns
+    #: under ``variables:``, row families under ``constraints:``. Empty in a
+    #: file that stands alone.
+    given: GivenBlock = GivenBlock()
     constraints: dict[str, ConstraintBlock] = {}
     objective: ObjectiveBlock | None = None
     expressions: dict[str, ExpressionBlock] = {}
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
-    #: What this file reads and does not build (:class:`GivenBlock`): columns
-    #: under ``variables:``, row families under ``constraints:``. Empty in a
-    #: file that stands alone.
-    given: GivenBlock = GivenBlock()
 
     def relations_of(self, dimension: str) -> dict[str, RelationBlock]:
         """The relations with a column over *dimension*, by name."""

@@ -181,8 +181,9 @@ def typeset_declaration(
     Raises:
         ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
-        SchemaError: *name* is declared as none of the three, or as two — a
-            constraint may share a variable's name; or a symbol table entry
+        SchemaError: *name* is declared as none of the three, as two — a
+            constraint may share a variable's name — or under ``given:``, which
+            prints in the legend rather than as a line; or a symbol table entry
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
@@ -190,6 +191,15 @@ def typeset_declaration(
     kinds = {'named expression': schema.expressions, 'constraint': schema.constraints, 'variable': schema.variables}
     found = [kind for kind, group in kinds.items() if name in group]
     if not found:
+        givens = {'variable': schema.given.variables, 'constraint': schema.given.constraints}
+        given_kind = next((kind for kind, group in givens.items() if name in group), None)
+        if given_kind is not None:
+            msg = (
+                f"'{name}' is a given {given_kind}, and a given declaration prints no line of its own — "
+                f"this file reads it and does not build it. It prints in the legend, under 'Given', "
+                f'so call typeset() for the whole model.'
+            )
+            raise SchemaError(msg)
         everything = {n for group in kinds.values() for n in group}
         msg = f"'{name}' is not a named expression, constraint or variable. {did_you_mean(name, everything)}"
         raise SchemaError(msg)
