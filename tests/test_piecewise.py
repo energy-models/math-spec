@@ -669,7 +669,7 @@ def test_a_refined_block_round_trips_through_yaml():
         ),
         pytest.param(
             {'piecewise.coupling.dims': ['generator']},
-            'snapshot',
+            r"link 0 expression carries \['snapshot'\], which its row's frame \['flow'\] does not",
             id='a-frame-a-link-expression-leaves',
         ),
         pytest.param(
@@ -691,6 +691,12 @@ def test_a_refined_block_round_trips_through_yaml():
     ],
 )
 def test_a_refined_block_the_language_cannot_read_is_refused(patch, match):
+    """Each refusal names what the file wrote.
+
+    Without the link-frame check the stray-dim case is still refused, by
+    `Constraint 'coupling_link0'` — a constraint the author never wrote, which
+    is the message the upfront checks exist to replace.
+    """
     with pytest.raises(LanguageError, match=match):
         schema_of(REFINED, **patch)
 
