@@ -189,6 +189,38 @@ A predicate you build yourself answers the same four questions: wrap it in
 so a boolean literal stands at a mask's root or nowhere. A `Region`'s `when`
 arrives as a `Mask` too. The node classes live in `math_spec.program`.
 
+## What a program does not build
+
+`program.given.variables` and `program.given.constraints` name what the model
+reads and does not build ([given](language/declarations.md#given)). Every
+other group is a build instruction. These two are names to look up in the
+model this one is layered onto.
+
+```python
+layer = to_spec(
+    {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
+        'given': {
+            'variables': {'p': {'dims': ['snapshot', 'bus']}},
+            'constraints': {'balance': {'dims': ['snapshot', 'bus']}},
+        },
+        'parameters': {'rate': {'dims': ['bus']}},
+        'constraints': {'cap': {'dims': [], 'expression': 'sum(p * rate) <= 100'}},
+        'expressions': {'price': {'expression': 'dual(balance)'}},
+    }
+).program
+
+sorted(layer.variables)  # []
+sorted(layer.given.variables)  # ['p']
+layer.given.constraints['balance'].dims  # ('snapshot', 'bus')
+```
+
+A consumer that builds the program binds each name to a column or a row family
+the host model holds. It checks that the frame matches, and refuses what it
+cannot bind. A consumer with no host refuses a program whose two groups are not
+both empty. `advice` returns one note of kind `given` per name
+([what `advice` warns about](language/errors.md#what-advice-warns-about)).
+
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one model uses.

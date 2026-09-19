@@ -276,6 +276,49 @@ class VariableBlock(_StrictBlock):
         return self
 
 
+class GivenVariableBlock(_StrictBlock):
+    """A column this file reads and another file introduces.
+
+    The frame and the domain are all this file states. The file that introduces
+    the column owns its bounds and its mask.
+    """
+
+    _label: ClassVar[str] = 'a given variable declaration'
+
+    dims: list[str]
+    domain: VariableDomain = 'continuous'
+    description: str | None = None
+
+
+class GivenConstraintBlock(_StrictBlock):
+    """A row family this file reads the dual of and another model builds.
+
+    The frame says how many duals there are and what indexes them, which is
+    what ``dual()`` needs. There is no ``expression:``, because nothing here
+    builds a row.
+    """
+
+    _label: ClassVar[str] = 'a given constraint declaration'
+
+    dims: list[str]
+    description: str | None = None
+
+
+class GivenBlock(_StrictBlock):
+    """What this file reads and does not build, by kind. Closed at the two kinds."""
+
+    _label: ClassVar[str] = 'a given block'
+
+    #: Columns another file introduces (:class:`GivenVariableBlock`).
+    variables: dict[str, GivenVariableBlock] = {}
+    #: Row families another model builds (:class:`GivenConstraintBlock`).
+    constraints: dict[str, GivenConstraintBlock] = {}
+
+    def __bool__(self) -> bool:
+        """Whether the file reads anything it does not build."""
+        return bool(self.variables or self.constraints)
+
+
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
 
@@ -704,7 +747,7 @@ class Spec(_StrictBlock):
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the eleven declaration sections plus ``version`` and
+    The API is the twelve declaration sections plus ``version`` and
     ``description``, three ways back out — :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
     same math with its formulations written out — and :attr:`program`, the
@@ -733,6 +776,10 @@ class Spec(_StrictBlock):
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
     assumptions: dict[str, AssumptionBlock] = {}
+    #: What this file reads and does not build (:class:`GivenBlock`): columns
+    #: under ``variables:``, row families under ``constraints:``. Empty in a
+    #: file that stands alone.
+    given: GivenBlock = GivenBlock()
 
     @cached_property
     def program(self) -> Program:
@@ -856,13 +903,16 @@ class Spec(_StrictBlock):
 
         Read off the model's own mappings rather than a list of sections, so a
         section added later cannot be forgotten here — every mapping a Spec
-        carries is keyed by a declaration name.
+        carries is keyed by a declaration name. ``given:`` nests its two
+        mappings one level down, so they are read off :class:`GivenBlock` the
+        same way.
         """
+        sections = [*self, *((f'given: {kind}', group) for kind, group in self.given)]
         errors = [
             f'{section}: {name!r} is not a name. A declaration is named the way an expression '
             f'writes it — a letter or an underscore, then letters, digits or underscores — so '
             f'nothing can refer to this one. Rename it.'
-            for section, value in self
+            for section, value in sections
             if isinstance(value, dict)
             for name in value
             if not re.fullmatch(NAME, name)

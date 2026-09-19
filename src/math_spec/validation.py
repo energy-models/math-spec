@@ -88,6 +88,7 @@ def reference_errors(schema: Spec) -> list[str]:
         *_sos_shapes(schema),
         *_sos_bounds(schema),
         *_piecewise_references(schema),
+        *_given_constraint_collisions(schema),
     ]
 
 
@@ -103,6 +104,7 @@ def _flat_namespace(schema: Spec) -> list[tuple[str, Iterable[str]]]:
         ('relation', schema.relations),
         ('parameter', schema.parameters),
         ('variable', schema.variables),
+        ('given variable', schema.given.variables),
         ('named expression', schema.expressions),
         ('macro', schema.macros),
     ]
@@ -128,11 +130,27 @@ def _name_collisions(schema: Spec) -> Iterator[str]:
                 seen[name] = kind
 
 
+def _given_constraint_collisions(schema: Spec) -> Iterator[str]:
+    """A row family is either built here or given, never both.
+
+    Constraint names sit outside the flat namespace :func:`_name_collisions`
+    walks, so this is the one place the two constraint sections meet.
+    """
+    for name in schema.given.constraints:
+        if name in schema.constraints:
+            yield (
+                f"Given constraint '{name}' is also declared under 'constraints:'. A row family is "
+                f'either built by this file or given to it — drop one of the two.'
+            )
+
+
 def _frame_dimensions(schema: Spec) -> Iterator[str]:
     """Every frame is a product of distinct, declared dimensions."""
     frames = [
         *(('Parameter', name, p.dims) for name, p in schema.parameters.items()),
         *(('Variable', name, v.dims) for name, v in schema.variables.items()),
+        *(('Given variable', name, g.dims) for name, g in schema.given.variables.items()),
+        *(('Given constraint', name, g.dims) for name, g in schema.given.constraints.items()),
         *(('Constraint', name, c.dims) for name, c in schema.constraints.items()),
         *(('Named expression', name, e.dims or []) for name, e in schema.expressions.items()),
     ]
@@ -322,7 +340,7 @@ def _collisions(schema: Spec, context: str, by_kind: Iterable[tuple[str, Iterabl
     An emitted variable joins the flat namespace, so any declaration there
     takes its name; a constraint, a set and an assumption each have their own.
     """
-    sections = {'named expression': 'expressions', 'sos': 'sos'}
+    sections = {'named expression': 'expressions', 'sos': 'sos', 'given variable': 'given: variables'}
     declared: dict[str, dict[str, str]] = {
         'variable': {name: kind for kind, group in _flat_namespace(schema) for name in group},
         'constraint': dict.fromkeys(schema.constraints, 'constraint'),

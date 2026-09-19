@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 #: Which pass an :class:`Advice` comes from. Closed, like the operator set: a
 #: consumer filtering on it can enumerate every value.
-AdviceKind = Literal['never-an-axis', 'unbounded']
+AdviceKind = Literal['never-an-axis', 'given', 'unbounded']
 
 
 @dataclass(frozen=True)

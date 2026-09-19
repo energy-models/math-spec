@@ -133,8 +133,8 @@ def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
             f'and nothing translates between notations — write a {fmt.notation} table.'
         )
         raise SchemaError(msg)
-    chosen = frozenset(program.variables) | chosen_expressions(program)
-    names = (*program.parameters, *program.variables, *program.expressions)
+    chosen = frozenset(program.variables) | frozenset(program.given.variables) | chosen_expressions(program)
+    names = (*program.parameters, *program.variables, *program.given.variables, *program.expressions)
     declared = frozenset(names)
 
     name = {
@@ -144,7 +144,7 @@ def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
     spoken_for = {s for s in name.values() if len(s) == 1}
     constraint = {
         n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, given=True)
-        for n in program.constraints
+        for n in (*program.constraints, *program.given.constraints)
     }
 
     index: dict[str, str] = {}
@@ -272,7 +272,14 @@ class SymbolTable:
 
 def _declared(program: Program) -> set[str]:
     """Every name *program* declares that a table entry may spell."""
-    return set(program.parameters) | set(program.variables) | set(program.expressions) | set(program.constraints)
+    return (
+        set(program.parameters)
+        | set(program.variables)
+        | set(program.given.variables)
+        | set(program.expressions)
+        | set(program.constraints)
+        | set(program.given.constraints)
+    )
 
 
 def _emitted(program: Program) -> set[str]:
