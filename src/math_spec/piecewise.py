@@ -13,7 +13,7 @@ constraint.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from math_spec._expression_parser import ComparisonNode
 from math_spec.degree import check_expression
@@ -121,7 +121,7 @@ class _Block:
             or emitting a name the file already declares.
     """
 
-    def __init__(self, schema: Spec, raw: dict[str, Any], name: str, pw: PiecewiseBlock) -> None:
+    def __init__(self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock) -> None:
         self.schema = schema
         self.raw = raw
         self.name = name
@@ -143,9 +143,9 @@ class _Block:
         self.ns = Namespace(schema)
         self.context = f"piecewise '{name}'"
         self.frame = self._validated_frame()
-        self.record: dict[str, Any] = {'block': raw['piecewise'][name], 'points': self.mask}
+        self.record: dict[str, object] = {'block': self._section('piecewise')[name], 'points': self.mask}
 
-    def expand(self) -> dict[str, Any]:
+    def expand(self) -> dict[str, object]:
         """Write the block's declarations, and return the record ``expanded_piecewise`` keeps for it."""
         if self.nominated is not None:
             self._parameter(
@@ -161,20 +161,30 @@ class _Block:
 
     # -- emitters ----------------------------------------------------------
 
+    def _section(self, name: str) -> dict[str, object]:
+        """The *name* section of the raw model, created empty where the file declares none."""
+        section = self.raw.setdefault(name, {})
+        assert isinstance(section, dict), f'{name}: is a mapping in a validated model'
+        return section
+
+    def _mask_dims(self, mask: str) -> list[str]:
+        """The dims of *mask*, the parameter masking the weights: the nominated values parameter's where it is derived from one."""
+        return list(self.schema.parameters[self.nominated if self.nominated is not None else mask].dims)
+
     def _parameter(self, name: str, dims: list[str], description: str) -> None:
         """A ``bool`` parameter the expansion derives."""
-        self.raw.setdefault('parameters', {})[name] = {'dims': dims, 'dtype': 'bool', 'description': description}
+        self._section('parameters')[name] = {'dims': dims, 'dtype': 'bool', 'description': description}
 
-    def _weight(self, name: str, **fields: Any) -> None:
+    def _weight(self, name: str, **fields: object) -> None:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
-        self.raw['variables'][name] = {
+        self._section('variables')[name] = {
             'dims': [*self.frame, self.pw.over],
             **({'where': self.mask} if self.mask else {}),
             **fields,
         }
 
     def _constraint(self, name: str, dims: list[str], expression: str, where: str | None = None) -> None:
-        self.raw['constraints'][name] = {
+        self._section('constraints')[name] = {
             'dims': dims,
             **({'where': where} if where else {}),
             'expression': expression,
@@ -198,7 +208,7 @@ class _Block:
                 f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
             )
         if self.pw.method == 'sos2':
-            self.raw.setdefault('sos', {})[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
+            self._section('sos')[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
         elif self.pw.method == 'adjacency':
             self._weight(self.seg, domain='binary', bounds={})
             for suffix, where, rhs in gated:
@@ -263,9 +273,7 @@ class _Block:
             if mask:
                 self.record['starts' if sense == '>=' else 'ends'] = at
                 self._parameter(
-                    at,
-                    self.raw['parameters'][mask]['dims'],
-                    f'the {"first" if sense == ">=" else "last"} breakpoint of each curve',
+                    at, self._mask_dims(mask), f'the {"first" if sense == ">=" else "last"} breakpoint of each curve'
                 )
             self._constraint(cname, [*self.frame, d], f'({x_link.expression}) {sense} {x_link.values}', at)
 

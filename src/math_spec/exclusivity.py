@@ -19,7 +19,7 @@ import itertools
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal, assert_never, cast
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec.program import (
     AndNode,
@@ -128,6 +128,10 @@ class Special(Enum):
 #: What one subject's value is, in one cell.
 Cell = float | str | bool | int | datetime.date | Special
 
+#: What a where comparison is written against: a number, a label, or a date.
+#: ``position()`` counts in integers, which are numbers here.
+_Literal = float | str | datetime.date
+
 
 @dataclass(frozen=True)
 class Subject:
@@ -166,7 +170,7 @@ class _Grid:
 
     @classmethod
     def of(cls, masks: Iterable[Mask], dtypes: Mapping[str, DeclaredDtype]) -> _Grid:
-        values: dict[Subject, set[Any]] = {}
+        values: dict[Subject, set[_Literal]] = {}
         subjects: dict[int, Subject] = {}
         for mask in masks:
             for node in mask.atoms:
@@ -187,7 +191,9 @@ class _Grid:
         return ', '.join(f'{subject} is {_shown(subject, value)}' for subject, value in cell.items())
 
 
-def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> None:
+def _observe(
+    node: TypedPredicateNode, subject: Subject, values: set[_Literal], dtypes: Mapping[str, DeclaredDtype]
+) -> None:
     """Record what *node* says about its subject: a position, or a literal.
 
     ``position()`` converts the dimension to an integer, so an ordering over a
@@ -242,14 +248,14 @@ def _subject_of(node: TypedPredicateNode) -> Subject:
             assert_never(node)
 
 
-def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> list[Cell]:
+def _cells_for(subject: Subject, values: set[_Literal], dtypes: Mapping[str, DeclaredDtype]) -> list[Cell]:
     """Every region *subject*'s value can sit in — ordinary values first.
 
     The order is the order :func:`_witness` searches, so a refusal names an
     absent value or an infinity only where nothing plainer is a witness.
     """
     if subject.kind == 'rank':
-        return _rank_cells(subject, cast('set[int]', values))
+        return _rank_cells(subject, {int(v) for v in _numbers(values)})
     if subject.kind in ('relation_pair', 'variable'):
         return [True, False]
     dtype = dtypes.get(subject.name)
@@ -262,10 +268,13 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, Declared
             raise Undecidable(msg)
         return [True, False, Special.NULL]
     numeric = _numeric(dtype, values)
-    dated = _dated(values)
-    cells: list[Cell] = list(
-        _ordered_cells(values, discrete=dated or dtype == 'int') if numeric or dated else _label_cells(values)
-    )
+    cells: list[Cell]
+    if numeric:
+        cells = list(_numeric_cells(_numbers(values), discrete=dtype == 'int'))
+    elif _dated(values):
+        cells = list(_dated_cells({v for v in values if isinstance(v, datetime.date)}))
+    else:
+        cells = _label_cells(values)
     cells.extend(_absence_cells(subject, numeric=numeric))
     return cells
 
@@ -282,57 +291,64 @@ def _absence_cells(subject: Subject, *, numeric: bool) -> list[Cell]:
     return [Special.NULL, Special.NEG_INF, Special.POS_INF] if numeric else [Special.NULL]
 
 
-def _numeric(dtype: DeclaredDtype | None, literals: set[Any]) -> bool:
+def _numeric(dtype: DeclaredDtype | None, literals: set[_Literal]) -> bool:
     """Is this subject a magnitude? The declaration says so where it is known."""
     if dtype is not None:
         return dtype in ('float', 'int')
     return bool(literals) and all(isinstance(value, int | float) and not isinstance(value, bool) for value in literals)
 
 
-def _dated(literals: set[Any]) -> bool:
+def _dated(literals: set[_Literal]) -> bool:
     return bool(literals) and all(isinstance(value, datetime.date) for value in literals)
 
 
-def _ordered_cells(literals: set[Any], *, discrete: bool) -> list[Cell]:
-    """Each literal, and one representative of the gap on either side of it."""
+def _numbers(literals: set[_Literal]) -> set[float]:
+    """The literals of a magnitude, as the numbers the dtype rules guarantee they are."""
+    numbers = {float(value) for value in literals if isinstance(value, int | float)}
+    assert len(numbers) == len(literals), 'a label or a date reached a magnitude; the dtype rules keep them apart'
+    return numbers
+
+
+def _numeric_cells(literals: set[float], *, discrete: bool) -> list[float]:
+    """Each number, and one representative of the gap on either side of it.
+
+    An ``int`` subject has a value between two literals only where the gap is
+    wider than one.
+    """
     if not literals:
         return [0.0]
     values = sorted(literals)
-    step = _step(values[0])
-    cells: list[Cell] = [values[0] - step]
+    cells = [values[0] - 1.0]
     for value, following in itertools.zip_longest(values, values[1:]):
         cells.append(value)
         if following is None:
             continue
-        between = _between(value, following, step, discrete=discrete)
-        if between is not None:
-            cells.append(between)
+        if not discrete:
+            cells.append((value + following) / 2.0)
+        elif following - value > 1.0:
+            cells.append(value + 1.0)
+    cells.append(values[-1] + 1.0)
+    return cells
+
+
+def _dated_cells(literals: set[datetime.date]) -> list[datetime.date]:
+    """Each date, and one representative of the gap on either side of it.
+
+    A date steps by a day and a datetime by a second, and there is a value
+    between two literals only where the gap is wider than one step.
+    """
+    values = sorted(literals)
+    step = datetime.timedelta(seconds=1) if isinstance(values[0], datetime.datetime) else datetime.timedelta(days=1)
+    cells = [values[0] - step]
+    for value, following in itertools.zip_longest(values, values[1:]):
+        cells.append(value)
+        if following is not None and following - value > step:
+            cells.append(value + step)
     cells.append(values[-1] + step)
     return cells
 
 
-def _step(value: Any) -> Any:
-    """How far outside the named literals a representative has to sit."""
-    if isinstance(value, datetime.datetime):
-        return datetime.timedelta(seconds=1)
-    if isinstance(value, datetime.date):
-        return datetime.timedelta(days=1)
-    return 1.0
-
-
-def _between(value: Any, following: Any, step: Any, *, discrete: bool) -> Any | None:
-    """A value strictly between two literals, or ``None`` where the type admits none.
-
-    A discrete subject — an ``int`` or a date — has one only where the gap is wider than one unit.
-    """
-    if discrete:
-        return value + step if following - value > step else None
-    # pyrefly: ignore[no-any-return-implicit] -- declaring `Any` would silence this and stop
-    # saying that the discrete branch has nothing to return.
-    return (value + following) / 2.0
-
-
-def _label_cells(literals: set[Any]) -> list[Cell]:
+def _label_cells(literals: set[_Literal]) -> list[Cell]:
     """Every named label, and one standing for all the labels not named."""
     return [*sorted(literals, key=str), Special.OTHER]
 
@@ -434,8 +450,13 @@ def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> b
             assert_never(node)
 
 
-def _compare(value: Cell, op: PredicateOperator, literal: Any) -> bool:
-    """One atom's truth in one cell. Both sides are already this cell's frame."""
+def _compare(value: Cell, op: PredicateOperator, literal: _Literal) -> bool:
+    """One atom's truth in one cell. Both sides are already this cell's frame.
+
+    Raises:
+        AssertionError: The cell and the literal are of different kinds, which
+            the dtype rules keep apart before a mask is proved.
+    """
     if isinstance(value, Special):
         if value is Special.OTHER:
             # a label none of the masks names sorts nowhere
@@ -443,24 +464,29 @@ def _compare(value: Cell, op: PredicateOperator, literal: Any) -> bool:
                 return op == '!='
             msg = f'a label neither case names is ordered with {op!r} — compare labels with == or != instead'
             raise Undecidable(msg)
-        magnitude = math.inf if value is Special.POS_INF else -math.inf
-        return _ordered(magnitude, op, float(literal))
-    if isinstance(value, int | float) and isinstance(literal, int | float) and not isinstance(value, bool):
+        value = math.inf if value is Special.POS_INF else -math.inf
+    if isinstance(value, int | float) and isinstance(literal, int | float):
         return _ordered(float(value), op, float(literal))
-    return _ordered(value, op, literal)
+    if isinstance(value, str) and isinstance(literal, str):
+        return _ordered(value, op, literal)
+    if isinstance(value, datetime.date) and isinstance(literal, datetime.date):
+        return _ordered(value, op, literal)
+    msg = f'{value!r} is compared with {literal!r}, and the two are of different kinds'
+    raise AssertionError(msg)
 
 
-def _ordered(left: Any, op: PredicateOperator, right: Any) -> bool:
+def _ordered[T: (float, str, datetime.date)](left: T, op: PredicateOperator, right: T) -> bool:
+    """One comparison between two values of one kind — the kinds a literal comes in."""
     match op:
         case '==':
-            return bool(left == right)
+            return left == right
         case '!=':
-            return bool(left != right)
+            return left != right
         case '<':
-            return bool(left < right)
+            return left < right
         case '<=':
-            return bool(left <= right)
+            return left <= right
         case '>':
-            return bool(left > right)
+            return left > right
         case '>=':
-            return bool(left >= right)
+            return left >= right
