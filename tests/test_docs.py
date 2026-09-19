@@ -56,6 +56,21 @@ def test_every_generator_is_asked():
     )
 
 
+def test_no_fold_in_the_readme_prints_its_math_as_a_code_block():
+    """The fold under the equations printed the TeX of every one of them, headed *Objective*.
+
+    GitHub makes display math of a `math` fence at the top level of a page
+    only. Inside a `<details>` the fence stays the code block it looks like, so
+    the whole-document fold showed `\\min \\sum_{s \\in \\mathcal{S}} …` where the
+    equation belongs. The verbatim inline pair renders in both places, and
+    `tools._page.inlined` is what rewrites a fold into it.
+    """
+    folds = re.findall(r'<details>.*?</details>', home_math.README.read_text(), re.DOTALL)
+    assert len(folds) == 3, 'the README folds the whole document, then the same document in the other two notations'
+    hiding = [fold[:60] for fold in folds if '```math' in fold]
+    assert not hiding, f'a `math` fence inside a fold prints its TeX rather than its math: {hiding}'
+
+
 def test_every_piecewise_method_has_a_model_on_the_notation_page():
     """What the page's `_curves()` claims: one row per `method:`, all of them."""
     assert set(notation.PIECEWISE) == set(PIECEWISE_METHODS), (
