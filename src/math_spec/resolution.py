@@ -54,8 +54,8 @@ from math_spec._where_parser import (
     parse_where,
 )
 from math_spec.dimensions import dims_of
-from math_spec.errors import LanguageError, did_you_mean
-from math_spec.expansion import expand, parse_and_expand
+from math_spec.errors import LanguageError, did_you_mean, prefixed
+from math_spec.expansion import expand
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
@@ -239,40 +239,6 @@ class Resolved:
 # ---------------------------------------------------------------------------
 # the seam the rest of the package uses
 # ---------------------------------------------------------------------------
-
-
-def expression_of(text: str, ns: Namespace, context: str) -> ParsedNode:
-    """Parse, expand and resolve *text* in one call, raising rather than collecting.
-
-    A declaration's tree is on :class:`Resolved`; this is for a text that is
-    not one.
-
-    Raises:
-        LanguageError: Listing every problem the text has.
-    """
-    errors: list[str] = []
-    resolved = resolve_expression(parse_and_expand(text, ns.schema, context), ns, context, errors)
-    if errors:
-        raise LanguageError('\n'.join(errors))
-    assert resolved is not None
-    return resolved
-
-
-def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> Mask | None:
-    """Parse and resolve a where string into the :class:`~math_spec.program.Mask` a declaration carries.
-
-    ``None`` for no mask, however the file spelled it: a mask that admits every
-    row is dropped, and one that admits none arrives as a mask over
-    ``BooleanLiteralNode(False)``.
-
-    Raises:
-        LanguageError: Listing every problem the predicate has.
-    """
-    errors: list[str] = []
-    resolved = resolve_where_text(text, ns, context, errors, self_variable)
-    if errors:
-        raise LanguageError('\n'.join(errors))
-    return mask_of(resolved)
 
 
 def names_in(value: ArithmeticNode) -> tuple[str, ...]:
@@ -825,20 +791,18 @@ class _Resolver:
         if isinstance(node.left, FunctionCallNode) and node.left.name == 'position':
             return self._position(node.left, node)
         plain = self._plain(node)
-        if plain is None or self._reads_arithmetic(plain):
+        if plain is None:
             return self._expression_comparison(node)
         return self._plain_comparison(node, plain)
 
-    def _reads_arithmetic(self, plain: _Plain) -> bool:
-        """Whether a plain-looking comparison is arithmetic after all: a side that is a value against a side that is a value."""
-        ns = self.ns
-        left_value = plain.name in ns.schema.expressions
-        right = plain.value if not plain.quoted and isinstance(plain.value, str) else None
-        right_value = right is not None and (right in ns.schema.expressions or ns.kind(right) == 'parameter')
-        return left_value or right_value
-
     def _plain(self, node: UnresolvedComparisonNode) -> _Plain | None:
-        """The comparison as ``name <op> literal`` or ``name <op> name``, or ``None`` where a side is arithmetic."""
+        """The comparison as ``name <op> literal`` or ``name <op> name``, or ``None`` where the language reads it as arithmetic.
+
+        A side that is arithmetic makes it so, and so does a name that is a
+        value — a parameter or an ``expressions:`` entry — against another,
+        however plain the two look.
+        """
+        ns = self.ns
         name, right = _side_name(node.left), node.right
         value: float | str | None
         quoted = isinstance(right, QuotedNode)
@@ -850,7 +814,9 @@ class _Resolver:
             value = literal.value
         else:
             value = _side_name(right)
-        if name is None or value is None:
+            if value is not None and (value in ns.schema.expressions or ns.kind(value) == 'parameter'):
+                return None
+        if name is None or value is None or name in ns.schema.expressions:
             return None
         return _Plain(name, node.op, value, quoted)
 
@@ -873,7 +839,7 @@ class _Resolver:
             try:
                 expanded = expand(side, ns.schema, context)
             except ValueError as e:
-                self.errors.append(str(e) if str(e).startswith(context) else f'{context}: {e}')
+                self.errors.append(prefixed(context, e))
                 continue
             sides.append(self._arith(expanded))
         if len(self.errors) > found:
@@ -892,7 +858,7 @@ class _Resolver:
                 )
             else:
                 try:
-                    degree.check_expression(side, context, ceiling=1)
+                    degree.check_expression(side, context)
                     dims |= dims_of(side, ns.schema, context)
                 except LanguageError as e:
                     self.errors.append(str(e))

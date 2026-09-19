@@ -33,7 +33,7 @@ from math_spec._expression_parser import (
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError
+from math_spec.errors import LanguageError, SchemaError, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
@@ -128,7 +128,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         try:
             body_ast = expand(parse_template(mname, macro, context), schema, context, shadow=formals)
         except ValueError as e:
-            errors.append(_prefixed(context, e))
+            errors.append(prefixed(context, e))
             continue
         errors.extend(
             f"{context}: formal '{f}' collides with declared dimension '{f}'. "
@@ -203,11 +203,6 @@ def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) 
     return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
 
 
-def _prefixed(context: str, e: ValueError) -> str:
-    """*e* under *context*, once — expansion errors already carry it."""
-    return str(e) if str(e).startswith(context) else f'{context}: {e}'
-
-
 def _constant_arm(context: str, *, value: bool) -> str:
     """The refusal for a case arm whose mask the connectives already decided.
 
@@ -269,7 +264,7 @@ def _check_expression(
     try:
         ast = parse_and_expand(expression, ns.schema, context)
     except ValueError as e:
-        errors.append(_prefixed(context, e))
+        errors.append(prefixed(context, e))
         return None
     if comparison and not isinstance(ast, ComparisonNode):
         errors.append(

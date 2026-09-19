@@ -16,10 +16,10 @@ from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.lowering import to_program
 from math_spec.program import DimensionPositionNode
-from math_spec.resolution import Namespace, where_of
+from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
