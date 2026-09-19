@@ -686,7 +686,7 @@ class _Resolver:
             self.errors.append(
                 f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={list(into_roles)}, into={list(from_roles)}), or sum toward '
+                f'at(..., by={name}, over={list(from_roles)}, into={list(into_roles)}), or sum toward '
                 f'a value column.'
             )
             return None

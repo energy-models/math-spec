@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,6 +22,26 @@ def splice(text: str, begin: str, end: str, block: str) -> str:
     """*text* with everything between the *begin* and *end* markers replaced by *block*, on its own lines."""
     i, j = text.index(begin) + len(begin), text.index(end)
     return text[:i] + '\n' + block + '\n' + text[j:]
+
+
+#: One ``math`` fence, which is how a block of math prints.
+FENCE = re.compile(r'```math\n(.*?)\n```', re.DOTALL)
+
+
+def inlined(markdown: str) -> str:
+    """*markdown* with every ``math`` fence rewritten as the verbatim inline pair.
+
+    Two places take no block of math. A table cell holds one line, and inside a
+    ``<details>`` GitHub leaves the fence as the code block it looks like, so
+    the fold prints the TeX rather than the equation. The verbatim pair renders
+    in both, and hands the math over untouched, which is why it is the pair the
+    typesetter prints inline math in anyway.
+
+    It costs the display style, GitHub having no verbatim block pair, and it
+    costs one line: an inline span ends at a newline. TeX reads a newline as a
+    space, so the joined lines print the same math.
+    """
+    return FENCE.sub(lambda m: f'$`{" ".join(m[1].splitlines())}`$', markdown)
 
 
 def without_header(path: Path) -> str:

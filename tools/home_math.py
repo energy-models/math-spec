@@ -20,7 +20,7 @@ import textwrap
 
 from math_spec import to_spec
 from math_spec.typesetting import to_latex, to_markdown, to_typst
-from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import ROOT, inlined, sidecar_for, splice, without_header
 from tools._page import main as page_main
 
 PAGE = ROOT / 'docs' / 'index.md'
@@ -119,7 +119,7 @@ def readme_block() -> str:
             to_markdown(spec, numbered=False, legend=False).strip(),
             details(
                 'The whole document: a symbol table, and the legend it prints',
-                to_markdown(spec, symbols=symbols, numbered=False).strip(),
+                inlined(to_markdown(spec, symbols=symbols, numbered=False).strip()),
             ),
             details(
                 'The same document as LaTeX',
