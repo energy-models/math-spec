@@ -554,7 +554,11 @@ class TestPositionResolves:
 
 
 class TestAWhereSideIsReadInResolution:
-    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be."""
+    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be.
+
+    A ``position()`` call is held to its shape, a literal is the expression grammar's, and
+    everything else on a side is a comparison of expressions, decided with no data bound.
+    """
 
     @pytest.mark.parametrize(
         ('where', 'fragments'),
@@ -591,10 +595,6 @@ class TestAWhereSideIsReadInResolution:
         """`-1` and `inf` are the expression grammar's literals, so a where reads them as it reads any number."""
         spec = _schema(**{'variables.p.where': 'c > -1 AND c < inf'})
         assert spec.variables['p'].where == 'c > -1 AND c < inf'
-
-
-class TestArithmeticInAWhere:
-    """What a comparison of expressions may say in a where, decided with no data bound."""
 
     @pytest.mark.parametrize(
         ('patch', 'where'),

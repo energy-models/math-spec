@@ -248,10 +248,10 @@ class _Lowering:
         Every ``when`` arrives folded from resolution, and an arm that folded
         to a literal was refused at load — so no literal reaches a region.
         """
-        stated = [self._where(arm.when) for arm in node.arms if arm.when is not None]
+        stated = [program.Mask(self._predicate(arm.when)) for arm in node.arms if arm.when is not None]
         regions = []
         for arm in node.arms:
-            when = self._where(arm.when) if arm.when is not None else _none_of(stated)
+            when = program.Mask(self._predicate(arm.when)) if arm.when is not None else _none_of(stated)
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
 
@@ -261,10 +261,7 @@ class _Lowering:
         Every other predicate node is already the program's own and passes
         through; a mask holding none comes back equal to the one handed in.
         """
-        return None if mask is None else self._where(mask.root)
-
-    def _where(self, node: program.WhereNode) -> program.Mask:
-        return program.Mask(self._predicate(node))
+        return None if mask is None else program.Mask(self._predicate(mask.root))
 
     def _predicate(self, node: program.WhereNode) -> program.WhereNode:
         if isinstance(node, program.ArithmeticComparisonNode):
