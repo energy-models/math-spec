@@ -197,7 +197,7 @@ class _Lowering:
             return program.Parameter(node.name)
 
         if isinstance(node, UnresolvedNode | KwargNode):
-            msg = f'{node!r} reached lowering. Expressions go through resolution.expression_of() first.'
+            msg = f'{node!r} reached lowering. Expressions go through resolution.resolve_expression() first.'
             raise AssertionError(msg)
 
         if isinstance(node, DualNode):

@@ -64,8 +64,8 @@ from math_spec.program import (
     walk_regions,
     where_children,
 )
-from math_spec.resolution import Namespace, expression_of, where_of
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
+from math_spec.resolution import Namespace
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expression_of, override, schema_of, where_of
 
 if TYPE_CHECKING:
     from math_spec._expression_parser import ArithmeticNode

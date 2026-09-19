@@ -12,9 +12,9 @@ import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
 from math_spec.program import Mask, RelationPairComparisonNode
-from math_spec.resolution import Namespace, expression_of, where_of
+from math_spec.resolution import Namespace
 from math_spec.validation import to_spec
-from tests.fixtures import override, schema_of
+from tests.fixtures import expression_of, override, schema_of, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec

@@ -15,8 +15,8 @@ import pytest
 from math_spec import LanguageError
 from math_spec._expression_parser import NameNode
 from math_spec.degree import calls_dual, carries_variable, check_binary, check_expression
-from math_spec.resolution import Namespace, expression_of
-from tests.fixtures import SMALL_MODEL, schema_of
+from math_spec.resolution import Namespace
+from tests.fixtures import SMALL_MODEL, expression_of, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)
 
@@ -107,7 +107,7 @@ def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(conte
 
 
 def test_carries_variable_refuses_an_unresolved_name():
-    with pytest.raises(AssertionError, match=r'resolution\.expression_of'):
+    with pytest.raises(AssertionError, match=r'resolution\.resolve_expression'):
         carries_variable(NameNode('p'))
 
 
