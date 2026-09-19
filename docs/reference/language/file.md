@@ -14,7 +14,7 @@ and `description`. Any subset of the eleven is accepted.
 | `relations`   | named relations between dimensions ([relations](relations.md))                                    |
 | `parameters`  | the data the model expects ([declarations](declarations.md))                                      |
 | `variables`   | what the solver decides                                                                           |
-| `given`       | what this file reads and another file builds ([given](declarations.md#given))                     |
+| `given`       | what this file reads but does not build ([given](declarations.md#given))                          |
 | `constraints` | the rules those decisions obey                                                                    |
 | `objective`   | what is minimised or maximised                                                                    |
 | `expressions` | named quantities, reusable in the math and readable after a solve ([named expressions](named.md)) |

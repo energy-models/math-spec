@@ -21,8 +21,8 @@ profile and no ramp limits are three declarations PyPSA carries and this file
 does not. [The PyPSA rungs](../pypsa.md) state them in full.
 
 The math below is what this file prints on its own, with `Port_p` under
-*Given* in the legend. Merged with the surface, `Port_p` is one declaration
-again.
+*Given* in the legend. When it merges with the surface, `Port_p` is one
+declaration again.
 
 <!-- gallery:begin -->
 ```yaml

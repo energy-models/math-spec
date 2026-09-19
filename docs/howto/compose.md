@@ -15,7 +15,7 @@ file, and the two compose as `override(merge({…}), {…})`.
 ## A library of components
 
 1. **Write the coupling surface as a model.** One flow per port, one balance
-   per bus. Nothing in it names a component type.
+   per bus. Nothing in it names a component class.
 
    ```yaml title="surface.yaml"
    dimensions:
@@ -99,7 +99,7 @@ file, and the two compose as `override(merge({…}), {…})`.
    of the fragments are summed, each term in parentheses, in the order the
    fragment names sort in.
 
-4. **Add a component type without touching the balance.** A component file
+4. **Add a component class without touching the balance.** A component file
    pins the flow at its own port rather than adding a term to the balance, so
    `Bus_balance` is written once and stays as it is however many files are
    merged. What grows is the data: which ports exist, and which bus each one
@@ -143,8 +143,8 @@ a difference is refused as it is for a dimension.
 ## A name one fragment both builds and reads
 
 A fragment reads what another file builds. A fragment that declares a name and
-reads it as well is a file `to_spec` refuses on its own, so `merge` refuses it
-too rather than folding the reading away:
+reads it as well is a file `to_spec` refuses on its own. So `merge` refuses it
+too, rather than folding the reading away:
 
 ```text
 fragment 'generator' declares the variable 'Generator_p' and reads it under 'given: variables:' as well. A given declaration is what one file expects of another, and this fragment builds the name itself: drop the given entry, or move the declaration to the fragment this one reads it from.
