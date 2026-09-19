@@ -85,8 +85,6 @@ nav:
       - Changelog: changelog.md
 
 theme:
-  name: material
-
   palette:
     # Dark first = default for new visitors (no auto/system-pref entry).
     # Icon represents the CURRENT scheme — moon when active is dark,
@@ -109,8 +107,12 @@ theme:
 
   features:
     - header.autohide
-    # navigation.instant left off — MathJax fails to re-typeset on
-    # no-math → math swaps, and no documented reset recipe fixes it.
+    # `docs/static/mathjax.js` subscribes to `document$` and re-typesets, which
+    # is what makes this safe: instant navigation swaps the document without a
+    # reload, so a page reached from one with no math would otherwise render
+    # every equation as literal text.
+    - navigation.instant
+    - navigation.instant.progress
     - navigation.tracking
     - navigation.tabs
     - navigation.tabs.sticky
