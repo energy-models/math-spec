@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
-from math_spec.program import At, GroupSum, walk
+from math_spec.program import Pullback, GroupSum, walk
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -74,6 +74,6 @@ def _produced_axes(program: Program) -> set[str]:
     """
     axes: set[str] = set()
     for node in walk(*program.expressions):
-        if isinstance(node, GroupSum | At):
+        if isinstance(node, GroupSum | Pullback):
             axes.update(node.direction.produced_dims)
     return axes

@@ -66,26 +66,26 @@ from math_spec.operators import (
     unknown_operator_message,
 )
 from math_spec.program import (
-    AndNode,
-    ArithmeticComparisonNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
+    And,
+    ArithmeticComparison,
+    BooleanLiteral,
+    DimensionComparison,
+    DimensionPosition,
     Direction,
     Mask,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    Not,
+    Or,
+    ParameterComparison,
+    ParameterDefined,
     Partition,
     PredicateOperator,
-    RelationComparisonNode,
+    RelationComparison,
     RelationDeclaration,
-    RelationDefinedNode,
-    RelationPairComparisonNode,
-    TypedPredicateNode,
-    VariableDefinedNode,
-    WhereNode,
+    RelationDefined,
+    RelationPairComparison,
+    TypedPredicate,
+    VariableDefined,
+    Predicate,
 )
 
 if TYPE_CHECKING:
@@ -251,9 +251,9 @@ def names_in(value: ArithmeticNode) -> tuple[str, ...]:
     return value.names if isinstance(value, NameListNode) else ()
 
 
-def mask_of(node: WhereNode | None) -> Mask | None:
+def mask_of(node: Predicate | None) -> Mask | None:
     """The mask a declaration carries for a resolved where: ``None`` where there is none, or where every row passes."""
-    if node is None or (isinstance(node, BooleanLiteralNode) and node.value):
+    if node is None or (isinstance(node, BooleanLiteral) and node.value):
         return None
     return Mask(node)
 
@@ -282,22 +282,22 @@ def resolve_expression(
 
 
 def resolve_where(
-    node: WhereNode | UnresolvedWhereNode,
+    node: Predicate | UnresolvedWhereNode,
     ns: Namespace,
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> WhereNode | None:
+) -> Predicate | None:
     """Rewrite a parsed where AST into typed predicates, folded as :class:`~math_spec.program.Mask` folds.
 
     Returns:
         The typed tree — a mask admitting every row or none comes back as the
-        one ``BooleanLiteralNode`` — or ``None`` once anything failed, with the
+        one ``BooleanLiteral`` — or ``None`` once anything failed, with the
         problems appended to *errors*.
     """
     before = len(errors)
     resolved = _Resolver(ns, context, errors, self_variable).where(node)
-    return None if len(errors) > before else Mask(cast('WhereNode', resolved)).root
+    return None if len(errors) > before else Mask(cast('Predicate', resolved)).root
 
 
 def resolve_where_text(
@@ -306,7 +306,7 @@ def resolve_where_text(
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> WhereNode | None:
+) -> Predicate | None:
     """Parse and resolve one where string as :func:`resolve_where` does, a parse failure appended to *errors*.
 
     Returns:
@@ -724,27 +724,27 @@ class _Resolver:
 
     # -- where strings -----------------------------------------------------
 
-    def where(self, node: WhereNode | UnresolvedWhereNode) -> WhereNode | UnresolvedWhereNode:
+    def where(self, node: Predicate | UnresolvedWhereNode) -> Predicate | UnresolvedWhereNode:
         """One predicate node typed, or returned unresolved with its refusal appended."""
-        if isinstance(node, BooleanLiteralNode | TypedPredicateNode):
+        if isinstance(node, BooleanLiteral | TypedPredicate):
             return node
         if isinstance(node, UnresolvedNameNode):
             return self._where_name(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
-        if isinstance(node, NotNode):
-            return NotNode(self._child(node.operand))
-        if isinstance(node, AndNode):
-            return AndNode(self._child(node.left), self._child(node.right))
-        if isinstance(node, OrNode):
-            return OrNode(self._child(node.left), self._child(node.right))
+        if isinstance(node, Not):
+            return Not(self._child(node.operand))
+        if isinstance(node, And):
+            return And(self._child(node.left), self._child(node.right))
+        if isinstance(node, Or):
+            return Or(self._child(node.left), self._child(node.right))
         assert_never(node)
 
-    def _child(self, node: WhereNode | UnresolvedWhereNode) -> WhereNode:
+    def _child(self, node: Predicate | UnresolvedWhereNode) -> Predicate:
         """A connective's child, typed as resolved: an unresolved one survives only with its refusal appended."""
-        return cast('WhereNode', self.where(node))
+        return cast('Predicate', self.where(node))
 
-    def _where_name(self, node: UnresolvedNameNode) -> WhereNode | UnresolvedWhereNode:
+    def _where_name(self, node: UnresolvedNameNode) -> Predicate | UnresolvedWhereNode:
         """A bare name: a parameter's or relation's definedness, or a variable's existence."""
         ns, context = self.ns, self.context
         kind = ns.kind(node.name)
@@ -753,7 +753,7 @@ class _Resolver:
             return node
         match kind:
             case 'parameter':
-                return ParameterDefinedNode(node.name, ns.leaf_dims[node.name])
+                return ParameterDefined(node.name, ns.leaf_dims[node.name])
             case 'dimension':
                 self.errors.append(
                     f"{context}: '{node.name}' is a dimension, and a bare dimension "
@@ -770,7 +770,7 @@ class _Resolver:
                         f'{node.name}.{shape.values[0] if shape.values else shape.roles[-1]} == ....'
                     )
                     return node
-                return RelationDefinedNode(node.name, dims)
+                return RelationDefined(node.name, dims)
             case 'variable':
                 if node.name == self.self_variable:
                     self.errors.append(
@@ -779,10 +779,10 @@ class _Resolver:
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
                 else:
-                    return VariableDefinedNode(node.name, ns.leaf_dims[node.name])
+                    return VariableDefined(node.name, ns.leaf_dims[node.name])
         return node
 
-    def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
+    def _comparison(self, node: UnresolvedComparisonNode) -> Predicate | UnresolvedWhereNode:
         """``side <op> side``, read for what each side is.
 
         A ``position()`` call on the left is the position form. A name against
@@ -825,7 +825,7 @@ class _Resolver:
 
     def _expression_comparison(
         self, node: UnresolvedComparisonNode
-    ) -> ArithmeticComparisonNode | UnresolvedComparisonNode:
+    ) -> ArithmeticComparison | UnresolvedComparisonNode:
         """``expression <op> expression``: each side expanded, typed and held to what a mask may read.
 
         A side is read as an expression is — macros and named expressions
@@ -868,11 +868,11 @@ class _Resolver:
         if len(self.errors) > found:
             return node
         left, right = sides
-        return ArithmeticComparisonNode(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
+        return ArithmeticComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
         self, call: FunctionCallNode, node: UnresolvedComparisonNode
-    ) -> DimensionPositionNode | UnresolvedComparisonNode:
+    ) -> DimensionPosition | UnresolvedComparisonNode:
         """``position(dim[, by=relation, within=columns]) <op> i``: the name a dimension, ``by=`` a relation keyed over it."""
         ns, context = self.ns, self.context
         shape = _position_shape(call)
@@ -899,7 +899,7 @@ class _Resolver:
             )
             return node
         if by is None:
-            return DimensionPositionNode(dimension, node.op, position)
+            return DimensionPosition(dimension, node.op, position)
         if (problem := self._not_a_relation(by, 'position', 'by')) is not None:
             self.errors.append(problem)
             return node
@@ -914,9 +914,9 @@ class _Resolver:
         partition = self._partition(by, 'position', dimension, into)
         if partition is None:
             return node
-        return DimensionPositionNode(dimension, node.op, position, partition)
+        return DimensionPosition(dimension, node.op, position, partition)
 
-    def _plain_comparison(self, node: UnresolvedComparisonNode, plain: _Plain) -> WhereNode | UnresolvedWhereNode:
+    def _plain_comparison(self, node: UnresolvedComparisonNode, plain: _Plain) -> Predicate | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``relation <op> relation``."""
         ns, context = self.ns, self.context
         value = plain.value
@@ -933,7 +933,7 @@ class _Resolver:
                         self.errors.append(refusal)
                         return node
                     dims = tuple(ns.relations[left_name].dim(k) for k in ns.relations[left_name].key)
-                    return RelationPairComparisonNode(left_name, left, right_name, right, plain.op, dims)
+                    return RelationPairComparison(left_name, left, right_name, right, plain.op, dims)
                 self.errors.append(_declared_rhs_error(context, plain, value, rhs_kind))
                 return node
 
@@ -965,13 +965,13 @@ class _Resolver:
         match kind:
             case 'parameter':
                 assert not isinstance(value, datetime.date)
-                return ParameterComparisonNode(left_name, plain.op, value, ns.leaf_dims[left_name])
+                return ParameterComparison(left_name, plain.op, value, ns.leaf_dims[left_name])
             case 'dimension':
-                return DimensionComparisonNode(left_name, plain.op, value)
+                return DimensionComparison(left_name, plain.op, value)
             case 'relation':
                 assert column is not None
                 shape = ns.relations[left_name]
-                return RelationComparisonNode(
+                return RelationComparison(
                     left_name, column, plain.op, value, tuple(shape.dim(k) for k in shape.key)
                 )
             case 'variable':

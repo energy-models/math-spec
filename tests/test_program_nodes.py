@@ -7,7 +7,7 @@
 The lowering-side sibling of `test_the_golden_model_carries_every_node_kind_the_walk_renders`,
 on a fixture of its own because rendering accepts what lowering refuses.
 
-Without this, a node can join `ExpressionNode` with nothing producing it and
+Without this, a node can join `Expression` with nothing producing it and
 the suite stays green — `assert_never` fires only where some test happens to
 lower a file that uses the construct. That is how `cases:` reached a release
 candidate unlowerable.
@@ -21,12 +21,12 @@ from typing import get_args
 import pytest
 
 import math_spec as ms
-from math_spec.program import ExpressionNode, Program, walk
+from math_spec.program import Expression, Program, walk
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
 
 
-def _expressions(program: Program) -> list[ExpressionNode]:
+def _expressions(program: Program) -> list[Expression]:
     """Every tree a program hangs on to, wherever it hangs it.
 
     Bounds and named expressions among them: a node reachable only from an
@@ -43,10 +43,10 @@ def _expressions(program: Program) -> list[ExpressionNode]:
 
 @pytest.fixture(scope='module')
 def kinds() -> tuple[set[str], set[str]]:
-    """The node classes the fixture lowers to, and the ones `ExpressionNode` declares."""
+    """The node classes the fixture lowers to, and the ones `Expression` declares."""
     program = ms.to_program(FIXTURE)
     reached = {type(node).__name__ for node in walk(*_expressions(program))}
-    declared = {node.__name__ for node in get_args(ExpressionNode)}
+    declared = {node.__name__ for node in get_args(Expression)}
     return reached, declared
 
 

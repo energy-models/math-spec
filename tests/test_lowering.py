@@ -24,28 +24,28 @@ from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
-    AndNode,
-    At,
-    BooleanLiteralNode,
+    And,
+    Pullback,
+    BooleanLiteral,
     Cases,
     Constant,
-    DimensionComparisonNode,
+    DimensionComparison,
     DimensionDeclaration,
     Direction,
     Divide,
     Dual,
-    ExpressionComparisonNode,
-    ExpressionNode,
+    ExpressionComparison,
+    Expression,
     Footprint,
     GroupSum,
     Mask,
     Multiply,
     Negate,
-    NotNode,
-    OrNode,
+    Not,
+    Or,
     Parameter,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    ParameterComparison,
+    ParameterDefined,
     Partition,
     Power,
     Program,
@@ -54,7 +54,7 @@ from math_spec.program import (
     Sum,
     Translate,
     Variable,
-    Window,
+    WindowSum,
     children,
     divisor_parameters,
     fan_in,
@@ -73,7 +73,7 @@ if TYPE_CHECKING:
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
 #: The mask `examples/dispatch.yaml` puts on `dispatch`, as the plan carries it.
-CAPACITY_POSITIVE = ParameterComparisonNode('capacity', '>', 0.0, ('generator',))
+CAPACITY_POSITIVE = ParameterComparison('capacity', '>', 0.0, ('generator',))
 
 #: One dimension, one parameter, one bounded variable and a scalar constraint:
 #: the smallest model that loads, for a claim about the plan's record rather
@@ -183,33 +183,33 @@ def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     [
         pytest.param(None, None, id='no-where-at-all'),
         pytest.param('True', None, id='True-is-no-mask'),
-        pytest.param('capacity', ParameterDefinedNode('capacity', ('generator',)), id='a-bare-parameter-name'),
+        pytest.param('capacity', ParameterDefined('capacity', ('generator',)), id='a-bare-parameter-name'),
         pytest.param(
             'snapshot > 5',
-            DimensionComparisonNode('snapshot', '>', 5),
+            DimensionComparison('snapshot', '>', 5),
             id='a-dimension-coordinate-compares-like-a-parameter',
         ),
         pytest.param(
             'capacity > 0 AND NOT load == 0',
-            AndNode(CAPACITY_POSITIVE, NotNode(ParameterComparisonNode('load', '==', 0.0, ('snapshot',)))),
+            And(CAPACITY_POSITIVE, Not(ParameterComparison('load', '==', 0.0, ('snapshot',)))),
             id='a-compound-where-keeps-its-connectives',
         ),
-        pytest.param('False', BooleanLiteralNode(False), id='the-empty-declaration-keeps-its-own-spelling'),
+        pytest.param('False', BooleanLiteral(False), id='the-empty-declaration-keeps-its-own-spelling'),
         pytest.param('capacity > 0 AND True', CAPACITY_POSITIVE, id='and-true-is-the-other-side'),
         pytest.param('capacity > 0 OR False', CAPACITY_POSITIVE, id='or-false-is-the-other-side'),
         pytest.param('capacity > 0 OR True', None, id='or-true-is-no-mask-at-all'),
-        pytest.param('capacity > 0 AND False', BooleanLiteralNode(False), id='and-false-is-the-empty-declaration'),
-        pytest.param('NOT True', BooleanLiteralNode(False), id='not-true-is-false'),
+        pytest.param('capacity > 0 AND False', BooleanLiteral(False), id='and-false-is-the-empty-declaration'),
+        pytest.param('NOT True', BooleanLiteral(False), id='not-true-is-false'),
         pytest.param('NOT False', None, id='not-false-is-no-mask'),
         pytest.param('NOT (capacity > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
         pytest.param(
             'NOT (NOT capacity)',
-            ParameterDefinedNode('capacity', ('generator',)),
+            ParameterDefined('capacity', ('generator',)),
             id='a-double-negation-cancels-on-the-load-path',
         ),
         pytest.param(
             '(capacity > 0 OR True) AND load',
-            ParameterDefinedNode('load', ('snapshot',)),
+            ParameterDefined('load', ('snapshot',)),
             id='an-absorbed-side-takes-its-own-branch-with-it',
         ),
     ],
@@ -217,7 +217,7 @@ def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
 def test_a_where_is_one_resolved_predicate_with_every_literal_folded(dispatch_schema, where, expected):
     """One mask had two lowerings: `True` was dropped at the root and kept under a connective.
 
-    A `BooleanLiteralNode` is a node a consumer meets at the root or nowhere.
+    A `BooleanLiteral` is a node a consumer meets at the root or nowhere.
     """
     mask = where_of(where, Namespace(dispatch_schema), 't')
     assert (mask.root if mask is not None else None) == expected, (
@@ -307,17 +307,17 @@ def test_a_lowered_mask_answers_its_dims_conjuncts_and_atoms(variable, where, di
     assert len(mask.atoms) == atoms, 'the leaves of every arm, connectives removed'
 
 
-FLAG = ParameterDefinedNode('flag', ('generator',))
+FLAG = ParameterDefined('flag', ('generator',))
 
 
 @pytest.mark.parametrize(
     ('where', 'under'),
     [
-        pytest.param(NotNode(CAPACITY_POSITIVE), (CAPACITY_POSITIVE,), id='a-not-carries-its-operand'),
-        pytest.param(AndNode(CAPACITY_POSITIVE, FLAG), (CAPACITY_POSITIVE, FLAG), id='an-and-carries-both-sides'),
-        pytest.param(OrNode(CAPACITY_POSITIVE, FLAG), (CAPACITY_POSITIVE, FLAG), id='an-or-carries-both-sides'),
+        pytest.param(Not(CAPACITY_POSITIVE), (CAPACITY_POSITIVE,), id='a-not-carries-its-operand'),
+        pytest.param(And(CAPACITY_POSITIVE, FLAG), (CAPACITY_POSITIVE, FLAG), id='an-and-carries-both-sides'),
+        pytest.param(Or(CAPACITY_POSITIVE, FLAG), (CAPACITY_POSITIVE, FLAG), id='an-or-carries-both-sides'),
         pytest.param(CAPACITY_POSITIVE, (), id='a-leaf-carries-nothing'),
-        pytest.param(BooleanLiteralNode(False), (), id='a-literal-carries-nothing'),
+        pytest.param(BooleanLiteral(False), (), id='a-literal-carries-nothing'),
     ],
 )
 def test_where_children_is_the_one_walk_under_a_predicate(where, under):
@@ -335,32 +335,32 @@ def test_where_children_is_the_one_walk_under_a_predicate(where, under):
 def test_a_synthetic_predicate_answers_its_own_dims():
     """A tree built from resolved pieces answers like a declaration's own mask.
 
-    A consumer builds region complements and conjunctions — `NotNode(root)`,
-    `AndNode(a, b)` — with no declaration behind them. Because the leaves carry
+    A consumer builds region complements and conjunctions — `Not(root)`,
+    `And(a, b)` — with no declaration behind them. Because the leaves carry
     their dims, wrapping any such tree in `Mask` answers without a name-to-dims
     mapping, which is what let the mapping die everywhere.
     """
-    b = ParameterDefinedNode('load', ('snapshot',))
+    b = ParameterDefined('load', ('snapshot',))
 
-    assert Mask(NotNode(CAPACITY_POSITIVE)).dims == {'generator'}, 'negation keeps the dims it negates'
+    assert Mask(Not(CAPACITY_POSITIVE)).dims == {'generator'}, 'negation keeps the dims it negates'
     assert (Mask(CAPACITY_POSITIVE) & Mask(b)).dims == {'generator', 'snapshot'}, 'conjunction unions both sides'
-    assert (Mask(CAPACITY_POSITIVE) & Mask(b)).root == AndNode(CAPACITY_POSITIVE, b), (
+    assert (Mask(CAPACITY_POSITIVE) & Mask(b)).root == And(CAPACITY_POSITIVE, b), (
         'the conjunction joins the roots under one AND'
     )
 
 
 def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
     """The fold lives in the constructor, so the invariant holds however a mask is built."""
-    x = ParameterDefinedNode('committable', ('g',))
-    empty, every = Mask(BooleanLiteralNode(False)), Mask(BooleanLiteralNode(True))
+    x = ParameterDefined('committable', ('g',))
+    empty, every = Mask(BooleanLiteral(False)), Mask(BooleanLiteral(True))
 
-    assert Mask(OrNode(BooleanLiteralNode(True), x)) == every, 'a True side absorbs the OR at the door'
-    assert Mask(AndNode(BooleanLiteralNode(False), x)) == empty, 'a False side dominates the AND at the door'
-    assert Mask(NotNode(BooleanLiteralNode(True))) == empty, 'NOT over a literal flips at the door'
-    assert Mask(NotNode(NotNode(x))) == Mask(x), 'a double negation cancels at the door'
+    assert Mask(Or(BooleanLiteral(True), x)) == every, 'a True side absorbs the OR at the door'
+    assert Mask(And(BooleanLiteral(False), x)) == empty, 'a False side dominates the AND at the door'
+    assert Mask(Not(BooleanLiteral(True))) == empty, 'NOT over a literal flips at the door'
+    assert Mask(Not(Not(x))) == Mask(x), 'a double negation cancels at the door'
 
-    assert ~Mask(x) == Mask(NotNode(x)), 'a plain predicate negated gains one NOT'
-    assert ~Mask(NotNode(x)) == Mask(x), '`not (not x)` cancels rather than stacking, so no consumer evaluates it twice'
+    assert ~Mask(x) == Mask(Not(x)), 'a plain predicate negated gains one NOT'
+    assert ~Mask(Not(x)) == Mask(x), '`not (not x)` cancels rather than stacking, so no consumer evaluates it twice'
     assert ~empty == every, 'the empty mask negated admits every row, with no NOT stacked'
     assert ~every == empty, 'and back again'
     assert empty & Mask(x) == empty, 'a False root dominates the conjunction'
@@ -372,9 +372,9 @@ def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
 
 def test_a_held_leaf_walk_is_taken_after_the_fold_absorbed_a_branch():
     """`atoms` is held from construction, and construction folds first — so the fold's losses are not in it."""
-    absorbed = Mask(AndNode(BooleanLiteralNode(False), ParameterDefinedNode('committable', ('g',))))
+    absorbed = Mask(And(BooleanLiteral(False), ParameterDefined('committable', ('g',))))
 
-    assert absorbed.root == BooleanLiteralNode(False)
+    assert absorbed.root == BooleanLiteral(False)
     assert absorbed.atoms == (), 'the absorbed leaf is not among them'
     assert absorbed.names_read == frozenset(), 'nor named'
     assert absorbed.dims == frozenset(), 'nor read at any dim'
@@ -399,7 +399,7 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     lowered = to_program(override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'}))
     (c,) = lowered.constraints.values()
 
-    assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
+    assert c.where == Mask(ParameterComparison('load', '>', 0.0, ('snapshot',)))
 
 
 def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides():
@@ -420,12 +420,12 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     )
     where = program.variables['p'].where
     assert where is not None
-    assert where.root == ExpressionComparisonNode(
+    assert where.root == ExpressionComparison(
         Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
     ), 'the sides are lowered as a constraint side is, and the dims are what either side carries'
     mask = program.constraints['w'].where
-    assert mask is not None and isinstance(mask.root, ExpressionComparisonNode)
-    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, At)
+    assert mask is not None and isinstance(mask.root, ExpressionComparison)
+    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Pullback)
     assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
         'the relation a pullback and a partition read through is data the consumer binds too'
     )
@@ -453,7 +453,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
         pytest.param(
             'at(r, by=lk, over=h, into=g)',
-            At(Variable('r'), direction=Direction(LK, ('h',), ('g',), ())),
+            Pullback(Variable('r'), direction=Direction(LK, ('h',), ('g',), ())),
             id='a-pullback-reads-the-same-table-back',
         ),
         pytest.param(
@@ -485,17 +485,17 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
         pytest.param(
             'sum_back(p, along=g, window=3)',
-            Window(Variable('p'), 'g', width=3, wrap=False),
+            WindowSum(Variable('p'), 'g', width=3, wrap=False),
             id='a-window-is-one-node-rather-than-a-fold-of-translations',
         ),
         pytest.param(
             'sum_back(p, along=g, window=k)',
-            Window(Variable('p'), 'g', width='k', wrap=False),
+            WindowSum(Variable('p'), 'g', width='k', wrap=False),
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
             'sum_back(p, along=g, window=2, by=lk, within=h)',
-            Window(
+            WindowSum(
                 Variable('p'),
                 'g',
                 width=2,
@@ -543,7 +543,7 @@ def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
 def _partition_of(row):
     """The one partition a constraint row's expression carries."""
     nodes = [*walk(row.lhs), *walk(row.rhs)]
-    [partition] = [node.partition for node in nodes if isinstance(node, Translate | Window)]
+    [partition] = [node.partition for node in nodes if isinstance(node, Translate | WindowSum)]
     return partition
 
 
@@ -600,10 +600,10 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
         Variable('p'), direction=Direction(declared, ('snapshot',), ('zone',), ('generator',))
     ), 'the same table read from its other key column'
     priced = program.constraints['priced'].rhs
-    assert priced == At(Parameter('price'), direction=Direction(declared, ('zone',), ('generator',), ('snapshot',))), (
+    assert priced == Pullback(Parameter('price'), direction=Direction(declared, ('zone',), ('generator',), ('snapshot',))), (
         'and its adjoint consumes the value column and produces the key column'
     )
-    assert isinstance(priced, At)
+    assert isinstance(priced, Pullback)
     assert (priced.direction.consumed_dims, priced.direction.produced_dims, priced.direction.joined_dims) == (
         ('zone',),
         ('generator',),
@@ -612,8 +612,8 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
     p_where = program.variable('p').where
     assert p_where is not None
     assert [(type(a).__name__, a.dims) for a in p_where.atoms] == [
-        ('RelationComparisonNode', ('generator', 'snapshot')),
-        ('RelationDefinedNode', ('generator', 'snapshot')),
+        ('RelationComparison', ('generator', 'snapshot')),
+        ('RelationDefined', ('generator', 'snapshot')),
     ], 'a comparison and an existence are both read at the key of a keyed relation'
     first_where = program.variable('first').where
     assert first_where is not None
@@ -631,9 +631,9 @@ def test_a_divisor_under_a_pullback_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
     component_of = RelationDeclaration('component_of', (('flow', 'flow'), ('component', 'component')), ('flow',))
-    pulled = At(quotient, direction=Direction(component_of, ('component',), ('flow',), ()))
+    pulled = Pullback(quotient, direction=Direction(component_of, ('component',), ('flow',), ()))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
+    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
@@ -661,8 +661,8 @@ def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
     )
 
 
-OUTER = Mask(ParameterDefinedNode('committable', ('g',)))
-INNER = Mask(ParameterDefinedNode('flag', ('g',)))
+OUTER = Mask(ParameterDefined('committable', ('g',)))
+INNER = Mask(ParameterDefined('flag', ('g',)))
 NESTED = Add(
     Variable('x'),
     Cases(
@@ -707,10 +707,10 @@ FAN_IN = {
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
     GroupSum(Variable('p'), direction=Direction(AT_BUS, ('g',), ('bus',), ())): 'many-to-one',
-    At(Variable('p'), direction=Direction(AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
+    Pullback(Variable('p'), direction=Direction(AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
-    Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
-    Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',
+    WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
+    Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',
     Dual('balance'): 'one-to-one',
 }
 
@@ -718,8 +718,8 @@ FAN_IN = {
 def test_every_expression_node_is_classified_by_fan_in():
     """`fan_in` was a ClassVar on five nodes, so `Add(...).fan_in` was an AttributeError."""
     covered = {type(node) for node in FAN_IN}
-    assert covered == set(get_args(ExpressionNode)), (
-        'every node in the ExpressionNode union is classified, and nothing retired lingers'
+    assert covered == set(get_args(Expression)), (
+        'every node in the Expression union is classified, and nothing retired lingers'
     )
 
 
@@ -913,10 +913,10 @@ def test_the_fallback_region_carries_the_mask_the_file_left_unwritten():
     """
     remainder = _cases_in(to_program(CASED)).regions[-1]
 
-    assert isinstance(remainder.when.root, AndNode), (
+    assert isinstance(remainder.when.root, And), (
         'two stated cases, so the remainder is a conjunction of two negations'
     )
-    assert remainder.when.root.left == ParameterDefinedNode('committable', ('g',)), (
+    assert remainder.when.root.left == ParameterDefined('committable', ('g',)), (
         'the negation of `not committable` is the term itself, not a second `not` around it'
     )
 

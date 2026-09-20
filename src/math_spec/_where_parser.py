@@ -22,13 +22,13 @@ import pyparsing as pp
 
 from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, parse_text
 from math_spec.program import (
-    AndNode,
-    BooleanLiteralNode,
-    ConnectiveWhereNode,
-    NotNode,
-    OrNode,
+    And,
+    BooleanLiteral,
+    Connective,
+    Not,
+    Or,
     PredicateOperator,
-    WhereNode,
+    Predicate,
     where_children,
 )
 
@@ -93,7 +93,7 @@ UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode
 #: Every node a parsed where string is built of: the connectives and literals,
 #: the unresolved leaves, and the arithmetic and the two side nodes under a
 #: comparison. What the depth measurement walks.
-_ParsedWhere = WhereNode | UnresolvedWhereNode | ArithmeticNode | ColumnNode | QuotedNode
+_ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | QuotedNode
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +110,8 @@ def _build_where_grammar() -> pp.ParserElement:
     """
     where_expr = pp.Forward()
 
-    true_lit = pp.CaselessKeyword('True').set_parse_action(lambda: BooleanLiteralNode(True))
-    false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteralNode(False))
+    true_lit = pp.CaselessKeyword('True').set_parse_action(lambda: BooleanLiteral(True))
+    false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteral(False))
 
     name = pp.Regex(NAME)
     # pyrefly: ignore[implicit-any-lambda]
@@ -133,28 +133,28 @@ def _build_where_grammar() -> pp.ParserElement:
 
     NOT = pp.CaselessKeyword('NOT').suppress()
     # pyrefly: ignore[implicit-any-lambda]
-    not_expr = (NOT + atom).set_parse_action(lambda t: NotNode(t[0])) | atom
+    not_expr = (NOT + atom).set_parse_action(lambda t: Not(t[0])) | atom
 
     AND = pp.CaselessKeyword('AND').suppress()
     and_expr = not_expr + pp.ZeroOrMore(AND + not_expr)
-    and_expr.set_parse_action(_folder(AndNode))
+    and_expr.set_parse_action(_folder(And))
 
     OR = pp.CaselessKeyword('OR').suppress()
     or_expr = and_expr + pp.ZeroOrMore(OR + and_expr)
-    or_expr.set_parse_action(_folder(OrNode))
+    or_expr.set_parse_action(_folder(Or))
 
     where_expr <<= or_expr
     return where_expr
 
 
-def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], WhereNode | UnresolvedWhereNode]:
+def _folder(node_type: type[And] | type[Or]) -> Callable[[pp.ParseResults], Predicate | UnresolvedWhereNode]:
     """A parse action left-folding a flat operator chain into *node_type*."""
 
-    def fold(tokens: pp.ParseResults) -> WhereNode | UnresolvedWhereNode:
-        items: list[WhereNode | UnresolvedWhereNode] = list(tokens)
+    def fold(tokens: pp.ParseResults) -> Predicate | UnresolvedWhereNode:
+        items: list[Predicate | UnresolvedWhereNode] = list(tokens)
         result = items[0]
         for item in items[1:]:
-            result = node_type(cast('WhereNode', result), cast('WhereNode', item))
+            result = node_type(cast('Predicate', result), cast('Predicate', item))
         return result
 
     return fold
@@ -196,13 +196,13 @@ def _nested(node: _ParsedWhere) -> tuple[_ParsedWhere, ...]:
         return (node.left, node.right)
     if isinstance(node, ArithmeticNode):
         return children(node)
-    if isinstance(node, ConnectiveWhereNode):
+    if isinstance(node, Connective):
         return where_children(node)
     return ()
 
 
 @lru_cache(maxsize=4096)
-def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
+def parse_where(text: str) -> Predicate | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
 
     The connectives and literals are the resolved vocabulary's own; the leaves
@@ -217,6 +217,6 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
             as an expression is.
     """
     return cast(
-        'WhereNode | UnresolvedWhereNode',
+        'Predicate | UnresolvedWhereNode',
         parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, _nested, _DEEP_REWRITE),
     )

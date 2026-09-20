@@ -41,19 +41,19 @@ from math_spec._expression_parser import (
 from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
 from math_spec.program import (
-    ArithmeticComparisonNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
+    ArithmeticComparison,
+    DimensionComparison,
+    DimensionPosition,
     Direction,
-    ExpressionComparisonNode,
+    ExpressionComparison,
     Mask,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    ParameterComparison,
+    ParameterDefined,
     Partition,
-    RelationComparisonNode,
-    RelationDefinedNode,
-    RelationPairComparisonNode,
-    VariableDefinedNode,
+    RelationComparison,
+    RelationDefined,
+    RelationPairComparison,
+    VariableDefined,
 )
 
 if TYPE_CHECKING:
@@ -541,15 +541,15 @@ def _check_where_dims(
         if not (outside := sorted(Mask(atom).dims - frame)):
             continue
         match atom:
-            case ParameterDefinedNode() | ParameterComparisonNode():
+            case ParameterDefined() | ParameterComparison():
                 leaf = f"where-parameter '{atom.name}'"
-            case VariableDefinedNode():
+            case VariableDefined():
                 leaf = f"where-variable '{atom.name}'"
-            case DimensionComparisonNode() | DimensionPositionNode():
+            case DimensionComparison() | DimensionPosition():
                 leaf = f"where-dimension '{atom.name}'"
-            case RelationComparisonNode() | RelationPairComparisonNode() | RelationDefinedNode():
+            case RelationComparison() | RelationPairComparison() | RelationDefined():
                 leaf = f"where-relation '{atom.name}'"
-            case ArithmeticComparisonNode() | ExpressionComparisonNode():
+            case ArithmeticComparison() | ExpressionComparison():
                 leaf = 'a where-comparison of expressions'
             case _:
                 assert_never(atom)

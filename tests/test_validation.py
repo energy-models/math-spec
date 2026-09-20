@@ -15,7 +15,7 @@ import pytest
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.lowering import to_program
-from math_spec.program import DimensionPositionNode
+from math_spec.program import DimensionPosition
 from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
@@ -525,7 +525,7 @@ class TestPositionResolves:
         resolved = where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         assert resolved is not None
         node = resolved.root
-        assert isinstance(node, DimensionPositionNode)
+        assert isinstance(node, DimensionPosition)
         assert node.name == 'snapshot'
         assert node.position == position
         assert (node.partition.name if node.partition is not None else None) == by
