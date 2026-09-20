@@ -122,6 +122,11 @@ sides are program expressions like a constraint's, and its `dims` are every
 dimension either side carries. Its `names_read` are every parameter and relation
 the sides read, the relation a grouping reads through included.
 
+A name compared against a literal does not arrive this way. `p_max > 5` is a
+`ParameterComparison` and `1 * p_max > 5` is an `ExpressionComparison`, though
+both mask the same coordinates. Match both where you read a comparison over
+parameters.
+
 A predicate you build yourself answers the same four questions: wrap it in
 `Mask`, or build it there with `~`, `&` and `|`. A mask folds as it is built,
 so a boolean literal stands at a mask's root or nowhere. A `Region`'s `when`
