@@ -140,13 +140,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             _Lowering(expanded, 'the objective').expr(resolved.objective),
         )
 
-    dimensions = {
-        dname: program.DimensionDeclaration(
-            tuple(lk for lk in resolved.relations.values() if dname in lk.dims),
-            ddef.dtype,
-        )
-        for dname, ddef in expanded.dimensions.items()
-    }
+    dimensions = {dname: program.DimensionDeclaration(ddef.dtype) for dname, ddef in expanded.dimensions.items()}
     sos = {
         sname: program.SosDeclaration(
             sdef.variable,
@@ -167,9 +161,10 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         constraints=constraints,
         objective=objective,
         dimensions=dimensions,
+        relations=resolved.relations,
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
-        named_expressions=expressions,
+        expressions=expressions,
     )
 
 
@@ -185,7 +180,7 @@ class _Lowering:
     schema: _ExpandedSpec
     context: str
 
-    def expr(self, node: ArithmeticNode) -> program.ExpressionNode:
+    def expr(self, node: ArithmeticNode) -> program.Expression:
         """Rewrite one resolved core-AST expression as a program expression."""
         if isinstance(node, NumberNode):
             return program.Constant(node.value)
@@ -254,7 +249,7 @@ class _Lowering:
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
 
-    def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def sum(self, node: FunctionCallNode) -> program.Expression:
         """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
 
         Two program nodes under one surface verb: reducing a dim away and reducing it
@@ -272,13 +267,13 @@ class _Lowering:
         assert isinstance(by_node, DirectionNode), 'resolution reads sum(by=) in a direction'
         return program.GroupSum(operand, direction=by_node.direction)
 
-    def at(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def at(self, node: FunctionCallNode) -> program.Expression:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
-        return program.At(self.expr(node.args[0]), direction=by_node.direction)
+        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction)
 
-    def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def sum_back(self, node: FunctionCallNode) -> program.Expression:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
 
         *window* is an integer literal of at least one, or a parameter naming a
@@ -300,9 +295,9 @@ class _Lowering:
         else:
             assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
             width = int(window_node.value)
-        return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
+        return program.WindowSum(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
-    def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def shift(self, node: FunctionCallNode) -> program.Expression:
         """``shift(x, along=d, offset=n)`` — the value at *t - offset* along one dim.
 
         What the vacated positions contribute is ``edge=``'s to say, and the
@@ -330,7 +325,7 @@ class _Lowering:
 
 
 #: One lowering per name in the language's ``BUILTIN_NAMES``.
-_CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode]] = {
+_CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.Expression]] = {
     'sum': _Lowering.sum,
     'at': _Lowering.at,
     'sum_back': _Lowering.sum_back,
@@ -352,7 +347,7 @@ def _partition_of(node: FunctionCallNode) -> program.Partition | None:
     return by_node.partition
 
 
-def _bound_expression(value: float | str) -> program.ExpressionNode:
+def _bound_expression(value: float | str) -> program.Expression:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)

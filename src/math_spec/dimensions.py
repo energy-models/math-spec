@@ -41,17 +41,17 @@ from math_spec._expression_parser import (
 from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
 from math_spec.program import (
-    DimensionComparisonNode,
-    DimensionPositionNode,
+    DimensionComparison,
+    DimensionPosition,
     Direction,
     Mask,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    ParameterComparison,
+    ParameterDefined,
     Partition,
-    RelationComparisonNode,
-    RelationDefinedNode,
-    RelationPairComparisonNode,
-    VariableDefinedNode,
+    RelationComparison,
+    RelationDefined,
+    RelationPairComparison,
+    VariableDefined,
 )
 
 if TYPE_CHECKING:
@@ -539,13 +539,13 @@ def _check_where_dims(
         if not (outside := sorted(Mask(atom).dims - frame)):
             continue
         match atom:
-            case ParameterDefinedNode() | ParameterComparisonNode():
+            case ParameterDefined() | ParameterComparison():
                 noun = 'parameter'
-            case VariableDefinedNode():
+            case VariableDefined():
                 noun = 'variable'
-            case DimensionComparisonNode() | DimensionPositionNode():
+            case DimensionComparison() | DimensionPosition():
                 noun = 'dimension'
-            case RelationComparisonNode() | RelationPairComparisonNode() | RelationDefinedNode():
+            case RelationComparison() | RelationPairComparison() | RelationDefined():
                 noun = 'relation'
             case _:
                 assert_never(atom)
