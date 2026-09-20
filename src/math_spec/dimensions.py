@@ -159,13 +159,13 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
         raise DimensionError(
             _not_carried(
                 context,
-                f'sum(by={by.shown}) consumes {missing}, the dims it reads from,',
+                f'sum(by={by}) consumes {missing}, the dims it reads from,',
                 inner,
                 'drop the sum, or fix the dim',
             )
         )
-    _check_lands_clear(f'sum(by={by.shown})', set(by.into), set(by.dimensions), inner, context)
-    _check_joined(f'sum(by={by.shown})', by, inner, context)
+    _check_lands_clear(f'sum(by={by})', set(by.into), set(by.dimensions), inner, context)
+    _check_joined(f'sum(by={by})', by, inner, context)
     return (inner - set(by.dimensions)) | set(by.into)
 
 
@@ -176,13 +176,13 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
     absent = sorted(set(by.into) - inner)
     if absent:
         raise DimensionError(
-            f'{context}: at(by={by.shown}) reads through '
+            f'{context}: at(by={by}) reads through '
             f'{absent}, which the expression does not carry (dims '
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
-    _check_lands_clear(f'at(by={by.shown})', set(by.dimensions), set(by.into), inner, context)
-    _check_joined(f'at(by={by.shown})', by, inner, context)
+    _check_lands_clear(f'at(by={by})', set(by.dimensions), set(by.into), inner, context)
+    _check_joined(f'at(by={by})', by, inner, context)
     return (inner - set(by.into)) | set(by.dimensions)
 
 
@@ -205,7 +205,7 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     partition = node.kwargs.get('by')
     if partition is not None:
         assert isinstance(partition, RelationNode)
-        _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition, inner, context)
+        _check_joined(f'{node.name}(along={over.name}, by={partition})', partition, inner, context)
     return inner
 
 

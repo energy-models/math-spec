@@ -413,7 +413,7 @@ class _Resolver:
             return node
         if isinstance(node, NameListNode):
             self.errors.append(
-                f'{self.context}: {node.shown} is a list of names, which is only legal as an operator '
+                f'{self.context}: {node} is a list of names, which is only legal as an operator '
                 f'kwarg value such as sum(x, by=[gen_bus, gen_tech]). In an expression, write the '
                 f'terms out and add them.'
             )
