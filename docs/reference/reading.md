@@ -87,7 +87,9 @@ node's operands, and `where_children()` walks a predicate's. `walk()` yields
 every node under an expression, parents first. `walk_regions()` yields each node
 with the `cases:` regions it stands inside, outermost first.
 
-Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate. The
+Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate. One
+member of the `Predicate` union never reaches you. Lowering rewrites every
+`ArithmeticComparison` into an `ExpressionComparison`. The
 mask also answers four questions:
 
 - `.conjuncts` flattens the `AND` spine, and stops at an `OR` or a `NOT`.
@@ -95,7 +97,7 @@ mask also answers four questions:
 - `.atoms` gives its leaves, with the connectives removed.
 - `.dims` gives the dimensions the mask is read at.
 
-A comparison of expressions arrives as an `ExpressionComparisonNode`. Its two
+A comparison of expressions arrives as an `ExpressionComparison`. Its two
 sides are program expressions like a constraint's, and its `dims` are every
 dimension either side carries. Its `names_read` are every parameter and relation
 the sides read, the relation a grouping reads through included.
