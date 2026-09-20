@@ -64,25 +64,25 @@ from math_spec.operators import (
     unknown_operator_message,
 )
 from math_spec.program import (
-    AndNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
+    And,
+    BooleanLiteral,
+    DimensionComparison,
+    DimensionPosition,
     Direction,
     Mask,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    Not,
+    Or,
+    ParameterComparison,
+    ParameterDefined,
     Partition,
+    Predicate,
     PredicateOperator,
-    RelationComparisonNode,
+    RelationComparison,
     RelationDeclaration,
-    RelationDefinedNode,
-    RelationPairComparisonNode,
-    TypedPredicateNode,
-    VariableDefinedNode,
-    WhereNode,
+    RelationDefined,
+    RelationPairComparison,
+    TypedPredicate,
+    VariableDefined,
 )
 
 if TYPE_CHECKING:
@@ -139,7 +139,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: RelationDeclaration(n, lk.pairs, lk.key_roles) for n, lk in schema.relations.items()},
+            {n: RelationDeclaration(lk.pairs, lk.key_roles) for n, lk in schema.relations.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -276,7 +276,7 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
 
     ``None`` for no mask, however the file spelled it: a mask that admits every
     row is dropped, and one that admits none arrives as a mask over
-    ``BooleanLiteralNode(False)``.
+    ``BooleanLiteral(False)``.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
@@ -295,9 +295,9 @@ def names_in(value: ArithmeticNode) -> tuple[str, ...]:
     return value.names if isinstance(value, NameListNode) else ()
 
 
-def mask_of(node: WhereNode | None) -> Mask | None:
+def mask_of(node: Predicate | None) -> Mask | None:
     """The mask a declaration carries for a resolved where: ``None`` where there is none, or where every row passes."""
-    if node is None or (isinstance(node, BooleanLiteralNode) and node.value):
+    if node is None or (isinstance(node, BooleanLiteral) and node.value):
         return None
     return Mask(node)
 
@@ -326,22 +326,22 @@ def resolve_expression(
 
 
 def resolve_where(
-    node: WhereNode | UnresolvedWhereNode,
+    node: Predicate | UnresolvedWhereNode,
     ns: Namespace,
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> WhereNode | None:
+) -> Predicate | None:
     """Rewrite a parsed where AST into typed predicates, folded as :class:`~math_spec.program.Mask` folds.
 
     Returns:
         The typed tree — a mask admitting every row or none comes back as the
-        one ``BooleanLiteralNode`` — or ``None`` once anything failed, with the
+        one ``BooleanLiteral`` — or ``None`` once anything failed, with the
         problems appended to *errors*.
     """
     before = len(errors)
     resolved = _Resolver(ns, context, errors, self_variable).where(node)
-    return None if len(errors) > before else Mask(cast('WhereNode', resolved)).root
+    return None if len(errors) > before else Mask(cast('Predicate', resolved)).root
 
 
 def resolve_where_text(
@@ -350,7 +350,7 @@ def resolve_where_text(
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> WhereNode | None:
+) -> Predicate | None:
     """Parse and resolve one where string as :func:`resolve_where` does, a parse failure appended to *errors*.
 
     Returns:
@@ -670,15 +670,16 @@ class _Resolver:
                 )
                 return None
         joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
-        direction = Direction(shape, from_roles, into_roles, joined)
-        if not forward and not direction.is_function_read:
+        single_valued = set(shape.key) <= {*into_roles, *joined}
+        direction = Direction(name, shape, from_roles, into_roles, joined)
+        if not forward and not single_valued:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
                 f'{list(from_roles)} at the columns the call lands on ({[*into_roles, *joined]}) — its key is '
                 f'{list(shape.key)}. Key the table by the columns the call lands on, or read the other way.'
             )
             return None
-        if forward and direction.is_function_read:
+        if forward and single_valued:
             self.errors.append(
                 f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
@@ -741,7 +742,7 @@ class _Resolver:
             return None
         (along,) = over_keys
         joined = tuple(r for r in shape.key if r != along)
-        return Partition(shape, along, within_roles, joined)
+        return Partition(name, shape, along, within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -768,27 +769,27 @@ class _Resolver:
 
     # -- where strings -----------------------------------------------------
 
-    def where(self, node: WhereNode | UnresolvedWhereNode) -> WhereNode | UnresolvedWhereNode:
+    def where(self, node: Predicate | UnresolvedWhereNode) -> Predicate | UnresolvedWhereNode:
         """One predicate node typed, or returned unresolved with its refusal appended."""
-        if isinstance(node, BooleanLiteralNode | TypedPredicateNode):
+        if isinstance(node, BooleanLiteral | TypedPredicate):
             return node
         if isinstance(node, UnresolvedNameNode):
             return self._where_name(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
-        if isinstance(node, NotNode):
-            return NotNode(self._child(node.operand))
-        if isinstance(node, AndNode):
-            return AndNode(self._child(node.left), self._child(node.right))
-        if isinstance(node, OrNode):
-            return OrNode(self._child(node.left), self._child(node.right))
+        if isinstance(node, Not):
+            return Not(self._child(node.operand))
+        if isinstance(node, And):
+            return And(self._child(node.left), self._child(node.right))
+        if isinstance(node, Or):
+            return Or(self._child(node.left), self._child(node.right))
         assert_never(node)
 
-    def _child(self, node: WhereNode | UnresolvedWhereNode) -> WhereNode:
+    def _child(self, node: Predicate | UnresolvedWhereNode) -> Predicate:
         """A connective's child, typed as resolved: an unresolved one survives only with its refusal appended."""
-        return cast('WhereNode', self.where(node))
+        return cast('Predicate', self.where(node))
 
-    def _where_name(self, node: UnresolvedNameNode) -> WhereNode | UnresolvedWhereNode:
+    def _where_name(self, node: UnresolvedNameNode) -> Predicate | UnresolvedWhereNode:
         """A bare name: a parameter's or relation's definedness, or a variable's existence."""
         ns, context = self.ns, self.context
         kind = ns.kind(node.name)
@@ -797,7 +798,7 @@ class _Resolver:
             return node
         match kind:
             case 'parameter':
-                return ParameterDefinedNode(node.name, ns.leaf_dims[node.name])
+                return ParameterDefined(node.name, ns.leaf_dims[node.name])
             case 'dimension':
                 self.errors.append(
                     f"{context}: '{node.name}' is a dimension, and a bare dimension "
@@ -814,7 +815,7 @@ class _Resolver:
                         f'{node.name}.{shape.values[0] if shape.values else shape.roles[-1]} == ....'
                     )
                     return node
-                return RelationDefinedNode(node.name, dims)
+                return RelationDefined(node.name, dims)
             case 'variable':
                 if node.name == self.self_variable:
                     self.errors.append(
@@ -823,10 +824,10 @@ class _Resolver:
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
                 else:
-                    return VariableDefinedNode(node.name, ns.leaf_dims[node.name])
+                    return VariableDefined(node.name, ns.leaf_dims[node.name])
         return node
 
-    def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
+    def _comparison(self, node: UnresolvedComparisonNode) -> Predicate | UnresolvedWhereNode:
         """``side <op> side``, read for what each side is: a ``position()`` call, or a name against a literal or a column.
 
         The grammar admits any arithmetic on a side, and this is where the
@@ -861,7 +862,7 @@ class _Resolver:
 
     def _position(
         self, call: FunctionCallNode, node: UnresolvedComparisonNode
-    ) -> DimensionPositionNode | UnresolvedComparisonNode:
+    ) -> DimensionPosition | UnresolvedComparisonNode:
         """``position(dim[, by=relation, within=columns]) <op> i``: the name a dimension, ``by=`` a relation keyed over it."""
         ns, context = self.ns, self.context
         shape = _position_shape(call)
@@ -888,7 +889,7 @@ class _Resolver:
             )
             return node
         if by is None:
-            return DimensionPositionNode(dimension, node.op, position)
+            return DimensionPosition(dimension, node.op, position)
         if (problem := self._not_a_relation(by, 'position', 'by')) is not None:
             self.errors.append(problem)
             return node
@@ -903,9 +904,9 @@ class _Resolver:
         partition = self._partition(by, 'position', dimension, into)
         if partition is None:
             return node
-        return DimensionPositionNode(dimension, node.op, position, partition)
+        return DimensionPosition(dimension, node.op, position, partition)
 
-    def _plain_comparison(self, node: UnresolvedComparisonNode, plain: _Plain) -> WhereNode | UnresolvedWhereNode:
+    def _plain_comparison(self, node: UnresolvedComparisonNode, plain: _Plain) -> Predicate | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``relation <op> relation``."""
         ns, context = self.ns, self.context
         value = plain.value
@@ -922,7 +923,7 @@ class _Resolver:
                         self.errors.append(refusal)
                         return node
                     dims = tuple(ns.relations[left_name].dim(k) for k in ns.relations[left_name].key)
-                    return RelationPairComparisonNode(left_name, left, right_name, right, plain.op, dims)
+                    return RelationPairComparison(left_name, left, right_name, right, plain.op, dims)
                 self.errors.append(_declared_rhs_error(context, plain, value, rhs_kind))
                 return node
 
@@ -954,15 +955,13 @@ class _Resolver:
         match kind:
             case 'parameter':
                 assert not isinstance(value, datetime.date)
-                return ParameterComparisonNode(left_name, plain.op, value, ns.leaf_dims[left_name])
+                return ParameterComparison(left_name, plain.op, value, ns.leaf_dims[left_name])
             case 'dimension':
-                return DimensionComparisonNode(left_name, plain.op, value)
+                return DimensionComparison(left_name, plain.op, value)
             case 'relation':
                 assert column is not None
                 shape = ns.relations[left_name]
-                return RelationComparisonNode(
-                    left_name, column, plain.op, value, tuple(shape.dim(k) for k in shape.key)
-                )
+                return RelationComparison(left_name, column, plain.op, value, tuple(shape.dim(k) for k in shape.key))
             case 'variable':
                 self.errors.append(
                     f"{context}: where references variable '{left_name}'. A where "

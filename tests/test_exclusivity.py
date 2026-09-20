@@ -19,13 +19,13 @@ import pytest
 
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Grid, overlapping
-from math_spec.program import AndNode, Mask, NotNode, OrNode
+from math_spec.program import And, Mask, Not, Or
 from math_spec.resolution import Namespace, resolve_where
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
-    from math_spec.program import WhereNode
+    from math_spec.program import Predicate
 
 #: A storage model carrying one atom of every kind a `when` can be built from.
 #: Every axis takes its coordinates from data, so nothing here sizes one.
@@ -60,7 +60,7 @@ def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
     return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, namespace.dtypes))
 
 
-def _mask(text: str, namespace: Namespace, name: str) -> WhereNode:
+def _mask(text: str, namespace: Namespace, name: str) -> Predicate:
     """Resolved but not folded, which is the shape a case's `when` reaches the prover in."""
     errors: list[str] = []
     mask = resolve_where(parse_where(text), namespace, f"case '{name}'", errors)
@@ -252,11 +252,11 @@ class TestSoundness:
     def _random_mask(self, rng: random.Random, atoms: list[Any], depth: int = 0) -> Any:
         if depth >= 2 or rng.random() < 0.45:
             atom = rng.choice(atoms)
-            return NotNode(atom) if rng.random() < 0.25 else atom
+            return Not(atom) if rng.random() < 0.25 else atom
         left = self._random_mask(rng, atoms, depth + 1)
         right = self._random_mask(rng, atoms, depth + 1)
-        node = AndNode(left, right) if rng.random() < 0.5 else OrNode(left, right)
-        return NotNode(node) if rng.random() < 0.15 else node
+        node = And(left, right) if rng.random() < 0.5 else Or(left, right)
+        return Not(node) if rng.random() < 0.15 else node
 
     @pytest.mark.parametrize('seed', [1, 7])
     def test_a_pair_proved_apart_stays_apart_on_a_finer_grid(self, schema: Spec, seed: int):
