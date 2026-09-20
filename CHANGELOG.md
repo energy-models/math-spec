@@ -19,6 +19,19 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.107](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.106...v0.0.0-alpha.107) (2026-09-20)
+
+
+### Bug Fixes
+
+* **language:** at refuses a read that consumes a column over the dimension it joins on, as sum does ([#562](https://github.com/energy-models/math-spec/issues/562)) ([c10c181](https://github.com/energy-models/math-spec/commit/c10c18164526efb774a881a5411a4df24f83ae7e))
+
+
+### Refactoring
+
+* **language:** a partition is its own class rather than a direction with nothing consumed or produced ([#559](https://github.com/energy-models/math-spec/issues/559)) ([6af0075](https://github.com/energy-models/math-spec/commit/6af0075729eb5132eb54234444572bb9df89c2c5))
+* **language:** a relation is read in a direction rather than walked ([#494](https://github.com/energy-models/math-spec/issues/494)) ([bbc4344](https://github.com/energy-models/math-spec/commit/bbc43447bd4bf0f20978dbdd9fd212f26d5e866a))
+
 ## [0.0.0-alpha.106](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.105...v0.0.0-alpha.106) (2026-09-19)
 
 
