@@ -974,7 +974,7 @@ warm:
 
 ### Curves
 
-A curve prints as the curve it states, over the frame the block builds one per coordinate of. What it expands to is the math the solver receives, and `typeset(spec.expand())` prints that instead. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
+A curve prints as the curve it states, over the frame the block builds one per coordinate of, and its expansion prints the rows that curve stands for. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
 
 #### `economies_of_scale`
 
@@ -986,6 +986,8 @@ Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, wh
 notation: latex
 
 names:
+  economies_of_scale_lam: "\\lambda"
+  economies_of_scale_seg: "\\delta"
   bp_x: "\\mathrm{x}"
   bp_y: "\\mathrm{y}"
 ```
@@ -1002,6 +1004,36 @@ economies_of_scale:
 \left( \mathit{shipment}_{p,m},\ \mathit{scaled}_{p,m} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{b},\ \mathrm{y}_{b}) \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
 ```
 
+Written out by `spec.expand()`:
+
+```math
+\sum_{b \in \mathcal{B}} \lambda_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+```
+
+```math
+\mathit{shipment}_{p,m} = \sum_{b \in \mathcal{B}} \lambda_{p,m,b} \cdot \mathrm{x}_{b} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+```
+
+```math
+\mathit{scaled}_{p,m} = \sum_{b \in \mathcal{B}} \lambda_{p,m,b} \cdot \mathrm{y}_{b} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+```
+
+```math
+\sum_{b \in \mathcal{B}} \delta_{p,m,b} \le 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+```
+
+```math
+\lambda_{p,m,b} \le \delta_{p,m,b} + \delta_{p,m,b \boxminus_{0} 1} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
+```
+
+```math
+0 \le \lambda_{p,m,b} \le 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
+```
+
+```math
+\delta_{p,m,b} \in \{0, 1\} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
+```
+
 #### `cost_curve`
 
 **`method: sos2`** — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
@@ -1012,6 +1044,7 @@ Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is wha
 notation: latex
 
 names:
+  cost_curve_lam: "\\lambda"
   bp_x: "\\mathrm{x}"
   bp_y: "\\mathrm{y}"
 ```
@@ -1029,6 +1062,28 @@ cost_curve:
 \left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+Written out by `spec.expand()`:
+
+```math
+\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\left( \lambda_{t,g,b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
 #### `cost_curve`
 
 **`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
@@ -1039,6 +1094,7 @@ Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which 
 notation: latex
 
 names:
+  cost_curve_lam: "\\lambda"
   bp_x: "\\mathrm{x}"
   bp_y: "\\mathrm{y}"
 ```
@@ -1054,6 +1110,24 @@ cost_curve:
 
 ```math
 \left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{conv}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
+
+```math
+\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 
 #### `cost_curve`
@@ -1083,7 +1157,23 @@ cost_curve:
 \mathit{op\_cost}_{t,g} \ge \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b})(\mathit{dispatch}_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+Written out by `spec.expand()`:
+
+```math
+\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathit{dispatch}_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) \neq 0
+```
+
+```math
+\mathit{dispatch}_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = 0
+```
+
+```math
+\mathit{dispatch}_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
+```
+
 ### Sets carried to the solver
+
+A set prints beside the variable it restricts, because it restricts that variable rather than adding a row of its own. Under it are the rows it is written out as.
 
 #### `adjacent`
 
@@ -1098,5 +1188,19 @@ adjacent:
 
 ```math
 \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T}
+```
+
+Written out by `spec.expand()`:
+
+```math
+\sum_{g \in \mathcal{G}} \mathit{adjacent\_seg}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T}
+```
+
+```math
+\mathit{weight}_{t,g} \le \mathit{adjacent\_seg}_{t,g} + \mathit{adjacent\_seg}_{t,g \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{adjacent\_seg}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 <!-- notation:end -->

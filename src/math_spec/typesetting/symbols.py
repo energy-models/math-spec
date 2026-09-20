@@ -237,11 +237,17 @@ class SymbolTable:
         )
 
     def checked_against(self, schema: Spec) -> SymbolTable:
-        """Reject entries naming nothing in *schema*, with the near miss."""
+        """Reject entries naming nothing in *schema* or in what its formulations state, with the near miss.
+
+        A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
+        one table spells both readings of a model: the blocks as the file states
+        them, and the rows :meth:`~math_spec.model.Spec.expand` writes out. The
+        expansion is built only where an entry needs it.
+        """
         dims = set(schema.dimensions)
-        everything = (
-            dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
-        )
+        everything = dims | _declared(schema)
+        if set(self.names) - everything:
+            everything |= _declared(schema.expand())
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),
@@ -249,6 +255,11 @@ class SymbolTable:
         if errors:
             raise SchemaError('\n'.join(sorted(errors)))
         return self
+
+
+def _declared(schema: Spec) -> set[str]:
+    """Every name *schema* declares that a table entry may spell."""
+    return set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
 
 
 def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:

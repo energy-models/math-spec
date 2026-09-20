@@ -67,11 +67,11 @@ def test_the_declared_bound_is_the_coefficient_rather_than_the_tighter_of_it_and
     assert schema.expand('sos').constraints['pick_nonzero'].expression == 'p <= 500.0 * (pick_seg)'
 
 
-def test_a_binary_member_links_by_the_one_its_domain_fixes():
-    """A binary carries no bounds block, and its upper bound is 1 all the same."""
+def test_a_coefficient_of_one_is_left_out_of_the_row_rather_than_printed():
+    """A binary carries no bounds block, and its upper bound is 1 all the same — which multiplies nothing."""
     schema = schema_of(override(PICKED, **{'variables.p': {'dims': ['g'], 'domain': 'binary'}}))
 
-    assert schema.expand('sos').constraints['pick_nonzero'].expression == 'p <= 1.0 * (pick_seg)'
+    assert schema.expand('sos').constraints['pick_nonzero'].expression == 'p <= (pick_seg)'
 
 
 def test_the_emitted_binary_carries_the_members_own_mask():

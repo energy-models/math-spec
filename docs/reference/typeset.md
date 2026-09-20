@@ -42,6 +42,7 @@ a flag.
 | `legend`             | `--no-legend`          | Print the table of sets, parameters, variables and definitions above the math. Default: on                                      |
 | `numbered`           | `--no-numbers`         | Number the equations. Default: on                                                                                               |
 | `inline_expressions` | `--inline-expressions` | Substitute each named expression that the math reads into the equations that read it, instead of defining it once. Default: off |
+| —                    | `--expand`             | Print the variables and constraints the `piecewise:` and `sos:` blocks state, rather than the blocks. Default: off              |
 
 `-o FILE` writes to a file instead of stdout.
 
@@ -104,6 +105,30 @@ A name that is none of the three kinds is refused with the near miss. A name tha
 is both a constraint and a variable is refused too, because one line can print
 only one of them.
 
+## Printing what a formulation states
+
+A `piecewise:` block and a `sos:` block each state variables and constraints
+([formulations](language/piecewise.md#writing-a-formulation-out)). Printing
+those rows is printing a different model, so it is
+[`expand()`](language/piecewise.md#writing-a-formulation-out) that produces it
+and not an option on the render:
+
+```python
+ms.to_latex(spec)  # the curve, and the set beside its variable
+ms.to_latex(spec.expand())  # the weights, the convexity row, the binaries
+ms.to_latex(spec.expand('sos'))  # the curves as curves, the sets as binaries
+```
+
+A shell cannot compose that, so the command line spells it as a flag:
+
+```bash
+python -m math_spec latex model.yaml --expand --symbols model.symbols.yaml
+```
+
+One symbol table serves both, because a name a formulation emits counts as
+declared — which is what lets `<block>_lam` print as $\lambda$ in the expansion
+and the same table render the file it came from.
+
 ## Symbol tables
 
 With no table, the symbols are **derived** from the names in the file, such as
@@ -149,7 +174,7 @@ names:
 
 Every spelling is printed as you wrote it, and nothing translates notation, so
 rendering a LaTeX table as Typst is refused. A key that names nothing in the
-model is an error with the near miss.
+model, and nothing a formulation of it emits, is an error with the near miss.
 
 Nothing in a symbol table changes what the file means. What a declaration _is_
 stays in its own `description:`.

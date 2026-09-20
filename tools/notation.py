@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from math_spec.model import PIECEWISE_METHODS
 from math_spec.typesetting import to_markdown
+from math_spec.validation import to_spec
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
 
@@ -195,27 +196,42 @@ def block() -> str:
         legend(rendered),
     ]
     printed = equations(rendered)
+    written = equations(to_markdown(to_spec(MODEL).expand('sos'), numbered=False))
     for section, title in SECTIONS.items():
         parts.append(f'### {title}')
+        found = declarations(MODEL.read_text())[section]
         if section == 'piecewise':
             parts.append(
-                'A curve prints as the curve it states, over the frame the block builds one per coordinate of. '
-                'What it expands to is the math the solver receives, and `typeset(spec.expand())` prints that '
-                'instead. One row per `method:`, each from the model named under it, so the symbols in this '
-                "section are that model's."
+                'A curve prints as the curve it states, over the frame the block builds one per coordinate of, '
+                'and its expansion prints the rows that curve stands for. One row per `method:`, each from the '
+                "model named under it, so the symbols in this section are that model's."
             )
             parts += _curves()
             continue
-        parts += [_row(found, printed) for found in declarations(MODEL.read_text())[section]]
+        if section == 'sos':
+            parts.append(
+                'A set prints beside the variable it restricts, because it restricts that variable rather than '
+                'adding a row of its own. Under it are the rows it is written out as.'
+            )
+            parts += [f'{_row(one, printed)}\n\n{_written_out(one.name, written)}' for one in found]
+            continue
+        parts += [_row(one, printed) for one in found]
     return '\n\n'.join(parts)
 
 
 def _curves() -> list[str]:
-    """One row per ``method:``, each captioned with what that method restricts."""
+    """One row per ``method:``, each captioned with what that method restricts.
+
+    Both readings come from one model and one symbol table: the block as the
+    file states it, and the rows ``expand('piecewise')`` writes out — which for
+    ``sos2`` keeps the set and for ``adjacency`` is the binaries that set states.
+    """
     rows = []
     for method, source in PIECEWISE.items():
         table = sidecar_for(source)
-        printed = equations(to_markdown(source, symbols=table, numbered=False))
+        spec = to_spec(source)
+        stated = equations(to_markdown(spec, symbols=table, numbered=False))
+        written = equations(to_markdown(spec.expand('piecewise'), symbols=table, numbered=False))
         found = [
             block
             for block in declarations(source.read_text())['piecewise']
@@ -223,12 +239,27 @@ def _curves() -> list[str]:
         ]
         assert found, f'{source.name} declares no piecewise block with method: {method}'
         for block in found:
-            row = _row(block, printed)
+            row = _row(block, stated)
             caption = (
                 f'**`method: {method}`** \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
             )
-            rows.append(row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1))
+            rows.append(
+                row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1)
+                + f'\n\n{_written_out(block.name, written)}'
+            )
     return rows
+
+
+def _written_out(name: str, printed: dict[str, str]) -> str:
+    """The rows the formulation *name* states, as its expansion prints them.
+
+    Everything an expansion writes is named after the block that stated it, so
+    the block's own name is what collects the lines back together.
+    """
+    rows = [math for label, math in printed.items() if label.startswith(f'{name}_')]
+    assert rows, f'{name} states rows and its expansion printed none of them'
+    body = '\n\n'.join(rows)
+    return f'Written out by `spec.expand()`:\n\n{body}'
 
 
 def _table_shown(table: Path | None) -> str:

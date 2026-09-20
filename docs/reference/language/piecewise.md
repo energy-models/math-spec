@@ -187,7 +187,8 @@ these, for a set `s` over variable `x` along `d`:
 | `2`    | `s_adjacency`: `x <= bound * (s_seg + shift(s_seg, along=d, offset=1, edge=0))` |
 
 The coefficient is the block's `bound:` where it declares one, and the member's
-own `bounds.upper` otherwise. A binary member's is 1, from its domain.
+own `bounds.upper` otherwise. A binary member's is 1, from its domain, and a
+coefficient of 1 is left out of the row rather than printed.
 
 The rewrite states the same feasible set as the set itself only for a member at
 or above zero linked by a finite coefficient, so a model is refused at load

@@ -112,10 +112,18 @@ def emit(raw: dict[str, object], name: str) -> None:
         'dims': [d for d in dims if d != over],
         'expression': f'sum({emitted.seg}, over={over}) <= 1',
     }
-    constraints[emitted.link] = {
-        'dims': dims,
-        'expression': f'{variable} <= {_multiplier(block, member)} * ({picked})',
-    }
+    constraints[emitted.link] = {'dims': dims, 'expression': f'{variable} <= {_linked(block, member, picked)}'}
+
+
+def _linked(block: dict[str, object], member: dict[str, object], picked: str) -> str:
+    """What a member is at most: the binaries it is admitted by, times the coefficient.
+
+    A coefficient of 1 is left out. It is the common one — a weight and a binary
+    are both bounded by 1 — and ``x <= 1 * (seg)`` is a factor every reader of
+    the row has to work out means nothing.
+    """
+    factor = _multiplier(block, member)
+    return f'({picked})' if factor == 1.0 else f'{factor} * ({picked})'
 
 
 def _multiplier(block: dict[str, object], member: dict[str, object]) -> float | str:
