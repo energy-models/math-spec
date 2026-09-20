@@ -251,15 +251,6 @@ def names_in(value: ArithmeticNode) -> tuple[str, ...]:
     return value.names if isinstance(value, NameListNode) else ()
 
 
-def _is_single_valued(direction: Direction) -> bool:
-    """Whether the read gives one value per coordinate: the relation's key lies inside what the call fixes.
-
-    The discriminator between ``at`` and ``sum(by=)``, and the only stage that
-    asks: a program's node type says which one a call became.
-    """
-    return set(direction.relation.key) <= {*direction.joined, *direction.produced}
-
-
 def mask_of(node: Predicate | None) -> Mask | None:
     """The mask a declaration carries for a resolved where: ``None`` where there is none, or where every row passes."""
     if node is None or (isinstance(node, BooleanLiteral) and node.value):
@@ -635,15 +626,16 @@ class _Resolver:
                 )
                 return None
         joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
+        single_valued = set(shape.key) <= {*into_roles, *joined}
         direction = Direction(name, shape, from_roles, into_roles, joined)
-        if not forward and not _is_single_valued(direction):
+        if not forward and not single_valued:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
                 f'{list(from_roles)} at the columns the call lands on ({[*into_roles, *joined]}) — its key is '
                 f'{list(shape.key)}. Key the table by the columns the call lands on, or read the other way.'
             )
             return None
-        if forward and _is_single_valued(direction):
+        if forward and single_valued:
             self.errors.append(
                 f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
