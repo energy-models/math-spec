@@ -9,11 +9,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from math_spec.program import (
-    Pullback,
     Cases,
     DimensionPosition,
     GroupSum,
     Mask,
+    Pullback,
     Reach,
     Separability,
     Sum,
@@ -118,7 +118,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                 for dimension in node.direction.consumed_dims:
                     waits_on(dimension, label, node.direction.name, 'coordinate')
             elif isinstance(node, (Translate, WindowSum)):
-                dimension = node.dimension
+                dimension = node.along
                 if node.wrap:
                     report(
                         'coupled',

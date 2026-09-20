@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from math_spec.errors import Advice
 from math_spec.program import (
     Add,
-    Pullback,
     Cases,
     Constant,
     Divide,
@@ -30,6 +29,7 @@ from math_spec.program import (
     Negate,
     Parameter,
     Power,
+    Pullback,
     Sum,
     Translate,
     Variable,
