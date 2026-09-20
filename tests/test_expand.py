@@ -17,7 +17,7 @@ import pytest
 
 from math_spec.errors import SchemaError
 from math_spec.lowering import to_program
-from tests.fixtures import DISPATCH_MODEL, override, schema_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
 from tests.test_sos import CURVE
 from tools.render_tex import models
 
@@ -84,6 +84,29 @@ def test_an_expansion_that_derived_nothing_is_still_a_file():
     expanded = schema_of(CURVE).expand()
 
     assert expanded.to_yaml(), 'a curve with no mask emits no parameter, so nothing is lost by writing it out'
+
+
+#: The two methods a curve is exact for only under a condition on its numbers,
+#: which is the contract an expansion must not drop.
+ASSUMED = [
+    pytest.param(EXAMPLES / 'piecewise_lp.yaml', id='lp'),
+    pytest.param(EXAMPLES / 'piecewise.yaml', id='convex'),
+]
+
+
+@pytest.mark.parametrize('model', ASSUMED)
+def test_what_a_curve_assumes_of_its_numbers_rides_on_the_expansion_too(model):
+    """`lp` and `convex` are exact only for a curve of the right shape, which no load
+    decides. The program carries the condition for the consumer that has the numbers,
+    and writing the curve out must not be the way a model loses it."""
+    spec = schema_of(model)
+    stated = to_program(spec).piecewise['cost_curve'].checks
+    written_out = to_program(spec.expand()).piecewise['cost_curve'].checks
+
+    assert {type(check).__name__ for check in stated} >= {'Increasing', 'Curved'}, (
+        'the breakpoints increase and the curve bends one way, both checked where the data is'
+    )
+    assert written_out == stated, 'and the expansion carries every condition the block came with'
 
 
 @pytest.mark.parametrize('model', MODELS, ids=[m.stem for m in MODELS])
