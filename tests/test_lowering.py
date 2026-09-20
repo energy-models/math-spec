@@ -630,7 +630,7 @@ def test_a_divisor_under_a_pullback_is_still_named():
     component_of = RelationDeclaration((('flow', 'flow'), ('component', 'component')), ('flow',))
     pulled = Pullback(quotient, direction=Direction('component_of', component_of, ('component',), ('flow',), ()))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
+    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
