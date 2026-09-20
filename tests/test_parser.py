@@ -543,7 +543,7 @@ def test_a_node_prints_as_the_file_writes_it(text, printed):
     assert str(parse_expression(text)) == printed, 'the spelling is the one a file could be written with'
 
 
-_ZONE_OF = RelationDeclaration('zone_of', (('u', 'unit'), ('zone', 'zone')), ('u',))
+_ZONE_OF = RelationDeclaration((('u', 'unit'), ('zone', 'zone')), ('u',))
 
 
 @pytest.mark.parametrize(
@@ -554,12 +554,12 @@ _ZONE_OF = RelationDeclaration('zone_of', (('u', 'unit'), ('zone', 'zone')), ('u
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
         pytest.param(
-            DirectionNode(Direction(_ZONE_OF, ('u',), ('zone',), ())),
+            DirectionNode(Direction('zone_of', _ZONE_OF, ('u',), ('zone',), ())),
             'zone_of',
             id='a-relation-read-in-a-direction',
         ),
         pytest.param(
-            PartitionNode(Partition(_ZONE_OF, 'u', ('zone',), ())),
+            PartitionNode(Partition('zone_of', _ZONE_OF, 'u', ('zone',), ())),
             'zone_of',
             id='a-relation-stepped-along-as-a-partition',
         ),

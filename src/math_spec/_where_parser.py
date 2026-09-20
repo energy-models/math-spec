@@ -27,8 +27,8 @@ from math_spec.program import (
     Connective,
     Not,
     Or,
-    PredicateOperator,
     Predicate,
+    PredicateOperator,
     where_children,
 )
 

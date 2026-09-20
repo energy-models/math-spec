@@ -78,6 +78,7 @@ from math_spec.program import (
     ParameterComparison,
     ParameterDefined,
     Partition,
+    Predicate,
     PredicateOperator,
     RelationComparison,
     RelationDeclaration,
@@ -85,7 +86,6 @@ from math_spec.program import (
     RelationPairComparison,
     TypedPredicate,
     VariableDefined,
-    Predicate,
 )
 
 if TYPE_CHECKING:
@@ -128,7 +128,7 @@ class Namespace:
         }
         #: relation name -> its columns and key, as declared.
         self.relations: dict[str, RelationDeclaration] = {
-            n: RelationDeclaration(n, lk.pairs, lk.key_roles) for n, lk in schema.relations.items()
+            n: RelationDeclaration(lk.pairs, lk.key_roles) for n, lk in schema.relations.items()
         }
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
@@ -626,15 +626,16 @@ class _Resolver:
                 )
                 return None
         joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
-        direction = Direction(shape, from_roles, into_roles, joined)
-        if not forward and not direction.is_function_read:
+        single_valued = set(shape.key) <= {*into_roles, *joined}
+        direction = Direction(name, shape, from_roles, into_roles, joined)
+        if not forward and not single_valued:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
                 f'{list(from_roles)} at the columns the call lands on ({[*into_roles, *joined]}) — its key is '
                 f'{list(shape.key)}. Key the table by the columns the call lands on, or read the other way.'
             )
             return None
-        if forward and direction.is_function_read:
+        if forward and single_valued:
             self.errors.append(
                 f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
@@ -697,7 +698,7 @@ class _Resolver:
             return None
         (along,) = over_keys
         joined = tuple(r for r in shape.key if r != along)
-        return Partition(shape, along, within_roles, joined)
+        return Partition(name, shape, along, within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -823,9 +824,7 @@ class _Resolver:
             return None
         return _Plain(name, node.op, value, quoted)
 
-    def _expression_comparison(
-        self, node: UnresolvedComparisonNode
-    ) -> ArithmeticComparison | UnresolvedComparisonNode:
+    def _expression_comparison(self, node: UnresolvedComparisonNode) -> ArithmeticComparison | UnresolvedComparisonNode:
         """``expression <op> expression``: each side expanded, typed and held to what a mask may read.
 
         A side is read as an expression is — macros and named expressions
@@ -971,9 +970,7 @@ class _Resolver:
             case 'relation':
                 assert column is not None
                 shape = ns.relations[left_name]
-                return RelationComparison(
-                    left_name, column, plain.op, value, tuple(shape.dim(k) for k in shape.key)
-                )
+                return RelationComparison(left_name, column, plain.op, value, tuple(shape.dim(k) for k in shape.key))
             case 'variable':
                 self.errors.append(
                     f"{context}: where references variable '{left_name}'. A where "

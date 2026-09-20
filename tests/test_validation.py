@@ -176,7 +176,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).named_expressions['lcoe'].in_math is False, (
+        assert to_program(model).expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'

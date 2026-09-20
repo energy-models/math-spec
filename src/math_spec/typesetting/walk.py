@@ -48,12 +48,12 @@ from math_spec.program import (
     Or,
     ParameterComparison,
     ParameterDefined,
+    Predicate,
     PredicateOperator,
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
     VariableDefined,
-    Predicate,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
 

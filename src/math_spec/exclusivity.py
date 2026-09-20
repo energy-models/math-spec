@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
     from math_spec.model import DeclaredDtype
-    from math_spec.program import PredicateOperator, Predicate
+    from math_spec.program import Predicate, PredicateOperator
 
 #: The most cells one pair may multiply out to; a pair past it is several expressions.
 CELL_BUDGET = 8192

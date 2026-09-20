@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
+from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec._expression_parser import ComparisonOperator
@@ -266,7 +266,7 @@ class Pullback:
 
     The dims ``direction`` consumes go and the dims it produces arrive, one
     value per coordinate because the read takes value columns at a key the
-    result fixes (``Direction.is_function_read``). The join fans out, many
+    result fixes, which the loader checks. The join fans out, many
     produced tuples sharing one consumed tuple — at each coordinate of the
     joined columns, which the operand carries and the result keeps.
     """
@@ -285,9 +285,9 @@ class Translate:
     and contribute it. Always ``None`` under ``wrap``.
 
     ``offset`` is an integer, or the name of an integer parameter that does
-    not depend on ``dimension`` and carries its sign in the values.
+    not depend on ``along`` and carries its sign in the values.
 
-    ``partition`` is a relation with a key column over ``dimension``
+    ``partition`` is a relation with a key column over ``along``
     (:class:`Partition`), and the translation then happens inside each group
     its ``within=`` columns make: the neighbour is the one before in the same
     group, the edge is the group's, and a wrap closes each group onto itself.
@@ -295,7 +295,7 @@ class Translate:
     """
 
     operand: Expression
-    dimension: str
+    along: str
     offset: int | str
     wrap: bool
     fill: float | None = None
@@ -324,7 +324,7 @@ class WindowSum:
     """
 
     operand: Expression
-    dimension: str
+    along: str
     width: int | str
     wrap: bool
     partition: Partition | None = None
@@ -354,12 +354,16 @@ class Cases:
     regions: tuple[Region, ...]
 
 
-#: Every expression node, as one type. The set is *closed* — nothing registers
-#: into it — so a consumer that walks it ends in ``assert_never`` and a node
-#: added without a branch is a type error at the site that must grow one,
-#: rather than a ``LanguageError`` raised at the first model that uses it.
-#: ``Expression`` stays the base class the nodes inherit and the operators are
-#: declared on; this is what a walk *takes*.
+#: Every expression node, as one type — what a walk takes. The set is
+#: *closed*: nothing registers into it, so a consumer that walks it ends in
+#: ``assert_never`` and a node added without a branch is a type error at the
+#: site that must grow one, rather than a ``LanguageError`` raised at the first
+#: model that uses it. The degree rules (``math_spec.degree``) hold on every
+#: tree the math reads — :attr:`Program.roots`, a bound, and a named expression
+#: that is ``in_math`` — affine but where a :class:`QuadraticPosition` admits a
+#: :class:`Multiply` of two variable-carrying operands. A
+#: :class:`ExpressionDeclaration` the math never reads is held to none of them.
+#: No node records which tree it stands in.
 Expression = (
     Constant
     | Parameter
@@ -421,8 +425,9 @@ def children(expression: Expression) -> tuple[Expression, ...]:
 # --------------------------------------------------------------------------
 
 
-class RelationDeclaration(NamedTuple):
-    """One declared relation: a relation over its ``columns``, single-valued per ``key``.
+@dataclass(frozen=True)
+class RelationDeclaration:
+    """One declared relation: a table over its ``columns``, single-valued per ``key``.
 
     ``columns`` binds each role to its dimension in the order the table
     carries them, the key's roles first; ``key`` is the roles a row is
@@ -434,7 +439,6 @@ class RelationDeclaration(NamedTuple):
     read one value.
     """
 
-    name: str
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...]
 
@@ -451,29 +455,33 @@ class RelationDeclaration(NamedTuple):
         """The roles the key determines."""
         return tuple(role for role in self.roles if role not in self.key)
 
+    @cached_property
+    def _dim_of(self) -> Mapping[str, str]:
+        """Each role's dimension, built once: :meth:`dim` is called per role inside loops over roles."""
+        return dict(self.columns)
+
     def dim(self, role: str) -> str:
-        return dict(self.columns)[role]
+        return self._dim_of[role]
 
 
-class Direction(NamedTuple):
+@dataclass(frozen=True)
+class Direction:
     """One relation as one call reads it — which columns are consumed, which produced, which joined on.
 
     The declaration fixes no direction; the call does, and this is the one it
-    named. ``consumed``, ``produced`` and ``joined`` are *roles* — column names
-    of ``relation``, which binds every role to its dimension and names the key.
+    named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
+    ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
+    ``relation``, which binds every role to its dimension and names the key.
     ``joined`` is the key roles the call did not name (every role, for a bare
     relation): the join keys on them, and a value role left unnamed is not
     read.
     """
 
+    name: str
     relation: RelationDeclaration
     consumed: tuple[str, ...]
     produced: tuple[str, ...]
     joined: tuple[str, ...]
-
-    @property
-    def name(self) -> str:
-        return self.relation.name
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
@@ -491,15 +499,12 @@ class Direction(NamedTuple):
     def joined_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.joined)
 
-    @property
-    def is_function_read(self) -> bool:
-        """Whether the read is one value per coordinate: the key lies inside what is fixed."""
-        return set(self.relation.key) <= {*self.joined, *self.produced}
 
-
-class Partition(NamedTuple):
+@dataclass(frozen=True)
+class Partition:
     """One relation as a partition steps along it — the key column stepped along, the group columns, and the key columns joined on.
 
+    ``name`` is the relation's, as :attr:`Program.relations` keys it.
     ``along``, ``group`` and ``joined`` are *roles* — column names of
     ``relation``, which binds every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
@@ -509,14 +514,11 @@ class Partition(NamedTuple):
     produced: the frame does not change.
     """
 
+    name: str
     relation: RelationDeclaration
     along: str
     group: tuple[str, ...]
     joined: tuple[str, ...]
-
-    @property
-    def name(self) -> str:
-        return self.relation.name
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
@@ -533,9 +535,8 @@ class Partition(NamedTuple):
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the relations with a column over it."""
+    """A dimension, as the file declares it."""
 
-    relations: tuple[RelationDeclaration, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
     #: whatever table carries it, so the declared type is what that column is
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
@@ -739,7 +740,7 @@ class SosDeclaration:
     columns a consumer already has and says what may be nonzero among them. Which
     dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
-    (:meth:`Program.variable`).
+    (:attr:`Program.variables`).
 
     ``big_m`` caps the linking coefficient a consumer without the concept
     reformulates with, and is ``None`` where the variable's own upper bound is
@@ -766,7 +767,7 @@ class ExpressionDeclaration:
 
     ``in_math`` where the objective or a constraint inlines it, directly or
     through another entry or a macro; its body then stands inside
-    :attr:`Program.expressions` and is held to the degree rules where it is
+    :attr:`Program.roots` and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
     quantity, its body held to no degree, the one place a :class:`Dual` may
     stand. A bound and a ``where`` name no entry, so neither decides this.
@@ -788,21 +789,13 @@ class Footprint:
             stands in; empty is affine throughout.
         domains: Every domain declared.
         sos_types: The order of each special-ordered set declared.
-        shapes: Every expression node kind that appears.
+        kinds: Every expression node kind that appears.
     """
 
     quadratic: frozenset[QuadraticPosition]
     domains: frozenset[VariableDomain]
     sos_types: frozenset[Literal[1, 2]]
-    shapes: frozenset[type[Expression]]
-
-
-def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: str) -> Declaration:
-    """The declaration called *name*, or a ``KeyError`` naming the near miss."""
-    try:
-        return items[name]
-    except KeyError:
-        raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, list(items))) from None
+    kinds: frozenset[type[Expression]]
 
 
 @dataclass(frozen=True)
@@ -937,6 +930,7 @@ class Program:
     #: whose answer is whether the constraints can be met at all.
     objective: ObjectiveDeclaration | None
     dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
+    relations: Mapping[str, RelationDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
@@ -946,7 +940,7 @@ class Program:
     #: it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
-    named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""
@@ -961,10 +955,10 @@ class Program:
         yield 'constraint', tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
 
     @property
-    def expressions(self) -> tuple[Expression, ...]:
-        """Every expression a row is built from — the objective and both sides of each constraint.
+    def roots(self) -> tuple[Expression, ...]:
+        """Every tree a row is built from — the objective and both sides of each constraint.
 
-        A :attr:`named_expressions` entry builds no row and is not among them.
+        An :attr:`expressions` entry builds no row and is not among them.
         """
         return tuple(e for _, group in self._by_position() for e in group)
 
@@ -977,22 +971,8 @@ class Program:
             ),
             domains=frozenset(v.domain for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
-            shapes=frozenset(type(node) for node in walk(*self.expressions)),
+            kinds=frozenset(type(node) for node in walk(*self.roots)),
         )
-
-    def dimension(self, name: str) -> DimensionDeclaration:
-        return _declared(self.dimensions, name, 'dimension')
-
-    @property
-    def relations(self) -> dict[str, RelationDeclaration]:
-        """Every relation in the program by name, each once — a relation keyed by two dimensions sits under both."""
-        return {lk.name: lk for d in self.dimensions.values() for lk in d.relations}
-
-    def parameter(self, name: str) -> ParameterDeclaration:
-        return _declared(self.parameters, name, 'parameter')
-
-    def variable(self, name: str) -> VariableDeclaration:
-        return _declared(self.variables, name, 'variable')
 
     @cached_property
     def separability(self) -> Mapping[str, Separability]:
@@ -1402,13 +1382,7 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
     than a name silently dropped at the first model to use it.
     """
     match atom:
-        case (
-            ParameterComparison()
-            | ParameterDefined()
-            | VariableDefined()
-            | RelationComparison()
-            | RelationDefined()
-        ):
+        case ParameterComparison() | ParameterDefined() | VariableDefined() | RelationComparison() | RelationDefined():
             return frozenset({atom.name})
         case RelationPairComparison():
             return frozenset({atom.name, atom.other})

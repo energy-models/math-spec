@@ -140,13 +140,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             _Lowering(expanded, 'the objective').expr(resolved.objective),
         )
 
-    dimensions = {
-        dname: program.DimensionDeclaration(
-            tuple(lk for lk in resolved.relations.values() if dname in lk.dims),
-            ddef.dtype,
-        )
-        for dname, ddef in expanded.dimensions.items()
-    }
+    dimensions = {dname: program.DimensionDeclaration(ddef.dtype) for dname, ddef in expanded.dimensions.items()}
     sos = {
         sname: program.SosDeclaration(
             sdef.variable,
@@ -172,9 +166,10 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         constraints=constraints,
         objective=objective,
         dimensions=dimensions,
+        relations=resolved.relations,
         sos=sos,
         piecewise=piecewise,
-        named_expressions=expressions,
+        expressions=expressions,
     )
 
 

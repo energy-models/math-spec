@@ -35,7 +35,7 @@ def _expressions(program: Program) -> list[Expression]:
     """
     trees = [side for c in program.constraints.values() for side in (c.lhs, c.rhs)]
     trees += [bound for v in program.variables.values() for bound in (v.lower, v.upper)]
-    trees += [e.expression for e in program.named_expressions.values()]
+    trees += [e.expression for e in program.expressions.values()]
     if program.objective is not None:
         trees.append(program.objective.expression)
     return trees
