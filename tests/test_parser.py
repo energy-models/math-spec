@@ -45,10 +45,10 @@ from math_spec.errors import SchemaError
 from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
+    Direction,
     NotNode,
     OrNode,
     RelationDeclaration,
-    Walk,
     _conjuncts,
 )
 
@@ -510,7 +510,7 @@ def test_a_node_prints_as_the_file_writes_it(text, printed):
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
         pytest.param(
-            RelationNode('zone_of', ('u',), ('zone',), Walk(RelationDeclaration('zone_of', ()), (), (), ())),
+            RelationNode('zone_of', ('u',), ('zone',), Direction(RelationDeclaration('zone_of', ()), (), (), ())),
             'zone_of',
             id='a-relation',
         ),

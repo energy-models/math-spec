@@ -793,11 +793,11 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
                 (
-                    "this sum walks to the key ['g']",
+                    "this sum lands on the key ['g']",
                     'that is a read, which is',
                     "at(..., by=lk, over=['h'], into=['g'])",
                 ),
-                id='a-sum-that-walks-to-the-key-is-a-read',
+                id='a-sum-that-lands-on-the-key-is-a-read',
             ),
             pytest.param(
                 {
@@ -964,7 +964,7 @@ class TestRulesDecidedWithoutData:
                     'dimensions.z': {},
                     'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=[h, z]))'},
                 },
-                ('names 2 relations, and one call walks one table',),
+                ('names 2 relations, and one call reads one table',),
                 id='several-relations-in-one-by',
             ),
             pytest.param(
@@ -981,7 +981,7 @@ class TestRulesDecidedWithoutData:
                     'objective': {'expression': 'sum(sum(q, by=bare, over=k, into=m))'},
                 },
                 ("joins 'bare' on ['h'] through more than one column",),
-                id='a-walk-joining-one-dimension-through-two-columns',
+                id='a-call-joining-one-dimension-through-two-columns',
             ),
             pytest.param(
                 {
@@ -1022,14 +1022,14 @@ class TestRulesDecidedWithoutData:
         for fragment in fragments:
             assert fragment in message
 
-    def test_the_at_a_sum_walking_to_the_key_names_is_one_the_language_takes(self):
+    def test_the_at_a_sum_landing_on_the_key_names_is_one_the_language_takes(self):
         """A refusal that names a call is holding out a rewrite, so the rewrite has to load.
 
-        Was: the message swapped the walk's ends, answering a sum refused for
-        walking to the key with `at(..., over=<into>, into=<over>)` — which
+        Was: the message swapped the direction's ends, answering a sum refused
+        for landing on the key with `at(..., over=<into>, into=<over>)` — which
         `at` refuses in turn, for reading a column that is not single-valued
         at the one the operand fixes. Both operators take `over=` as the
-        column the walk consumes, so the rewrite is the author's own spelling
+        column the read consumes, so the rewrite is the author's own spelling
         with `at` in place of `sum`.
 
         Reading the call out of the message rather than restating it is the

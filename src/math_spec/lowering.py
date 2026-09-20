@@ -273,13 +273,13 @@ class _Lowering:
             assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (consumed.name,))
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.GroupSum(operand, walk=by_node.walk)
+        return program.GroupSum(operand, direction=by_node.direction)
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.At(self.expr(node.args[0]), walk=by_node.walk)
+        return program.At(self.expr(node.args[0]), direction=by_node.direction)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -290,7 +290,7 @@ class _Lowering:
 
         ``by=`` names the relation the window stops at the edges of, and rides on
         the node the way it rides on a translation — the dim rules have already
-        held it to one relation over the walked dimension.
+        held it to one relation over the dimension stepped along.
         """
         over_node = node.kwargs['along']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
@@ -341,10 +341,10 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 }
 
 
-def _partition_of(node: FunctionCallNode) -> program.Walk | None:
-    """The walk a translation partitions by, if the call names a relation.
+def _partition_of(node: FunctionCallNode) -> program.Direction | None:
+    """The direction a translation partitions by, if the call names a relation.
 
-    That it is a *single* relation, walked *along the translated dimension*, is
+    That it is a *single* relation, stepped *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """
@@ -352,7 +352,7 @@ def _partition_of(node: FunctionCallNode) -> program.Walk | None:
     if by_node is None:
         return None
     assert isinstance(by_node, RelationNode)
-    return by_node.walk
+    return by_node.direction
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:
