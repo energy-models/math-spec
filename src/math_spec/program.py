@@ -1259,8 +1259,10 @@ class Or:
     right: Predicate
 
 
-#: Every resolved predicate node — what a lowered mask's ``root`` is built of.
-#: The parser's ``Unresolved*`` nodes are not members: they live with the
+#: Every resolved predicate node. A lowered mask's ``root`` holds every member
+#: but :class:`ArithmeticComparison`, which lowering rewrites into an
+#: :class:`ExpressionComparison`, so a consumer walking a program never meets
+#: one. The parser's ``Unresolved*`` nodes are not members: they live with the
 #: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
 #: before anything here is asked.
 Predicate = (

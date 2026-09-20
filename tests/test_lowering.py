@@ -263,9 +263,8 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_program):
 def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
     """The `where` a lowering carries is a `Mask`, and its questions are its root's.
 
-    A consumer asks the mask — `where.names_read`, `where.conjuncts` — the way it
-    asks a dimension `dimension.targets`, rather than reaching for a free function
-    with the raw node.
+    A consumer asks the mask — `where.names_read`, `where.conjuncts` — rather
+    than reaching for a free function with the raw node.
     """
     (v,) = dispatch_program.variables.values()
 
@@ -936,7 +935,7 @@ def test_the_lowered_regions_are_still_proved_apart():
 
 
 def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
-    """`Program.expressions` carries it, so a consumer reads it back whole."""
+    """`Program.expressions` carries it under its name, so a consumer reads it back whole."""
     program = to_program(CASED)
 
     assert isinstance(program.expressions['previous'].expression, Cases), (
