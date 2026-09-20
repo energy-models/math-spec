@@ -266,7 +266,7 @@ class Pullback:
 
     The dims ``direction`` consumes go and the dims it produces arrive, one
     value per coordinate because the read takes value columns at a key the
-    result fixes (``Direction.is_single_valued``). The join fans out, many
+    result fixes, which the loader checks. The join fans out, many
     produced tuples sharing one consumed tuple — at each coordinate of the
     joined columns, which the operand carries and the result keeps.
     """
@@ -498,11 +498,6 @@ class Direction:
     @property
     def joined_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.joined)
-
-    @property
-    def is_single_valued(self) -> bool:
-        """Whether the read is one value per coordinate: the key lies inside what is fixed."""
-        return set(self.relation.key) <= {*self.joined, *self.produced}
 
 
 @dataclass(frozen=True)
@@ -1268,8 +1263,10 @@ class Or:
     right: Predicate
 
 
-#: Every resolved predicate node — what a lowered mask's ``root`` is built of.
-#: The parser's ``Unresolved*`` nodes are not members: they live with the
+#: Every resolved predicate node. A lowered mask's ``root`` holds every member
+#: but :class:`ArithmeticComparison`, which lowering rewrites into an
+#: :class:`ExpressionComparison`, so a consumer walking a program never meets
+#: one. The parser's ``Unresolved*`` nodes are not members: they live with the
 #: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
 #: before anything here is asked.
 Predicate = (
