@@ -776,7 +776,7 @@ def test_roots_are_the_trees_a_row_is_built_from():
         program.constraints['c'].rhs,
     ), 'the objective first, then both sides of each constraint, in declaration order'
     assert program.expressions['spend'].expression not in program.roots, (
-        'a named expression builds no row, so it is not one of the expressions a row is built from'
+        'a named expression builds no row, so it is not one of the trees a row is built from'
     )
     assert len(program.roots) == 3, 'and nothing else is counted'
 
