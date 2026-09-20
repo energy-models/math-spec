@@ -241,6 +241,18 @@ constraints:
     dims: []
     where: "sum(p_max, over=generator) >= budget"
     expression: sum(p) <= budget
+  counted: # a count of the coordinates a predicate admits, which reduces one dim away
+    dims: [bus]
+    where: "count(tech_cap > 0, over=technology) >= 2"
+    expression: theta <= budget
+  counted_here: # the same count along a dim the frame carries, so the set takes a primed dummy
+    dims: [bus, technology]
+    where: "count(tech_cap > 0, over=technology) >= 2"
+    expression: theta <= tech_cap
+  run_start: # a predicate read one coordinate back, which is false where the translation vacates
+    dims: [snapshot, bus]
+    where: "load AND NOT shift(load, along=snapshot, offset=1)"
+    expression: slack <= load
   capped: # an expressions: entry on a side, read by the name the file gave it
     dims: [snapshot, generator]
     where: "spend_cap > 0 OR NOT is_flexible"

@@ -12,7 +12,7 @@ naming its rewrite.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, assert_never
 
 import math_spec.program as program
@@ -255,11 +255,19 @@ class _Lowering:
         Every other predicate node is already the program's own and passes
         through; a mask holding none comes back equal to the one handed in.
         """
-        return None if mask is None else program.Mask(self._predicate(mask.root))
+        return None if mask is None else self._mask(mask)
+
+    def _mask(self, mask: program.Mask) -> program.Mask:
+        """*mask* rebuilt — the one a leaf carries is rebuilt the same way as the one a declaration does."""
+        return program.Mask(self._predicate(mask.root))
 
     def _predicate(self, node: program.Predicate) -> program.Predicate:
         if isinstance(node, program.ArithmeticComparison):
             return program.ExpressionComparison(self.expr(node.left), node.op, self.expr(node.right), node.dims)
+        if isinstance(node, program.CountComparison):
+            return replace(node, predicate=self._mask(node.predicate))
+        if isinstance(node, program.TranslatedPredicate):
+            return replace(node, operand=self._mask(node.operand))
         if isinstance(node, program.Not):
             return program.Not(self._predicate(node.operand))
         if isinstance(node, program.And):

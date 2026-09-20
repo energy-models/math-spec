@@ -52,6 +52,7 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'Contiguous',
+    'CountComparison',
     'Curved',
     'Derivation',
     'DimensionComparison',
@@ -101,6 +102,7 @@ __all__ = [
     'SosDeclaration',
     'Sum',
     'Translate',
+    'TranslatedPredicate',
     'TypedPredicate',
     'Variable',
     'VariableAbsence',
@@ -1243,6 +1245,41 @@ class RelationDefined:
 
 
 @dataclass(frozen=True)
+class CountComparison:
+    """How many coordinates *predicate* admits along *over*, against a literal — ``count(points, over=bp) >= 2``.
+
+    The count is one number per coordinate of ``dims``, which is every dim
+    *predicate* reads minus *over*, so a claim about each curve is written
+    without saying "each curve". A predicate a leaf reads arrives as a
+    :class:`Mask`, where a connective's operand is a bare :data:`Predicate`:
+    a walk recurses through the second and stops at the first.
+    """
+
+    predicate: Mask
+    over: str
+    op: PredicateOperator
+    value: float
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TranslatedPredicate:
+    """*operand* read at a neighbouring coordinate — ``shift(points, along=bp, offset=1)``.
+
+    False where the translation vacates, and there is no ``edge=`` to state.
+    The arithmetic translation needs one because no number is neutral and
+    inventing one changes the answer; false is what a missing row already
+    means in a mask, so the predicate form has the value the language already
+    gives it.
+    """
+
+    operand: Mask
+    along: str
+    offset: int
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Not:
     operand: Predicate
 
@@ -1277,6 +1314,8 @@ Predicate = (
     | RelationComparison
     | RelationPairComparison
     | RelationDefined
+    | CountComparison
+    | TranslatedPredicate
     | Not
     | And
     | Or
@@ -1296,6 +1335,8 @@ TypedPredicate = (
     | RelationComparison
     | RelationPairComparison
     | RelationDefined
+    | CountComparison
+    | TranslatedPredicate
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
@@ -1356,6 +1397,8 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
             | ArithmeticComparison()
             | ParameterDefined()
             | VariableDefined()
+            | CountComparison()
+            | TranslatedPredicate()
         ):
             return frozenset(atom.dims)
         case DimensionComparison():
@@ -1389,6 +1432,10 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
         case ArithmeticComparison():
             msg = 'a resolved mask is asked what it reads; lowering rebuilds it first, and the program mask answers.'
             raise AssertionError(msg)
+        case CountComparison():
+            return atom.predicate.names_read
+        case TranslatedPredicate():
+            return atom.operand.names_read
         case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:

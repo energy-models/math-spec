@@ -13,7 +13,7 @@ import pytest
 
 from math_spec.errors import LanguageError
 from math_spec.piecewise import expand_piecewise
-from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
+from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset, typeset_declaration
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
 from math_spec.validation import to_spec
@@ -835,3 +835,44 @@ def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: Format
     p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
     cost = fmt.subscript(fmt.upright('cost'), ['g'])
     assert f'{cost} {fmt.operators["le"]} {fmt.fraction(p_max, "2")}' in text
+
+
+@EVERY_FORMAT
+def test_a_count_prints_as_the_size_of_the_set_the_predicate_admits(name: FormatName, fmt: Format):
+    """A count is a cardinality over a set by comprehension, which is how a paper writes one."""
+    model = override(DISPATCH_MODEL, **{'constraints.balance.where': 'count(p_max > 0, over=generator) >= 2'})
+    text = typeset(model, name, legend=False)
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    counted = fmt.set_of(
+        f'g {fmt.operators["in"]} {"\\mathcal{G}" if name == "latex" or name == "markdown" else "cal(G)"}',
+        f'{p_max} {fmt.operators["gt"]} 0',
+    )
+    assert f'{fmt.cardinality(counted)} {fmt.operators["ge"]} 2' in text
+
+
+@EVERY_FORMAT
+def test_a_translated_predicate_prints_at_the_index_it_reads(name: FormatName, fmt: Format):
+    """The translation shows at the leaf, as it does for arithmetic — it emits no operator of its own."""
+    model = override(
+        DISPATCH_MODEL, **{'constraints.balance.where': 'load AND NOT shift(load, along=snapshot, offset=1)'}
+    )
+    text = typeset(model, name, legend=False)
+    assert f'{fmt.subscript(fmt.upright("load"), ["t"])} {fmt.prose(" is defined")}' in text
+    moved = fmt.subscript(fmt.upright('load'), [f't {fmt.operators["minus"]} 1'])
+    assert f'{moved} {fmt.prose(" is defined")}' in text, 'the translated half reads one coordinate back'
+
+
+def test_a_count_along_a_dim_the_frame_carries_takes_a_primed_dummy():
+    """The set's index would otherwise shadow the frame's, and the two stand for different coordinates."""
+    model = override(
+        DISPATCH_MODEL,
+        **{
+            'constraints.balance': {
+                'dims': ['snapshot', 'generator'],
+                'where': 'count(p_max > 0, over=generator) >= 2',
+                'expression': 'p <= p_max',
+            }
+        },
+    )
+    line = typeset_declaration(model, 'balance', 'latex')
+    assert r"g' \in \mathcal{G}" in line, 'the counted dimension is quantified already, so the set takes a fresh index'

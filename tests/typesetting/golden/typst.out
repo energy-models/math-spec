@@ -105,6 +105,9 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("margin") & p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("p")^(upright("max"))_(g) - upright("p")^(upright("min"))_(g) > frac(upright("cost")_(g), 2) \
   upright("ramped") & italic("slack")_(t) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("load")_(t,b) - upright("load")_(t minus.square_(0) 1,b) <= upright("zone_cap")_(upright("zone_of")(b)) and upright("pos")(t) > 0 \
   upright("covered") & sum_(t in cal(T), g in cal(G)) p_(t,g) & <= upright("budget") & upright("where ") sum_(g in cal(G)) upright("p")^(upright("max"))_(g) >= upright("budget") \
+  upright("counted") & theta_(b) & <= upright("budget") & forall b in cal(B) colon abs({e in cal(E) colon upright("tech_cap")_(b,e) > 0}) >= 2 \
+  upright("counted_here") & theta_(b) & <= upright("tech_cap")_(b,e) & forall b in cal(B), e in cal(E) colon abs({e' in cal(E) colon upright("tech_cap")_(b,e') > 0}) >= 2 \
+  upright("run_start") & italic("slack")_(t) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("load")_(t,b) upright(" is defined") and not (upright("load")_(t - 1,b) upright(" is defined")) \
   upright("capped") & p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("spend")^(upright("cap"))_(g) > 0 or not upright("is_flexible")_(g) $
 
 == Definitions

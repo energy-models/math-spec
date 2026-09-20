@@ -39,6 +39,7 @@ from math_spec.program import (
     And,
     ArithmeticComparison,
     BooleanLiteral,
+    CountComparison,
     DimensionComparison,
     DimensionPosition,
     Direction,
@@ -53,6 +54,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     VariableDefined,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
@@ -619,6 +621,18 @@ class Walk:
             left = self._value_read(node.name, node.column, ctx)
             right = self._value_read(node.other, node.other_column, ctx)
             return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
+
+        if isinstance(node, CountComparison):
+            index, inner = ctx.reducing(node.over)
+            counted = self.format.set_of(
+                self._membership(node.over, index), self._predicate(node.predicate.root, inner)
+            )
+            size = self.format.cardinality(counted)
+            return f'{size} {self._op(_PREDICATES[node.op])} {self._number(node.value)}', comparison
+
+        if isinstance(node, TranslatedPredicate):
+            moved = ctx.translated(node.along, _Step(node.offset, 'plain'))
+            return self._where(node.operand.root, moved)
 
         if isinstance(node, RelationDefined):
             return self._relation_row(node.name, self._frame_key(node.name, ctx)), comparison
