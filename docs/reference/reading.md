@@ -95,7 +95,7 @@ mask also answers four questions:
 - `.atoms` gives its leaves, with the connectives removed.
 - `.dims` gives the dimensions the mask is read at.
 
-A comparison of expressions arrives as an `ExpressionComparisonNode`. Its two
+A comparison of expressions arrives as an `ExpressionComparison`. Its two
 sides are program expressions like a constraint's, and its `dims` are every
 dimension either side carries. Its `names_read` are every parameter and relation
 the sides read, the relation a grouping reads through included.
@@ -115,7 +115,7 @@ footprint = program.footprint
 sorted(footprint.quadratic)  # []
 sorted(footprint.domains)  # ['continuous']
 sorted(footprint.sos_types)  # []
-sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
+sorted(kind.__name__ for kind in footprint.nodes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
 ```
 
 Every field is a set. An empty field means this model does not use the

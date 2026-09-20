@@ -321,7 +321,7 @@ def test_an_entry_a_link_reads_is_in_the_math():
         NONCONVEX_YAML,
         **{'expressions': {'twice': 'p * 2'}, 'piecewise.cost_curve.links': [['twice', 'bp_x'], ['op_cost', 'bp_y']]},
     )
-    assert to_program(schema).named_expressions['twice'].in_math is True
+    assert to_program(schema).expressions['twice'].in_math is True
 
 
 def test_a_link_reading_a_dual_entry_is_refused():

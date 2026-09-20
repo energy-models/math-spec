@@ -33,7 +33,7 @@ from math_spec._where_parser import (
     parse_where,
 )
 from math_spec.errors import SchemaError
-from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
+from math_spec.program import And, BooleanLiteral, Not, Or, _conjuncts
 
 
 def test_the_grammar_builds_the_program_s_own_node_classes():
@@ -41,13 +41,13 @@ def test_the_grammar_builds_the_program_s_own_node_classes():
 
     The parser constructs the resolved vocabulary's connectives directly, so a
     consumer's `isinstance` against the program's classes holds on any tree —
-    two homes for `AndNode` would make it hold on neither.
+    two homes for `And` would make it hold on neither.
     """
     tree = parse_where('a AND NOT b OR True')
-    assert type(tree) is program_module.OrNode
-    assert type(tree.left) is program_module.AndNode
-    assert type(tree.left.right) is program_module.NotNode
-    assert type(tree.right) is program_module.BooleanLiteralNode
+    assert type(tree) is program_module.Or
+    assert type(tree.left) is program_module.And
+    assert type(tree.left.right) is program_module.Not
+    assert type(tree.right) is program_module.BooleanLiteral
 
 
 @pytest.mark.parametrize(
@@ -242,12 +242,12 @@ def test_a_name_may_begin_with_inf(name):
 @pytest.mark.parametrize(
     ('text', 'node_type', 'attrs'),
     [
-        pytest.param('True', BooleanLiteralNode, {'value': True}, id='a-literal'),
+        pytest.param('True', BooleanLiteral, {'value': True}, id='a-literal'),
         pytest.param('p_max', UnresolvedNameNode, {'name': 'p_max'}, id='a-bare-name'),
         pytest.param('p_max > 0', UnresolvedComparisonNode, {'op': '>', 'right': NumberNode(0)}, id='a-comparison'),
-        pytest.param('a AND b', AndNode, {}, id='and'),
-        pytest.param('a OR b', OrNode, {}, id='or'),
-        pytest.param('NOT a', NotNode, {}, id='not'),
+        pytest.param('a AND b', And, {}, id='and'),
+        pytest.param('a OR b', Or, {}, id='or'),
+        pytest.param('NOT a', Not, {}, id='not'),
     ],
 )
 def test_a_where_string_parses_to_its_node(text, node_type, attrs):
@@ -260,8 +260,8 @@ def test_a_where_string_parses_to_its_node(text, node_type, attrs):
 
 
 def test_and_binds_tighter_than_or():
-    assert parse_where('a OR b AND c') == OrNode(
-        UnresolvedNameNode('a'), AndNode(UnresolvedNameNode('b'), UnresolvedNameNode('c'))
+    assert parse_where('a OR b AND c') == Or(
+        UnresolvedNameNode('a'), And(UnresolvedNameNode('b'), UnresolvedNameNode('c'))
     )
 
 
@@ -275,7 +275,7 @@ def test_and_binds_tighter_than_or():
     ids=['single', 'pair', 'chain'],
 )
 def test_conjuncts_flattens_the_and_spine(text, expected):
-    """A chain the grammar left-folds into nested `AndNode`s comes back flat (#312).
+    """A chain the grammar left-folds into nested `And`s comes back flat (#312).
 
     `_conjuncts` is the one home of the flatten rule; `Mask.conjuncts` is the
     door a consumer asks it through."""
@@ -370,7 +370,7 @@ def test_a_side_is_any_arithmetic_to_the_grammar(text):
 
 def test_a_bracketed_predicate_is_still_a_predicate():
     """`(a > 0) AND b` groups a comparison; only `(a + b) <= c` brackets arithmetic."""
-    assert isinstance(parse_where('(a > 0) AND b'), AndNode)
+    assert isinstance(parse_where('(a > 0) AND b'), And)
 
 
 def test_a_where_side_is_held_to_the_depth_an_expression_is():

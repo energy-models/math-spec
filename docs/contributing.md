@@ -98,11 +98,11 @@ stale anchor fails it. `pixi run docs-serve` builds the site and serves it at
 The same construct passes through three layers, and each names it in full. The
 suffix says which layer:
 
-| Layer                           | Suffix               | Example                                   |
-| ------------------------------- | -------------------- | ----------------------------------------- |
-| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`         |
-| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
-| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
+| Layer                           | Suffix               | Example                                    |
+| ------------------------------- | -------------------- | ------------------------------------------ |
+| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`          |
+| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `UnresolvedComparisonNode` |
+| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`          |
 
 A node names the coordinate map rather than the operator: the translation node
 is `Translate`, and the operator is `shift`. Nothing is abbreviated.

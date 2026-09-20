@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Direction, Partition, WhereNode
+    from math_spec.program import Direction, Partition, Predicate
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -182,7 +182,7 @@ class CaseArm:
     """
 
     label: str
-    when: WhereNode | None
+    when: Predicate | None
     value: ArithmeticNode
 
 
@@ -255,7 +255,7 @@ class ComparisonNode:
 
 
 #: A whole spec-side expression tree — parse output and the resolved tree alike.
-#: Named apart from :data:`math_spec.program.ExpressionNode`, the lowered
+#: Named apart from :data:`math_spec.program.Expression`, the lowered
 #: vocabulary a consumer reads.
 ParsedNode = ArithmeticNode | ComparisonNode
 
