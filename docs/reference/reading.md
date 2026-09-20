@@ -73,6 +73,24 @@ on a `Program`, it returns the same object unchanged.
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts          |
 
+## Formulations written out
+
+`Spec.expand()` returns a `Spec` whose formulations — `piecewise:` and `sos:` —
+are stated as the variables and constraints they stand for. It is the same math,
+bound by the same data, and it is what to print for a reader who wants the rows
+rather than the curve:
+
+```python
+sorted(spec.expand().variables)  # ['cost', 'curve_lam', 'p']
+sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+spec.expand() is spec.expand()  # True
+```
+
+`to_program` writes the curves out and leaves the sets, because a program
+carries a set for a consumer that has the concept. A consumer without one
+refuses the model and names `spec.expand('sos')`; what that emits is on the
+[piecewise page](language/piecewise.md#what-a-set-is-written-out-as).
+
 `program.piecewise` keeps what the block assumed about the numbers, such as
 "the breakpoints in `bp_x` increase", as a `checks` tuple. The engine, which has
 the numbers, runs each check, and `check_message` gives it the sentence to

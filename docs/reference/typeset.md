@@ -46,7 +46,10 @@ a flag.
 `-o FILE` writes to a file instead of stdout.
 
 - The model's `description:` opens the document.
-- A `piecewise:` block prints as the variables and constraints it expands into.
+- A `piecewise:` block prints as one line: the curve it states, over the frame
+  it states one curve per coordinate of. To print the variables and constraints
+  it stands for instead, print
+  [`spec.expand()`](language/piecewise.md#writing-a-formulation-out).
 - A [named expression](language/named.md) prints its symbol where it is used
   and its body once, under a **Definitions** heading, in declaration order. A
   `cases:` block and a [reported entry](language/named.md#reported-expressions)

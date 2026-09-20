@@ -223,26 +223,30 @@ class Resolved:
         constraints: Each constraint's comparison and ``where``.
         objective: The objective's expression, ``None`` where the file
             declares none.
+        piecewise: Each ``piecewise:`` block's link expressions, in link order.
     """
 
     expressions: dict[str, CasesNode | DefinitionNode]
     variables: dict[str, Mask | None]
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
+    piecewise: dict[str, tuple[ArithmeticNode, ...]]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:
-        """The named expressions the math reads: every entry the objective or a constraint reaches, transitively.
+        """The named expressions the math reads: every entry the objective, a constraint or a curve reaches, transitively.
 
-        Read off those two positions alone: a bound and a ``where`` name no
-        entry, and a piecewise link's expression reaches here through the
-        constraints its expansion emitted. The rest of the ``expressions:``
-        section is read back after a solve and never fed to one
-        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`).
+        Read off those three positions alone: a bound and a ``where`` name no
+        entry. The rest of the ``expressions:`` section is read back after a
+        solve and never fed to one
+        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`). A curve
+        counts because it states rows, so the answer does not move when the
+        curve is written out (:meth:`~math_spec.model.Spec.expand`).
         """
         roots: list[ParsedNode] = [constraint.expression for constraint in self.constraints.values()]
         if self.objective is not None:
             roots.append(self.objective)
+        roots.extend(link for links in self.piecewise.values() for link in links)
         return frozenset(node.name for node in nodes(*roots) if isinstance(node, CasesNode | DefinitionNode))
 
 

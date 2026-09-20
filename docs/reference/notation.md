@@ -45,6 +45,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int } # the breakpoints a curve runs through
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -69,6 +70,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [generator, bp] } # the x-axis of every curve below
+  bp_y: { dims: [generator, bp] }
+  bp_heat: { dims: [generator, bp] }
+  bp_run: { dims: [generator, bp], dtype: bool } # how far each curve runs, so a block has a mask to print
 ```
 
 #### Sets
@@ -81,6 +86,7 @@ parameters:
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{S}`$ | index $`s`$ — `season` with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}`$ |
 | $`\mathcal{E}`$ | index $`e`$ — `technology` with $`\mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
+| $`\mathcal{A}`$ | index $`a`$ — `bp` |
 
 #### Parameters
 
@@ -98,6 +104,10 @@ parameters:
 | $`\mathrm{lead}`$ | `lead` over $`\mathcal{G}`$ |
 | $`\mathrm{budget}`$ | `budget` (scalar) |
 | $`\mathrm{growth}`$ | `growth` (scalar) |
+| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_heat}`$ | `bp_heat` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_run}`$ | `bp_run` over $`\mathcal{G} \times \mathcal{A}`$ |
 
 #### Variables
 
@@ -113,6 +123,10 @@ parameters:
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{heat}`$ | `heat` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{warm}`$ | `warm` over $`\mathcal{T} \times \mathcal{G}`$ |
 
 #### Definitions
 
@@ -901,22 +915,77 @@ weight:
 0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-### Curves, as what they expand to
+#### `fuel`
 
-A curve is sugar: what prints is the formulation it expands to, which is the math the solver receives. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
+a curve's second axis
+
+```yaml
+fuel:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{fuel}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `heat`
+
+its third, so one curve ties three expressions
+
+```yaml
+heat:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{heat}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `op_cost`
+
+bounded by a curve rather than pinned to it
+
+```yaml
+op_cost:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{op\_cost}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `warm`
+
+a gate not every unit has, so the curve it gates is ungated where it does not exist
+
+```yaml
+warm:
+  dims: [snapshot, generator]
+  domain: binary
+  where: "is_flexible"
+```
+
+```math
+\mathit{warm}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{is\_flexible}_{g}
+```
+
+### Curves
+
+A curve prints as the curve it states, over the frame the block builds one per coordinate of. What it expands to is the math the solver receives, and `typeset(spec.expand())` prints that instead. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
 
 #### `economies_of_scale`
 
 **`method: adjacency`** — a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
 
 names:
-  economies_of_scale_lam: "\\lambda"
-  economies_of_scale_seg: "\\delta"
   bp_x: "\\mathrm{x}"
   bp_y: "\\mathrm{y}"
 ```
@@ -930,44 +999,19 @@ economies_of_scale:
 ```
 
 ```math
-\sum_{b \in \mathcal{B}} \lambda_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
-```
-
-```math
-\mathit{shipment}_{p,m} = \sum_{b \in \mathcal{B}} \lambda_{p,m,b} \cdot \mathrm{x}_{b} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
-```
-
-```math
-\mathit{scaled}_{p,m} = \sum_{b \in \mathcal{B}} \lambda_{p,m,b} \cdot \mathrm{y}_{b} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
-```
-
-```math
-\sum_{b \in \mathcal{B}} \delta_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
-```
-
-```math
-\lambda_{p,m,b} \le \delta_{p,m,b} + \delta_{p,m,b \boxminus_{0} 1} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
-```
-
-```math
-0 \le \lambda_{p,m,b} \le 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
-```
-
-```math
-\delta_{p,m,b} \in \{0, 1\} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
+\left( \mathit{shipment}_{p,m},\ \mathit{scaled}_{p,m} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{b},\ \mathrm{y}_{b}) \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
 ```
 
 #### `cost_curve`
 
 **`method: sos2`** — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
 
 names:
-  cost_curve_lam: "\\lambda"
   bp_x: "\\mathrm{x}"
   bp_y: "\\mathrm{y}"
 ```
@@ -982,36 +1026,19 @@ cost_curve:
 ```
 
 ```math
-\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-```math
-\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-```math
-\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-```math
-0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
-```
-
-```math
-\left( \lambda_{t,g,b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### `cost_curve`
 
 **`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
 
 names:
-  cost_curve_lam: "\\lambda"
   bp_x: "\\mathrm{x}"
   bp_y: "\\mathrm{y}"
 ```
@@ -1026,26 +1053,14 @@ cost_curve:
 ```
 
 ```math
-\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-```math
-\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-```math
-\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-```math
-0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{conv}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### `cost_curve`
 
 **`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1065,15 +1080,7 @@ cost_curve:
 ```
 
 ```math
-\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathit{dispatch}_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) \neq 0
-```
-
-```math
-\mathit{dispatch}_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = 0
-```
-
-```math
-\mathit{dispatch}_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
+\mathit{op\_cost}_{t,g} \ge \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b})(\mathit{dispatch}_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### Sets carried to the solver

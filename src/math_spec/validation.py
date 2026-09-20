@@ -110,6 +110,9 @@ def validate_expressions(schema: Spec) -> Resolved:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
+    A ``piecewise:`` block's links are resolved here too, so the typesetter
+    reads the curve a file states without expanding it.
+
     Returns:
         Every declaration's typed tree — what the dim rules, lowering and the
         typesetter read instead of resolving the text again.
@@ -162,10 +165,21 @@ def validate_expressions(schema: Spec) -> Resolved:
             schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
         )
 
+    piecewise = {}
+    for pname, pdef in schema.piecewise.items():
+        links = [
+            _check_expression(
+                link.expression, schema, ns, f"piecewise '{pname}' link {i}", errors, comparison=False, ceiling=1
+            )
+            for i, link in enumerate(pdef.links)
+        ]
+        if all(link is not None for link in links):
+            piecewise[pname] = tuple(link for link in links if link is not None)
+
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective)
+    resolved = Resolved(expressions, variables, constraints, objective, piecewise)
     check_schema(schema, resolved)
     return resolved
 

@@ -23,9 +23,13 @@ costs to add.
   `at`, `shift`, and the `where` comparisons. A file cannot add one. Adding one
   here is the expensive kind: every engine that builds models has to implement
   it, and the typesetter has to print it in LaTeX, Typst and Markdown.
-- **A formulation** is a block that expands into ordinary variables and
-  constraints before the model is built. `piecewise:` is the only one. It costs
-  as much as a primitive to build, but composes as freely as a macro.
+- **A formulation** is a block that states ordinary variables and constraints
+  rather than being one. `piecewise:` and `sos:` are the two. It costs as much as
+  a primitive to build, but composes as freely as a macro. A formulation emits
+  variables and constraints, and any parameter it emits it derives — so the same
+  data binds a model and its expansion, and
+  [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
+  needs no source a reader has to supply.
 
 A request that is none of the three is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
@@ -66,11 +70,11 @@ the same model written out by hand.
 
 ### Three kinds of refusal
 
-| The language refuses it because…           | Examples                                                                                                                                                     | Can it change?                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| **one solver cannot take it**              | indicator constraints; a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a solver without gets binaries | yes, solver by solver                      |
-| **the file would stop being the artifact** | arbitrary Python, whose content no loader can check and no typesetter can print                                                                              | no                                         |
-| **this project puts the work elsewhere**   | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                    | it could; this project does not want it to |
+| The language refuses it because…           | Examples                                                                                                                                                                        | Can it change?                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **one solver cannot take it**              | indicator constraints; a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a model for a solver without is written out first | yes, solver by solver                      |
+| **the file would stop being the artifact** | arbitrary Python, whose content no loader can check and no typesetter can print                                                                                                 | no                                         |
+| **this project puts the work elsewhere**   | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                                       | it could; this project does not want it to |
 
 Three things never appear inside one model: an `if`, a loop, and a set of
 declarations that depends on the data. A dimension computed before the model
@@ -89,13 +93,14 @@ answer it. If it did, one solver's limits would be written into the language,
 and every other solver would inherit them.
 
 - HiGHS has no special-ordered sets. Gurobi does. An engine handing a model to
-  HiGHS rewrites each set as binaries and big-M rows; one handing it to Gurobi
-  passes the set through.
+  Gurobi passes the set through; one handing it to HiGHS refuses it, and the
+  author writes the set out with `spec.expand('sos')` first.
 - A quadratic constraint is accepted by some solvers only when it is convex,
   and convexity depends on the numbers, which the file does not have.
 
 So `sos:` entered the language on the first question alone. Each engine then
-decides how to hand it to its solver, and reports which it did.
+decides whether it takes a set, and the language decides what a set is written
+out as.
 
 ## What counts as data preparation
 

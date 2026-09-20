@@ -9,6 +9,10 @@ Two blocks state shapes that no `expression:` can, because an expression is
 affine. `piecewise:` states a curve through breakpoints. `sos:` states a family
 of variables of which only one, or only two neighbours, may be non-zero.
 
+Both are **formulations**: each states plain variables and constraints rather
+than being one, and [`spec.expand()`](#writing-a-formulation-out) writes them
+out.
+
 ## `piecewise`
 
 A `piecewise` block ties two or more expressions to one piecewise-linear curve.
@@ -48,11 +52,12 @@ piecewise:
 | `activity` | a binary variable that gates the curve ([below](#activity))                              | default `null`      |
 | `points`   | how far each curve runs, where the curves are not all the same length ([below](#points)) | default `null`      |
 
-A block expands before building, into plain variables and constraints: one
-weight per breakpoint in `[0, 1]`, one row making the weights sum to 1, and one
-row per link tying its expression to the weighted breakpoints. That expansion
-is what the rest of the model sees, and what the
-[typeset output](../typeset.md) prints.
+A block states plain variables and constraints: one weight per breakpoint in
+`[0, 1]`, one row making the weights sum to 1, and one row per link tying its
+expression to the weighted breakpoints. A `Program` holds those rows, because a
+consumer builds them; the [typeset output](../typeset.md) prints the curve
+itself, and [`spec.expand()`](#writing-a-formulation-out) is what writes the
+rows into a model of their own.
 
 The breakpoint order is the declared order of `over`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
@@ -107,15 +112,16 @@ the axis. A gap, or a curve with no points, is refused when the data binds.
 
 `method` says how the weights are restricted once they exist.
 
-| `method`                | What it adds                                                                    |                                                                |
-| ----------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `adjacency` _(default)_ | a binary per segment, and `lam <= seg + shift(seg, along=bp, offset=1, edge=0)` | the curve, built                                               |
-| `sos2`                  | an [`sos:`](#sos) block over the same weights                                   | the curve, stated for a solver that branches on the set itself |
-| `convex`                | nothing                                                                         | the hull, which is a pure linear program                       |
-| `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain   | the curve as its own lines                                     |
+| `method`                | What it adds                                                                  |                                                                |
+| ----------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `adjacency` _(default)_ | an [`sos:`](#sos) block over the weights, written out as binaries             | the curve, built                                               |
+| `sos2`                  | an [`sos:`](#sos) block over the weights, left as a set                       | the curve, stated for a solver that branches on the set itself |
+| `convex`                | nothing                                                                       | the hull, which is a pure linear program                       |
+| `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain | the curve as its own lines                                     |
 
 `adjacency` and `sos2` state the same restriction and reach the same optimum.
-They differ in what the solver is handed.
+They differ in what the solver is handed: `adjacency` **is** `sos2` with the set
+written out, so the two emit the same rows under the same names.
 
 `convex` is a different model. It is exact only for a curve whose curvature
 matches the optimisation pressure, and that match is checked against the
@@ -154,7 +160,7 @@ sos:
     variable: build # the variable the set is over
     over: size # the dimension it runs along — one set per coordinate of the rest
     type: 1 # 1: at most one non-zero; 2: at most two, and consecutive
-    big_m: 500 # optional, and only read by a solver that has to reformulate
+    bound: 500 # optional: the coefficient the set's own expansion links a member by
 ```
 
 `type: 1` is a choice: at most one member is non-zero. `type: 2` is an
@@ -167,8 +173,61 @@ Membership belongs to the variable. Its `where` decides which coordinates exist,
 so a masked-out member is not in the set. The order is the declared order of
 the `over` dimension.
 
-A solver with no concept of a set is handed binaries and big-M rows instead.
-That rewrite is mixed-integer, so it gives up its duals, and it needs a finite
-M: every member needs a `bounds.upper` or a `big_m:`, and a negative
-`bounds.lower` is refused. A model that fails those conditions still solves on
-a solver that takes the set, and the message says so.
+### What a set is written out as
+
+`spec.expand('sos')` states the set as binaries: one per member for `type: 1`,
+one per segment for `type: 2`. The names are the block's own, and the rows are
+these, for a set `s` over variable `x` along `d`:
+
+| `type` | Emitted                                                                         |
+| ------ | ------------------------------------------------------------------------------- |
+| both   | `s_seg`, a binary over `x`'s own dims, masked as `x` is                         |
+| both   | `s_pick`: `sum(s_seg, over=d) <= 1`                                             |
+| `1`    | `s_nonzero`: `x <= bound * (s_seg)`                                             |
+| `2`    | `s_adjacency`: `x <= bound * (s_seg + shift(s_seg, along=d, offset=1, edge=0))` |
+
+The coefficient is the block's `bound:` where it declares one, and the member's
+own `bounds.upper` otherwise. A binary member's is 1, from its domain.
+
+The rewrite states the same feasible set as the set itself only for a member at
+or above zero linked by a finite coefficient, so a model is refused at load
+unless both hold:
+
+- `bounds.lower` is a number of at least zero. A parameter there is data, and
+  whether it is at or above zero is not decidable without it.
+- the set declares `bound:`, or the member declares `bounds.upper`, or the
+  member is `domain: binary`.
+
+A name the expansion writes that the file already declares is refused at load
+too.
+
+## Writing a formulation out
+
+`Spec.expand()` returns the same math with its formulations stated as plain
+variables and constraints:
+
+```python
+from math_spec import to_spec
+
+spec = to_spec('curve.yaml')
+spec.expand()  # every formulation
+spec.expand('sos')  # only the sets
+spec.expand('piecewise')  # only the curves
+```
+
+- **The kinds are `'piecewise'` and `'sos'`, and no argument means both.** Any
+  other string is refused, naming the two. Curves go first whatever order they
+  are asked in, because a `method: sos2` curve states a set and no set states a
+  curve.
+- **A model with nothing to write out is the model that comes back.** So is a
+  second call with the same kinds.
+- **The same data binds a model and its expansion.** A set emits no parameter,
+  and every parameter a curve emits it derives
+  ([`derivation`](../reading.md#nodes-and-masks)).
+- **A model that derived parameters prints rather than round-trips.** A derived
+  parameter is filled from the block it came from, which a file cannot state,
+  so `to_yaml()` on such an expansion is refused and
+  [`typeset()`](../typeset.md) is what reads it.
+- **`to_program()` writes the curves out and leaves the sets.** A program
+  carries a set, because a consumer with the concept takes one; a consumer
+  without it refuses the model and names `spec.expand('sos')`.

@@ -772,15 +772,15 @@ class SosDeclaration:
     copy here would be a second home for a fact
     (:meth:`Program.variable`).
 
-    ``big_m`` caps the linking coefficient a consumer without the concept
-    reformulates with, and is ``None`` where the variable's own upper bound is
-    the only cap.
+    ``bound`` is the coefficient the rows this set expands to link a member by
+    (:meth:`~math_spec.model.Spec.expand`), and is ``None`` where the file
+    states none and the member's own upper bound is it.
     """
 
     variable: str
     over: str
     sos_type: Literal[1, 2]
-    big_m: float | None = None
+    bound: float | None = None
 
 
 @dataclass(frozen=True)

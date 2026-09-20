@@ -28,16 +28,15 @@ if TYPE_CHECKING:
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
 MODEL = ROOT / 'tests' / 'typesetting' / 'golden' / 'model.yaml'
 
-#: One model per ``method:``, because the four expand to four different
-#: formulations and a section showing one of them would be showing a quarter
+#: One model per ``method:``, because the four restrict the weights four
+#: different ways and a section showing one of them would be showing a quarter
 #: of the construct. ``tests/test_docs.py`` holds these keys to
 #: :data:`math_spec.model.PIECEWISE_METHODS`, so a method added to the
 #: language arrives here or the page stops claiming to be all of them.
 #:
-#: They come from real models rather than from the fixture because expanding a
-#: curve round-trips the model through ``model_dump``, which drops a bound of
-#: ``.inf`` on the wrong side of the line — the one thing that makes the walk
-#: print ∞ — so a fixture carrying a curve would stop covering two symbols.
+#: They come from real models rather than from the fixture because a caption
+#: saying what a method is for reads against a model that had a reason to
+#: choose it.
 PIECEWISE = {
     'adjacency': ROOT / 'examples' / 'ports' / 'transport_pwl.yaml',
     'sos2': ROOT / 'examples' / 'sos.yaml',
@@ -55,7 +54,7 @@ SECTIONS = {
     'constraints': 'Constraints',
     'expressions': 'Definitions',
     'variables': 'Variable domains',
-    'piecewise': 'Curves, as what they expand to',
+    'piecewise': 'Curves',
     'sos': 'Sets carried to the solver',
 }
 
@@ -200,8 +199,9 @@ def block() -> str:
         parts.append(f'### {title}')
         if section == 'piecewise':
             parts.append(
-                'A curve is sugar: what prints is the formulation it expands to, which is the math the solver '
-                'receives. One row per `method:`, each from the model named under it, so the symbols in this '
+                'A curve prints as the curve it states, over the frame the block builds one per coordinate of. '
+                'What it expands to is the math the solver receives, and `typeset(spec.expand())` prints that '
+                'instead. One row per `method:`, each from the model named under it, so the symbols in this '
                 "section are that model's."
             )
             parts += _curves()
@@ -234,18 +234,18 @@ def _curves() -> list[str]:
 def _table_shown(table: Path | None) -> str:
     """The symbol table, printed beside the math it renamed.
 
-    A curve expands to weights named after the block that declared them, which
-    an equation naming one six times cannot carry. Renaming them in the
-    typesetter would be a symbol a reader could not trace back to the file, so
-    the rename is a **declaration** — the same ``--symbols`` sidecar any reader
-    may write — and the page shows it rather than performing it.
+    A curve prints through its breakpoint parameters, whose names are the data
+    preparation's rather than the literature's. Renaming them in the typesetter
+    would be a symbol a reader could not trace back to the file, so the rename
+    is a **declaration** — the same ``--symbols`` sidecar any reader may write —
+    and the page shows it rather than performing it.
     """
     if table is None:
         return ''
     body = without_header(table)
     return (
         f'Rendered with the sidecar symbol table `{table.relative_to(ROOT)}`, '
-        f'which is what the weights print as:\n\n```yaml\n{body}\n```\n\n'
+        f'which is what the breakpoints print as:\n\n```yaml\n{body}\n```\n\n'
     )
 
 
@@ -259,20 +259,18 @@ def _row(declaration: Declaration, printed: dict[str, str]) -> str:
 def _labels(declaration: Declaration, printed: dict[str, str]) -> list[str]:
     """Which printed equations belong to *declaration*.
 
-    Two blocks do not print under their own name. A ``sos:`` block restricts a
-    variable, so its line sits with that variable; a ``piecewise:`` block is
-    sugar, and what prints is the rows and columns it expands to — every one of
-    which the expander names after the block. A declaration printing nothing is
-    an error rather than an empty row: it means the walk stopped rendering
-    something the file still declares.
+    One block does not print under its own name: a ``sos:`` block restricts a
+    variable, so its line sits with that variable. A declaration printing
+    nothing is an error rather than an empty row: it means the walk stopped
+    rendering something the file still declares.
     """
     if declaration.name in printed:
         return [declaration.name]
-    if (variable := declaration.field('variable')) and f'{variable} sos' in printed:
-        return [f'{variable} sos']
-    expanded = [label for label in printed if label.startswith(f'{declaration.name}_')]
-    assert expanded, f'{declaration.name} declares math and the walk printed none of it'
-    return expanded
+    variable = declaration.field('variable')
+    assert variable and f'{variable} sos' in printed, (
+        f'{declaration.name} declares math and the walk printed none of it'
+    )
+    return [f'{variable} sos']
 
 
 def rendered_page(page: str) -> str:

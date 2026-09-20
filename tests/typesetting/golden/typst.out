@@ -10,6 +10,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $cal(Z)$: index $z$ --- `zone` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z), upright("gen_zone"): cal(G) times cal(T) arrow.r cal(Z)$
 / $cal(S)$: index $s$ --- `season` with $upright("season_of"): cal(T) arrow.r cal(S)$
 / $cal(E)$: index $e$ --- `technology` with $upright("gen_bt"): cal(G) arrow.r cal(B) times cal(E)$
+/ $cal(A)$: index $a$ --- `bp`
 
 == Parameters
 / $upright("p")^(upright("max"))$: `p_max` over $cal(G)$
@@ -24,6 +25,10 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $upright("lead")$: `lead` over $cal(G)$
 / $upright("budget")$: `budget` (scalar)
 / $upright("growth")$: `growth` (scalar)
+/ $upright("bp_x")$: `bp_x` over $cal(G) times cal(A)$
+/ $upright("bp_y")$: `bp_y` over $cal(G) times cal(A)$
+/ $upright("bp_heat")$: `bp_heat` over $cal(G) times cal(A)$
+/ $upright("bp_run")$: `bp_run` over $cal(G) times cal(A)$
 
 == Variables
 / $p$: `p` over $cal(T) times cal(G)$
@@ -36,6 +41,10 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $italic("reserve")$: `reserve` (scalar)
 / $italic("headroom")$: `headroom` (scalar)
 / $italic("weight")$: `weight` over $cal(T) times cal(G)$
+/ $italic("fuel")$: `fuel` over $cal(T) times cal(G)$
+/ $italic("heat")$: `heat` over $cal(T) times cal(G)$
+/ $italic("op_cost")$: `op_cost` over $cal(T) times cal(G)$
+/ $italic("warm")$: `warm` over $cal(T) times cal(G)$
 
 == Definitions
 / $italic("spend")$: `spend` over $cal(T)$ --- what a snapshot's dispatch costs
@@ -100,7 +109,10 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("ceiling") & theta_(b) & <= infinity & forall b in cal(B) \
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
   upright("redundant") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon italic("spill")_(t) upright(" exists") \
-  upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot $
+  upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot \
+  upright("fuel_curve") & (p_(t,g), italic("fuel")_(t,g), italic("heat")_(t,g)) & in italic("on")_(t,g) dot upright("pwl")_(a in cal(A))(upright("bp_x")_(g,a), upright("bp_y")_(g,a), upright("bp_heat")_(g,a)) & forall t in cal(T), g in cal(G) \
+  upright("cost_curve") & italic("op_cost")_(t,g) & >= cases(italic("warm")_(t,g) & upright("if ") upright("is_flexible")_(g), 1 & upright("otherwise")) dot upright("pwl")_(a in cal(A) colon upright("bp_run")_(g,a))(upright("bp_x")_(g,a), upright("bp_y")_(g,a))(p_(t,g)) & forall t in cal(T), g in cal(G) \
+  upright("hull_curve") & (p_(t,g), italic("fuel")_(t,g)) & in upright("conv")_(a in cal(A))(upright("bp_x")_(g,a), upright("bp_heat")_(g,a)) & forall t in cal(T), g in cal(G) $
 
 == Definitions
 #set math.equation(numbering: "(1)")
@@ -121,4 +133,8 @@ $ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^
   upright("reserve") & italic("reserve") & >= 0 \
   upright("headroom") & italic("headroom") & >= 0 & upright("where ") upright("budget") upright(" is defined") \
   upright("weight") & 0 <= italic("weight")_(t,g) & <= 1 & forall t in cal(T), g in cal(G) \
-  upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) $
+  upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) \
+  upright("fuel") & italic("fuel")_(t,g) & >= 0 & forall t in cal(T), g in cal(G) \
+  upright("heat") & italic("heat")_(t,g) & >= 0 & forall t in cal(T), g in cal(G) \
+  upright("op_cost") & italic("op_cost")_(t,g) & >= 0 & forall t in cal(T), g in cal(G) \
+  upright("warm") & italic("warm")_(t,g) & in {0, 1} & forall t in cal(T), g in cal(G) colon upright("is_flexible")_(g) $

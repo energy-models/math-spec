@@ -20,7 +20,7 @@ from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
-from math_spec.model import Curvature, ExpandedPiecewise, PiecewiseBlock, Spec, _ExpandedSpec, undeclared_dimension
+from math_spec.model import Curvature, ExpandedPiecewise, PiecewiseBlock, Spec, undeclared_dimension
 from math_spec.program import (
     AtLeastTwo,
     Check,
@@ -34,6 +34,7 @@ from math_spec.program import (
     PiecewiseDeclaration,
 )
 from math_spec.resolution import Namespace, resolve_expression
+from math_spec.sos import Emitted, emit
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -111,10 +112,11 @@ class _Block:
     """One ``piecewise:`` block being expanded into the raw model it writes.
 
     Every name the expansion may write is spelled once here, so the emitters
-    and the collision check read the same table. ``points`` is the derived
-    mask, written only where ``nominated`` names the values parameter it is
-    derived from; ``mask`` is whichever parameter masks the weights, or
-    ``None`` for a whole curve.
+    and the collision check read the same table — ``set`` is the one a method
+    that states a set writes through :func:`math_spec.sos.emit`. ``points`` is
+    the derived mask, written only where ``nominated`` names the values
+    parameter it is derived from; ``mask`` is whichever parameter masks the
+    weights, or ``None`` for a whole curve.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -128,13 +130,11 @@ class _Block:
         self.pw = pw
         self.nominated = _nominated(pw)
         self.lam = f'{name}_lam'
-        self.seg = f'{name}_seg'
         self.starts = f'{name}_starts'
         self.ends = f'{name}_ends'
         self.points = f'{name}_points'
         self.convexity = f'{name}_convexity'
-        self.pick = f'{name}_pick'
-        self.adjacency = f'{name}_adjacency'
+        self.set = Emitted.of(name, 2)
         self.chord = f'{name}_chord'
         self.domain_lo = f'{name}_domain_lo'
         self.domain_hi = f'{name}_domain_hi'
@@ -207,17 +207,8 @@ class _Block:
                 list(self.frame),
                 f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
             )
-        if self.pw.method == 'sos2':
+        if self.pw.method in ('sos2', 'adjacency'):
             self._section('sos')[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
-        elif self.pw.method == 'adjacency':
-            self._weight(self.seg, domain='binary', bounds={})
-            for suffix, where, rhs in gated:
-                self._constraint(self.pick + suffix, list(self.frame), f'sum({self.seg}, over={d}) == {rhs}', where)
-            self._constraint(
-                self.adjacency,
-                [*self.frame, d],
-                f'{self.lam} <= {self.seg} + shift({self.seg}, along={d}, offset=1, edge=0)',
-            )
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
         """What the weights sum to, as ``(name suffix, where, right-hand side)``.
@@ -280,18 +271,22 @@ class _Block:
     # -- checks ------------------------------------------------------------
 
     def _emitted_by_kind(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
-        """Every name this block may write, by the kind of declaration each would collide with."""
+        """Every name this block may write, by the kind of declaration each would collide with.
+
+        The set a block states writes names of its own, and they are reserved
+        whichever method the block declares: which of the two write them is the
+        method's business, and a collision is the file's either way.
+        """
         return (
-            ('variable', (self.lam, self.seg)),
+            ('variable', (self.lam, self.set.seg)),
             ('parameter', (self.starts, self.ends, *((self.points,) if self.nominated is not None else ()))),
             (
                 'constraint',
                 (
                     self.convexity,
                     self.convexity + _UNGATED,
-                    self.pick,
-                    self.pick + _UNGATED,
-                    self.adjacency,
+                    self.set.pick,
+                    self.set.link,
                     self.chord,
                     self.domain_lo,
                     self.domain_hi,
@@ -433,28 +428,29 @@ class _Block:
             ) from exc
 
 
-def expand_piecewise(schema: Spec) -> _ExpandedSpec:
-    """Return *schema* as a :class:`_ExpandedSpec` — every ``piecewise:`` block expanded away.
+def expand_piecewise(schema: Spec) -> Spec:
+    """*schema* with every ``piecewise:`` block written out — *schema* itself where it declares none.
 
-    Memoised on *schema*.
+    A ``method: adjacency`` block states its restriction as the set
+    ``method: sos2`` states, and then that set is written out here too: the
+    binaries are what the method *is*, so the model that comes back carries no
+    set of its own (:func:`math_spec.sos.emit` is where they are spelled).
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
             or emitting a name the file already declares.
     """
-    if isinstance(schema, _ExpandedSpec):
-        return schema
-    if schema._expansion is not None:
-        return schema._expansion
     if not schema.piecewise:
-        schema._expansion = _ExpandedSpec.model_construct(**dict(schema))
-        return schema._expansion
+        return schema
 
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
-    raw['expanded_piecewise'] = {name: _Block(schema, raw, name, pw).expand() for name, pw in schema.piecewise.items()}
+    records = {name: _Block(schema, raw, name, pw).expand() for name, pw in schema.piecewise.items()}
     raw['piecewise'].clear()
-    expanded = _ExpandedSpec.model_validate(raw)
-    schema._expansion = expanded
+    for name, pw in schema.piecewise.items():
+        if pw.method == 'adjacency':
+            emit(raw, name)
+    expanded = Spec.model_validate(raw)
+    expanded._expanded_piecewise = {name: ExpandedPiecewise.model_validate(record) for name, record in records.items()}
     return expanded

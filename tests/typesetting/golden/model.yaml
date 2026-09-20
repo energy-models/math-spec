@@ -19,6 +19,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int } # the breakpoints a curve runs through
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -43,6 +44,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [generator, bp] } # the x-axis of every curve below
+  bp_y: { dims: [generator, bp] }
+  bp_heat: { dims: [generator, bp] }
+  bp_run: { dims: [generator, bp], dtype: bool } # how far each curve runs, so a block has a mask to print
 
 variables:
   p: # both bounds, and a where with all three connectives
@@ -77,12 +82,48 @@ variables:
   weight: # the family a sos runs along
     dims: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
+  fuel: # a curve's second axis
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  heat: # its third, so one curve ties three expressions
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  op_cost: # bounded by a curve rather than pinned to it
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  warm: # a gate not every unit has, so the curve it gates is ungated where it does not exist
+    dims: [snapshot, generator]
+    domain: binary
+    where: "is_flexible"
 
 sos:
   adjacent: # at most two adjacent members nonzero, one set per snapshot
     variable: weight
     over: generator
     type: 2
+
+piecewise:
+  fuel_curve: # three expressions on one curve, gated by a binary every unit has
+    over: bp
+    links:
+      - [p, bp_x]
+      - [fuel, bp_y]
+      - [heat, bp_heat]
+    activity: on
+  cost_curve: # a bounded link, which prints as the side of the curve it is on, and a gate only some units have
+    over: bp
+    method: sos2
+    points: bp_run
+    activity: warm
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y, ">="]
+  hull_curve: # the convex method, whose weights range over the hull the breakpoints span rather than the curve
+    over: bp
+    method: convex
+    links:
+      - [p, bp_x]
+      - [fuel, bp_heat]
 
 expressions:
   spend: # a plain named expression: its symbol prints where it is used, its body once as a definition
