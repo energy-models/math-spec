@@ -18,6 +18,7 @@ import pyparsing as pp
 
 from math_spec._sealed import Sealed
 from math_spec.errors import SchemaError
+from math_spec.operators import EDGE_WRAP
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
@@ -52,12 +53,19 @@ REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 class NumberNode:
     value: float
 
+    def __str__(self) -> str:
+        """A whole number without its fraction, which is how a file writes one and how it parses back."""
+        return str(int(self.value)) if self.value.is_integer() else str(self.value)
+
 
 @dataclass(frozen=True)
 class NameNode:
     """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node."""
 
     name: str
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass(frozen=True)
@@ -66,12 +74,18 @@ class VariableNode:
 
     name: str
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @dataclass(frozen=True)
 class ParameterNode:
     """A resolved reference to a declared parameter."""
 
     name: str
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass(frozen=True)
@@ -86,6 +100,9 @@ class DualNode:
 
     constraint: str
 
+    def __str__(self) -> str:
+        return f'dual({self.constraint})'
+
 
 @dataclass(frozen=True)
 class DimensionNode:
@@ -97,6 +114,9 @@ class DimensionNode:
 
     name: str
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @dataclass(frozen=True)
 class NameListNode:
@@ -107,9 +127,7 @@ class NameListNode:
 
     names: tuple[str, ...]
 
-    @property
-    def shown(self) -> str:
-        """The kwarg value as the author wrote it, for an error message."""
+    def __str__(self) -> str:
         return shown(self.names)
 
 
@@ -128,9 +146,7 @@ class RelationNode:
     into: tuple[str, ...]
     walk: Walk
 
-    @property
-    def shown(self) -> str:
-        """The kwarg value as the author wrote it, for an error message."""
+    def __str__(self) -> str:
         return self.name
 
 
@@ -143,10 +159,16 @@ class KeywordNode:
 
     value: str
 
+    def __str__(self) -> str:
+        return f"'{self.value}'"
+
 
 @dataclass(frozen=True)
 class EdgeNode:
     """The resolved ``edge='wrap'``; a number in the same position stays a :class:`NumberNode`."""
+
+    def __str__(self) -> str:
+        return f"'{EDGE_WRAP}'"
 
 
 @dataclass(frozen=True)
@@ -154,12 +176,18 @@ class UnaryOperatorNode:
     op: UnaryOperator
     operand: ArithmeticNode
 
+    def __str__(self) -> str:
+        return f'{self.op}{operand(self.operand)}'
+
 
 @dataclass(frozen=True)
 class BinaryOperatorNode:
     op: BinaryOperator
     left: ArithmeticNode
     right: ArithmeticNode
+
+    def __str__(self) -> str:
+        return f'{operand(self.left)} {self.op} {operand(self.right)}'
 
 
 @dataclass(frozen=True)
@@ -176,6 +204,10 @@ class FunctionCallNode:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'kwargs', Sealed(self.kwargs))
+
+    def __str__(self) -> str:
+        passed = [*(str(arg) for arg in self.args), *(f'{key}={value}' for key, value in self.kwargs.items())]
+        return f'{self.name}({", ".join(passed)})'
 
 
 @dataclass(frozen=True)
@@ -220,6 +252,10 @@ class CasesNode:
     name: str
     arms: tuple[CaseArm, ...]
 
+    def __str__(self) -> str:
+        """The name the file wrote, which is all an expression ever said: ``cases:`` is YAML and not syntax."""
+        return self.name
+
 
 @dataclass(frozen=True)
 class DefinitionNode:
@@ -232,6 +268,10 @@ class DefinitionNode:
 
     name: str
     body: ArithmeticNode
+
+    def __str__(self) -> str:
+        """The name the file wrote, rather than the body inlined under it."""
+        return self.name
 
 
 ArithmeticNode = (
@@ -259,6 +299,10 @@ class ComparisonNode:
     left: ArithmeticNode
     right: ArithmeticNode
 
+    def __str__(self) -> str:
+        """Both sides bare: a comparison is not an :data:`ArithmeticNode`, so nothing can take one as an operand."""
+        return f'{self.left} {self.op} {self.right}'
+
 
 #: A whole spec-side expression tree — parse output and the resolved tree alike.
 #: Named apart from :data:`math_spec.program.ExpressionNode`, the lowered
@@ -269,6 +313,21 @@ ParsedNode = ArithmeticNode | ComparisonNode
 def shown(names: tuple[str, ...]) -> str:
     """Names as a kwarg value is written: bare when one, bracketed when several."""
     return names[0] if len(names) == 1 else f'[{", ".join(names)}]'
+
+
+def operand(node: ArithmeticNode) -> str:
+    """One operand of an operator, bracketed where reading the text back would regroup the tree.
+
+    Whoever writes a node into a larger text — an operator, a line of a dumped
+    sum — asks this rather than restating when brackets are needed.
+
+    A leaf, a call and a named expression are self-delimiting, and an operator
+    node is not. The brackets go on every operator operand rather than only the
+    ones precedence would regroup, because a node prints without knowing its
+    parent: ``a + (b * c)`` keeps the tree where ``a + b * c`` would rely on the
+    reader knowing which binds tighter.
+    """
+    return f'({node})' if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode)) else str(node)
 
 
 # Node groups
