@@ -10,19 +10,30 @@ Nothing here resolves names — a parse result still holds raw
 
 import operator
 import re
+from collections.abc import Iterator
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 
 import pytest
 
 import math_spec.program as program_module
 from math_spec._expression_parser import (
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
+    DefinitionNode,
+    DimensionNode,
+    DirectionNode,
+    DualNode,
+    EdgeNode,
     FunctionCallNode,
     NameListNode,
     NameNode,
     NumberNode,
+    ParameterNode,
+    PartitionNode,
     UnaryOperatorNode,
+    VariableNode,
     parse_expression,
 )
 from math_spec._where_parser import (
@@ -32,7 +43,16 @@ from math_spec._where_parser import (
     parse_where,
 )
 from math_spec.errors import SchemaError
-from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
+from math_spec.program import (
+    AndNode,
+    BooleanLiteralNode,
+    Direction,
+    NotNode,
+    OrNode,
+    Partition,
+    RelationDeclaration,
+    _conjuncts,
+)
 
 
 def test_the_grammar_builds_the_program_s_own_node_classes():
@@ -425,3 +445,94 @@ def test_the_depth_the_repository_writes_is_nowhere_near_the_limit():
     written = parse_expression('sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)')
     assert depth(written, children) < MAX_DEPTH // 4, 'a real expression sits well inside the limit'
     assert depth(parse_expression(' + '.join(['x'] * 99)), children) <= MAX_DEPTH, 'and the limit itself is admitted'
+
+
+# ---------------------------------------------------------------------------
+# Printing a node back as the file writes it
+# ---------------------------------------------------------------------------
+
+
+def _fixture_expressions() -> list[str]:
+    """Every expression string the node fixture writes, cases arms included."""
+    import yaml
+
+    def strings(node: object) -> Iterator[str]:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in ('expression', 'otherwise') and isinstance(value, str):
+                    yield value
+                else:
+                    yield from strings(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from strings(item)
+
+    fixture = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
+    return sorted(set(strings(yaml.safe_load(fixture.read_text()))))
+
+
+@pytest.mark.parametrize('text', _fixture_expressions())
+def test_a_parsed_tree_prints_to_text_that_parses_to_the_same_tree(text):
+    """The grammar's inverse, over the fixture the node fence maintains.
+
+    A printer that drops a bracket or a kwarg produces text that still parses,
+    and the tree it parses to is the evidence — nothing else here compares two
+    trees built from two spellings of one expression.
+    """
+    tree = parse_expression(text)
+    assert parse_expression(str(tree)) == tree, f'`{text}` printed as `{tree}`, which is a different tree'
+
+
+@pytest.mark.parametrize(
+    ('text', 'printed'),
+    [
+        pytest.param('p + q', 'p + q', id='a-sum-of-two-leaves-needs-no-brackets'),
+        pytest.param('p + q * r', 'p + (q * r)', id='an-operator-operand-is-bracketed'),
+        pytest.param('(p + q) * r', '(p + q) * r', id='and-so-is-the-one-the-file-bracketed'),
+        pytest.param('-p', '-p', id='a-sign-on-a-leaf-stands-bare'),
+        pytest.param('-(p + q)', '-(p + q)', id='and-brackets-what-it-negates'),
+        pytest.param('sum(p, over=t) >= 0', 'sum(p, over=t) >= 0', id='a-call-carries-its-kwargs'),
+        pytest.param('sum(p, by=[a, b]) >= 0', 'sum(p, by=[a, b]) >= 0', id='a-list-kwarg-keeps-its-brackets'),
+        pytest.param("shift(p, along=t, edge='wrap') >= 0", "shift(p, along=t, edge='wrap') >= 0", id='a-keyword'),
+        pytest.param('p >= q * r', 'p >= q * r', id='a-comparison-takes-its-sides-bare'),
+        pytest.param('p >= 2', 'p >= 2', id='a-whole-number-keeps-no-fraction'),
+        pytest.param('p >= 2.5', 'p >= 2.5', id='and-a-fractional-one-keeps-its-own'),
+        pytest.param('p <= inf', 'p <= inf', id='an-infinity-prints-as-the-literal-it-parsed-from'),
+    ],
+)
+def test_a_node_prints_as_the_file_writes_it(text, printed):
+    assert str(parse_expression(text)) == printed, 'the spelling is the one a file could be written with'
+
+
+_ZONE_OF = RelationDeclaration('zone_of', (('u', 'unit'), ('zone', 'zone')), ('u',))
+
+
+@pytest.mark.parametrize(
+    ('node', 'printed'),
+    [
+        pytest.param(VariableNode('p'), 'p', id='a-variable'),
+        pytest.param(ParameterNode('cost'), 'cost', id='a-parameter'),
+        pytest.param(DimensionNode('t'), 't', id='a-dimension'),
+        pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
+        pytest.param(
+            DirectionNode(Direction(_ZONE_OF, ('u',), ('zone',), ())),
+            'zone_of',
+            id='a-relation-read-in-a-direction',
+        ),
+        pytest.param(
+            PartitionNode(Partition(_ZONE_OF, 'u', ('zone',), ())),
+            'zone_of',
+            id='a-relation-stepped-along-as-a-partition',
+        ),
+        pytest.param(EdgeNode(), "'wrap'", id='a-resolved-edge'),
+        pytest.param(DefinitionNode('headroom', NameNode('p')), 'headroom', id='a-named-expression-prints-its-name'),
+        pytest.param(CasesNode('startup', ()), 'startup', id='and-so-does-a-cased-one'),
+    ],
+)
+def test_a_node_resolution_built_prints_the_name_the_file_wrote(node, printed):
+    """These eight never come out of the parser, so no round trip reaches them:
+    resolution rewrites a `NameNode` into each. A `DefinitionNode` and a
+    `CasesNode` stand where a name stood, and the name is what the file says at
+    that position — printing the inlined body would print an expression the
+    author never wrote."""
+    assert str(node) == printed, 'a resolved node prints the text it was resolved from'
