@@ -817,7 +817,7 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
     assert footprint.domains == {'continuous'}, 'never empty — a program has variables'
-    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.nodes)} == {frozenset}, (
+    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.kinds)} == {frozenset}, (
         'every field is a set, so one rule reads all of them'
     )
     assert footprint.quadratic <= QUADRATIC_POSITIONS, 'and the vocabulary a consumer pins its table against'
@@ -835,7 +835,7 @@ def test_a_named_expression_is_not_in_the_footprint():
     """It builds no row, so counting it would answer wrongly about what is solved."""
     program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
 
-    assert Parameter not in program.footprint.nodes, "the named expression's parameter reaches no row"
+    assert Parameter not in program.footprint.kinds, "the named expression's parameter reaches no row"
     assert Parameter in {type(n) for n in walk(program.expressions['spend'].expression)}, (
         'though it is in the expression'
     )

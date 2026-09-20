@@ -266,7 +266,7 @@ class Pullback:
 
     The dims ``direction`` consumes go and the dims it produces arrive, one
     value per coordinate because the read takes value columns at a key the
-    result fixes (``Direction.is_function_read``). The join fans out, many
+    result fixes (``Direction.is_single_valued``). The join fans out, many
     produced tuples sharing one consumed tuple — at each coordinate of the
     joined columns, which the operand carries and the result keeps.
     """
@@ -455,8 +455,13 @@ class RelationDeclaration:
         """The roles the key determines."""
         return tuple(role for role in self.roles if role not in self.key)
 
+    @cached_property
+    def _dim_of(self) -> Mapping[str, str]:
+        """Each role's dimension, built once: :meth:`dim` is called per role inside loops over roles."""
+        return dict(self.columns)
+
     def dim(self, role: str) -> str:
-        return dict(self.columns)[role]
+        return self._dim_of[role]
 
 
 @dataclass(frozen=True)
@@ -495,7 +500,7 @@ class Direction:
         return tuple(self.dim(role) for role in self.joined)
 
     @property
-    def is_function_read(self) -> bool:
+    def is_single_valued(self) -> bool:
         """Whether the read is one value per coordinate: the key lies inside what is fixed."""
         return set(self.relation.key) <= {*self.joined, *self.produced}
 
@@ -789,13 +794,13 @@ class Footprint:
             stands in; empty is affine throughout.
         domains: Every domain declared.
         sos_types: The order of each special-ordered set declared.
-        nodes: Every expression node kind that appears.
+        kinds: Every expression node kind that appears.
     """
 
     quadratic: frozenset[QuadraticPosition]
     domains: frozenset[VariableDomain]
     sos_types: frozenset[Literal[1, 2]]
-    nodes: frozenset[type[Expression]]
+    kinds: frozenset[type[Expression]]
 
 
 @dataclass(frozen=True)
@@ -971,7 +976,7 @@ class Program:
             ),
             domains=frozenset(v.domain for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
-            nodes=frozenset(type(node) for node in walk(*self.roots)),
+            kinds=frozenset(type(node) for node in walk(*self.roots)),
         )
 
     @cached_property
