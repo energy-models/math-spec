@@ -22,13 +22,14 @@ from math_spec._expression_parser import (
     CasesNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
     ParameterNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -141,11 +142,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
 
     dimensions = {
         dname: program.DimensionDeclaration(
-            tuple(
-                program.RelationDeclaration(lname, lk.pairs, lk.key_roles)
-                for lname, lk in expanded.relations.items()
-                if dname in lk.dims
-            ),
+            tuple(lk for lk in resolved.relations.values() if dname in lk.dims),
             ddef.dtype,
         )
         for dname, ddef in expanded.dimensions.items()
@@ -272,16 +269,14 @@ class _Lowering:
             consumed = node.kwargs['over']
             assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (consumed.name,))
-        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        assert isinstance(by_node.use, program.Direction), 'resolution reads sum(by=) in a direction'
-        return program.GroupSum(operand, direction=by_node.use)
+        assert isinstance(by_node, DirectionNode), 'resolution reads sum(by=) in a direction'
+        return program.GroupSum(operand, direction=by_node.direction)
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
-        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        assert isinstance(by_node.use, program.Direction), 'resolution reads at(by=) in a direction'
-        return program.At(self.expr(node.args[0]), direction=by_node.use)
+        assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
+        return program.At(self.expr(node.args[0]), direction=by_node.direction)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -353,9 +348,8 @@ def _partition_of(node: FunctionCallNode) -> program.Partition | None:
     by_node = node.kwargs.get('by')
     if by_node is None:
         return None
-    assert isinstance(by_node, RelationNode)
-    assert isinstance(by_node.use, program.Partition), "resolution reads a translation's by= as a partition"
-    return by_node.use
+    assert isinstance(by_node, PartitionNode), "resolution reads a translation's by= as a partition"
+    return by_node.partition
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:

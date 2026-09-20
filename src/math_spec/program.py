@@ -266,69 +266,29 @@ class Sum(Expression):
 
 @dataclass(frozen=True)
 class GroupSum(Expression):
-    """Sum ``operand`` through a relation, consuming the dims ``over`` and producing ``into``.
+    """Sum ``operand`` through a relation: the dims ``direction`` consumes go, the dims it produces arrive, the dims it joins on stay.
 
-    ``direction`` says which columns are consumed, which produced and which
-    joined on, and is the one fact the node holds: ``over`` is the dims it
-    consumes, ``into`` the dims it produces, and ``joined`` the dims it joins
-    on. The result replaces every dim in ``over`` with every dim in ``into``
-    and keeps every dim in ``joined``. The join keys on the consumed columns
-    and every joined column.
+    The join keys on the consumed columns and every joined column, and the
+    operand carries every dim consumed or joined on.
     """
 
     operand: ExpressionNode
     direction: Direction
-
-    @property
-    def relation(self) -> str:
-        return self.direction.name
-
-    @property
-    def over(self) -> tuple[str, ...]:
-        return self.direction.consumed_dims
-
-    @property
-    def into(self) -> tuple[str, ...]:
-        return self.direction.produced_dims
-
-    @property
-    def joined(self) -> tuple[str, ...]:
-        """The dims it joins on — the key columns neither consumed nor produced, which the operand carries."""
-        return self.direction.joined_dims
 
 
 @dataclass(frozen=True)
 class At(Expression):
     """Read ``operand`` through a relation — the adjoint of :class:`GroupSum`.
 
-    The same table read the other way: this consumes the dims in ``into``
-    and produces the dims in ``over``, one value per coordinate because the
-    read takes value columns at a key the operand fixes
-    (``Direction.is_function_read``). The join fans out, many ``over`` tuples
-    sharing one ``into`` tuple — at each coordinate of the joined columns,
-    which the operand carries and the result keeps. As on
-    :class:`GroupSum`, ``direction`` is the fact and the rest are read off it.
+    The dims ``direction`` consumes go and the dims it produces arrive, one
+    value per coordinate because the read takes value columns at a key the
+    result fixes (``Direction.is_function_read``). The join fans out, many
+    produced tuples sharing one consumed tuple — at each coordinate of the
+    joined columns, which the operand carries and the result keeps.
     """
 
     operand: ExpressionNode
     direction: Direction
-
-    @property
-    def relation(self) -> str:
-        return self.direction.name
-
-    @property
-    def over(self) -> tuple[str, ...]:
-        return self.direction.produced_dims
-
-    @property
-    def into(self) -> tuple[str, ...]:
-        return self.direction.consumed_dims
-
-    @property
-    def joined(self) -> tuple[str, ...]:
-        """The dims it joins on — the key columns neither consumed nor produced, which the operand carries."""
-        return self.direction.joined_dims
 
 
 @dataclass(frozen=True)
@@ -492,7 +452,7 @@ class RelationDeclaration(NamedTuple):
 
     name: str
     columns: tuple[tuple[str, str], ...]
-    key: tuple[str, ...] = ()
+    key: tuple[str, ...]
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -531,18 +491,6 @@ class Direction(NamedTuple):
     def name(self) -> str:
         return self.relation.name
 
-    @property
-    def key(self) -> tuple[str, ...]:
-        return self.relation.key
-
-    @property
-    def roles(self) -> tuple[str, ...]:
-        return self.relation.roles
-
-    @property
-    def values(self) -> tuple[str, ...]:
-        return self.relation.values
-
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
         return self.relation.dim(role)
@@ -562,7 +510,7 @@ class Direction(NamedTuple):
     @property
     def is_function_read(self) -> bool:
         """Whether the read is one value per coordinate: the key lies inside what is fixed."""
-        return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
+        return set(self.relation.key) <= {*self.joined, *self.produced}
 
 
 class Partition(NamedTuple):
@@ -585,14 +533,6 @@ class Partition(NamedTuple):
     @property
     def name(self) -> str:
         return self.relation.name
-
-    @property
-    def key(self) -> tuple[str, ...]:
-        return self.relation.key
-
-    @property
-    def values(self) -> tuple[str, ...]:
-        return self.relation.values
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""

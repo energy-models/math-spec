@@ -290,6 +290,35 @@ def test_an_ill_dimensioned_expression_is_rejected(expr, match):
         _dims(expr)
 
 
+@pytest.mark.parametrize(
+    ('expr', 'diag'),
+    [
+        pytest.param(
+            'sum(p, by=diag, over=k, into=z)',
+            {'key': {'k': 'generator', 'j': 'generator', 'z': 'zone'}},
+            id='a-sum-consuming-a-column-over-the-dimension-it-joins-on',
+        ),
+        pytest.param(
+            'at(load, by=diag, over=rep, into=generator)',
+            {'key': ['snapshot', 'generator'], 'values': {'rep': 'snapshot'}},
+            id='a-read-consuming-a-column-over-the-dimension-it-joins-on',
+        ),
+    ],
+)
+def test_a_joined_column_is_not_also_consumed(expr, diag):
+    """The operand carries one coordinate per dimension, so a column consumed and a column joined on cannot share one.
+
+    The `at` case passed: the check asked whether a joined dimension was
+    *produced*, which the landing check already refuses, and not whether it
+    was consumed. `at(load, by=diag, over=rep, into=generator)` then read
+    `rep` at the operand's snapshot and joined on the key's snapshot at the
+    same coordinate, and landed on `[bus, generator]` with the joined
+    dimension gone.
+    """
+    with pytest.raises(DimensionError, match=r"joins 'diag' on \[.*\] through more than one column"):
+        _dims_with(expr, **{'relations.diag': diag})
+
+
 def test_an_outer_product_is_legal_and_carries_both_dim_sets():
     """Binary ops union. Requiring subset instead would reject the convex
     piecewise epigraph, which multiplies a per-segment slope by a per-snapshot

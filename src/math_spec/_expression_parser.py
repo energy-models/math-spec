@@ -132,24 +132,23 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class RelationNode:
-    """A resolved ``by=`` — the relation, and the use the call makes of it.
+class DirectionNode:
+    """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
 
-    ``use`` is a :class:`Direction` for ``sum`` and ``at``, and a
-    :class:`Partition` for ``shift`` and ``sum_back``.
-    ``dimensions`` is the fine side — what ``sum`` consumes and ``at``
-    produces — and ``into`` the coarse dims, which ``sum`` produces and ``at``
-    consumes. The roles joined on are the operand's to carry, and the operator
-    passes them through.
-    """
-
-    name: str
-    dimensions: tuple[str, ...]
-    into: tuple[str, ...]
-    use: Direction | Partition
+    direction: Direction
 
     def __str__(self) -> str:
-        return self.name
+        return self.direction.name
+
+
+@dataclass(frozen=True)
+class PartitionNode:
+    """A resolved ``by=`` on ``shift`` or ``sum_back``: the relation, as the :class:`Partition` the call steps inside."""
+
+    partition: Partition
+
+    def __str__(self) -> str:
+        return self.partition.name
 
 
 @dataclass(frozen=True)
@@ -284,7 +283,8 @@ ArithmeticNode = (
     | ParameterNode
     | DualNode
     | DimensionNode
-    | RelationNode
+    | DirectionNode
+    | PartitionNode
     | EdgeNode
     | KeywordNode
     | UnaryOperatorNode
@@ -338,7 +338,7 @@ def operand(node: ArithmeticNode) -> str:
 #: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
-KwargNode = DimensionNode | RelationNode | EdgeNode
+KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one

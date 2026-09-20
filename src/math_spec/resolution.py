@@ -25,6 +25,7 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
@@ -35,7 +36,7 @@ from math_spec._expression_parser import (
     NumberNode,
     ParameterNode,
     ParsedNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     VariableNode,
     case_context,
@@ -161,10 +162,6 @@ class Namespace:
             return 'relation'
         return None
 
-    def shape_of(self, relation: str) -> RelationDeclaration:
-        """The columns and key of *relation*, as declared."""
-        return self.relations[relation]
-
     def unknown(self, name: str, context: str, *, allow_dims: bool, formals: Iterable[str] = ()) -> str:
         """The refusal for a *name* declared nowhere, listing what it could have been.
 
@@ -224,12 +221,16 @@ class Resolved:
         constraints: Each constraint's comparison and ``where``.
         objective: The objective's expression, ``None`` where the file
             declares none.
+        relations: Each relation's columns and key, as declared — the one
+            copy, which every :class:`~math_spec.program.Direction` and
+            :class:`~math_spec.program.Partition` in the trees holds.
     """
 
     expressions: dict[str, CasesNode | DefinitionNode]
     variables: dict[str, Mask | None]
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
+    relations: dict[str, RelationDeclaration]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:
@@ -611,17 +612,11 @@ class _Resolver:
                 return value  # the call shape refused it already, with the wording that names the rewrite
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
             partition = self._partition(name, operator, over_dim, named['within'])
-            if partition is None:
-                return value
-            return RelationNode(name, dimensions=(partition.along_dim,), into=(), use=partition)
+            return value if partition is None else PartitionNode(partition)
         if not ({'over', 'into'} <= set(named)):
             return value  # the call shape refused it already, with the wording that names the rewrite
         direction = self._direction(name, operator, named['over'], named['into'])
-        if direction is None:
-            return value
-        fine = direction.produced_dims if operator == 'at' else direction.consumed_dims
-        coarse = direction.consumed_dims if operator == 'at' else direction.produced_dims
-        return RelationNode(name, dimensions=fine, into=coarse, use=direction)
+        return value if direction is None else DirectionNode(direction)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -651,7 +646,7 @@ class _Resolver:
         refused toward ``at``.
         """
         ns, context = self.ns, self.context
-        shape = ns.shape_of(name)
+        shape = ns.relations[name]
         call = f'{operator}(by={name})'
         if not (
             self._known_roles(name, call, from_roles, 'over') and self._known_roles(name, call, into_roles, 'into')
@@ -673,13 +668,13 @@ class _Resolver:
                     f'between columns over distinct dimensions.'
                 )
                 return None
-        joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
+        joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
         direction = Direction(shape, from_roles, into_roles, joined)
         if not forward and not direction.is_function_read:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
-                f'{list(from_roles)} at the columns the operand fixes ({[*into_roles, *joined]}) — its key is '
-                f'{list(shape.key)}. Key the table by columns the read fixes, or read the other way.'
+                f'{list(from_roles)} at the columns the call lands on ({[*into_roles, *joined]}) — its key is '
+                f'{list(shape.key)}. Key the table by the columns the call lands on, or read the other way.'
             )
             return None
         if forward and direction.is_function_read:
@@ -692,17 +687,17 @@ class _Resolver:
             return None
         return direction
 
-    def _known_roles(self, name: str, call: str, roles: tuple[str, ...] | None, kwarg: str) -> bool:
+    def _known_roles(self, name: str, call: str, roles: tuple[str, ...], kwarg: str) -> bool:
         """Whether every role *kwarg* names is a column of relation *name*, each once; the refusal otherwise."""
-        shape = self.ns.shape_of(name)
-        for role in roles or ():
+        shape = self.ns.relations[name]
+        for role in roles:
             if role not in shape.roles:
                 self.errors.append(
                     f"{self.context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
                     f'{list(shape.roles)}.'
                 )
                 return False
-        if roles is not None and len(set(roles)) < len(roles):
+        if len(set(roles)) < len(roles):
             self.errors.append(f'{self.context}: {call}: {kwarg}={list(roles)} names a column twice.')
             return False
         return True
@@ -719,7 +714,7 @@ class _Resolver:
         ``within=`` names a column that is not a value column.
         """
         context = self.context
-        shape = self.ns.shape_of(name)
+        shape = self.ns.relations[name]
         call = f'{operator}(by={name})'
         if along_dim is None or not self._known_roles(name, call, within_roles, 'within'):
             return None
@@ -811,7 +806,7 @@ class _Resolver:
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
             case 'relation':
-                shape = ns.shape_of(node.name)
+                shape = ns.relations[node.name]
                 dims = tuple(shape.dim(k) for k in shape.key)
                 if len(set(dims)) < len(dims):
                     self.errors.append(
@@ -844,19 +839,15 @@ class _Resolver:
             return node
         if node.by is None:
             return DimensionPositionNode(node.dimension, node.op, node.position)
-        call = f'position({node.dimension}, by={node.by})'
-        if ns.kind(node.by) != 'relation':
-            self.errors.append(
-                f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
-                f'``by=`` takes a relation with a key column over that dimension. '
-                f'{did_you_mean(node.by, ns.relations, label="Relations")}'
-            )
+        if (problem := self._not_a_relation(node.by, 'position', 'by')) is not None:
+            self.errors.append(problem)
             return node
+        call = f'position({node.dimension}, by={node.by})'
         if node.into is None:
             self.errors.append(
                 f'{context}: {call} leaves within= unsaid. {PARTITION_NAMES_ITS_GROUP} Write '
                 f"position({node.dimension}, by={node.by}, within=<column>) — the value columns of '{node.by}' "
-                f'are {list(ns.shape_of(node.by).values)}.'
+                f'are {list(ns.relations[node.by].values)}.'
             )
             return node
         partition = self._partition(node.by, 'position', node.dimension, node.into)
@@ -880,7 +871,7 @@ class _Resolver:
                     if (refusal := _relation_pair_error(context, node, value, ns, left, right)) is not None:
                         self.errors.append(refusal)
                         return node
-                    dims = tuple(ns.shape_of(left_name).dim(k) for k in ns.shape_of(left_name).key)
+                    dims = tuple(ns.relations[left_name].dim(k) for k in ns.relations[left_name].key)
                     return RelationPairComparisonNode(left_name, left, right_name, right, node.op, dims)
                 self.errors.append(_declared_rhs_error(context, node, value, rhs_kind))
                 return node
@@ -901,7 +892,7 @@ class _Resolver:
             column = self._relation_column(left_name, left_column or None, node.name, node.op)
             if column is None:
                 return node
-            dtype = ns.dtypes[ns.shape_of(left_name).dim(column)]
+            dtype = ns.dtypes[ns.relations[left_name].dim(column)]
         elif kind in ('parameter', 'dimension'):
             dtype = ns.dtypes[left_name]
         if dtype is not None:
@@ -918,7 +909,7 @@ class _Resolver:
                 return DimensionComparisonNode(left_name, node.op, value)
             case 'relation':
                 assert column is not None
-                shape = ns.shape_of(left_name)
+                shape = ns.relations[left_name]
                 return RelationComparisonNode(left_name, column, node.op, value, tuple(shape.dim(k) for k in shape.key))
             case 'variable':
                 self.errors.append(
@@ -936,7 +927,7 @@ class _Resolver:
         column where there is exactly one.
         """
         ns, context = self.ns, self.context
-        shape = ns.shape_of(name)
+        shape = ns.relations[name]
         if not shape.values:
             self.errors.append(
                 f"{context}: '{spelling}' compares a column of '{name}', a bare relation — every column is in its "
@@ -1116,7 +1107,7 @@ def _relation_pair_error(
     """
     comparison = f"'{node.name} {node.op} {other}'"
     left_name, right_name = node.name.partition('.')[0], other.partition('.')[0]
-    ls, rs = ns.shape_of(left_name), ns.shape_of(right_name)
+    ls, rs = ns.relations[left_name], ns.relations[right_name]
     left_keys, right_keys = {ls.dim(k) for k in ls.key}, {rs.dim(k) for k in rs.key}
     if left_keys != right_keys:
         return (

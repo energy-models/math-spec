@@ -553,12 +553,14 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
         'a grouped sum names the column it consumes, the one it produces and the one it joins on'
     )
     assert isinstance(zonal, GroupSum)
-    assert (zonal.over, zonal.into, zonal.joined, zonal.relation) == (
+    assert (zonal.direction.consumed_dims, zonal.direction.produced_dims, zonal.direction.joined_dims) == (
         ('generator',),
         ('zone',),
         ('snapshot',),
-        'zone_of',
     ), 'the dims a consumer reads are read off the direction'
+    assert zonal.direction.relation is program.relations['zone_of'], (
+        'the direction holds the one declaration the program holds, not an equal copy built again'
+    )
     assert program.constraints['history'].lhs == GroupSum(
         Variable('p'), direction=Direction(declared, ('snapshot',), ('zone',), ('generator',))
     ), 'the same table read from its other key column'
@@ -567,9 +569,11 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
         'and its adjoint consumes the value column and produces the key column'
     )
     assert isinstance(priced, At)
-    assert (priced.over, priced.into, priced.joined) == (('generator',), ('zone',), ('snapshot',)), (
-        'an at produces the fine dims, consumes the coarse, and joins on the rest of the key'
-    )
+    assert (priced.direction.consumed_dims, priced.direction.produced_dims, priced.direction.joined_dims) == (
+        ('zone',),
+        ('generator',),
+        ('snapshot',),
+    ), 'an at consumes the coarse dims, produces the fine, and joins on the rest of the key'
     p_where = program.variable('p').where
     assert p_where is not None
     assert [(type(a).__name__, a.dims) for a in p_where.atoms] == [

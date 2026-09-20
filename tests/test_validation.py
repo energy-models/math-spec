@@ -535,7 +535,10 @@ class TestPositionResolves:
         [
             ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
             ('position(nope) == 0', ["'nope' is not declared"]),
-            ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a relation']),
+            (
+                'position(snapshot, by=load) == 0',
+                ['position(by=load) does not name a relation', "Declare it under 'relations:'"],
+            ),
             (
                 'position(snapshot, by=starts_at, within=snapshot) == 0',
                 ["no key column over 'snapshot'", "its key is ['period']"],
@@ -787,7 +790,10 @@ class TestRulesDecidedWithoutData:
                     'relations.rel': {'key': ['g', 'h']},
                     'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
                 },
-                ("at reads one value per coordinate, and 'rel' is not single-valued",),
+                (
+                    "at reads one value per coordinate, and 'rel' is not single-valued in ['h'] at the columns "
+                    "the call lands on (['g'])",
+                ),
                 id='at-through-a-bare-relation',
             ),
             pytest.param(

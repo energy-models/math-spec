@@ -69,12 +69,11 @@ def _never_an_axis(program: Program) -> list[Advice]:
 def _produced_axes(program: Program) -> set[str]:
     """The axes the expressions create beyond what any declaration indexes.
 
-    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine dimension.
+    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine
+    dimension: either way, the dims the direction produces.
     """
     axes: set[str] = set()
     for node in walk(*program.expressions):
-        if isinstance(node, GroupSum):
-            axes.update(node.into)
-        elif isinstance(node, At):
-            axes.update(node.over)
+        if isinstance(node, GroupSum | At):
+            axes.update(node.direction.produced_dims)
     return axes

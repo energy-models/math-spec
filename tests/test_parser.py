@@ -23,6 +23,7 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
@@ -30,7 +31,7 @@ from math_spec._expression_parser import (
     NameNode,
     NumberNode,
     ParameterNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     VariableNode,
     parse_expression,
@@ -48,6 +49,7 @@ from math_spec.program import (
     Direction,
     NotNode,
     OrNode,
+    Partition,
     RelationDeclaration,
     _conjuncts,
 )
@@ -502,6 +504,9 @@ def test_a_node_prints_as_the_file_writes_it(text, printed):
     assert str(parse_expression(text)) == printed, 'the spelling is the one a file could be written with'
 
 
+_ZONE_OF = RelationDeclaration('zone_of', (('u', 'unit'), ('zone', 'zone')), ('u',))
+
+
 @pytest.mark.parametrize(
     ('node', 'printed'),
     [
@@ -510,9 +515,14 @@ def test_a_node_prints_as_the_file_writes_it(text, printed):
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
         pytest.param(
-            RelationNode('zone_of', ('u',), ('zone',), Direction(RelationDeclaration('zone_of', ()), (), (), ())),
+            DirectionNode(Direction(_ZONE_OF, ('u',), ('zone',), ())),
             'zone_of',
-            id='a-relation',
+            id='a-relation-read-in-a-direction',
+        ),
+        pytest.param(
+            PartitionNode(Partition(_ZONE_OF, 'u', ('zone',), ())),
+            'zone_of',
+            id='a-relation-stepped-along-as-a-partition',
         ),
         pytest.param(EdgeNode(), "'wrap'", id='a-resolved-edge'),
         pytest.param(DefinitionNode('headroom', NameNode('p')), 'headroom', id='a-named-expression-prints-its-name'),
