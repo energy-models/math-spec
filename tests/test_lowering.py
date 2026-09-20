@@ -45,6 +45,7 @@ from math_spec.program import (
     Parameter,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    Partition,
     Power,
     Program,
     Region,
@@ -443,7 +444,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 offset=1,
                 wrap=False,
                 fill=0.0,
-                partition=Direction(LK, ('g',), ('h',), ()),
+                partition=Partition(LK, 'g', ('h',), ()),
             ),
             id='a-translation-stops-at-the-edges-of-the-relation-it-names',
         ),
@@ -464,7 +465,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 'g',
                 width=2,
                 wrap=False,
-                partition=Direction(LK, ('g',), ('h',), ()),
+                partition=Partition(LK, 'g', ('h',), ()),
             ),
             id='a-window-stops-at-the-edges-of-the-relation-it-names',
         ),
@@ -498,7 +499,7 @@ def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
                 },
             }
         )
-        grouping[str(values)] = _partition_of(program.constraints['k']).produced
+        grouping[str(values)] = _partition_of(program.constraints['k']).group
     assert grouping == {'day': ('day',), "['day', 'week']": ('day',)}, (
         'the group is the columns the call named, on both calendars'
     )

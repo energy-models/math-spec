@@ -273,13 +273,15 @@ class _Lowering:
             assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (consumed.name,))
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.GroupSum(operand, direction=by_node.direction)
+        assert isinstance(by_node.use, program.Direction), 'resolution reads sum(by=) in a direction'
+        return program.GroupSum(operand, direction=by_node.use)
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.At(self.expr(node.args[0]), direction=by_node.direction)
+        assert isinstance(by_node.use, program.Direction), 'resolution reads at(by=) in a direction'
+        return program.At(self.expr(node.args[0]), direction=by_node.use)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -341,8 +343,8 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 }
 
 
-def _partition_of(node: FunctionCallNode) -> program.Direction | None:
-    """The direction a translation partitions by, if the call names a relation.
+def _partition_of(node: FunctionCallNode) -> program.Partition | None:
+    """The partition a translation steps inside, if the call names a relation.
 
     That it is a *single* relation, stepped *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
@@ -352,7 +354,8 @@ def _partition_of(node: FunctionCallNode) -> program.Direction | None:
     if by_node is None:
         return None
     assert isinstance(by_node, RelationNode)
-    return by_node.direction
+    assert isinstance(by_node.use, program.Partition), "resolution reads a translation's by= as a partition"
+    return by_node.use
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:
