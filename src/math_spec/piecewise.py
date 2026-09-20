@@ -64,29 +64,38 @@ def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
 
 
 def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
-    """The facts of one expanded block, as a program carries them.
-
-    A curve has an x-axis only where two links tie it, so the increasing
-    condition — and the shape it is checked with — exist only there; ``lp``
-    alone needs a segment to state a line for; a mask must be one run.
-    """
+    """The curve of one expanded block, as a program carries it."""
     pw = expanded.block
-    checks: list[Check] = []
-    curvature = _curvature_required(pw)
-    if curvature is not None:
-        x, y = pw.curve
-        checks.append(Increasing(x.values, pw.over))
-        checks.append(Curved(x.values, y.values, pw.over, curvature))
-    if pw.method == 'lp':
-        checks.append(AtLeastTwo(pw.over, expanded.points))
-    if expanded.points is not None:
-        checks.append(Contiguous(expanded.points, _nominated(pw)))
     return PiecewiseDeclaration(
         over=pw.over,
         method=pw.method,
         breakpoints=tuple(link.values for link in pw.links),
-        checks=tuple(checks),
     )
+
+
+def assumptions_of(block: str, expanded: ExpandedPiecewise) -> dict[str, Check]:
+    """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
+
+    A curve has an x-axis only where two links tie it, so the increasing
+    condition — and the shape it is checked with — exist only there; ``lp``
+    alone needs a segment to state a line for; a mask must be one run.
+
+    The space in each name is what keeps these apart from the file's own
+    ``assumptions:`` entries in one mapping: a declaration is named as an
+    expression writes it, so no file can write one of these.
+    """
+    pw = expanded.block
+    checks: dict[str, Check] = {}
+    curvature = _curvature_required(pw)
+    if curvature is not None:
+        x, y = pw.curve
+        checks[f'{block} increasing'] = Increasing(block, pw.method, x.values, pw.over)
+        checks[f'{block} curvature'] = Curved(block, pw.method, x.values, y.values, pw.over, curvature)
+    if pw.method == 'lp':
+        checks[f'{block} breakpoints'] = AtLeastTwo(block, pw.over, expanded.points)
+    if expanded.points is not None:
+        checks[f'{block} points'] = Contiguous(block, expanded.points, _nominated(pw))
+    return checks
 
 
 def derivations_of(block: str, expanded: ExpandedPiecewise) -> dict[str, Derivation]:

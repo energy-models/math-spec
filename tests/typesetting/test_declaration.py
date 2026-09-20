@@ -127,11 +127,15 @@ def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_
 @pytest.mark.parametrize(
     ('name', 'match'),
     [
-        pytest.param('spent', r"'spent' is not a named expression, constraint or variable.*spend", id='a-near-miss'),
+        pytest.param(
+            'spent',
+            r"'spent' is not a named expression, constraint, assumption or variable.*spend",
+            id='a-near-miss',
+        ),
         pytest.param('objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
     ],
 )
-def test_a_name_declared_as_none_of_the_three_is_refused(name: str, match: str):
+def test_a_name_declared_as_none_of_the_four_is_refused(name: str, match: str):
     with pytest.raises(SchemaError, match=match):
         typeset_declaration(PLAIN, name, 'latex')
 

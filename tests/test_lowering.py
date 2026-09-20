@@ -37,6 +37,7 @@ from math_spec.program import (
     ExpressionComparison,
     Footprint,
     GroupSum,
+    Holds,
     Mask,
     Multiply,
     Negate,
@@ -55,6 +56,7 @@ from math_spec.program import (
     Translate,
     Variable,
     WindowSum,
+    assumption_message,
     children,
     divisor_parameters,
     fan_in,
@@ -428,6 +430,36 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
         'the relation a pullback and a partition read through is data the consumer binds too'
     )
+
+
+def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
+    """One mapping holds every fact about the data, so a consumer binding it has one loop and one refusal.
+
+    The file's entries come first, in the order it wrote them; each
+    ``piecewise:`` block's conditions follow under the name a refusal quotes.
+    """
+    program = to_program(EXAMPLES / 'piecewise_lp.yaml')
+    written = [name for name, a in program.assumptions.items() if isinstance(a, Holds)]
+    derived = [name for name, a in program.assumptions.items() if not isinstance(a, Holds)]
+
+    assert list(program.assumptions) == [*written, *derived], 'the file first, then what the methods imply'
+    assert derived == ['cost_curve increasing', 'cost_curve curvature', 'cost_curve breakpoints'], (
+        'an lp curve over a whole axis assumes three things of its breakpoints'
+    )
+
+
+def test_an_assumption_lowers_both_of_its_masks():
+    """The predicate and the ``where`` are rebuilt on program expressions, as every other mask is."""
+    program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}}))
+    assumption = program.assumptions['sound']
+
+    assert assumption == Holds(
+        Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
+        Mask(ParameterDefined('flag', ('g',))),
+    )
+    assert assumption_message('sound', assumption) == (
+        "assumption 'sound' does not hold for the data bound to 'c', 'k'"
+    ), 'the refusal names what the consumer bound, so it can say which column is wrong'
 
 
 def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):

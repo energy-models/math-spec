@@ -73,11 +73,30 @@ on a `Program`, it returns the same object unchanged.
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts          |
 
-`program.piecewise` keeps what the block assumed about the numbers, such as
-"the breakpoints in `bp_x` increase", as a `checks` tuple. The engine, which has
-the numbers, runs each check, and `check_message` gives it the sentence to
-raise. `ParameterDeclaration.derivation` says how a parameter is filled, and
-`None` means the engine binds it from its data.
+`program.piecewise` keeps the curve: its breakpoint dimension, its method and
+its values parameters. `ParameterDeclaration.derivation` says how a parameter
+is filled, and `None` means the engine binds it from its data.
+
+## What the data has to satisfy
+
+`program.assumptions` holds every fact the numbers have to meet, by the name a
+refusal quotes. The engine, which has the numbers, runs each one and raises
+`assumption_message` where it fails:
+
+```python
+from math_spec.program import Holds, assumption_message
+
+sorted(program.assumptions)  # ['curve curvature', 'curve increasing']
+isinstance(program.assumptions['curve increasing'], Holds)  # False
+assumption_message('curve increasing', program.assumptions['curve increasing'])  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+```
+
+Two kinds stand in that mapping. A `Holds` carries what the file wrote under
+`assumptions:` as two masks: `predicate`, and the `where` it is checked under.
+The rest carry what a `piecewise:` block's method implies about its
+breakpoints — `Increasing`, `Curved`, `AtLeastTwo` and `Contiguous` — each
+naming the block it came from. The union is closed, so a kind added later is a
+type error at your match rather than a case you silently skip.
 
 ## Nodes and masks
 

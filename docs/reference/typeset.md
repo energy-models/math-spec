@@ -47,6 +47,10 @@ a flag.
 
 - The model's `description:` opens the document.
 - A `piecewise:` block prints as the variables and constraints it expands into.
+- An [`assumptions:`](language/assumptions.md) entry prints under an
+  **Assumptions** heading, last, beside what each curve assumes of its
+  breakpoints. A model that assumes nothing of its data prints no such
+  heading.
 - A [named expression](language/named.md) prints its symbol where it is used
   and its body once, under a **Definitions** heading, in declaration order. A
   `cases:` block and a [reported entry](language/named.md#reported-expressions)
@@ -74,8 +78,8 @@ dimension, parameter and variable.
 ## Printing one declaration on its own
 
 `typeset_declaration` returns the line the document prints for one named
-expression, constraint or variable, with its quantifier and without a document,
-a label, a number or math delimiters:
+expression, constraint, assumption or variable, with its quantifier and without
+a document, a label, a number or math delimiters:
 
 ```python
 ms.typeset_declaration('model.yaml', 'spend', 'latex')
@@ -97,7 +101,7 @@ A line on its own has no _Definitions_ section beside it, so the plain named
 expressions it uses are substituted. A cased expression prints by symbol, and a
 second call with its name prints its block.
 
-A name that is none of the three kinds is refused with the near miss. A name that
+A name that is none of the four kinds is refused with the near miss. A name that
 is both a constraint and a variable is refused too, because one line can print
 only one of them.
 

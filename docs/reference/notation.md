@@ -45,6 +45,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int } # the breakpoint axis the two curves run along
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -69,6 +70,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [bp] } # the masked curve's x-axis, and the parameter its mask is derived from
+  bp_y: { dims: [bp] }
+  heat_x: { dims: [bp] } # the whole-axis curve, bounded the other way
+  heat_y: { dims: [bp] }
 ```
 
 #### Sets
@@ -81,6 +86,7 @@ parameters:
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{S}`$ | index $`s`$ — `season` with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}`$ |
 | $`\mathcal{E}`$ | index $`e`$ — `technology` with $`\mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
+| $`\mathcal{A}`$ | index $`a`$ — `bp` |
 
 #### Parameters
 
@@ -98,6 +104,13 @@ parameters:
 | $`\mathrm{lead}`$ | `lead` over $`\mathcal{G}`$ |
 | $`\mathrm{budget}`$ | `budget` (scalar) |
 | $`\mathrm{growth}`$ | `growth` (scalar) |
+| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{A}`$ |
+| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{A}`$ |
+| $`\mathrm{heat}^{\mathrm{x}}`$ | `heat_x` over $`\mathcal{A}`$ |
+| $`\mathrm{heat}^{\mathrm{y}}`$ | `heat_y` over $`\mathcal{A}`$ |
+| $`\mathrm{fuel}^{\mathrm{curve,points}}`$ | `fuel_curve_points` over $`\mathcal{A}`$ — where 'bp\_x' has a row, and so where the curve runs |
+| $`\mathrm{fuel}^{\mathrm{curve,starts}}`$ | `fuel_curve_starts` over $`\mathcal{A}`$ — the first breakpoint of each curve |
+| $`\mathrm{fuel}^{\mathrm{curve,ends}}`$ | `fuel_curve_ends` over $`\mathcal{A}`$ — the last breakpoint of each curve |
 
 #### Variables
 
@@ -113,6 +126,10 @@ parameters:
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`p^{\mathrm{bp}}`$ | `p_bp` over $`\mathcal{T}`$ |
+| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T}`$ |
+| $`q^{\mathrm{bp}}`$ | `q_bp` over $`\mathcal{T}`$ |
+| $`\mathit{heat}`$ | `heat` over $`\mathcal{T}`$ |
 
 #### Definitions
 
@@ -974,6 +991,62 @@ weight:
 0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+#### `p_bp`
+
+the masked curve's x link
+
+```yaml
+p_bp:
+  dims: [snapshot]
+  bounds: { lower: 0, upper: 100 }
+```
+
+```math
+0 \le p^{\mathrm{bp}}_{t} \le 100 \qquad \forall\, t \in \mathcal{T}
+```
+
+#### `fuel`
+
+its y link, bounded above, which is what makes the curve a convex one
+
+```yaml
+fuel:
+  dims: [snapshot]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{fuel}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T}
+```
+
+#### `q_bp`
+
+the whole-axis curve's x link
+
+```yaml
+q_bp:
+  dims: [snapshot]
+  bounds: { lower: 0, upper: 100 }
+```
+
+```math
+0 \le q^{\mathrm{bp}}_{t} \le 100 \qquad \forall\, t \in \mathcal{T}
+```
+
+#### `heat`
+
+its y link, bounded below, so that curve is concave
+
+```yaml
+heat:
+  dims: [snapshot]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{heat}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T}
+```
+
 ### Curves, as what they expand to
 
 A curve is sugar: what prints is the formulation it expands to, which is the math the solver receives. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
@@ -1114,6 +1187,16 @@ cost_curve:
 0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 
+What the method assumes of the numbers bound to it:
+
+```math
+\mathrm{x}_{g,b - 1} < \mathrm{x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{y}_{g,b} \text{ is a convex or concave function of } \mathrm{x}_{g,b} \text{ along } b \qquad \forall\, g \in \mathcal{G}
+```
+
 #### `cost_curve`
 
 **`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
@@ -1149,6 +1232,20 @@ cost_curve:
 \mathit{dispatch}_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
 ```
 
+What the method assumes of the numbers bound to it:
+
+```math
+\mathrm{x}_{g,b - 1} < \mathrm{x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{y}_{g,b} \text{ is a convex function of } \mathrm{x}_{g,b} \text{ along } b \qquad \forall\, g \in \mathcal{G}
+```
+
+```math
+\lvert \mathcal{B} \rvert \ge 2
+```
+
 ### Sets carried to the solver
 
 #### `adjacent`
@@ -1164,5 +1261,109 @@ adjacent:
 
 ```math
 \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T}
+```
+
+### What the data has to satisfy
+
+#### `bounds_do_not_cross`
+
+two parameters, which is arithmetic like any other
+
+```yaml
+bounds_do_not_cross: "p_min <= p_max"
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `efficiency_is_a_fraction`
+
+a connective, so the line has no relation to align on
+
+```yaml
+efficiency_is_a_fraction: "eta > 0 AND eta <= 1"
+```
+
+```math
+\mathrm{eta}_{g} > 0 \wedge \mathrm{eta}_{g} \le 1 \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `lead_times_are_short`
+
+one parameter against a literal
+
+```yaml
+lead_times_are_short: "lead <= 3"
+```
+
+```math
+\mathrm{lead}_{g} \le 3 \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `zones_agree`
+
+two maps into one set, compared row by row
+
+```yaml
+zones_agree: "zone_of == area_of"
+```
+
+```math
+\mathrm{zone\_of}(b) = \mathrm{area\_of}(b) \qquad \forall\, b \in \mathcal{B}
+```
+
+#### `budget_covers_the_peak`
+
+a reduction on a side, leaving nothing to quantify
+
+```yaml
+budget_covers_the_peak: "sum(p_max, over=generator) >= budget"
+```
+
+```math
+\sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget}
+```
+
+#### `ramps_are_gentle`
+
+a translation inside arithmetic, and a position keeping the vacated row out
+
+```yaml
+ramps_are_gentle:
+  holds: "load - shift(load, along=snapshot, offset=1, edge=0) <= budget"
+  where: "position(snapshot) > 0"
+```
+
+```math
+\mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{pos}(t) > 0
+```
+
+#### `flexible_units_have_headroom`
+
+a bare bool parameter as the where
+
+```yaml
+flexible_units_have_headroom:
+  holds: "p_min < p_max"
+  where: "is_flexible"
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} < \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{is\_flexible}_{g}
+```
+
+#### `northern_demand_is_real`
+
+a relation comparison as the where, over a frame two dims wide
+
+```yaml
+northern_demand_is_real:
+  holds: "load >= 0"
+  where: "zone_of == 'north'"
+```
+
+```math
+\mathrm{load}_{t,b} \ge 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'}
 ```
 <!-- notation:end -->

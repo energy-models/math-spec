@@ -106,6 +106,9 @@ class TypstFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'
 
+    def set_of(self, members: str, condition: str) -> str:
+        return f'{{{members} {self.operators["such_that"]} {condition}}}'
+
     def cases(self, arms: list[tuple[str, str]]) -> str:
         return 'cases({})'.format(self.cases_row.join(f'{value} & {condition}' for value, condition in arms))
 
