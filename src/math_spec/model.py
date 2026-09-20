@@ -32,7 +32,7 @@ from pydantic import (
 from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import SchemaError, did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
-from math_spec.sos import Emitted, coefficient
+from math_spec.sos import Emitted, coefficients
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
@@ -628,8 +628,8 @@ class SosBlock(_StrictBlock):
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
     and those two consecutive. A consumer with the concept takes the set as
     one; :meth:`Spec.expand` states it as binaries instead, and ``bound`` is
-    the coefficient those rows link a member by, where the member's own
-    ``upper`` is not the one to use.
+    the coefficient those rows link a member by from above, where the member's
+    own ``upper`` is not the one to use.
     """
 
     _label: ClassVar[str] = 'a sos declaration'
@@ -1068,35 +1068,30 @@ class Spec(_StrictBlock):
                 claimed[block.variable] = sname
 
     def _sos_bounds(self) -> Iterator[str]:
-        """A set states what the binaries it expands to state: its members start at zero, and one coefficient links them.
+        """A set states what the binaries it expands to state: each side of a member carries a coefficient.
 
-        Decided here rather than where the rewrite runs, so a set the language
-        cannot state twice is refused before any data exists and no consumer
-        asks the question again. A parameter-valued ``lower`` is data, so
-        whether it is at or above zero is not decidable here.
+        The rewrite holds an unpicked member at zero from both sides, so a side
+        the model leaves open leaves the member free of it. Either coefficient
+        may be a parameter, because a row multiplies by it rather than reading
+        it. Decided here rather than where the rewrite runs, so a set the
+        language cannot state twice is refused before any data exists.
         """
         for sname, block in self.sos.items():
             if (member := self.variables.get(block.variable)) is None:
                 continue
             context = f"Sos '{sname}'"
-            lower = 0.0 if member.domain == 'binary' else member.bounds.lower
-            if isinstance(lower, str):
+            below, above = coefficients(block.bound, member.domain, member.bounds.lower, member.bounds.upper)
+            if below is None:
                 yield (
-                    f"{context}: variable '{block.variable}' bounds.lower is the parameter '{lower}', and the "
-                    f'set expands to rows that bound a member from above only, so a member below zero stays '
-                    f'free of them. Declare a literal bounds.lower of at least zero.'
+                    f"{context}: variable '{block.variable}' has no lower bound, and the set expands to rows "
+                    f'that hold an unpicked member at zero from below as well as above. Declare bounds.lower, '
+                    f'as a number or a parameter.'
                 )
-            elif lower < 0:
-                yield (
-                    f"{context}: variable '{block.variable}' has bounds.lower {lower}, and the set expands to "
-                    f'rows that bound a member from above only, so a member below zero stays free of them. '
-                    f'Declare bounds.lower of at least zero.'
-                )
-            if coefficient(block.bound, member.domain, member.bounds.upper) is None:
+            if above is None:
                 yield (
                     f"{context}: variable '{block.variable}' has no upper bound, and the set expands to rows "
-                    f'that link each member to a binary by one coefficient. Declare bounds.upper on the '
-                    f'variable, or bound: on the set.'
+                    f'that hold an unpicked member at zero from above as well as below. Declare bounds.upper, '
+                    f'as a number or a parameter, or bound: on the set.'
                 )
 
     def _sos_emitted_names(self) -> Iterator[str]:

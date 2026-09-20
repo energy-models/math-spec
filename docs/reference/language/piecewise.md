@@ -176,28 +176,40 @@ the `over` dimension.
 ### What a set is written out as
 
 `spec.expand('sos')` states the set as binaries: one per member for `type: 1`,
-one per segment for `type: 2`. The names are the block's own, and the rows are
-these, for a set `s` over variable `x` along `d`:
+one per segment for `type: 2`. A member the binaries do not admit is held at
+zero, from above and from below. The names are the block's own, and the rows are
+these, for a set `s` over variable `x` along `d`, writing `admitted` for
+`(s_seg)` at `type: 1` and `(s_seg + shift(s_seg, along=d, offset=1, edge=0))`
+at `type: 2`:
 
-| `type` | Emitted                                                                         |
-| ------ | ------------------------------------------------------------------------------- |
-| both   | `s_seg`, a binary over `x`'s own dims, masked as `x` is                         |
-| both   | `s_pick`: `sum(s_seg, over=d) <= 1`                                             |
-| `1`    | `s_nonzero`: `x <= bound * (s_seg)`                                             |
-| `2`    | `s_adjacency`: `x <= bound * (s_seg + shift(s_seg, along=d, offset=1, edge=0))` |
+| Emitted                                            |                                                   |
+| -------------------------------------------------- | ------------------------------------------------- |
+| `s_seg`                                            | a binary over `x`'s own dims, masked as `x` is    |
+| `s_pick`: `sum(s_seg, over=d) <= 1`                | at most one is picked                             |
+| `s_nonzero` (`type: 1`), `s_adjacency` (`type: 2`) | `x <= upper * admitted`                           |
+| the same name plus `_below`                        | `x >= lower * admitted`, where `lower` is not `0` |
 
-The coefficient is the block's `bound:` where it declares one, and the member's
-own `bounds.upper` otherwise. A binary member's is 1, from its domain, and a
-coefficient of 1 is left out of the row rather than printed.
+Each coefficient is read off the member's own `bounds:`, and the set's `bound:`
+replaces the one above where it declares one. A binary member's are `0` and `1`,
+from its domain. A row multiplies by its coefficient rather than reading it, so
+a bound the data carries is a coefficient like any other:
+`bounds: {lower: floor, upper: cap}` states `x >= floor * admitted` and
+`x <= cap * admitted`.
 
-The rewrite states the same feasible set as the set itself only for a member at
-or above zero linked by a finite coefficient, so a model is refused at load
-unless both hold:
+Two coefficients are left out rather than printed, because the row would state
+what another row already does: a `1` above, and a `lower` of `0`, which the
+variable's own bound states.
 
-- `bounds.lower` is a number of at least zero. A parameter there is data, and
-  whether it is at or above zero is not decidable without it.
-- the set declares `bound:`, or the member declares `bounds.upper`, or the
-  member is `domain: binary`.
+So each side needs a coefficient, and a model is refused at load without one:
+
+- `bounds.lower`, a number or a parameter. An omitted lower bound leaves the
+  member free below zero, which no row can pull back.
+- `bounds.upper`, a number or a parameter, or the set's `bound:`, or
+  `domain: binary`.
+
+A positive `bounds.lower` loads and is infeasible, as it is on a solver that
+takes the set: an unpicked member has to be `0`, and its own bound says it is
+above that.
 
 A name the expansion writes that the file already declares is refused at load
 too.

@@ -642,20 +642,9 @@ class TestRulesDecidedWithoutData:
                 id='sos-over-a-member-with-no-coefficient',
             ),
             pytest.param(
-                {
-                    'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'bound': 10}},
-                    'variables.p.bounds': {'lower': -5},
-                },
-                ('bounds.lower -5.0', 'bound a member from above only'),
-                id='sos-over-a-member-that-may-go-negative',
-            ),
-            pytest.param(
-                {
-                    'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'bound': 10}},
-                    'variables.p.bounds': {'lower': 'c'},
-                },
-                ("bounds.lower is the parameter 'c'",),
-                id='sos-over-a-member-whose-floor-is-data',
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}}, 'variables.p.bounds': {'upper': 10}},
+                ("variable 'p' has no lower bound", 'Declare bounds.lower'),
+                id='sos-over-a-member-with-no-floor',
             ),
             pytest.param(
                 {

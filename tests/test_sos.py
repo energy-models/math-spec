@@ -20,6 +20,7 @@ from tests.fixtures import SMALL_MODEL, override, schema_of
 PICKED = override(
     SMALL_MODEL,
     **{
+        'parameters.floor': {'dims': ['g']},
         'variables.p.bounds': {'lower': 0, 'upper': 10},
         'constraints': {'used': {'dims': ['g'], 'expression': 'p <= c'}},
         'sos': {'pick': {'variable': 'p', 'over': 'g', 'type': 1}},
@@ -58,6 +59,37 @@ def test_a_set_of_order_two_admits_a_member_in_either_half_of_one_segment():
         'p <= 10.0 * (pick_seg + shift(pick_seg, along=g, offset=1, edge=0))'
     )
     assert 'pick_nonzero' not in expanded.constraints, 'the order decides which linking row is written'
+
+
+@pytest.mark.parametrize(
+    ('bounds', 'rows'),
+    [
+        pytest.param(
+            {'lower': 0, 'upper': 10},
+            {'pick_nonzero': 'p <= 10.0 * (pick_seg)'},
+            id='a-member-that-starts-at-zero-needs-one-row',
+        ),
+        pytest.param(
+            {'lower': -5, 'upper': 10},
+            {'pick_nonzero': 'p <= 10.0 * (pick_seg)', 'pick_nonzero_below': 'p >= -5.0 * (pick_seg)'},
+            id='a-member-that-may-go-negative-is-held-from-below-too',
+        ),
+        pytest.param(
+            {'lower': 'floor', 'upper': 'c'},
+            {'pick_nonzero': 'p <= c * (pick_seg)', 'pick_nonzero_below': 'p >= floor * (pick_seg)'},
+            id='a-bound-the-data-carries-is-a-coefficient-like-any-other',
+        ),
+    ],
+)
+def test_an_unpicked_member_is_held_at_zero_from_the_sides_its_bounds_state(bounds, rows):
+    """A row multiplies by a bound rather than reading it, so a parameter needs no
+    load-time knowledge of its value; and `x >= 0 * seg` is what the variable's own
+    bound already says, so the second row is written only where it says more."""
+    schema = schema_of(override(PICKED, **{'variables.p.bounds': bounds}))
+    expanded = schema.expand('sos')
+
+    written = {name: c.expression for name, c in expanded.constraints.items() if name.startswith('pick_nonzero')}
+    assert written == rows, 'the rows a set states, and no row that states nothing'
 
 
 def test_the_declared_bound_is_the_coefficient_rather_than_the_tighter_of_it_and_the_upper():

@@ -517,7 +517,7 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. A consumer with the concept takes the set as\none; :meth:`Spec.expand` states it as binaries instead, and ``bound`` is\nthe coefficient those rows link a member by, where the member's own\n``upper`` is not the one to use.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. A consumer with the concept takes the set as\none; :meth:`Spec.expand` states it as binaries instead, and ``bound`` is\nthe coefficient those rows link a member by from above, where the member's\nown ``upper`` is not the one to use.",
       "properties": {
         "bound": {
           "anyOf": [
