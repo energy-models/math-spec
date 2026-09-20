@@ -88,7 +88,8 @@ from math_spec.program import Holds, assumption_message
 
 sorted(program.assumptions)  # ['curve curvature', 'curve increasing']
 isinstance(program.assumptions['curve increasing'], Holds)  # False
-assumption_message('curve increasing', program.assumptions['curve increasing'])  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+message = assumption_message('curve increasing', program.assumptions['curve increasing'])
+message  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
 ```
 
 Two kinds stand in that mapping. A `Holds` carries what the file wrote under
