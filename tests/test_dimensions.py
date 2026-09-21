@@ -197,6 +197,26 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
     return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
 
 
+@pytest.mark.parametrize(
+    ('expr', 'expected'),
+    [
+        pytest.param(
+            'sum(p, by=connection, over=generator, into=bus)',
+            {'snapshot', 'bus'},
+            id='a-sum-through-a-bare-relation-lands-on-a-key-column',
+        ),
+        pytest.param(
+            'sum(load, by=connection, over=bus, into=generator)',
+            {'snapshot', 'generator'},
+            id='and-the-same-table-summed-the-other-way',
+        ),
+    ],
+)
+def test_a_bare_relation_is_summed_between_its_key_columns(expr, expected):
+    """A bare relation holds no value column, so the column a sum lands on is a key column."""
+    assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == expected
+
+
 def test_a_dual_carries_the_constraints_own_frame():
     """`dual(c)` is a row dual at every coordinate of the constraint's declared `dims`."""
     s = _schema()
