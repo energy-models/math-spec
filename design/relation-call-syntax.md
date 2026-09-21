@@ -138,7 +138,7 @@ no relation anywhere in the file.
 ### 1 and 2 — sum onto a single value column
 
 - **1** `p[generator, period]` → `[bus, period]` through `gen_bus`: consumes `generator`, produces `bus`.
-- **2** `p[generator, period]` → `[period, zone]` through `zone_of`: the same, but `period` is joined on rather than consumed.
+- **2** `p[generator, period]` → `[period, zone]` through `zone_of`: the same, but the key holds `period` too, so it is joined on rather than carried along.
 
 | option | 1                                                    | 2                                                     |
 | ------ | ---------------------------------------------------- | ----------------------------------------------------- |
