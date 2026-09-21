@@ -180,7 +180,7 @@ def _assumptions(expanded: _ExpandedSpec) -> dict[str, program.Assumption]:
         lowering = _Lowering(expanded, f"assumption '{name}'")
         predicate = lowering.mask(holds)
         assert predicate is not None, 'a predicate that admits every row was refused as deciding nothing'
-        assumptions[name] = program.Holds(predicate, lowering.mask(where))
+        assumptions[name] = program.Holds(predicate, lowering.mask(where), expanded.assumptions[name].description)
     for block, ex in expanded.expanded_piecewise.items():
         assumptions.update(assumptions_of(block, ex))
     return assumptions

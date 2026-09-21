@@ -501,6 +501,8 @@ class AssumptionBlock(_StrictBlock):
     holds: str
     #: Which coordinates it is checked at, in the same grammar; absent means every one.
     where: str | None = None
+    #: Why the rule is there, in the author's words. The sentence a consumer
+    #: refuses with quotes it.
     description: str | None = None
 
     @model_validator(mode='before')
