@@ -216,7 +216,7 @@ def test_a_grouping_that_consumes_the_axis_couples_it():
     program = ms.to_program(
         {
             **BASE,
-            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}},
+            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of(u -> zone)) <= cap'}},
         }
     )
     verdict = program.separability['u']

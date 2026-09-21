@@ -195,7 +195,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
         'constraints': {
             'within': {
                 'dims': ['snapshot'],
-                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of)',
+                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of(period))',
             }
         },
     }
@@ -719,7 +719,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
     ('expression', 'expected'),
     [
         pytest.param(
-            'p == at(sum(q, by=bus_of), by=bus_of)',
+            'p == at(sum(q, by=bus_of(generator -> bus)), by=bus_of(bus))',
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-relation',
         ),

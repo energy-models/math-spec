@@ -203,12 +203,11 @@ variables:
 constraints:
   soc_start:
     dims: [snapshot]
-    where: "position(snapshot, by=period_of) == 0"
-    expression: soc == at(soc_initial, by=period_of)
+    where: "position(snapshot, by=period_of(period)) == 0"
+    expression: soc == at(soc_initial, by=period_of(period))
 ```
 
 The relation must have a key column over the dimension being counted, and the
-parenthesis names the value columns the groups are made of —
-`position(snapshot, by=cal(week))` where the table holds more than one
-([partitions](relations.md#partitions)). A coordinate the relation sends
-nowhere is in no group.
+parenthesis names the value columns the groups are made of
+([partitions](relations.md#partitions)). It is written whenever a `by=` is. A
+coordinate the relation sends nowhere is in no group.

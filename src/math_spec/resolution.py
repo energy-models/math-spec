@@ -583,17 +583,17 @@ class _Resolver:
     def _relation_ref(
         self, value: ArithmeticNode, operator: str, key: str, along: ArithmeticNode | None
     ) -> ArithmeticNode:
-        """An operator's ``by=``: a relation, or its direction written after it, ``by=zone_of(generator -> zone)``.
+        """An operator's ``by=``: a relation with its direction written after it, ``by=zone_of(generator -> zone)``.
 
         A relation carries its own dimensions, so the call names nothing
-        beside it. Bare, the declaration decides the whole direction, and it
-        has to decide it: one key column for a sum, one value column per
-        dimension for a read. Written, a sum names both its ends, since
-        either can vary, and a read and a partition name one — the columns
-        read, or the columns grouped by — because the other end is not theirs
-        to choose. Every key column at neither end is joined on, and a value
-        column at neither end is not read. One call addresses one table, so
-        several columns of one table are a list and several tables are not.
+        beside it, and it writes every column it reads: a sum names both its
+        ends, since either can vary, and a read and a partition name one — the
+        columns read, or the columns grouped by — because the other end is not
+        theirs to choose. A bare ``by=`` is refused, so that a relation may
+        gain a value column without changing what an existing call means.
+        Every key column at neither end is joined on, and a value column at
+        neither end is not read. One call addresses one table, so several
+        columns of one table are a list and several tables are not.
         """
         ends: _Ends | None = None
         if isinstance(value, WrittenDirectionNode):
@@ -649,59 +649,59 @@ class _Resolver:
         return None
 
     def _direction(self, name: str, ends: _Ends | None) -> Direction | None:
-        """How ``sum`` walks relation *name*: in the direction the call wrote, or the one the declaration decides.
+        """How ``sum`` walks relation *name*, in the direction the call wrote.
 
         The consumed end names dimensions, and a key has one column per
         dimension, so each names one key column; the produced end names value
-        columns, which may share a dimension. Bare, the key has to be one
-        column, and the sum lands on every value column — the rule ``sum(x)``
-        already follows for dimensions.
+        columns, which may share a dimension. A sum names both ends, since
+        either can vary.
         """
         ns, context = self.ns, self.context
         shape = ns.relations[name]
         call = f'sum(by={name})'
         if ends is None:
-            if not shape.values:
-                self.errors.append(
-                    f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
-                    f'says which columns the sum walks. Write the direction, '
-                    f'by={name}(<dimension> -> <column>) among {list(shape.roles)}, or declare the column it '
-                    f'walks to under value:.'
-                )
-                return None
-            if len(shape.key) > 1:
-                landing = shape.values[0] if len(shape.values) == 1 else '<column>'
-                self.errors.append(
-                    f"{context}: {call}: '{name}' has {len(shape.key)} key columns ({list(shape.key)}), and the "
-                    f'call has to say the direction: by={name}(<dimension> -> {landing}).'
-                )
-                return None
-            consumed, produced = shape.key, shape.values
-            if not self._distinct_dims(name, call, f'by={name} lands on', produced):
-                return None
-        else:
-            consumed_dims, produced = ends
-            if consumed_dims is None:
-                self.errors.append(
-                    f'{context}: {call}: by={name}({shown(produced)}) names one end, and a sum names both: what '
-                    f'leaves and what arrives. Write by={name}(<dimension> -> {shown(produced)}).'
-                )
-                return None
-            written = f'by={name}({shown(consumed_dims)} -> {shown(produced)})'
-            over = self._key_columns_over(name, call, written, consumed_dims)
-            if over is None or not self._known_roles(name, call, produced, written):
-                return None
-            consumed = over
-            if both := sorted(set(consumed) & set(produced)):
-                self.errors.append(
-                    f'{context}: {call}: {written} names {both} at both ends, and a walk goes between two sets '
-                    f'of columns.'
-                )
-                return None
-            if not self._distinct_dims(name, call, f'{written} lands on', produced):
-                return None
+            rewrite = f'by={name}(<dimension> -> {self._landing(name)})'
+            self.errors.append(f'{context}: {call}: {self._unwritten(name, "no direction", rewrite)}')
+            return None
+        consumed_dims, produced = ends
+        if consumed_dims is None:
+            self.errors.append(
+                f'{context}: {call}: by={name}({shown(produced)}) names one end, and a sum names both: what '
+                f'leaves and what arrives. Write by={name}(<dimension> -> {shown(produced)}).'
+            )
+            return None
+        written = f'by={name}({shown(consumed_dims)} -> {shown(produced)})'
+        over = self._key_columns_over(name, call, written, consumed_dims)
+        if over is None or not self._known_roles(name, call, produced, written):
+            return None
+        consumed = over
+        if both := sorted(set(consumed) & set(produced)):
+            self.errors.append(
+                f'{context}: {call}: {written} names {both} at both ends, and a walk goes between two sets of columns.'
+            )
+            return None
+        if not self._distinct_dims(name, call, f'{written} lands on', produced):
+            return None
         joined = tuple(r for r in shape.key if r not in consumed and r not in produced)
         return Direction(name, shape, consumed, produced, joined)
+
+    def _unwritten(self, name: str, missing: str, rewrite: str) -> str:
+        """Why a ``by=`` with an empty parenthesis behind it is refused, and the shape of the call to write.
+
+        *missing* is what this operator's parenthesis would have said, and
+        *rewrite* the call that says it.
+        """
+        shape = self.ns.relations[name]
+        return (
+            f'by={name} names {missing}. A call names every column it reads, so that a relation may gain a '
+            f"value column without changing what this call means. Write {rewrite} — '{name}' keys "
+            f'{list(shape.key)} and values {list(shape.values)}.'
+        )
+
+    def _landing(self, name: str) -> str:
+        """The column a sum through relation *name* lands on, where the declaration offers one; the placeholder otherwise."""
+        values = self.ns.relations[name].values
+        return values[0] if len(values) == 1 else '<column>'
 
     def _key_columns_over(self, name: str, call: str, written: str, dims: tuple[str, ...]) -> tuple[str, ...] | None:
         """The key column of relation *name* over each of *dims*, in order; the refusal where a dimension has none or two.
@@ -745,15 +745,14 @@ class _Resolver:
         return f"'{dim}' is not a dimension. The consumed end names one the key is over, among {covered}."
 
     def _read(self, name: str, ends: _Ends | None) -> Direction | None:
-        """How ``at`` reads relation *name*: value columns consumed, and the whole key landed on.
+        """How ``at`` reads relation *name*: the value columns the call names, and the whole key landed on.
 
         A read is one value per coordinate, so it lands on the key and nothing
         else — which is why one end written names the columns read and the key
-        needs no naming, as a partition's one end names its group. Bare, every
-        value column may be read, and which are is the operand's to decide:
-        :meth:`program.Direction.read_by` splits the key once the operand's
-        dims are known. Two value columns over one dimension leave a bare read
-        nothing to choose by, so there a column is named.
+        needs no naming, as a partition's one end names its group. Which key
+        columns the read joins on and which it produces is the operand's to
+        decide: :meth:`program.Direction.read_by` splits the key once the
+        operand's dims are known.
         """
         ns, context = self.ns, self.context
         shape = ns.relations[name]
@@ -766,15 +765,9 @@ class _Resolver:
             )
             return None
         if ends is None:
-            dims = [shape.dim(r) for r in shape.values]
-            if shared := sorted({d for d in dims if dims.count(d) > 1}):
-                twins = [r for r in shape.values if shape.dim(r) in shared]
-                self.errors.append(
-                    f"{context}: {call}: '{name}' has two value columns over {shared} ({twins}), so nothing says "
-                    f'which one is read. Name it: by={name}({twins[0]}).'
-                )
-                return None
-            return Direction(name, shape, shape.values, shape.key, ())
+            rewrite = f'by={name}({shape.values[0]})'
+            self.errors.append(f'{context}: {call}: {self._unwritten(name, "no column to read", rewrite)}')
+            return None
         consumed, produced = ends
         if consumed is None:
             written = f'by={name}({shown(produced)})'
@@ -832,11 +825,11 @@ class _Resolver:
 
         It steps along the one key column over that dimension (a key has one
         column per dimension), joins on the other key columns and groups by
-        the value columns the parenthesis names, ``by=cal(week)`` — every
-        value column where it names none. ``None`` where the dimension is not
-        one (already refused), the relation has no key column over it, the
-        call wrote a left end, or the parenthesis names a column that is not a
-        value column.
+        the value columns the parenthesis names, ``by=cal(week)``. ``None``
+        where the dimension is not one (already refused), the call wrote no
+        parenthesis or a left end, the relation has no key column over the
+        dimension, or the parenthesis names a column that is not a value
+        column.
         """
         context = self.context
         shape = self.ns.relations[name]
@@ -849,9 +842,6 @@ class _Resolver:
                 f'axis along= names, and the parenthesis names only the columns its group is read from. Write '
                 f'by={name}({shown(ends[1])}).'
             )
-            return None
-        group = None if ends is None else ends[1]
-        if group is not None and not self._known_roles(name, call, group, f'by={name}({shown(group)})'):
             return None
         if not shape.values:
             self.errors.append(
@@ -867,15 +857,22 @@ class _Resolver:
                 f'{list(shape.key)} — and a partition steps along a key column over the dimension it groups.'
             )
             return None
-        if keyed := [r for r in group or () if r in shape.key]:
+        if ends is None:
+            rewrite = f'by={name}({shape.values[0]})'
+            self.errors.append(f'{context}: {call}: {self._unwritten(name, "no columns to group by", rewrite)}')
+            return None
+        group = ends[1]
+        if not self._known_roles(name, call, group, f'by={name}({shown(group)})'):
+            return None
+        if keyed := [r for r in group if r in shape.key]:
             self.errors.append(
-                f'{context}: {call}: by={name}({shown(group or ())}) names the key column(s) {keyed}, and a '
+                f'{context}: {call}: by={name}({shown(group)}) names the key column(s) {keyed}, and a '
                 f'partition groups by value columns — its value columns are {list(shape.values)}.'
             )
             return None
         (along,) = over_keys
         joined = tuple(r for r in shape.key if r != along)
-        return Partition(name, shape, along, shape.values if group is None else group, joined)
+        return Partition(name, shape, along, group, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""

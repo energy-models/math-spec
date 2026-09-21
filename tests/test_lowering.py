@@ -412,12 +412,12 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
-            'sum(p, by=lk)',
+            'sum(p, by=lk(g -> h))',
             GroupSum(Variable('p'), direction=LK_DIRECTION),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
-            'at(r, by=lk)',
+            'at(r, by=lk(h))',
             Pullback(Variable('r'), direction=Direction('lk', LK, ('h',), ('g',), ())),
             id='a-pullback-reads-the-same-table-back',
         ),
@@ -447,18 +447,6 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 partition=Partition('lk', LK, 'g', ('h',), ()),
             ),
             id='a-translation-stops-at-the-edges-of-the-relation-it-names',
-        ),
-        pytest.param(
-            'shift(p, along=g, offset=1, by=lk, edge=0)',
-            Translate(
-                Variable('p'),
-                'g',
-                offset=1,
-                wrap=False,
-                fill=0.0,
-                partition=Partition('lk', LK, 'g', ('h',), ()),
-            ),
-            id='a-bare-partition-groups-by-every-value-column',
         ),
         pytest.param(
             'sum_back(p, along=g, window=3)',
@@ -608,8 +596,8 @@ def test_a_read_is_split_by_the_dims_its_operand_carries():
         'parameters': {'price': {'dims': ['snapshot', 'zone']}, 'levy': {'dims': ['zone']}},
         'variables': {'p': {'dims': ['snapshot', 'generator']}},
         'constraints': {
-            'priced': {'dims': ['snapshot', 'generator'], 'expression': 'p <= at(price, by=zone_of)'},
-            'levied': {'dims': ['snapshot', 'generator'], 'expression': 'p <= at(levy, by=zone_of)'},
+            'priced': {'dims': ['snapshot', 'generator'], 'expression': 'p <= at(price, by=zone_of(zone))'},
+            'levied': {'dims': ['snapshot', 'generator'], 'expression': 'p <= at(levy, by=zone_of(zone))'},
         },
     }
     program = to_program(model)

@@ -180,10 +180,6 @@ def namespace() -> Namespace:
         ),
         pytest.param('at(p, by=rep_of(rep))', {'snapshot', 'generator'}, id='and-so-does-its-pullback'),
         pytest.param(
-            'sum(p, by=gen_bus)', {'snapshot', 'bus'}, id='a-bare-by-takes-the-direction-the-declaration-decides'
-        ),
-        pytest.param('at(bz, by=gen_bz)', {'generator'}, id='a-bare-read-consumes-every-value-column'),
-        pytest.param(
             'at(zone_cap, by=gen_zone(zone))',
             {'generator', 'snapshot'},
             id='a-read-lands-on-the-whole-key-including-the-columns-the-operand-does-not-carry',

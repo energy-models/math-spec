@@ -89,11 +89,13 @@ Four rules hold for every use:
 1. **`by=` is the only relational keyword.** The direction is written inside
    it, and `over=` keeps one meaning: a reduction over a dimension. A sum with
    a `by=` takes no `over=`.
-2. **A call writes what the declaration does not decide, and nothing more.**
-   `sum(p, by=gen_bus)` loads, because `gen_bus` has one key column and one
-   value column.
-3. **The key is fixed.** To change it, declare a new relation.
-4. **A dimension the relation does not name passes through** to the result.
+2. **A call names every column it reads.** `sum(p, by=gen_bus)` is refused: a
+   `by=` with nothing after it writes no direction, however few directions the
+   declaration leaves.
+3. **A value column the call does not name is not read.** So adding one to the
+   relation changes no call.
+4. **The key is fixed.** To change it, declare a new relation.
+5. **A dimension the relation does not name passes through** to the result.
 
 ### Aggregates and reads
 
@@ -127,30 +129,23 @@ over `[generator, period]`:
   each dimension once, so nothing would say which column its coordinate is
   read at.
 
-### What the declaration decides
+### A `by=` with nothing after it
 
-**A bare `by=` asks the declaration for the whole direction.** It has to
-decide it:
-
-| call                        | loads when                                            |
-| --------------------------- | ----------------------------------------------------- |
-| `sum(p, by=gen_bt)`         | the key is one column; it lands on every value column |
-| `at(tech_cap, by=gen_bt)`   | it reads every value column, and lands on the key     |
-| `shift(x, along=t, by=cal)` | it groups by every value column                       |
-
-This is the rule `sum(x)` already follows for dimensions: with nothing written,
-the call takes them all. A relation that decides less is refused, and the
-refusal names the direction to write:
+**A `by=` that names only the relation is refused**, even where the
+declaration leaves one direction. `gen_bus` has one key column and one value
+column, and `sum(p, by=gen_bus)` is still refused:
 
 ```text
-sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the
-call has to say the direction: by=zone_of(<dimension> -> zone).
+sum(by=gen_bus): by=gen_bus names no direction. A call names every column it
+reads, so that a relation may gain a value column without changing what this
+call means. Write by=gen_bus(generator -> bus) — 'gen_bus' keys ['generator']
+and values ['bus'].
 ```
 
-**A bare call reads a value column added later.** `sum(p, by=gen_bt)` lands on
-every value column of `gen_bt`, so a column declared after it changes what it
-means. Write the direction — `sum(p, by=gen_bt(generator -> [bus, technology]))`
-— where that matters.
+That is what the rule buys. A call that wrote its direction goes on meaning
+what it meant when a value column is added to the table; a call that let the
+declaration choose would follow the table instead. A read and a partition earn
+the same refusal, naming the column to read or to group by.
 
 ### Partitions
 

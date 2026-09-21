@@ -308,7 +308,7 @@ class TestDimensionKwargs:
         ('expression', 'dims'),
         [
             pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
-            pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
+            pytest.param('sum(p, by=zone(generator -> bus)) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
             pytest.param(
                 "shift(p, along=snapshot, offset=1, edge='wrap') == load",
                 ['snapshot', 'generator'],
@@ -785,20 +785,34 @@ class TestRulesDecidedWithoutData:
                 id='a-landing-on-two-columns-over-one-dimension',
             ),
             pytest.param(
-                {
-                    'relations.lz': {'key': 'g', 'values': {'h0': 'h', 'h1': 'h'}},
-                    'objective': {'expression': 'sum(sum(p, by=lz))'},
-                },
-                ("by=lz lands on ['h0', 'h1'], two columns over ['h']",),
-                id='a-bare-sum-landing-on-two-columns-over-one-dimension',
+                {'objective': {'expression': 'sum(sum(p, by=lk))'}},
+                (
+                    'by=lk names no direction',
+                    'A call names every column it reads, so that a relation may gain a value column without '
+                    'changing what this call means',
+                    "Write by=lk(<dimension> -> h) — 'lk' keys ['g'] and values ['h']",
+                ),
+                id='a-sum-with-no-direction-written',
             ),
             pytest.param(
-                {
-                    'relations.lz': {'key': 'g', 'values': {'h0': 'h', 'h1': 'h'}},
-                    'objective': {'expression': 'sum(at(r, by=lz))'},
-                },
-                ("'lz' has two value columns over ['h'] (['h0', 'h1'])", 'Name it: by=lz(h0)'),
-                id='a-bare-read-through-two-columns-over-one-dimension',
+                {'objective': {'expression': 'sum(at(r, by=lk))'}},
+                ('by=lk names no column to read', 'Write by=lk(h)'),
+                id='a-read-with-no-column-written',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk))'}},
+                ('by=lk names no columns to group by', 'Write by=lk(h)'),
+                id='a-partition-with-no-group-written',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum_back(p, along=g, window=2, by=lk))'}},
+                ('by=lk names no columns to group by', 'Write by=lk(h)'),
+                id='a-window-with-no-group-written',
+            ),
+            pytest.param(
+                {'variables.q.where': 'position(g, by=lk) == 0'},
+                ('by=lk names no columns to group by', 'Write by=lk(h)'),
+                id='a-position-with-no-group-written',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk(g -> h)))'}},
@@ -842,21 +856,8 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'relations.rel': {'key': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
-                (
-                    "'rel' is a bare relation",
-                    'Write the direction, by=rel(<dimension> -> <column>)',
-                ),
-                id='a-bare-relation-decides-no-direction',
-            ),
-            pytest.param(
-                {
-                    'dimensions.z': {},
-                    'relations.lz': {'key': ['g', 'z'], 'values': 'h'},
-                    'variables.q.dims': ['g', 'h', 'z'],
-                    'objective': {'expression': 'sum(sum(q, by=lz))'},
-                },
-                ("'lz' has 2 key columns (['g', 'z'])", 'the direction: by=lz(<dimension> -> h)'),
-                id='a-two-key-relation-decides-only-half-a-sum',
+                ('by=rel names no direction', "Write by=rel(<dimension> -> <column>) — 'rel' keys ['g', 'h']"),
+                id='a-bare-relation-writes-a-direction-like-any-other',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk(h)))'}},
