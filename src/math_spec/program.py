@@ -615,6 +615,9 @@ class Holds:
 
     predicate: Mask
     where: Mask | None = None
+    #: What the file wrote under ``description:``. The refusal quotes it: the
+    #: names alone say which columns are wrong, and not why the rule is there.
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -681,12 +684,15 @@ def assumption_message(name: str, assumption: Assumption) -> str:
     """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
-    a consumer appends the coordinates it saw.
+    a consumer appends the coordinates it saw. Where the file wrote a
+    ``description:``, it trails the sentence, since the author said there why
+    the rule is there.
     """
     match assumption:
-        case Holds(predicate):
+        case Holds(predicate, _, description):
             read = ', '.join(f"'{n}'" for n in sorted(predicate.names_read))
-            return f"assumption '{name}' does not hold for the data bound to {read}"
+            sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+            return f'{sentence} — {description}' if description else sentence
         case Increasing(block, method, parameter, over):
             return (
                 f"piecewise '{block}': method: {method} requires strictly increasing breakpoints in "

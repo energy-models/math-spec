@@ -43,10 +43,13 @@ predicate.
 | ------------- | ----------------------------------------------------------------------------- | -------------- |
 | `holds`       | required. The predicate, in the [where grammar](expressions.md#where-strings) |                |
 | `where`       | which coordinates it is checked at, in the same grammar                       | default `null` |
-| `description` | free text                                                                     | default `null` |
+| `description` | why the rule is there. A refusal quotes it                                    | default `null` |
 
 `bounds_do_not_cross: "p_min <= p_max"` above is the short form of
 `bounds_do_not_cross: { holds: "p_min <= p_max" }`.
+
+A `description:` says why the rule is there. The sentence a consumer refuses
+with quotes it, so a failure names the columns and the reason.
 
 There is no `dims:`. The predicate holds at every coordinate of the product of
 the dimensions its two masks name. A predicate narrower than that broadcasts,

@@ -45,6 +45,10 @@ piecewise:
       - [p, bp_x]
       - [cost, bp_y, ">="]
     method: convex
+assumptions:
+  cost_is_never_negative:
+    holds: "bp_y >= 0"
+    description: a negative cost is a gain the objective would chase
 constraints:
   target:
     dims: []
@@ -86,14 +90,17 @@ refusal quotes. The engine, which has the numbers, runs each one and raises
 ```python
 from math_spec.program import Holds, assumption_message
 
-sorted(program.assumptions)  # ['curve curvature', 'curve increasing']
+sorted(program.assumptions)  # ['cost_is_never_negative', 'curve curvature', 'curve increasing']
 isinstance(program.assumptions['curve increasing'], Holds)  # False
 message = assumption_message('curve increasing', program.assumptions['curve increasing'])
 message  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+written = assumption_message('cost_is_never_negative', program.assumptions['cost_is_never_negative'])
+written  # "assumption 'cost_is_never_negative' does not hold for the data bound to 'bp_y' — a negative cost is a gain the objective would chase"
 ```
 
 Two kinds stand in that mapping. A `Holds` carries what the file wrote under
-`assumptions:` as two masks: `predicate`, and the `where` it is checked under.
+`assumptions:`: the `predicate`, the `where` it is checked under, and the
+`description` the sentence quotes.
 The rest carry what a `piecewise:` block's method implies about its
 breakpoints — `Increasing`, `Curved`, `AtLeastTwo` and `Contiguous` — each
 naming the block it came from. The union is closed, so a kind added later is a
