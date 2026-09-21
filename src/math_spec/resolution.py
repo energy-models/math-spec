@@ -597,7 +597,9 @@ class _Resolver:
         changing what this call means. ``at`` needs the read single-valued
         and ``sum`` needs it not: a sum that lands on the key has one term
         per coordinate and adds up nothing, which is a read, so it is
-        refused toward ``at``.
+        refused toward ``at``. A read lands on key columns and nothing else,
+        because a column outside the key is one no coordinate of the read
+        fixes.
         """
         ns, context = self.ns, self.context
         shape = ns.relations[name]
@@ -622,6 +624,13 @@ class _Resolver:
                     f'between columns over distinct dimensions.'
                 )
                 return None
+        if not forward and (outside := [r for r in into_roles if r not in shape.key]):
+            self.errors.append(
+                f"{context}: {call}: into={list(into_roles)} names {outside}, which the key of '{name}' does not "
+                f'hold. A read lands on the key it reads at, {list(shape.key)}, and a column outside that key '
+                f'arrives as a dimension the read never fixes. Land on the key, or sum toward {outside}.'
+            )
+            return None
         joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
         single_valued = set(shape.key) <= {*into_roles, *joined}
         direction = Direction(name, shape, from_roles, into_roles, joined)
