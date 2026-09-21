@@ -127,7 +127,8 @@ one row at each coordinate. A call that leaves a key column out finds many.
 A sum lands where the table lets it.
 `sum(p, by=connection, over=generator, into=bus)` lands on a key column,
 because a bare relation has no other kind, and the sums above it land on a
-value column. A read has no such choice: it covers the key by landing on it.
+value column. A read has no such choice. Its result carries the whole key, and
+whatever else the operand carries that the read does not consume.
 
 - **A sum that consumes no key column is a read.** Every key column is then
   landed on or joined on, so each coordinate holds one term and nothing is
