@@ -217,6 +217,30 @@ def test_a_bare_relation_is_summed_between_its_key_columns(expr, expected):
     assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == expected
 
 
+@pytest.mark.parametrize(
+    ('expr', 'expected'),
+    [
+        pytest.param(
+            'sum(p * load, by=gen_bz, over=[generator, bus], into=zone)',
+            {'snapshot', 'zone'},
+            id='a-sum-consumes-a-key-column-and-a-value-column-together',
+        ),
+        pytest.param(
+            'at(p * zone_load, by=gen_bz, over=zone, into=bus)',
+            {'snapshot', 'generator', 'bus'},
+            id='a-read-lands-on-a-value-column-and-joins-on-the-key',
+        ),
+    ],
+)
+def test_neither_end_is_fixed_to_one_kind_of_column(expr, expected):
+    """A sum may consume a value column beside its key column, and a read may land on one.
+
+    What separates the two calls is whether the columns they land on and join
+    on hold the whole key, and not which kind of column stands at either end.
+    """
+    assert _dims(expr) == expected
+
+
 def test_a_dual_carries_the_constraints_own_frame():
     """`dual(c)` is a row dual at every coordinate of the constraint's declared `dims`."""
     s = _schema()
