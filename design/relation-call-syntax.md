@@ -5,119 +5,50 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # How a call through a relation is spelled: the options
 
-This page compares spellings. The rules are settled, and every option here
-writes the same language under them, so nothing below changes what a model can
-say. It exists to make the choice of words a decision rather than a habit.
+Six spellings of a walk, and one question about reads. The rules are settled,
+and every option writes the same language under them, so nothing here changes
+what a model can say. The page makes the choice of words a decision rather
+than a habit.
 
-Only the first option was run. It is what the tree holds today, and its calls,
-frames and math were loaded and printed on this branch. Every other option is
-transcribed by hand into the same cases.
+Only option A was run. It is what the tree holds, and its calls, frames and
+math were loaded and printed on this branch. Every other column is transcribed
+by hand into the same cases.
 
 ## The rules a spelling has to keep
 
-1. **A relation does not change its meaning when a value column is added.**
-   Every call gives the same result after the edit.
-2. **A relation's key is fixed.** Adding or removing a key column makes a
-   different relation, which is a new declaration.
-3. **A relation works the same when the operand gains a dimension** the
-   relation does not name.
-4. **The frame law.** `result = (operand − consumed) ∪ produced`, and the
-   operand carries `consumed ∪ joined`, where
-   `joined = key − (consumed ∪ produced)`. The result gains a dimension from a
-   change of the operand, never from a change of the relation.
-5. **A call is refused when `(produced ∩ operand) − consumed` is not empty.**
-6. **Both ends are always written.**
+1. A relation does not change its meaning when a value column is added.
+2. A relation's key is fixed. A key column added or removed is a new relation.
+3. A relation works the same when the operand gains a dimension it does not
+   name.
+4. The frame law: `result = (operand − consumed) ∪ produced`, and the operand
+   carries `consumed ∪ joined`, where `joined = key − (consumed ∪ produced)`.
+5. A call is refused when `(produced ∩ operand) − consumed` is not empty.
+6. Both ends are always written.
 
 Rule 6 decides the comparison before it starts. Every shortcut that let a call
-leave one side to a default is out, so each option below names what it consumes
-and what it produces, or determines both from what it does name.
+leave one side to a default is out, so each option names what it consumes and
+what it produces, or determines both from what it does name.
 
 ## The options
 
-Six ways to write a walk, and one question about reads that is answered on its
-own. Each is shown on case 3 below: sum `p[generator, period]` through
+Each is shown on case 3: sum `p[generator, period]` through
 `slot_of: {key: [generator, period], values: [bus, technology]}`, consuming
 `generator`, joining on `period`, landing on `bus`.
 
-### A — `by=`, `over=`, `into=`, which is today
+| option                                  | the call                                             | what it buys, and what it costs                                                                                             |
+| --------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **A** — `by=`, `over=`, `into=`         | `sum(p, by=slot_of, over=generator, into=bus)`       | What the tree and every file in `examples/` hold, so it costs nothing to adopt.                                             |
+| **B** — `by=`, `consume=`, `produce=`   | `sum(p, by=slot_of, consume=generator, produce=bus)` | A's shape in the frame law's own words. It is the one option that reaches a call with no relation in it.                    |
+| **C** — the direction is one keyword    | `sum(p, by=slot_of, direction=generator -> bus)`     | An arrow cannot be half written, so the grammar refuses the call that names one end. It is new grammar.                     |
+| **D** — the direction sits inside `by=` | `sum(p, by=slot_of(generator -> bus))`               | One keyword, and the relation and its direction read as one phrase. The parentheses also hold a group, as `by=cal(week)`.   |
+| **E** — a column names its relation     | `sum(p, over=slot_of.generator, into=slot_of.bus)`   | `into=ends.bus1` says on its own what `into=bus1` needs the rest of the call to say. The relation is written once per side. |
+| **F** — the call names what it keeps    | `sum(p, by=slot_of.[period, bus])`                   | The shortest. It names the columns that survive, so what is consumed is read off the declaration.                           |
+| **G** — a read is an index              | `price[gen_bus.bus]`, on case 8                      | Not a way of spelling the walk, so it stacks with any of the six. It replaces `at()` for every read and retires that name.  |
 
-```
-sum(p, by=slot_of, over=generator, into=bus)
-```
-
-Three keywords, one per fact. `by=` names the relation, `over=` the columns
-consumed, `into=` the columns produced. It is what the tree holds and what
-every file in `examples/` is written in, so it is the only option that costs
-nothing to adopt.
-
-### B — `by=`, `consume=`, `produce=`
-
-```
-sum(p, by=slot_of, consume=generator, produce=bus)
-```
-
-A's shape in the frame law's own words. It is the one option that reaches a
-call with no relation in it: `sum(p, over=generator)` becomes
-`sum(p, consume=generator)`, in every file, whether or not that file declares a
-relation. In exchange `over` names one thing in a file — the breakpoint axis of
-a `piecewise:` or `sos:` declaration — instead of that plus a call keyword.
-
-### C — the direction is one keyword
-
-```
-sum(p, by=slot_of, direction=generator -> bus)
-```
-
-Two keywords. `by=` names the relation and `direction=` carries both ends as
-one value. An arrow cannot be half written, so the grammar refuses the call
-that names one end, where today the loader refuses it after parsing.
-
-### D — the direction sits inside `by=`
-
-```
-sum(p, by=slot_of(generator -> bus))
-```
-
-One keyword, and the relation and its direction read as one phrase. A
-partition has no direction, so there the parentheses hold the group column
-instead, as `by=cal(week)`.
-
-### E — a column is named after its relation
-
-```
-sum(p, over=slot_of.generator, into=slot_of.bus)
-```
-
-No `by=`: each column carries the relation it belongs to. `into=ends.bus1`
-says on its own what `into=bus1` needs the rest of the call to say, which is
-what the typesetter already prints. The relation's name is written once per
-side rather than once per call.
-
-### F — the call names what it keeps
-
-```
-sum(p, by=slot_of.[period, bus])
-```
-
-One keyword, listing the columns that survive: the key columns joined on, and
-the value columns produced. What the call consumes is the rest of the key, and
-the reader takes it from the declaration. A read runs the other way, so there
-the same `by=` names the column read through, as `at(price, by=gen_bus.bus)`.
-
-### G — a read is an index
-
-```
-price[gen_bus.bus]
-```
-
-Not a way of spelling the walk, so it stacks with any of the six above and is
-decided separately. It replaces `at()` for every read and retires that name.
-The typesetter already prints a read as a subscript.
-
-## A, B, C and D: what is replaced by what
+## A, B, C and D are one language
 
 A walk puts three facts on the line: the relation **R**, the columns consumed
-**X**, and the columns produced **Y**. All four write those three, and only
+**X**, and the columns produced **Y**. Four options write those three, and only
 those three.
 
 ```
@@ -127,31 +58,16 @@ C   sum(<expr>, by=R, direction=X -> Y)       at(<expr>, by=R, direction=X -> Y)
 D   sum(<expr>, by=R(X -> Y))                 at(<expr>, by=R(X -> Y))
 ```
 
-So every pair is one textual edit, and each row reads in both directions:
+So every pair is one textual edit, in either direction, with `X` and `Y` copied
+across unchanged, whether each is one column or a list. Nothing is read from the
+declarations to make the edit, and no call gains or loses a fact.
 
-| between   | the edit                                           |
-| --------- | -------------------------------------------------- |
-| **A ↔ B** | `over=X` ↔ `consume=X`, and `into=Y` ↔ `produce=Y` |
-| **A ↔ C** | `over=X, into=Y` ↔ `direction=X -> Y`              |
-| **A ↔ D** | `by=R, over=X, into=Y` ↔ `by=R(X -> Y)`            |
-| **B ↔ C** | `consume=X, produce=Y` ↔ `direction=X -> Y`        |
-| **B ↔ D** | `by=R, consume=X, produce=Y` ↔ `by=R(X -> Y)`      |
-| **C ↔ D** | `by=R, direction=X -> Y` ↔ `by=R(X -> Y)`          |
-
-`X` and `Y` are copied across unchanged, whether each is one column or a list.
-Nothing is read from the declarations to make the edit, and no call gains or
-loses a fact.
-
-**Two calls are not a walk, and there the rewrite is not this clean.**
+Two calls are not a walk, and there the rewrite is not this clean.
 
 | the call            | A                        | B                           | C    | D              |
 | ------------------- | ------------------------ | --------------------------- | ---- | -------------- |
 | a sum with no `by=` | `sum(p, over=generator)` | `sum(p, consume=generator)` | as A | as A           |
 | a partition         | `by=cal, within=week`    | as A                        | as A | `by=cal(week)` |
-
-**B reaches calls that name no relation**, because it renames the keyword those
-calls share with a walk. **D gives its parentheses a second job**, holding a
-group here and a direction above.
 
 **E and F are not on this list.** E copies the relation's name onto each
 column, so the edit writes `R` once per side instead of once per call. F names
@@ -196,31 +112,22 @@ variables:
   u: { dims: [generator], bounds: { lower: 0 } }
 ```
 
-Each case is one constraint over these. The heading carries the frame the
-operation itself produces, which is a property of the language and not of the
-spelling.
+Each case is one constraint over these declarations. Each frame below is the
+one the operation itself produces, which is a property of the language and not
+of the spelling.
 
 ## The calls with no relation
 
-Five of the six options leave these alone. They are the majority of the calls
-in any model: of the 136 sums in `examples/`, 96 carry no `by=`.
+They are the majority of the calls in any model: of the 136 sums in
+`examples/`, 96 carry no `by=`.
 
-| option | 0a       | 0b                          | 0c                                    | 0d                               | 0e            |
-| ------ | -------- | --------------------------- | ------------------------------------- | -------------------------------- | ------------- |
-| **A**  | `sum(p)` | `sum(p, over=generator)`    | `shift(x, along=t, offset=1, edge=0)` | `sum_back(x, along=t, window=4)` | `position(t)` |
-| **B**  | same     | `sum(p, consume=generator)` | same                                  | same                             | same          |
-| **C**  | same     | same                        | same                                  | same                             | same          |
-| **D**  | same     | same                        | same                                  | same                             | same          |
-| **E**  | same     | same                        | same                                  | same                             | same          |
-| **F**  | same     | same                        | same                                  | same                             | same          |
-
-| case | what it is                 | frame                                    |
-| ---- | -------------------------- | ---------------------------------------- |
-| 0a   | a sum of everything        | `p[generator, period]` → `[]`            |
-| 0b   | a sum of one dimension     | `p[generator, period]` → `[period]`      |
-| 0c   | a `shift` with no `by=`    | `x[t]` → `[t]`                           |
-| 0d   | a `sum_back` with no `by=` | `x[t]` → `[t]`                           |
-| 0e   | a `position` with no `by=` | a `where` predicate, so the frame stands |
+| case | frame                                    | A                                     | B                           | C to F |
+| ---- | ---------------------------------------- | ------------------------------------- | --------------------------- | ------ |
+| 0a   | `p[generator, period]` → `[]`            | `sum(p)`                              | as A                        | as A   |
+| 0b   | `p[generator, period]` → `[period]`      | `sum(p, over=generator)`              | `sum(p, consume=generator)` | as A   |
+| 0c   | `x[t]` → `[t]`                           | `shift(x, along=t, offset=1, edge=0)` | as A                        | as A   |
+| 0d   | `x[t]` → `[t]`                           | `sum_back(x, along=t, window=4)`      | as A                        | as A   |
+| 0e   | a `where` predicate, so the frame stands | `position(t)`                         | as A                        | as A   |
 
 **0b is where B stands alone, and it is the most ordinary call there is.** It
 is the whole price of that option: 40 calls in `examples/` write `over=` with
@@ -228,161 +135,85 @@ no relation anywhere in the file.
 
 ## The walks
 
-### 1 — sum through a one-key table
+### 1 and 2 — sum onto a single value column
 
-`p[generator, period]` → `[bus, period]` · consumes `generator`, produces `bus`
+- **1** `p[generator, period]` → `[bus, period]` through `gen_bus`: consumes `generator`, produces `bus`.
+- **2** `p[generator, period]` → `[period, zone]` through `zone_of`: the same, but `period` is joined on rather than consumed.
 
-| option | the call                                             |
-| ------ | ---------------------------------------------------- |
-| **A**  | `sum(p, by=gen_bus, over=generator, into=bus)`       |
-| **B**  | `sum(p, by=gen_bus, consume=generator, produce=bus)` |
-| **C**  | `sum(p, by=gen_bus, direction=generator -> bus)`     |
-| **D**  | `sum(p, by=gen_bus(generator -> bus))`               |
-| **E**  | `sum(p, over=gen_bus.generator, into=gen_bus.bus)`   |
-| **F**  | `sum(p, by=gen_bus.bus)`                             |
+| option | 1                                                    | 2                                                     |
+| ------ | ---------------------------------------------------- | ----------------------------------------------------- |
+| **A**  | `sum(p, by=gen_bus, over=generator, into=bus)`       | `sum(p, by=zone_of, over=generator, into=zone)`       |
+| **B**  | `sum(p, by=gen_bus, consume=generator, produce=bus)` | `sum(p, by=zone_of, consume=generator, produce=zone)` |
+| **C**  | `sum(p, by=gen_bus, direction=generator -> bus)`     | `sum(p, by=zone_of, direction=generator -> zone)`     |
+| **D**  | `sum(p, by=gen_bus(generator -> bus))`               | `sum(p, by=zone_of(generator -> zone))`               |
+| **E**  | `sum(p, over=gen_bus.generator, into=gen_bus.bus)`   | `sum(p, over=zone_of.generator, into=zone_of.zone)`   |
+| **F**  | `sum(p, by=gen_bus.bus)`                             | `sum(p, by=zone_of.[period, zone])`                   |
 
-$$\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{g,e} \le \mathrm{bus\_cap}_{b,e} \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E}$$
+### 3 and 4 — sum one key away, onto one of two value columns, and onto both
 
-### 2 — sum one key away, join the other
+- **3** `p[generator, period]` → `[bus, period]`: `technology` is not read.
+- **4** `p[generator, period]` → `[bus, period, technology]`.
 
-`p[generator, period]` → `[period, zone]` · consumes `generator`, joins `period`, produces `zone`
+| option | 3                                                    | 4                                                                  |
+| ------ | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| **A**  | `sum(p, by=slot_of, over=generator, into=bus)`       | `sum(p, by=slot_of, over=generator, into=[bus, technology])`       |
+| **B**  | `sum(p, by=slot_of, consume=generator, produce=bus)` | `sum(p, by=slot_of, consume=generator, produce=[bus, technology])` |
+| **C**  | `sum(p, by=slot_of, direction=generator -> bus)`     | `sum(p, by=slot_of, direction=generator -> [bus, technology])`     |
+| **D**  | `sum(p, by=slot_of(generator -> bus))`               | `sum(p, by=slot_of(generator -> [bus, technology]))`               |
+| **E**  | `sum(p, over=slot_of.generator, into=slot_of.bus)`   | `sum(p, over=slot_of.generator, into=slot_of.[bus, technology])`   |
+| **F**  | `sum(p, by=slot_of.[period, bus])`                   | `sum(p, by=slot_of.[period, bus, technology])`                     |
 
-| option | the call                                              |
-| ------ | ----------------------------------------------------- |
-| **A**  | `sum(p, by=zone_of, over=generator, into=zone)`       |
-| **B**  | `sum(p, by=zone_of, consume=generator, produce=zone)` |
-| **C**  | `sum(p, by=zone_of, direction=generator -> zone)`     |
-| **D**  | `sum(p, by=zone_of(generator -> zone))`               |
-| **E**  | `sum(p, over=zone_of.generator, into=zone_of.zone)`   |
-| **F**  | `sum(p, by=zone_of.[period, zone])`                   |
+### 5 and 6 — sum the whole key away
 
-$$\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \le \mathrm{zone\_cap}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}$$
+Nothing is joined on, so `period` leaves with `generator`.
 
-### 3 — the same, onto one of two value columns
+- **5** `p[generator, period]` → `[bus]`.
+- **6** `p[generator, period]` → `[bus, technology]`.
 
-`p[generator, period]` → `[bus, period]` · `technology` is not read
+| option | 5                                                              | 6                                                                            |
+| ------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **A**  | `sum(p, by=slot_of, over=[generator, period], into=bus)`       | `sum(p, by=slot_of, over=[generator, period], into=[bus, technology])`       |
+| **B**  | `sum(p, by=slot_of, consume=[generator, period], produce=bus)` | `sum(p, by=slot_of, consume=[generator, period], produce=[bus, technology])` |
+| **C**  | `sum(p, by=slot_of, direction=[generator, period] -> bus)`     | `sum(p, by=slot_of, direction=[generator, period] -> [bus, technology])`     |
+| **D**  | `sum(p, by=slot_of([generator, period] -> bus))`               | `sum(p, by=slot_of([generator, period] -> [bus, technology]))`               |
+| **E**  | `sum(p, over=slot_of.[generator, period], into=slot_of.bus)`   | `sum(p, over=slot_of.[generator, period], into=slot_of.[bus, technology])`   |
+| **F**  | `sum(p, by=slot_of.bus)`                                       | `sum(p, by=slot_of.[bus, technology])`                                       |
 
-| option | the call                                             |
-| ------ | ---------------------------------------------------- |
-| **A**  | `sum(p, by=slot_of, over=generator, into=bus)`       |
-| **B**  | `sum(p, by=slot_of, consume=generator, produce=bus)` |
-| **C**  | `sum(p, by=slot_of, direction=generator -> bus)`     |
-| **D**  | `sum(p, by=slot_of(generator -> bus))`               |
-| **E**  | `sum(p, over=slot_of.generator, into=slot_of.bus)`   |
-| **F**  | `sum(p, by=slot_of.[period, bus])`                   |
+### 7 and 13 — two columns over one dimension, and a bare relation
 
-$$\sum_{g \in \mathcal{G} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b} p_{g,e} \le \mathrm{bus\_cap}_{b,e} \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E}$$
+- **7** `f[line]` → `[bus]` through `ends`: producing `bus1` produces the dimension `bus`, and `bus0` is not read.
+- **13** `p[generator, period]` → `[bus, period]` through `connection`: the transform is case 1's, but a generator may stand against several buses, so a term can land in more than one group.
 
-### 4 — the same, onto both value columns
+| option | 7                                             | 13                                                       |
+| ------ | --------------------------------------------- | -------------------------------------------------------- |
+| **A**  | `sum(f, by=ends, over=line, into=bus1)`       | `sum(p, by=connection, over=generator, into=bus)`        |
+| **B**  | `sum(f, by=ends, consume=line, produce=bus1)` | `sum(p, by=connection, consume=generator, produce=bus)`  |
+| **C**  | `sum(f, by=ends, direction=line -> bus1)`     | `sum(p, by=connection, direction=generator -> bus)`      |
+| **D**  | `sum(f, by=ends(line -> bus1))`               | `sum(p, by=connection(generator -> bus))`                |
+| **E**  | `sum(f, over=ends.line, into=ends.bus1)`      | `sum(p, over=connection.generator, into=connection.bus)` |
+| **F**  | `sum(f, by=ends.bus1)`                        | `sum(p, by=connection.bus)`                              |
 
-`p[generator, period]` → `[bus, period, technology]`
+A bare relation has no value column, so there is no `rel.col(g)` to read. The
+printed condition is the row itself, a membership rather than a function read,
+and no spelling reads differently for it.
 
-| option | the call                                                           |
-| ------ | ------------------------------------------------------------------ |
-| **A**  | `sum(p, by=slot_of, over=generator, into=[bus, technology])`       |
-| **B**  | `sum(p, by=slot_of, consume=generator, produce=[bus, technology])` |
-| **C**  | `sum(p, by=slot_of, direction=generator -> [bus, technology])`     |
-| **D**  | `sum(p, by=slot_of(generator -> [bus, technology]))`               |
-| **E**  | `sum(p, over=slot_of.generator, into=slot_of.[bus, technology])`   |
-| **F**  | `sum(p, by=slot_of.[period, bus, technology])`                     |
+### 8 and 9 — the reads
 
-$$\sum_{g \in \mathcal{G} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{btp\_cap}_{b,t,e} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T},\ e \in \mathcal{E}$$
+A read runs the other way from a sum: it consumes the value column and
+produces the key.
 
-### 5 — sum the whole key away, onto one value column
+- **8** `price[bus]` → `[generator]` through `gen_bus`.
+- **9** `cap[bus]` → `[line]` through `ends`, reading one of two columns over one dimension.
 
-`p[generator, period]` → `[bus]` · nothing is joined on, so `period` leaves with `generator`
-
-| option | the call                                                       |
-| ------ | -------------------------------------------------------------- |
-| **A**  | `sum(p, by=slot_of, over=[generator, period], into=bus)`       |
-| **B**  | `sum(p, by=slot_of, consume=[generator, period], produce=bus)` |
-| **C**  | `sum(p, by=slot_of, direction=[generator, period] -> bus)`     |
-| **D**  | `sum(p, by=slot_of([generator, period] -> bus))`               |
-| **E**  | `sum(p, over=slot_of.[generator, period], into=slot_of.bus)`   |
-| **F**  | `sum(p, by=slot_of.bus)`                                       |
-
-$$\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b} p_{g,e} \le \mathrm{bus\_total}_{b} \qquad \forall\, b \in \mathcal{B}$$
-
-### 6 — sum the whole key away, onto both
-
-`p[generator, period]` → `[bus, technology]`
-
-| option | the call                                                                     |
-| ------ | ---------------------------------------------------------------------------- |
-| **A**  | `sum(p, by=slot_of, over=[generator, period], into=[bus, technology])`       |
-| **B**  | `sum(p, by=slot_of, consume=[generator, period], produce=[bus, technology])` |
-| **C**  | `sum(p, by=slot_of, direction=[generator, period] -> [bus, technology])`     |
-| **D**  | `sum(p, by=slot_of([generator, period] -> [bus, technology]))`               |
-| **E**  | `sum(p, over=slot_of.[generator, period], into=slot_of.[bus, technology])`   |
-| **F**  | `sum(p, by=slot_of.[bus, technology])`                                       |
-
-$$\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{bt\_cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}$$
-
-### 7 — sum onto one of two columns over one dimension
-
-`f[line]` → `[bus]` · producing `bus1` produces the dimension `bus`; `bus0` is not read
-
-| option | the call                                      |
-| ------ | --------------------------------------------- |
-| **A**  | `sum(f, by=ends, over=line, into=bus1)`       |
-| **B**  | `sum(f, by=ends, consume=line, produce=bus1)` |
-| **C**  | `sum(f, by=ends, direction=line -> bus1)`     |
-| **D**  | `sum(f, by=ends(line -> bus1))`               |
-| **E**  | `sum(f, over=ends.line, into=ends.bus1)`      |
-| **F**  | `sum(f, by=ends.bus1)`                        |
-
-$$\sum_{l \in \mathcal{L} \,:\, \mathrm{ends.bus1}(l) = b} f_{l} \le \mathrm{bus\_total}_{b} \qquad \forall\, b \in \mathcal{B}$$
-
-### 8 — read at the key
-
-`price[bus]` → `[generator]` · a read runs the other way from a sum: it consumes the value column and produces the key
-
-| option | the call                                                |
-| ------ | ------------------------------------------------------- |
-| **A**  | `at(price, by=gen_bus, over=bus, into=generator)`       |
-| **B**  | `at(price, by=gen_bus, consume=bus, produce=generator)` |
-| **C**  | `at(price, by=gen_bus, direction=bus -> generator)`     |
-| **D**  | `at(price, by=gen_bus(bus -> generator))`               |
-| **E**  | `at(price, over=gen_bus.bus, into=gen_bus.generator)`   |
-| **F**  | `at(price, by=gen_bus.bus)`                             |
-| **G**  | `price[gen_bus.bus]`                                    |
-
-$$u_{g} \le \mathrm{price}_{\mathrm{gen\_bus}(g)} \qquad \forall\, g \in \mathcal{G}$$
-
-### 9 — read one of two columns over one dimension
-
-`cap[bus]` → `[line]`
-
-| option | the call                                       |
-| ------ | ---------------------------------------------- |
-| **A**  | `at(cap, by=ends, over=bus0, into=line)`       |
-| **B**  | `at(cap, by=ends, consume=bus0, produce=line)` |
-| **C**  | `at(cap, by=ends, direction=bus0 -> line)`     |
-| **D**  | `at(cap, by=ends(bus0 -> line))`               |
-| **E**  | `at(cap, over=ends.bus0, into=ends.line)`      |
-| **F**  | `at(cap, by=ends.bus0)`                        |
-| **G**  | `cap[ends.bus0]`                               |
-
-$$f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}$$
-
-### 13 — sum through a bare relation
-
-`p[generator, period]` → `[bus, period]` · the transform is case 1's, but a generator may stand against several buses, so a term can land in more than one group
-
-| option | the call                                                 |
-| ------ | -------------------------------------------------------- |
-| **A**  | `sum(p, by=connection, over=generator, into=bus)`        |
-| **B**  | `sum(p, by=connection, consume=generator, produce=bus)`  |
-| **C**  | `sum(p, by=connection, direction=generator -> bus)`      |
-| **D**  | `sum(p, by=connection(generator -> bus))`                |
-| **E**  | `sum(p, over=connection.generator, into=connection.bus)` |
-| **F**  | `sum(p, by=connection.bus)`                              |
-
-$$\sum_{g \in \mathcal{G} \,:\, \left( g,\ b \right) \in \mathrm{connection}} p_{g,e} \le \mathrm{bus\_cap}_{b,e} \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E}$$
-
-This is the one case whose math is a membership rather than a function read.
-A bare relation has no value column, so there is no `rel.col(g)` to write, and
-the condition is the row itself.
+| option | 8                                                       | 9                                              |
+| ------ | ------------------------------------------------------- | ---------------------------------------------- |
+| **A**  | `at(price, by=gen_bus, over=bus, into=generator)`       | `at(cap, by=ends, over=bus0, into=line)`       |
+| **B**  | `at(price, by=gen_bus, consume=bus, produce=generator)` | `at(cap, by=ends, consume=bus0, produce=line)` |
+| **C**  | `at(price, by=gen_bus, direction=bus -> generator)`     | `at(cap, by=ends, direction=bus0 -> line)`     |
+| **D**  | `at(price, by=gen_bus(bus -> generator))`               | `at(cap, by=ends(bus0 -> line))`               |
+| **E**  | `at(price, over=gen_bus.bus, into=gen_bus.generator)`   | `at(cap, over=ends.bus0, into=ends.line)`      |
+| **F**  | `at(price, by=gen_bus.bus)`                             | `at(cap, by=ends.bus0)`                        |
+| **G**  | `price[gen_bus.bus]`                                    | `cap[ends.bus0]`                               |
 
 ## The partitions
 
@@ -403,8 +234,6 @@ nothing to say here**, and E and F collapse into one spelling.
 | **E**  | `shift(x, along=cal.t, offset=1, within=cal.week)` |
 | **F**  | as E                                               |
 
-$$x_{a} \le x_{a -^{\mathrm{cal.week}(a)} 1} \qquad \forall\, a \in \mathcal{A}$$
-
 ### 11 and 12 — position inside a group
 
 A `where` predicate, so the frame stands.
@@ -417,10 +246,6 @@ A `where` predicate, so the frame stands.
 | **D**  | `position(t, by=cal([day, week])) == 0`        | `position(t, by=cal(week)) == 0`        |
 | **E**  | `position(cal.t, within=cal.[day, week]) == 0` | `position(cal.t, within=cal.week) == 0` |
 | **F**  | as E                                           | as E                                    |
-
-$$x_{a} \le 1 \qquad \forall\, a \in \mathcal{A} \,:\, \mathrm{pos}_{\left( \mathrm{cal.day}(a),\ \mathrm{cal.week}(a) \right)}(a) = 0$$
-
-$$x_{a} \le 1 \qquad \forall\, a \in \mathcal{A} \,:\, \mathrm{pos}_{\mathrm{cal.week}(a)}(a) = 0$$
 
 ## The macro
 
@@ -443,43 +268,12 @@ column after a dot is part of a name and not a node of its own, so it is not a
 binding point. A template in E or F fixes its column names, and serves one
 relation rather than any relation of that shape.
 
-## What actually differs
+## The printed math rules nothing out
 
-**A, B, C and D are one language in four spellings**, and the edit between any
-two of them is [above](#a-b-c-and-d-what-is-replaced-by-what). Nothing in the
-case set separates them except the words.
-
-**B is the only option that reaches a model with no relation in it.** It costs
-40 calls in `examples/` that write `over=` with no `by=`. What it buys is that
-the call says the words the frame law says, and `over` then names one thing in
-a file: the breakpoint axis of a `piecewise:` or `sos:` declaration.
-
-**C and D buy a parse error where a load error already exists.** Their gain is
-that an arrow cannot be half written. Today a missing end is refused like this:
-
-```
-sum() through a relation leaves into=, over= unsaid.
-A walk names both of its ends, so that a relation may gain a value column
-without changing what this call means.
-Write: sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>, over=<column>, into=<column>)
-```
-
-**D gives one bracket two meanings.** `by=slot_of(generator -> bus)` is a walk
-and `by=cal(week)` is a group.
-
-**E writes the relation twice** and buys that a column is never a bare word.
-`into=bus1` means nothing without the `by=ends` beside it; `into=ends.bus1`
-stands on its own.
-
-**F states the complement.** It names what the call keeps, so what the call
-consumes is read off the declaration. It holds every rule above — the key is
-fixed, so the complement is stable — but it is the one option where the frame
-law's own terms are not on the line. Its `by=` also carries two rules: in a sum
-it names the columns kept, and in a read it names the column read through.
-
-**The printed math rules nothing out.** It already spells a value column with a
-dot, which is E's and F's character, and it already prints a read as a
-subscript, which is G's:
+Every option prints the same math, which
+[#516](https://github.com/energy-models/math-spec/issues/516) measured. It
+already spells a value column with a dot, which is E's and F's character, and
+it already prints a read as a subscript, which is G's:
 
 $$\mathrm{slot\_of.bus}(g,\ e) \qquad \mathrm{ends.bus0}(l) \qquad \mathrm{cal.week}(a) \qquad \mathrm{price}_{\mathrm{gen\_bus}(g)}$$
 
@@ -501,19 +295,21 @@ B, because the settled rules are written in _consumed_ and _produced_, and the
 docs, the docstrings and the error messages now have to carry those rules. With
 `over=` and `into=` every one of those messages spends a line translating. The
 rename deletes the translation, adds no grammar, and leaves `over` with one
-meaning in a file. Its price is the 40 relation-free sums, and that
-`sum(p, over=generator)` reads like a sum sign where `sum(p, consume=generator)`
-does not.
+meaning in a file: the breakpoint axis of a `piecewise:` or `sos:` declaration.
+Its price is the 40 relation-free sums, and that `sum(p, over=generator)` reads
+like a sum sign where `sum(p, consume=generator)` does not.
 
-C and D pay a new piece of grammar for a refusal the loader already gives. E
-pays a second copy of the relation name, and F pays the frame law's own terms,
-and both pay the macro.
+C and D pay a new piece of grammar for a refusal the loader already gives: a
+walk that leaves one end unsaid is refused today, and the message names the
+rewrite. D also gives one bracket two meanings. E writes the relation twice,
+and F is the one option where the frame law's own terms are not on the line.
+Both fix a macro's columns.
 
 <details><summary>How the A column was measured</summary>
 
-Each case is one constraint over the declarations above, loaded with
-`to_spec`, and the math line is `typeset_declaration(model, 'c', 'latex')`.
-All nineteen load.
+Each case is one constraint over the declarations above, loaded with `to_spec`,
+and the math line is `typeset_declaration(model, 'c', 'latex')`. All nineteen
+load.
 
 Each frame is read off the loader's own refusal rather than derived: a scalar
 variable `s: {dims: []}` is added, the operation is loaded as
@@ -530,8 +326,6 @@ with a `by=` and 40 sums; and 2 partitions.
 `pixi` does not install in the session this was written in, so the runs used a
 `uv` venv on Python 3.13 with the project's runtime dependencies, and
 `pixi run ci` was not run. The earlier measurement that every proposal prints
-the same math for these cases is recorded in
-[#516](https://github.com/energy-models/math-spec/issues/516) and was not
-repeated here.
+the same math was not repeated here.
 
 </details>
