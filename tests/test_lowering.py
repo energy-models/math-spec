@@ -500,6 +500,23 @@ def test_an_assumption_lowers_both_of_its_masks():
     ), 'the refusal names what the consumer bound, so it can say which column is wrong'
 
 
+def test_an_assumption_refuses_in_the_words_the_file_wrote():
+    """``description:`` reached no consumer: the block held it and neither the program nor the sentence did.
+
+    The names alone say which columns are wrong. What the author wrote says
+    why the rule is there, which is what the reader of a refusal needs, so
+    the sentence quotes it where the file wrote one.
+    """
+    reason = 'a shape with no room between its bounds cannot be cut'
+    program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= k', 'description': reason}}))
+    assumption = program.assumptions['sound']
+
+    assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
+    assert assumption_message('sound', assumption) == (
+        f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
+    )
+
+
 def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):
     """Every other predicate node is already the program's own, so lowering hands it through unchanged."""
     assert dispatch_program.variables['dispatch'].where == Mask(CAPACITY_POSITIVE)

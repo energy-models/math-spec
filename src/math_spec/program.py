@@ -612,9 +612,9 @@ class Holds:
 
     predicate: Mask
     where: Mask | None = None
-    #: The sentence a refusal quotes, where the file wrote one under
-    #: ``description:`` or a ``piecewise:`` method implied it. ``None`` leaves
-    #: the generic wording, which names the data the predicate reads.
+    #: What the file wrote under ``description:``, or the sentence a
+    #: ``piecewise:`` method implies. The refusal trails it: the names alone
+    #: say which columns are wrong, and not why the rule is there.
     description: str | None = None
 
 
@@ -630,14 +630,14 @@ def assumption_message(name: str, assumption: Assumption) -> str:
     """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
-    a consumer appends the coordinates it saw. A ``description`` is that
-    wording where one was written, and where none was the sentence names the
-    data the predicate reads, which is what the consumer has to look at.
+    a consumer appends the coordinates it saw. Where the file wrote a
+    ``description:``, or a ``piecewise:`` method implied one, it trails the
+    sentence: the names say which columns are wrong, and the description says
+    why the rule is there.
     """
-    if assumption.description is not None:
-        return assumption.description
     read = ', '.join(f"'{n}'" for n in sorted(assumption.predicate.names_read))
-    return f"assumption '{name}' does not hold for the data bound to {read}"
+    sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+    return f'{sentence} — {assumption.description}' if assumption.description else sentence
 
 
 @dataclass(frozen=True)

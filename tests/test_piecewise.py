@@ -457,4 +457,8 @@ def test_every_check_has_a_sentence(suffix):
     assumptions = to_program(LP_MASKED).assumptions
     name = f'cost_curve_{suffix}'
     assert name in assumptions, 'the fixture is the block that assumes everything'
-    assert assumption_message(name, assumptions[name]).startswith("piecewise 'cost_curve':")
+    message = assumption_message(name, assumptions[name])
+    assert message.startswith(f"assumption '{name}' does not hold for the data bound to "), (
+        'the refusal names the columns a consumer has to look at before it says why'
+    )
+    assert "— piecewise 'cost_curve':" in message, 'and trails the sentence the method implies'

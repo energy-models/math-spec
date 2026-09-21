@@ -45,6 +45,10 @@ piecewise:
       - [p, bp_x]
       - [cost, bp_y, ">="]
     method: convex
+assumptions:
+  cost_is_never_negative:
+    holds: "bp_y >= 0"
+    description: a negative cost is a gain the objective would chase
 constraints:
   target:
     dims: []
@@ -104,18 +108,20 @@ refusal quotes. The engine, which has the numbers, runs each one and raises
 ```python
 from math_spec.program import Holds, assumption_message
 
-sorted(program.assumptions)  # ['curve_curvature', 'curve_increasing']
+sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_curvature', 'curve_increasing']
 isinstance(program.assumptions['curve_increasing'], Holds)  # True
 message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
-message  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+message  # "assumption 'curve_increasing' does not hold for the data bound to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+written = assumption_message('cost_is_never_negative', program.assumptions['cost_is_never_negative'])
+written  # "assumption 'cost_is_never_negative' does not hold for the data bound to 'bp_y' — a negative cost is a gain the objective would chase"
 ```
 
 One kind stands in that mapping. A `Holds` carries a predicate as two masks —
-`predicate`, and the `where` it is checked under — and the sentence to raise
-under `description`. What a `piecewise:` block's method implies about its
-breakpoints is written in the same language and stands beside what the file
-wrote: `expand()` emits those entries, and a model that still declares the
-block derives the same text at load. So a consumer reads one kind, and a
+`predicate`, and the `where` it is checked under — and the sentence a refusal
+trails under `description`. What a `piecewise:` block's method implies about
+its breakpoints is written in the same language and stands beside what the
+file wrote: `expand()` emits those entries, and a model that still declares
+the block derives the same text at load. So a consumer reads one kind, and a
 condition a method adds later is a row in that mapping rather than a case to
 handle.
 
