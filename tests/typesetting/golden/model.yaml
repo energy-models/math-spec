@@ -19,7 +19,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
-  bp: { dtype: int } # the breakpoint axis the two curves run along
+  bp: { dtype: int } # the breakpoints every curve below runs through
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -44,10 +44,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
-  bp_x: { dims: [bp] } # the masked curve's x-axis, and the parameter its mask is derived from
-  bp_y: { dims: [bp] }
-  heat_x: { dims: [bp] } # the whole-axis curve, bounded the other way
-  heat_y: { dims: [bp] }
+  bp_x: { dims: [generator, bp] } # the x-axis of every curve below, and what a derived mask is read from
+  bp_y: { dims: [generator, bp] }
+  bp_heat: { dims: [generator, bp] }
+  bp_run: { dims: [generator, bp], dtype: bool } # how far each curve runs, so a block has a mask to print
 
 variables:
   p: # both bounds, and a where with all three connectives
@@ -82,39 +82,61 @@ variables:
   weight: # the family a sos runs along
     dims: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
-  p_bp: # the masked curve's x link
-    dims: [snapshot]
-    bounds: { lower: 0, upper: 100 }
-  fuel: # its y link, bounded above, which is what makes the curve a convex one
-    dims: [snapshot]
+  fuel: # a curve's second axis
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
-  q_bp: # the whole-axis curve's x link
-    dims: [snapshot]
-    bounds: { lower: 0, upper: 100 }
-  heat: # its y link, bounded below, so that curve is concave
-    dims: [snapshot]
+  heat: # its third, so one curve ties three expressions
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
-
-piecewise:
-  fuel_curve: # an lp curve masked by one of its own breakpoints: every condition a method puts on data
-    over: bp
-    method: lp
-    points: bp_x
-    links:
-      - [p_bp, bp_x]
-      - [fuel, bp_y, ">="]
-  heat_curve: # the same method bounded the other way over a whole axis: a concave curve, and no mask
-    over: bp
-    method: lp
-    links:
-      - [q_bp, heat_x]
-      - [heat, heat_y, "<="]
+  op_cost: # bounded by a curve rather than pinned to it
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  warm: # a gate not every unit has, so the curve it gates is ungated where it does not exist
+    dims: [snapshot, generator]
+    domain: binary
+    where: "is_flexible"
 
 sos:
   adjacent: # at most two adjacent members nonzero, one set per snapshot
     variable: weight
     over: generator
     type: 2
+
+piecewise:
+  fuel_curve: # three expressions on one curve, gated by a binary every unit has
+    over: bp
+    links:
+      - [p, bp_x]
+      - [fuel, bp_y]
+      - [heat, bp_heat]
+    activity: on
+  cost_curve: # a bounded link, which prints as the side of the curve it is on, and a gate only some units have
+    over: bp
+    method: sos2
+    points: bp_run
+    activity: warm
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y, ">="]
+  hull_curve: # the convex method, whose weights range over the hull the breakpoints span rather than the curve
+    over: bp
+    method: convex
+    links:
+      - [p, bp_x]
+      - [fuel, bp_heat]
+  lp_curve: # the lp method masked by one of its own breakpoints: every condition that method puts on data
+    over: bp
+    method: lp
+    points: bp_x
+    links:
+      - [p, bp_x]
+      - [fuel, bp_y, ">="]
+  ramp_curve: # the same method bounded the other way over a whole axis, so the shape is concave and nothing masks it
+    over: bp
+    method: lp
+    links:
+      - [p, bp_x]
+      - [heat, bp_heat, "<="]
 
 expressions:
   spend_cap: cost * 2 # a data-only entry, so a where may compare it

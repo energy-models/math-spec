@@ -30,13 +30,10 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 | $`\mathrm{lead}`$ | `lead` over $`\mathcal{G}`$ |
 | $`\mathrm{budget}`$ | `budget` (scalar) |
 | $`\mathrm{growth}`$ | `growth` (scalar) |
-| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{A}`$ |
-| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{A}`$ |
-| $`\mathrm{heat}^{\mathrm{x}}`$ | `heat_x` over $`\mathcal{A}`$ |
-| $`\mathrm{heat}^{\mathrm{y}}`$ | `heat_y` over $`\mathcal{A}`$ |
-| $`\mathrm{fuel}^{\mathrm{curve,points}}`$ | `fuel_curve_points` over $`\mathcal{A}`$ — where 'bp\_x' has a row, and so where the curve runs |
-| $`\mathrm{fuel}^{\mathrm{curve,starts}}`$ | `fuel_curve_starts` over $`\mathcal{A}`$ — the first breakpoint of each curve |
-| $`\mathrm{fuel}^{\mathrm{curve,ends}}`$ | `fuel_curve_ends` over $`\mathcal{A}`$ — the last breakpoint of each curve |
+| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_heat}`$ | `bp_heat` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_run}`$ | `bp_run` over $`\mathcal{G} \times \mathcal{A}`$ |
 
 #### Variables
 
@@ -52,10 +49,10 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
-| $`p^{\mathrm{bp}}`$ | `p_bp` over $`\mathcal{T}`$ |
-| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T}`$ |
-| $`q^{\mathrm{bp}}`$ | `q_bp` over $`\mathcal{T}`$ |
-| $`\mathit{heat}`$ | `heat` over $`\mathcal{T}`$ |
+| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{heat}`$ | `heat` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{warm}`$ | `warm` over $`\mathcal{T} \times \mathcal{G}`$ |
 
 #### Definitions
 
@@ -359,40 +356,34 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g}
 ```
 
-**`fuel_curve_chord`**
+**`fuel_curve`**
 
 ```math
-\mathit{fuel}_{t} \cdot \left( \mathrm{bp\_x}_{a} - \mathrm{bp\_x}_{a \boxminus_{0} 1} \right) \ge \left( \mathrm{bp\_y}_{a} - \mathrm{bp\_y}_{a \boxminus_{0} 1} \right) \cdot \left( p^{\mathrm{bp}}_{t} - \mathrm{bp\_x}_{a} \right) + \mathrm{bp\_y}_{a} \cdot \left( \mathrm{bp\_x}_{a} - \mathrm{bp\_x}_{a \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ a \in \mathcal{A} \,:\, \mathrm{fuel}^{\mathrm{curve,points}}_{a} \wedge \neg \mathrm{fuel}^{\mathrm{curve,starts}}_{a}
+\left( p_{t,g},\ \mathit{fuel}_{t,g},\ \mathit{heat}_{t,g} \right) \in \mathit{on}_{t,g} \cdot \mathrm{pwl}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_y}_{g,a},\ \mathrm{bp\_heat}_{g,a}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-**`fuel_curve_domain_lo`**
+**`cost_curve`**
 
 ```math
-p^{\mathrm{bp}}_{t} \ge \mathrm{bp\_x}_{a} \qquad \forall\, t \in \mathcal{T},\ a \in \mathcal{A} \,:\, \mathrm{fuel}^{\mathrm{curve,starts}}_{a}
+\mathit{op\_cost}_{t,g} \ge \begin{cases} \mathit{warm}_{t,g} & \text{if } \mathrm{is\_flexible}_{g} \\ 1 & \text{otherwise} \end{cases} \cdot \mathrm{pwl}_{a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_y}_{g,a})(p_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-**`fuel_curve_domain_hi`**
+**`hull_curve`**
 
 ```math
-p^{\mathrm{bp}}_{t} \le \mathrm{bp\_x}_{a} \qquad \forall\, t \in \mathcal{T},\ a \in \mathcal{A} \,:\, \mathrm{fuel}^{\mathrm{curve,ends}}_{a}
+\left( p_{t,g},\ \mathit{fuel}_{t,g} \right) \in \mathrm{conv}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_heat}_{g,a}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-**`heat_curve_chord`**
+**`lp_curve`**
 
 ```math
-\mathit{heat}_{t} \cdot \left( \mathrm{heat}^{\mathrm{x}}_{a} - \mathrm{heat}^{\mathrm{x}}_{a \boxminus_{0} 1} \right) \le \left( \mathrm{heat}^{\mathrm{y}}_{a} - \mathrm{heat}^{\mathrm{y}}_{a \boxminus_{0} 1} \right) \cdot \left( q^{\mathrm{bp}}_{t} - \mathrm{heat}^{\mathrm{x}}_{a} \right) + \mathrm{heat}^{\mathrm{y}}_{a} \cdot \left( \mathrm{heat}^{\mathrm{x}}_{a} - \mathrm{heat}^{\mathrm{x}}_{a \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) \neq 0
+\mathit{fuel}_{t,g} \ge \mathrm{pwl}_{a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_y}_{g,a})(p_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-**`heat_curve_domain_lo`**
+**`ramp_curve`**
 
 ```math
-q^{\mathrm{bp}}_{t} \ge \mathrm{heat}^{\mathrm{x}}_{a} \qquad \forall\, t \in \mathcal{T},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) = 0
-```
-
-**`heat_curve_domain_hi`**
-
-```math
-q^{\mathrm{bp}}_{t} \le \mathrm{heat}^{\mathrm{x}}_{a} \qquad \forall\, t \in \mathcal{T},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) = \lvert \mathcal{A} \rvert - 1
+\mathit{heat}_{t,g} \le \mathrm{pwl}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_heat}_{g,a})(p_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### Definitions
@@ -495,28 +486,28 @@ q^{\mathrm{bp}}_{t} \le \mathrm{heat}^{\mathrm{x}}_{a} \qquad \forall\, t \in \m
 \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T}
 ```
 
-**`p_bp`**
-
-```math
-0 \le p^{\mathrm{bp}}_{t} \le 100 \qquad \forall\, t \in \mathcal{T}
-```
-
 **`fuel`**
 
 ```math
-\mathit{fuel}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T}
-```
-
-**`q_bp`**
-
-```math
-0 \le q^{\mathrm{bp}}_{t} \le 100 \qquad \forall\, t \in \mathcal{T}
+\mathit{fuel}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 **`heat`**
 
 ```math
-\mathit{heat}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T}
+\mathit{heat}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+**`op_cost`**
+
+```math
+\mathit{op\_cost}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+**`warm`**
+
+```math
+\mathit{warm}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{is\_flexible}_{g}
 ```
 
 #### Assumptions
@@ -569,43 +560,61 @@ q^{\mathrm{bp}}_{t} \le \mathrm{heat}^{\mathrm{x}}_{a} \qquad \forall\, t \in \m
 \mathrm{load}_{t,b} \ge 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'}
 ```
 
-**`fuel_curve increasing`**
+**`cost_curve points`**
 
 ```math
-\mathrm{bp\_x}_{a - 1} < \mathrm{bp\_x}_{a} \qquad \forall\, a \in \mathcal{A} \,:\, \mathrm{fuel}^{\mathrm{curve,points}}_{a} \wedge \mathrm{fuel}^{\mathrm{curve,points}}_{a - 1}
+\{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \} \text{ is one run of consecutive breakpoints} \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`fuel_curve curvature`**
+**`hull_curve increasing`**
 
 ```math
-\mathrm{bp\_y}_{a} \text{ is a convex function of } \mathrm{bp\_x}_{a} \text{ along } a
+\mathrm{bp\_x}_{g,a - 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
 ```
 
-**`fuel_curve breakpoints`**
+**`hull_curve curvature`**
 
 ```math
-\lvert \{ a \in \mathcal{A} \,:\, \mathrm{fuel}^{\mathrm{curve,points}}_{a} \} \rvert \ge 2
+\mathrm{bp\_heat}_{g,a} \text{ is a convex or concave function of } \mathrm{bp\_x}_{g,a} \text{ along } a \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`fuel_curve points`**
+**`lp_curve increasing`**
 
 ```math
-\{ a \in \mathcal{A} \,:\, \mathrm{fuel}^{\mathrm{curve,points}}_{a} \} \text{ is one run of consecutive breakpoints}
+\mathrm{bp\_x}_{g,a - 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_x}_{g,a - 1} \text{ is defined}
 ```
 
-**`heat_curve increasing`**
+**`lp_curve curvature`**
 
 ```math
-\mathrm{heat}^{\mathrm{x}}_{a - 1} < \mathrm{heat}^{\mathrm{x}}_{a} \qquad \forall\, a \in \mathcal{A}
+\mathrm{bp\_y}_{g,a} \text{ is a convex function of } \mathrm{bp\_x}_{g,a} \text{ along } a \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`heat_curve curvature`**
+**`lp_curve breakpoints`**
 
 ```math
-\mathrm{heat}^{\mathrm{y}}_{a} \text{ is a concave function of } \mathrm{heat}^{\mathrm{x}}_{a} \text{ along } a
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`heat_curve breakpoints`**
+**`lp_curve points`**
+
+```math
+\{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \text{ is one run of consecutive breakpoints} \qquad \forall\, g \in \mathcal{G}
+```
+
+**`ramp_curve increasing`**
+
+```math
+\mathrm{bp\_x}_{g,a - 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+```
+
+**`ramp_curve curvature`**
+
+```math
+\mathrm{bp\_heat}_{g,a} \text{ is a concave function of } \mathrm{bp\_x}_{g,a} \text{ along } a \qquad \forall\, g \in \mathcal{G}
+```
+
+**`ramp_curve breakpoints`**
 
 ```math
 \lvert \mathcal{A} \rvert \ge 2

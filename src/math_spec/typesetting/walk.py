@@ -69,7 +69,7 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import ExpandedPiecewise, RelationBlock, SosBlock, _ExpandedSpec
+    from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -255,7 +255,7 @@ class Walk:
 
     def __init__(
         self,
-        schema: _ExpandedSpec,
+        schema: Spec,
         symbols: Symbols,
         fmt: Format,
         *,
@@ -740,7 +740,16 @@ class Walk:
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def _constraints(self) -> list[Line]:
-        return [self._constraint(name) for name in self.schema.constraints]
+        """Every constraint, then every curve.
+
+        A ``piecewise:`` block restricts what its link expressions may be
+        together, which is what a row does, so it prints here rather than among
+        the domains — where a set prints, being a property of one variable.
+        """
+        return [
+            *(self._constraint(name) for name in self.schema.constraints),
+            *(self._piecewise(name) for name in self.schema.piecewise),
+        ]
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
@@ -795,10 +804,10 @@ class Walk:
         )
 
     def line(self, name: str) -> Line:
-        """The one line *name* prints as: a named expression, a constraint, an assumption, or a variable's domain.
+        """The one line *name* prints as: a named expression, a constraint, an assumption, a curve, or a variable's domain.
 
-        *name* is one of the four; :func:`~math_spec.typesetting.typeset_declaration`
-        refuses the rest, and a constraint sharing a variable's name.
+        *name* is one of the five; :func:`~math_spec.typesetting.typeset_declaration`
+        refuses the rest, and a name declared as two of them.
         """
         if name in self.schema.expressions:
             return self.definition(name)
@@ -806,6 +815,8 @@ class Walk:
             return self._constraint(name)
         if name in self.schema.assumptions:
             return self._assumption(name)
+        if name in self.schema.piecewise:
+            return self._piecewise(name)
         return self._variable(name)
 
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
@@ -888,9 +899,14 @@ class Walk:
         data is held to, whoever stated it.
         """
         lines = [self._assumption(name) for name in self.schema.assumptions]
-        for block, expanded in self.schema.expanded_piecewise.items():
-            lines += [self._derived(name, expanded, check) for name, check in assumptions_of(block, expanded).items()]
+        for block, pw in self._curves().items():
+            lines += [self._derived(name, pw, check) for name, check in assumptions_of(block, pw).items()]
         return lines
+
+    def _curves(self) -> dict[str, PiecewiseBlock]:
+        """Every block this model states a curve for, whether it still declares one or has written it out."""
+        written = {block: ex.block for block, ex in self.schema._expanded_piecewise.items()}
+        return self.schema.piecewise | written
 
     def _assumption(self, name: str) -> Line:
         """One ``assumptions:`` entry: the predicate over the frame both its masks name, under its ``where``."""
@@ -903,7 +919,7 @@ class Walk:
             left, right = self._predicate(holds.root, ctx), ''
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, self._condition(ctx, where)))
 
-    def _derived(self, name: str, expanded: ExpandedPiecewise, check: Check) -> Line:
+    def _derived(self, name: str, pw: PiecewiseBlock, check: Check) -> Line:
         """One condition a curve puts on its breakpoints, as the line a reader checks the data against.
 
         The strictly increasing x-axis is an inequality between neighbours,
@@ -918,7 +934,7 @@ class Walk:
                 ctx = self._context(frame)
                 previous = ctx.translated(over, _Step(1, 'plain'))
                 condition = ''
-                if (mask := expanded.points) is not None:
+                if (mask := pw.points) is not None:
                     admitted = ParameterDefined(mask, tuple(self.schema.parameters[mask].dims))
                     condition = self.format.joined(
                         [self._predicate(admitted, ctx), self._predicate(admitted, previous)], self._op('and')
@@ -953,7 +969,7 @@ class Walk:
                     condition=self._quantifier(frame, ''),
                 )
             case Contiguous(_, mask, _):
-                members, frame = self._admitted(mask, expanded.block.over)
+                members, frame = self._admitted(mask, pw.over)
                 return Line(
                     label=name,
                     left=members,
@@ -973,6 +989,100 @@ class Walk:
     def _parameter(self, name: str, ctx: _Context) -> str:
         """A parameter's symbol, indexed by its own dims."""
         return ctx.indexed(self.symbols.name[name], list(self.schema.parameters[name].dims))
+
+    def _piecewise(self, name: str) -> Line:
+        """One ``piecewise:`` block as the curve it states, over the frame it states one per coordinate of.
+
+        The links' expressions are a point, and the block says that point lies
+        on the piecewise-linear locus through the breakpoints. A bounded link
+        states one side of the locus instead, so there the locus prints as the
+        function of the pinned link that it is and the link's own sign says
+        which side.
+        """
+        block = self.schema.piecewise[name]
+        links = self.schema.resolved.piecewise[name]
+        frame = self._curve_frame(name, block, links)
+        ctx = self._context([*frame, block.over])
+        locus = self._locus(block, ctx)
+        bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
+        if bounded is None:
+            left = self._tuple([self._expression(node, ctx) for node in links])
+            right = f'{self._op("in")} {locus}'
+        else:
+            pinned = links[1 - bounded]
+            left = self._expression(links[bounded], ctx)
+            sign = self._op(_PREDICATES[block.links[bounded].sign])
+            right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
+        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, ''))
+
+    def _locus(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
+
+        A gate multiplies it, which is what gating a curve does — the weights
+        sum to the gate, so the locus is the origin where the gate is 0 and the
+        curve where it is 1.
+        """
+        operator = self._op('hull' if block.method == 'convex' else 'curve')
+        through = self.format.subscript(operator, [self._breakpoints(block, ctx)])
+        values = self.format.joined(
+            [
+                ctx.indexed(self.symbols.name[link.values], list(self.schema.parameters[link.values].dims))
+                for link in block.links
+            ],
+            '',
+        )
+        locus = self.format.apply(through, values)
+        gate = self._gate(block, ctx)
+        return f'{gate} {self._op("cdot")} {locus}' if gate else locus
+
+    def _breakpoints(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """Which breakpoints the curve runs through: every one of the dimension, or the ones ``points:`` admits.
+
+        A ``points:`` naming a boolean parameter reads as the flag it is, and
+        one naming a values parameter as the rows that parameter has, which is
+        the same reading a ``where`` gives either of them.
+        """
+        over = self._membership(block.over)
+        if block.points is None:
+            return over
+        admitted = ParameterDefined(block.points, tuple(self.schema.parameters[block.points].dims))
+        return f'{over} {self._op("such_that")} {self._predicate(admitted, ctx)}'
+
+    def _gate(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """The factor an ``activity:`` puts on the locus, or ``''`` where the block has none.
+
+        Where the gate is a variable that does not exist at every coordinate
+        the curve is built for, the factor is the gate where it exists and 1
+        where it does not — the two rows the expansion writes there, because a
+        variable that does not exist takes its row with it and would leave the
+        curve unstated rather than ungated. ``absence: zero`` is the other
+        reading and pins the curve off, which is the factor on its own.
+        """
+        if (activity := block.activity) is None:
+            return ''
+        gate = self.schema.variables[activity]
+        symbol = ctx.indexed(self.symbols.name[activity], list(gate.dims))
+        mask = self.schema.resolved.variables[activity]
+        if mask is None or gate.absence == 'zero':
+            return symbol
+        where = self._predicate(mask.root, ctx, need=_WHERE_PRECEDENCE['and'])
+        return self.format.cases(
+            [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
+        )
+
+    def _curve_frame(self, name: str, block: PiecewiseBlock, links: tuple[ArithmeticNode, ...]) -> list[str]:
+        """The dimensions the block builds one curve per coordinate of: every one its links and its gate carry.
+
+        The union the expansion takes its own frame from, and the expansion has
+        already held it to the rules — that no link carries the breakpoint
+        dimension among them (:mod:`math_spec.piecewise`).
+        """
+        dims: frozenset[str] = frozenset()
+        for i, node in enumerate(links):
+            dims |= dims_of(node, self.schema, f"piecewise '{name}' link {i}")
+        if block.activity is not None:
+            dims |= frozenset(self.schema.variables[block.activity].dims)
+        return self._sorted(dims)
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):

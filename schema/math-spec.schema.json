@@ -563,9 +563,9 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. A consumer with the concept takes the set as\none; :meth:`Spec.expand` states it as binaries instead, and ``bound`` is\nthe coefficient those rows link a member by from above, where the member's\nown ``upper`` is not the one to use.",
       "properties": {
-        "big_m": {
+        "bound": {
           "anyOf": [
             {
               "type": "number"
@@ -575,7 +575,7 @@
             }
           ],
           "default": null,
-          "title": "Big M"
+          "title": "Bound"
         },
         "description": {
           "anyOf": [
@@ -682,7 +682,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, :meth:`model_validate`, the constructor \u2014 runs\nevery load-time check, expansion and expression pass included, and raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. Everything else on\nthis class is pydantic's, not a contract this package keeps.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, :meth:`model_validate`, the constructor \u2014 runs\nevery load-time check, expansion and expression pass included, and raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, three ways back out \u2014 :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the\nsame math with its formulations written out \u2014 and :attr:`resolved`, the\ntyped trees every reader in this package walks. Everything else on this\nclass is pydantic's, not a contract this package keeps.",
   "properties": {
     "assumptions": {
       "additionalProperties": {

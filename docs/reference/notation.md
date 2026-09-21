@@ -45,7 +45,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
-  bp: { dtype: int } # the breakpoint axis the two curves run along
+  bp: { dtype: int } # the breakpoints every curve below runs through
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -70,10 +70,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
-  bp_x: { dims: [bp] } # the masked curve's x-axis, and the parameter its mask is derived from
-  bp_y: { dims: [bp] }
-  heat_x: { dims: [bp] } # the whole-axis curve, bounded the other way
-  heat_y: { dims: [bp] }
+  bp_x: { dims: [generator, bp] } # the x-axis of every curve below, and what a derived mask is read from
+  bp_y: { dims: [generator, bp] }
+  bp_heat: { dims: [generator, bp] }
+  bp_run: { dims: [generator, bp], dtype: bool } # how far each curve runs, so a block has a mask to print
 ```
 
 #### Sets
@@ -104,13 +104,10 @@ parameters:
 | $`\mathrm{lead}`$ | `lead` over $`\mathcal{G}`$ |
 | $`\mathrm{budget}`$ | `budget` (scalar) |
 | $`\mathrm{growth}`$ | `growth` (scalar) |
-| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{A}`$ |
-| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{A}`$ |
-| $`\mathrm{heat}^{\mathrm{x}}`$ | `heat_x` over $`\mathcal{A}`$ |
-| $`\mathrm{heat}^{\mathrm{y}}`$ | `heat_y` over $`\mathcal{A}`$ |
-| $`\mathrm{fuel}^{\mathrm{curve,points}}`$ | `fuel_curve_points` over $`\mathcal{A}`$ — where 'bp\_x' has a row, and so where the curve runs |
-| $`\mathrm{fuel}^{\mathrm{curve,starts}}`$ | `fuel_curve_starts` over $`\mathcal{A}`$ — the first breakpoint of each curve |
-| $`\mathrm{fuel}^{\mathrm{curve,ends}}`$ | `fuel_curve_ends` over $`\mathcal{A}`$ — the last breakpoint of each curve |
+| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_heat}`$ | `bp_heat` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_run}`$ | `bp_run` over $`\mathcal{G} \times \mathcal{A}`$ |
 
 #### Variables
 
@@ -126,10 +123,10 @@ parameters:
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
-| $`p^{\mathrm{bp}}`$ | `p_bp` over $`\mathcal{T}`$ |
-| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T}`$ |
-| $`q^{\mathrm{bp}}`$ | `q_bp` over $`\mathcal{T}`$ |
-| $`\mathit{heat}`$ | `heat` over $`\mathcal{T}`$ |
+| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{heat}`$ | `heat` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{warm}`$ | `warm` over $`\mathcal{T} \times \mathcal{G}`$ |
 
 #### Definitions
 
@@ -1036,71 +1033,72 @@ weight:
 0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-#### `p_bp`
-
-the masked curve's x link
-
-```yaml
-p_bp:
-  dims: [snapshot]
-  bounds: { lower: 0, upper: 100 }
-```
-
-```math
-0 \le p^{\mathrm{bp}}_{t} \le 100 \qquad \forall\, t \in \mathcal{T}
-```
-
 #### `fuel`
 
-its y link, bounded above, which is what makes the curve a convex one
+a curve's second axis
 
 ```yaml
 fuel:
-  dims: [snapshot]
+  dims: [snapshot, generator]
   bounds: { lower: 0 }
 ```
 
 ```math
-\mathit{fuel}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T}
-```
-
-#### `q_bp`
-
-the whole-axis curve's x link
-
-```yaml
-q_bp:
-  dims: [snapshot]
-  bounds: { lower: 0, upper: 100 }
-```
-
-```math
-0 \le q^{\mathrm{bp}}_{t} \le 100 \qquad \forall\, t \in \mathcal{T}
+\mathit{fuel}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### `heat`
 
-its y link, bounded below, so that curve is concave
+its third, so one curve ties three expressions
 
 ```yaml
 heat:
-  dims: [snapshot]
+  dims: [snapshot, generator]
   bounds: { lower: 0 }
 ```
 
 ```math
-\mathit{heat}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T}
+\mathit{heat}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-### Curves, as what they expand to
+#### `op_cost`
 
-A curve is sugar: what prints is the formulation it expands to, which is the math the solver receives. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
+bounded by a curve rather than pinned to it
+
+```yaml
+op_cost:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{op\_cost}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `warm`
+
+a gate not every unit has, so the curve it gates is ungated where it does not exist
+
+```yaml
+warm:
+  dims: [snapshot, generator]
+  domain: binary
+  where: "is_flexible"
+```
+
+```math
+\mathit{warm}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{is\_flexible}_{g}
+```
+
+### Curves
+
+A curve prints as the curve it states, over the frame the block builds one per coordinate of, and its expansion prints the rows that curve stands for. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
 
 #### `economies_of_scale`
 
 **`method: adjacency`** — a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1121,6 +1119,12 @@ economies_of_scale:
 ```
 
 ```math
+\left( \mathit{shipment}_{p,m},\ \mathit{scaled}_{p,m} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{b},\ \mathrm{y}_{b}) \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+```
+
+Written out by `spec.expand()`:
+
+```math
 \sum_{b \in \mathcal{B}} \lambda_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
 ```
 
@@ -1133,7 +1137,7 @@ economies_of_scale:
 ```
 
 ```math
-\sum_{b \in \mathcal{B}} \delta_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+\sum_{b \in \mathcal{B}} \delta_{p,m,b} \le 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
 ```
 
 ```math
@@ -1152,7 +1156,7 @@ economies_of_scale:
 
 **`method: sos2`** — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1171,6 +1175,12 @@ cost_curve:
     - [op_cost, bp_y]
   method: sos2
 ```
+
+```math
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
 
 ```math
 \sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
@@ -1196,7 +1206,7 @@ cost_curve:
 
 **`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1215,6 +1225,12 @@ cost_curve:
     - [op_cost, bp_y]
   method: convex
 ```
+
+```math
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{conv}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
 
 ```math
 \sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
@@ -1246,7 +1262,7 @@ What the method assumes of the numbers bound to it:
 
 **`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1264,6 +1280,12 @@ cost_curve:
     - [op_cost, bp_y, ">="]
   method: lp
 ```
+
+```math
+\mathit{op\_cost}_{t,g} \ge \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b})(\mathit{dispatch}_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
 
 ```math
 \mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathit{dispatch}_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) \neq 0
@@ -1293,6 +1315,8 @@ What the method assumes of the numbers bound to it:
 
 ### Sets carried to the solver
 
+A set prints beside the variable it restricts, because it restricts that variable rather than adding a row of its own. Under it are the rows it is written out as.
+
 #### `adjacent`
 
 at most two adjacent members nonzero, one set per snapshot
@@ -1306,6 +1330,20 @@ adjacent:
 
 ```math
 \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T}
+```
+
+Written out by `spec.expand()`:
+
+```math
+\sum_{g \in \mathcal{G}} \mathit{adjacent\_seg}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T}
+```
+
+```math
+\mathit{weight}_{t,g} \le \mathit{adjacent\_seg}_{t,g} + \mathit{adjacent\_seg}_{t,g \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{adjacent\_seg}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### What the data has to satisfy

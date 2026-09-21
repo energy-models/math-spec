@@ -4,9 +4,9 @@
 
 """`piecewise:` expansion, judged at the door that decides it.
 
-Every claim here is one `to_spec` or `expand_piecewise` reaches with no data
-bound: which declarations a curve emits, which names it may not collide with,
-which methods exist, and which gates a block will accept.
+Every claim here is one `to_spec` or `Spec.expand` reaches with no data bound:
+which declarations a curve emits, which names it may not collide with, which
+methods exist, and which gates a block will accept.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ import pytest
 from math_spec import CURVATURES
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
 from math_spec.lowering import lower_program, to_program
-from math_spec.model import _ExpandedSpec
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     AtLeastTwo,
@@ -128,32 +127,33 @@ def test_a_method_this_project_does_not_have_is_refused(method):
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.method': method})
 
 
-def test_the_file_is_not_an_expansion_and_the_expansion_is():
-    """A `Spec` may still owe declarations to a `piecewise:` block; an `_ExpandedSpec` owes none."""
+def test_the_file_keeps_its_curve_and_the_expansion_has_none():
+    """The file is what it says; the expansion is the rows it stands for."""
     schema = schema_of(NONCONVEX_YAML)
 
-    assert not isinstance(schema, _ExpandedSpec)
-    assert isinstance(expand_piecewise(schema), _ExpandedSpec)
+    assert 'cost_curve' in schema.piecewise, 'loading a model does not spend its blocks'
+    assert not schema.expand('piecewise').piecewise, 'the block is spent once its declarations are emitted'
+
+
+def test_lowering_refuses_a_model_that_still_owes_rows_to_a_curve():
+    """A curve states rows and a program holds them, so lowering one unexpanded would drop the whole block.
+
+    The type used to carry this claim: the expanded spec was a class of its own
+    and validated that it held no `piecewise:`.
+    """
+    with pytest.raises(AssertionError, match=r"pass spec.expand\('piecewise'\)"):
+        lower_program(schema_of(NONCONVEX_YAML))
 
 
 def test_expansion_is_memoised_and_idempotent():
-    """One object from every call: validation already built the expansion, and an `_ExpandedSpec` is its own."""
+    """One object per set of formulations asked for, and a model with none to expand is its own expansion."""
     schema = schema_of(NONCONVEX_YAML)
-    expanded = expand_piecewise(schema)
-    assert expand_piecewise(schema) is expanded
-    assert expand_piecewise(expanded) is expanded
+    expanded = schema.expand('piecewise')
+    assert schema.expand('piecewise') is expanded
+    assert expanded.expand('piecewise') is expanded
 
     curveless = schema_of(DISPATCH_MODEL)
-    expanded = expand_piecewise(curveless)
-    assert isinstance(expanded, _ExpandedSpec), 'a curve-free file is its own expansion, and says so in its type'
-    assert expand_piecewise(curveless) is expanded
-    assert expanded.constraints.keys() == curveless.constraints.keys(), 'retyping declares nothing new'
-
-
-def test_an_expansion_will_not_be_built_around_a_curve():
-    """`expand_piecewise` is the only thing that produces one; validated straight from a file, the type would lie."""
-    with pytest.raises(SchemaError, match='expand_piecewise is what produces one'):
-        _ExpandedSpec.model_validate(raw_of(NONCONVEX_YAML))
+    assert curveless.expand() is curveless, 'a model with no formulation is the one that comes back'
 
 
 @pytest.mark.parametrize(
@@ -436,8 +436,8 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
     assert program.assumptions == {
         'cost_curve increasing': Increasing('cost_curve', 'lp', 'bp_x', 'bp'),
         'cost_curve curvature': Curved('cost_curve', 'lp', 'bp_x', 'bp_y', 'bp', 'convex'),
-        'cost_curve breakpoints': AtLeastTwo('cost_curve', 'bp', 'cost_curve_points'),
-        'cost_curve points': Contiguous('cost_curve', 'cost_curve_points', 'bp_x'),
+        'cost_curve breakpoints': AtLeastTwo('cost_curve', 'bp', 'bp_x'),
+        'cost_curve points': Contiguous('cost_curve', 'bp_x', 'bp_x'),
     }, 'an lp curve with a mask assumes all four, each against the names the file wrote'
 
     plain = to_program(raw_of(NONCONVEX_YAML))
