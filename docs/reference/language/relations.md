@@ -111,6 +111,10 @@ may be a list. With `zone_of: { key: [generator, period], values: zone }` and
 - **`sum` consumes at least one key column, and `at` consumes value columns
   only.** A read finds one row per coordinate, and a sum finds many. Each is
   refused in the other's case.
+- **A read lands on the key and nothing else.** `into=` on an `at` names key
+  columns, and every key column it leaves out is joined on. A column outside
+  the key would arrive as a dimension the read never fixes, so it is refused
+  toward `sum`, which is the call that lands on a value column.
 - **`over=` and `into=` name different columns**, and neither names two
   columns over one dimension.
 
