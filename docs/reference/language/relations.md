@@ -73,9 +73,7 @@ column per declared column, named after it.
 ## How a relation is used
 
 The declaration fixes no direction. A call names the columns it reads, and a
-key column named at neither end is **joined on**: the operand carries its
-dimension, and the result keeps it. A value column named at neither end is not
-read.
+key column it names at neither end is **joined on**.
 
 | kind      | what it does                                | written as                                            |
 | --------- | ------------------------------------------- | ----------------------------------------------------- |
@@ -95,22 +93,34 @@ Four rules hold for every use:
 ### Aggregates and reads
 
 `over=` names the columns consumed and `into=` the columns produced, and either
-may be a list. With `zone_of: { key: [generator, period], values: zone }` and
-`p` over `[generator, period]`:
+may be a list. With `zone_of: { key: [generator, period], values: zone }`, the
+bare `connection: { key: [generator, bus] }` and `p` over `[generator, period]`:
 
 | call                                               | consumes    | joins on    | produces    | result                |
 | -------------------------------------------------- | ----------- | ----------- | ----------- | --------------------- |
 | `sum(p, by=zone_of, over=generator, into=zone)`    | `generator` | `period`    | `zone`      | `[zone, period]`      |
 | `sum(p, by=zone_of, over=period, into=zone)`       | `period`    | `generator` | `zone`      | `[generator, zone]`   |
+| `sum(p, by=connection, over=generator, into=bus)`  | `generator` | nothing     | `bus`       | `[bus, period]`       |
 | `at(price, by=zone_of, over=zone, into=generator)` | `zone`      | `period`    | `generator` | `[generator, period]` |
 
 - **The result is the operand, less the consumed dimensions, plus the produced
   ones.** The operand carries every dimension consumed or joined on, and none
   that the call lands on. `sum(load * p, by=gen_bus, over=generator, into=bus)`
   is refused; write `load * sum(p, by=gen_bus, over=generator, into=bus)`.
-- **`sum` consumes at least one key column, and `at` consumes value columns
-  only.** A read finds one row per coordinate, and a sum finds many. Each is
-  refused in the other's case.
+- **A read finds one row per coordinate, and a sum finds many.** The columns a
+  read lands on and joins on hold the whole key. A sum leaves a key column out,
+  and each call is refused in the other's case:
+
+  ```text
+  Constraint 'cap': sum(by=zone_of): this sum lands on the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.
+  ```
+
+- **A sum consumes at least one key column, and lands on any column it does not
+  consume.** Either end may name a value column beside a key one. `connection`
+  has only key columns, and the sum above consumes one and lands on the other.
+- **A read consumes value columns, and lands on the key.** Its result carries
+  every key column — named in `into=`, or joined on — and whatever else the
+  operand carries that the read does not consume.
 - **`over=` and `into=` name different columns**, and neither names two
   columns over one dimension.
 
