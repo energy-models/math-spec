@@ -197,6 +197,41 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
     return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
 
 
+@pytest.mark.parametrize(
+    ('expr', 'expected'),
+    [
+        pytest.param(
+            'sum(p, by=connection, over=generator, into=bus)',
+            {'snapshot', 'bus'},
+            id='a-sum-through-a-bare-relation-lands-on-a-key-column',
+        ),
+        pytest.param(
+            'sum(load, by=connection, over=bus, into=generator)',
+            {'snapshot', 'generator'},
+            id='and-the-same-table-summed-the-other-way',
+        ),
+    ],
+)
+def test_a_bare_relation_is_summed_between_its_key_columns(expr, expected):
+    """A bare relation holds no value column, so the column a sum lands on is a key column."""
+    assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == expected
+
+
+def test_a_read_carries_the_whole_key_and_what_the_operand_brings_beside_it():
+    """A read lands on the key however the call splits it, and a dim the operand carries and the read does not consume rides along.
+
+    `gen_bz` is keyed by `generator` alone, so the key is produced whole; the
+    operand's `snapshot` is neither consumed nor part of the key, and the
+    result keeps it.
+    """
+    assert _dims('at(zone_load, by=gen_bz, over=zone, into=generator)') == {'generator', 'snapshot'}
+
+
+def test_a_sum_consumes_a_key_column_and_a_value_column_together():
+    """A sum's consumed end is not one kind of column: it needs one key column, and may name a value column beside it."""
+    assert _dims('sum(p * load, by=gen_bz, over=[generator, bus], into=zone)') == {'snapshot', 'zone'}
+
+
 def test_a_dual_carries_the_constraints_own_frame():
     """`dual(c)` is a row dual at every coordinate of the constraint's declared `dims`."""
     s = _schema()
