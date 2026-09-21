@@ -412,12 +412,12 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
-            'sum(p, by=lk, over=g, into=h)',
+            'sum(p, by=lk)',
             GroupSum(Variable('p'), direction=LK_DIRECTION),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
-            'at(r, by=lk, over=h, into=g)',
+            'at(r, by=lk)',
             Pullback(Variable('r'), direction=Direction('lk', LK, ('h',), ('g',), ())),
             id='a-pullback-reads-the-same-table-back',
         ),
@@ -437,7 +437,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'shift(p, along=g, offset=1, by=lk, within=h, edge=0)',
+            'shift(p, along=g, offset=1, by=lk(h), edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -447,6 +447,18 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 partition=Partition('lk', LK, 'g', ('h',), ()),
             ),
             id='a-translation-stops-at-the-edges-of-the-relation-it-names',
+        ),
+        pytest.param(
+            'shift(p, along=g, offset=1, by=lk, edge=0)',
+            Translate(
+                Variable('p'),
+                'g',
+                offset=1,
+                wrap=False,
+                fill=0.0,
+                partition=Partition('lk', LK, 'g', ('h',), ()),
+            ),
+            id='a-bare-partition-groups-by-every-value-column',
         ),
         pytest.param(
             'sum_back(p, along=g, window=3)',
@@ -459,7 +471,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=2, by=lk, within=h)',
+            'sum_back(p, along=g, window=2, by=lk(h))',
             WindowSum(
                 Variable('p'),
                 'g',
@@ -478,11 +490,11 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
 
 
 def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
-    """`within=` is what the call groups by, so a calendar that gains a `week` column regroups no `shift` through it (#538).
+    """The parenthesis is what the call groups by, so a calendar that gains a `week` column regroups no `shift` through it (#538).
 
-    With `within=` optional, an omitted one meant every value column, and the
-    same call grouped by `('day',)` on one calendar and `('day', 'week')` on the
-    next.
+    A bare `by=` groups by every value column, so the same call would group by
+    `('day',)` on one calendar and `('day', 'week')` on the next. Naming the
+    column is how a call fixes it.
     """
     grouping = {}
     for values in ('day', ['day', 'week']):
@@ -494,7 +506,7 @@ def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
                 'constraints': {
                     'k': {
                         'dims': ['hour'],
-                        'expression': 'p >= shift(p, along=hour, offset=1, edge=0, by=cal, within=day)',
+                        'expression': 'p >= shift(p, along=hour, offset=1, edge=0, by=cal(day))',
                     }
                 },
             }
@@ -523,21 +535,21 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
                 'first': {
                     'dims': ['snapshot', 'generator'],
-                    'where': 'position(generator, by=zone_of, within=zone) == 0',
+                    'where': 'position(generator, by=zone_of(zone)) == 0',
                 },
             },
             'constraints': {
                 'zonal': {
                     'dims': ['snapshot', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=generator, into=zone) <= 1',
+                    'expression': 'sum(p, by=zone_of(generator -> zone)) <= 1',
                 },
                 'priced': {
                     'dims': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, into=generator, over=zone)',
+                    'expression': 'p <= at(price, by=zone_of(zone))',
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot, into=zone) <= 1',
+                    'expression': 'sum(p, by=zone_of(snapshot -> zone)) <= 1',
                 },
             },
         }
@@ -581,6 +593,33 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
     first_where = program.variables['first'].where
     assert first_where is not None
     assert first_where.dims == {'generator', 'snapshot'}, 'a position within a group is read at every key column'
+
+
+def test_a_read_is_split_by_the_dims_its_operand_carries():
+    """A read lands on the whole key, and the operand decides the split of it.
+
+    A key column whose dimension the operand keeps is joined on and the rest
+    are produced, so one call reads the same table for an operand that carries
+    the other key column and for one that does not.
+    """
+    model = {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
+        'relations': {'zone_of': {'key': ['generator', 'snapshot'], 'values': 'zone'}},
+        'parameters': {'price': {'dims': ['snapshot', 'zone']}, 'levy': {'dims': ['zone']}},
+        'variables': {'p': {'dims': ['snapshot', 'generator']}},
+        'constraints': {
+            'priced': {'dims': ['snapshot', 'generator'], 'expression': 'p <= at(price, by=zone_of)'},
+            'levied': {'dims': ['snapshot', 'generator'], 'expression': 'p <= at(levy, by=zone_of)'},
+        },
+    }
+    program = to_program(model)
+    declared = program.relations['zone_of']
+    assert program.constraints['priced'].rhs == Pullback(
+        Parameter('price'), direction=Direction('zone_of', declared, ('zone',), ('generator',), ('snapshot',))
+    ), 'the operand carries the snapshot, so the read joins on it and produces the generator'
+    assert program.constraints['levied'].rhs == Pullback(
+        Parameter('levy'), direction=Direction('zone_of', declared, ('zone',), ('generator', 'snapshot'), ())
+    ), 'an operand carrying neither key column is read once per key row, and the whole key is produced'
 
 
 def test_a_binary_variable_lowers_to_a_binary_domain():

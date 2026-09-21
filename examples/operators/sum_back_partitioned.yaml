@@ -26,6 +26,6 @@ variables:
 constraints:
   stays_up_inside_its_day:
     dims: [unit, hour]
-    expression: sum_back(started, along=hour, window=3, by=day_of, within=day) <= on
+    expression: sum_back(started, along=hour, window=3, by=day_of) <= on
 
 objective: { sense: minimize, expression: sum(on) }

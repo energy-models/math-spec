@@ -28,6 +28,7 @@ from math_spec._expression_parser import (
     ParsedNode,
     UnaryOperatorNode,
     VariableNode,
+    WrittenDirectionNode,
     case_context,
     children,
 )
@@ -322,6 +323,10 @@ def _check_template_names(
     if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
         return
 
+    if isinstance(node, WrittenDirectionNode):
+        _check_template_names(node.relation, context, ns, formals, errors)
+        return
+
     if isinstance(node, NameNode):
         if node.name not in formals and ns.kind(node.name) is None:
             errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
@@ -350,8 +355,7 @@ def _check_template_names(
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
+            match builtin.kind_of(kwarg) if builtin else 'value':
                 case 'dimension':
                     if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
                         errors.append(
@@ -366,8 +370,6 @@ def _check_template_names(
                     )
                 case 'value':
                     _check_template_names(value, context, ns, formals, errors)
-                case 'role':
-                    pass
                 case 'edge':
                     pass  # a keyword or a number: nothing in it to name
                 case None:

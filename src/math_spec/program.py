@@ -285,7 +285,7 @@ class Translate:
 
     ``partition`` is a relation with a key column over ``along``
     (:class:`Partition`), and the translation then happens inside each group
-    its ``within=`` columns make: the neighbour is the one before in the same
+    its group columns make: the neighbour is the one before in the same
     group, the edge is the group's, and a wrap closes each group onto itself.
     A coordinate the relation sends nowhere reaches nothing.
     """
@@ -470,7 +470,8 @@ class Direction:
     ``relation``, which binds every role to its dimension and names the key.
     ``joined`` is the key roles the call did not name (every role, for a bare
     relation): the join keys on them, and a value role left unnamed is not
-    read.
+    read. A read (``at``) lands on the whole key, and :meth:`read_by` splits
+    that key for the operand it reads.
     """
 
     name: str
@@ -482,6 +483,21 @@ class Direction:
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
         return self.relation.dim(role)
+
+    def read_by(self, carried: frozenset[str]) -> Direction:
+        """This read as an operand over the dims *carried* makes it.
+
+        A read lands on the whole key, and the operand decides the rest: a
+        value column is consumed where the operand carries its dimension, a
+        key column is joined on where the operand still carries its dimension
+        after that, and the other key columns are produced. One rule, so the
+        dim check and the lowering agree by construction.
+        """
+        consumed = tuple(r for r in self.consumed if self.dim(r) in carried)
+        kept = carried - {self.dim(r) for r in consumed}
+        joined = tuple(r for r in self.relation.key if self.dim(r) in kept)
+        produced = tuple(r for r in self.relation.key if self.dim(r) not in kept)
+        return replace(self, consumed=consumed, produced=produced, joined=joined)
 
     @property
     def consumed_dims(self) -> tuple[str, ...]:
@@ -504,8 +520,9 @@ class Partition:
     ``along``, ``group`` and ``joined`` are *roles* — column names of
     ``relation``, which binds every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
-    the frame keeps it. ``group`` is the value columns ``within=`` named,
-    read at the row's key. ``joined`` is the other key columns, whose
+    the frame keeps it. ``group`` is the value columns the call named inside
+    its ``by=`` — every value column where it named none — read at the row's
+    key. ``joined`` is the other key columns, whose
     dimensions the frame carries. Nothing is consumed and nothing is
     produced: the frame does not change.
     """

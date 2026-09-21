@@ -66,7 +66,7 @@ Position decides which kinds of name are legal:
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                          |
 | dimension argument (`over=`, `along=`) | a dimension                                                                                                        |
-| relation argument (`by=`)              | a relation. `over=`, `into=` and `within=` name its columns                                                        |
+| relation argument (`by=`)              | a relation, and the columns at each end of the direction written after it                                          |
 | `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                                     |
 | `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                      |
 | the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number                                                                               |
@@ -90,8 +90,8 @@ The dimension set of every expression is known before any data binds:
 | `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                                  |
 | `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                              |
 | `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                           |
-| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
-| `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                                         |
+| `sum(x, by=l(a -> b))`           | `(dims(x) − consumed) ∪ produced` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
+| `at(x, by=l(c))`                 | `(dims(x) − consumed) ∪ produced` | the same                                                                         |
 | `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                           |
 | `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                           |
 
@@ -122,20 +122,20 @@ COLUMNS    ::= NAME | "[" NAME { "," NAME } "]"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Written as                              | Names a…             | Meaning                                                                                                                                                           |
-| --------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                           | parameter            | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite                  |
-| `name` (bare)                           | variable             | The variable exists at this coordinate                                                                                                                            |
-| `name` (bare)                           | relation             | A row exists, read at the relation's key. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                    |
-| `name` (bare)                           | dimension            | A load error. It would be true everywhere                                                                                                                         |
-| `name OP value`                         | parameter            | Element-wise, and a null compares false                                                                                                                           |
-| `name OP value`                         | dimension            | A filter on the frame's own coordinate column                                                                                                                     |
-| `name OP value`, `name.col OP value`    | relation             | A filter on a value column, read at the relation's key. Name the column where the key determines several                                                          |
-| `name OP name`, `name.a OP name.b`      | two relation columns | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop              |
-| `position(name) OP i`                   | dimension            | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                       |
-| `position(name, by=relation, within=c)` | dimension            | The same, counted within each group the relation makes                                                                                                            |
-| `AND` `OR` `NOT`                        | —                    | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                     |
-| `True` / `False`                        | —                    | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either |
+| Written as                           | Names a…             | Meaning                                                                                                                                                           |
+| ------------------------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                        | parameter            | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite                  |
+| `name` (bare)                        | variable             | The variable exists at this coordinate                                                                                                                            |
+| `name` (bare)                        | relation             | A row exists, read at the relation's key. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                    |
+| `name` (bare)                        | dimension            | A load error. It would be true everywhere                                                                                                                         |
+| `name OP value`                      | parameter            | Element-wise, and a null compares false                                                                                                                           |
+| `name OP value`                      | dimension            | A filter on the frame's own coordinate column                                                                                                                     |
+| `name OP value`, `name.col OP value` | relation             | A filter on a value column, read at the relation's key. Name the column where the key determines several                                                          |
+| `name OP name`, `name.a OP name.b`   | two relation columns | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop              |
+| `position(name) OP i`                | dimension            | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                       |
+| `position(name, by=relation(c))`     | dimension            | The same, counted within each group the relation makes                                                                                                            |
+| `AND` `OR` `NOT`                     | —                    | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                     |
+| `True` / `False`                     | —                    | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either |
 
 The dimensions of the mask must not exceed the frame it sits in. A bare name
 that is not declared is a load error.
@@ -203,11 +203,12 @@ variables:
 constraints:
   soc_start:
     dims: [snapshot]
-    where: "position(snapshot, by=period_of, within=period) == 0"
-    expression: soc == at(soc_initial, by=period_of, over=period, into=snapshot)
+    where: "position(snapshot, by=period_of) == 0"
+    expression: soc == at(soc_initial, by=period_of)
 ```
 
-The relation must have a key column over the dimension being counted, and
-`within=` names the value columns the groups are made of
+The relation must have a key column over the dimension being counted, and the
+parenthesis names the value columns the groups are made of —
+`position(snapshot, by=cal(week))` where the table holds more than one
 ([partitions](relations.md#partitions)). A coordinate the relation sends
 nowhere is in no group.
