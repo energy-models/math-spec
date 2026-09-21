@@ -952,6 +952,28 @@ class TestRulesDecidedWithoutData:
                 id='at-through-a-bare-relation',
             ),
             pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'key': 'g', 'values': ['h', 'z']},
+                    'objective': {'expression': 'sum(at(r, by=lz, over=h, into=z))'},
+                },
+                (
+                    "into=['z'] names ['z'], which the key of 'lz' does not hold",
+                    "A read lands on the key it reads at, ['g']",
+                    "Land on the key, or sum toward ['z']",
+                ),
+                id='a-read-landing-on-a-value-column',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'key': 'g', 'values': ['h', 'z']},
+                    'objective': {'expression': 'sum(at(r, by=lz, over=h, into=[g, z]))'},
+                },
+                ("into=['g', 'z'] names ['z'], which the key of 'lz' does not hold",),
+                id='a-read-landing-on-the-key-and-a-value-column',
+            ),
+            pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
                 (
                     "this sum lands on the key ['g']",
