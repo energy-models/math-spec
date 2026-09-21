@@ -135,85 +135,141 @@ no relation anywhere in the file.
 
 ## The walks
 
-### 1 and 2 — sum onto a single value column
+### 1 — sum through a one-key table
 
-- **1** `p[generator, period]` → `[bus, period]` through `gen_bus`: consumes `generator`, produces `bus`.
-- **2** `p[generator, period]` → `[period, zone]` through `zone_of`: the same, but the key holds `period` too, so it is joined on rather than carried along.
+`p[generator, period]` → `[bus, period]` · consumes `generator`, produces `bus`
 
-| option | 1                                                    | 2                                                     |
-| ------ | ---------------------------------------------------- | ----------------------------------------------------- |
-| **A**  | `sum(p, by=gen_bus, over=generator, into=bus)`       | `sum(p, by=zone_of, over=generator, into=zone)`       |
-| **B**  | `sum(p, by=gen_bus, consume=generator, produce=bus)` | `sum(p, by=zone_of, consume=generator, produce=zone)` |
-| **C**  | `sum(p, by=gen_bus, direction=generator -> bus)`     | `sum(p, by=zone_of, direction=generator -> zone)`     |
-| **D**  | `sum(p, by=gen_bus(generator -> bus))`               | `sum(p, by=zone_of(generator -> zone))`               |
-| **E**  | `sum(p, over=gen_bus.generator, into=gen_bus.bus)`   | `sum(p, over=zone_of.generator, into=zone_of.zone)`   |
-| **F**  | `sum(p, by=gen_bus.bus)`                             | `sum(p, by=zone_of.[period, zone])`                   |
+| option | the call                                             |
+| ------ | ---------------------------------------------------- |
+| **A**  | `sum(p, by=gen_bus, over=generator, into=bus)`       |
+| **B**  | `sum(p, by=gen_bus, consume=generator, produce=bus)` |
+| **C**  | `sum(p, by=gen_bus, direction=generator -> bus)`     |
+| **D**  | `sum(p, by=gen_bus(generator -> bus))`               |
+| **E**  | `sum(p, over=gen_bus.generator, into=gen_bus.bus)`   |
+| **F**  | `sum(p, by=gen_bus.bus)`                             |
 
-### 3 and 4 — sum one key away, onto one of two value columns, and onto both
+### 2 — sum one key away, join the other
 
-- **3** `p[generator, period]` → `[bus, period]`: `technology` is not read.
-- **4** `p[generator, period]` → `[bus, period, technology]`.
+`p[generator, period]` → `[period, zone]` · the key holds `period` too, so it is joined on
 
-| option | 3                                                    | 4                                                                  |
-| ------ | ---------------------------------------------------- | ------------------------------------------------------------------ |
-| **A**  | `sum(p, by=slot_of, over=generator, into=bus)`       | `sum(p, by=slot_of, over=generator, into=[bus, technology])`       |
-| **B**  | `sum(p, by=slot_of, consume=generator, produce=bus)` | `sum(p, by=slot_of, consume=generator, produce=[bus, technology])` |
-| **C**  | `sum(p, by=slot_of, direction=generator -> bus)`     | `sum(p, by=slot_of, direction=generator -> [bus, technology])`     |
-| **D**  | `sum(p, by=slot_of(generator -> bus))`               | `sum(p, by=slot_of(generator -> [bus, technology]))`               |
-| **E**  | `sum(p, over=slot_of.generator, into=slot_of.bus)`   | `sum(p, over=slot_of.generator, into=slot_of.[bus, technology])`   |
-| **F**  | `sum(p, by=slot_of.[period, bus])`                   | `sum(p, by=slot_of.[period, bus, technology])`                     |
+| option | the call                                              |
+| ------ | ----------------------------------------------------- |
+| **A**  | `sum(p, by=zone_of, over=generator, into=zone)`       |
+| **B**  | `sum(p, by=zone_of, consume=generator, produce=zone)` |
+| **C**  | `sum(p, by=zone_of, direction=generator -> zone)`     |
+| **D**  | `sum(p, by=zone_of(generator -> zone))`               |
+| **E**  | `sum(p, over=zone_of.generator, into=zone_of.zone)`   |
+| **F**  | `sum(p, by=zone_of.[period, zone])`                   |
 
-### 5 and 6 — sum the whole key away
+### 3 — the same, onto one of two value columns
 
-Nothing is joined on, so `period` leaves with `generator`.
+`p[generator, period]` → `[bus, period]` · `technology` is not read
 
-- **5** `p[generator, period]` → `[bus]`.
-- **6** `p[generator, period]` → `[bus, technology]`.
+| option | the call                                             |
+| ------ | ---------------------------------------------------- |
+| **A**  | `sum(p, by=slot_of, over=generator, into=bus)`       |
+| **B**  | `sum(p, by=slot_of, consume=generator, produce=bus)` |
+| **C**  | `sum(p, by=slot_of, direction=generator -> bus)`     |
+| **D**  | `sum(p, by=slot_of(generator -> bus))`               |
+| **E**  | `sum(p, over=slot_of.generator, into=slot_of.bus)`   |
+| **F**  | `sum(p, by=slot_of.[period, bus])`                   |
 
-| option | 5                                                              | 6                                                                            |
-| ------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **A**  | `sum(p, by=slot_of, over=[generator, period], into=bus)`       | `sum(p, by=slot_of, over=[generator, period], into=[bus, technology])`       |
-| **B**  | `sum(p, by=slot_of, consume=[generator, period], produce=bus)` | `sum(p, by=slot_of, consume=[generator, period], produce=[bus, technology])` |
-| **C**  | `sum(p, by=slot_of, direction=[generator, period] -> bus)`     | `sum(p, by=slot_of, direction=[generator, period] -> [bus, technology])`     |
-| **D**  | `sum(p, by=slot_of([generator, period] -> bus))`               | `sum(p, by=slot_of([generator, period] -> [bus, technology]))`               |
-| **E**  | `sum(p, over=slot_of.[generator, period], into=slot_of.bus)`   | `sum(p, over=slot_of.[generator, period], into=slot_of.[bus, technology])`   |
-| **F**  | `sum(p, by=slot_of.bus)`                                       | `sum(p, by=slot_of.[bus, technology])`                                       |
+### 4 — the same, onto both value columns
 
-### 7 and 13 — two columns over one dimension, and a bare relation
+`p[generator, period]` → `[bus, period, technology]`
 
-- **7** `f[line]` → `[bus]` through `ends`: producing `bus1` produces the dimension `bus`, and `bus0` is not read.
-- **13** `p[generator, period]` → `[bus, period]` through `connection`: the transform is case 1's, but a generator may stand against several buses, so a term can land in more than one group.
+| option | the call                                                           |
+| ------ | ------------------------------------------------------------------ |
+| **A**  | `sum(p, by=slot_of, over=generator, into=[bus, technology])`       |
+| **B**  | `sum(p, by=slot_of, consume=generator, produce=[bus, technology])` |
+| **C**  | `sum(p, by=slot_of, direction=generator -> [bus, technology])`     |
+| **D**  | `sum(p, by=slot_of(generator -> [bus, technology]))`               |
+| **E**  | `sum(p, over=slot_of.generator, into=slot_of.[bus, technology])`   |
+| **F**  | `sum(p, by=slot_of.[period, bus, technology])`                     |
 
-| option | 7                                             | 13                                                       |
-| ------ | --------------------------------------------- | -------------------------------------------------------- |
-| **A**  | `sum(f, by=ends, over=line, into=bus1)`       | `sum(p, by=connection, over=generator, into=bus)`        |
-| **B**  | `sum(f, by=ends, consume=line, produce=bus1)` | `sum(p, by=connection, consume=generator, produce=bus)`  |
-| **C**  | `sum(f, by=ends, direction=line -> bus1)`     | `sum(p, by=connection, direction=generator -> bus)`      |
-| **D**  | `sum(f, by=ends(line -> bus1))`               | `sum(p, by=connection(generator -> bus))`                |
-| **E**  | `sum(f, over=ends.line, into=ends.bus1)`      | `sum(p, over=connection.generator, into=connection.bus)` |
-| **F**  | `sum(f, by=ends.bus1)`                        | `sum(p, by=connection.bus)`                              |
+### 5 — sum the whole key away, onto one value column
+
+`p[generator, period]` → `[bus]` · nothing is joined on, so `period` leaves with `generator`
+
+| option | the call                                                       |
+| ------ | -------------------------------------------------------------- |
+| **A**  | `sum(p, by=slot_of, over=[generator, period], into=bus)`       |
+| **B**  | `sum(p, by=slot_of, consume=[generator, period], produce=bus)` |
+| **C**  | `sum(p, by=slot_of, direction=[generator, period] -> bus)`     |
+| **D**  | `sum(p, by=slot_of([generator, period] -> bus))`               |
+| **E**  | `sum(p, over=slot_of.[generator, period], into=slot_of.bus)`   |
+| **F**  | `sum(p, by=slot_of.bus)`                                       |
+
+### 6 — sum the whole key away, onto both
+
+`p[generator, period]` → `[bus, technology]`
+
+| option | the call                                                                     |
+| ------ | ---------------------------------------------------------------------------- |
+| **A**  | `sum(p, by=slot_of, over=[generator, period], into=[bus, technology])`       |
+| **B**  | `sum(p, by=slot_of, consume=[generator, period], produce=[bus, technology])` |
+| **C**  | `sum(p, by=slot_of, direction=[generator, period] -> [bus, technology])`     |
+| **D**  | `sum(p, by=slot_of([generator, period] -> [bus, technology]))`               |
+| **E**  | `sum(p, over=slot_of.[generator, period], into=slot_of.[bus, technology])`   |
+| **F**  | `sum(p, by=slot_of.[bus, technology])`                                       |
+
+### 7 — sum onto one of two columns over one dimension
+
+`f[line]` → `[bus]` · producing `bus1` produces the dimension `bus`; `bus0` is not read
+
+| option | the call                                      |
+| ------ | --------------------------------------------- |
+| **A**  | `sum(f, by=ends, over=line, into=bus1)`       |
+| **B**  | `sum(f, by=ends, consume=line, produce=bus1)` |
+| **C**  | `sum(f, by=ends, direction=line -> bus1)`     |
+| **D**  | `sum(f, by=ends(line -> bus1))`               |
+| **E**  | `sum(f, over=ends.line, into=ends.bus1)`      |
+| **F**  | `sum(f, by=ends.bus1)`                        |
+
+### 8 — read at the key
+
+`price[bus]` → `[generator]` · a read runs the other way from a sum: it consumes the value column and produces the key
+
+| option | the call                                                |
+| ------ | ------------------------------------------------------- |
+| **A**  | `at(price, by=gen_bus, over=bus, into=generator)`       |
+| **B**  | `at(price, by=gen_bus, consume=bus, produce=generator)` |
+| **C**  | `at(price, by=gen_bus, direction=bus -> generator)`     |
+| **D**  | `at(price, by=gen_bus(bus -> generator))`               |
+| **E**  | `at(price, over=gen_bus.bus, into=gen_bus.generator)`   |
+| **F**  | `at(price, by=gen_bus.bus)`                             |
+| **G**  | `price[gen_bus.bus]`                                    |
+
+### 9 — read one of two columns over one dimension
+
+`cap[bus]` → `[line]`
+
+| option | the call                                       |
+| ------ | ---------------------------------------------- |
+| **A**  | `at(cap, by=ends, over=bus0, into=line)`       |
+| **B**  | `at(cap, by=ends, consume=bus0, produce=line)` |
+| **C**  | `at(cap, by=ends, direction=bus0 -> line)`     |
+| **D**  | `at(cap, by=ends(bus0 -> line))`               |
+| **E**  | `at(cap, over=ends.bus0, into=ends.line)`      |
+| **F**  | `at(cap, by=ends.bus0)`                        |
+| **G**  | `cap[ends.bus0]`                               |
+
+### 13 — sum through a bare relation
+
+`p[generator, period]` → `[bus, period]` · the transform is case 1's, but a generator may stand against several buses, so a term can land in more than one group
+
+| option | the call                                                 |
+| ------ | -------------------------------------------------------- |
+| **A**  | `sum(p, by=connection, over=generator, into=bus)`        |
+| **B**  | `sum(p, by=connection, consume=generator, produce=bus)`  |
+| **C**  | `sum(p, by=connection, direction=generator -> bus)`      |
+| **D**  | `sum(p, by=connection(generator -> bus))`                |
+| **E**  | `sum(p, over=connection.generator, into=connection.bus)` |
+| **F**  | `sum(p, by=connection.bus)`                              |
 
 A bare relation has no value column, so there is no `rel.col(g)` to read. The
 printed condition is the row itself, a membership rather than a function read,
 and no spelling reads differently for it.
-
-### 8 and 9 — the reads
-
-A read runs the other way from a sum: it consumes the value column and
-produces the key.
-
-- **8** `price[bus]` → `[generator]` through `gen_bus`.
-- **9** `cap[bus]` → `[line]` through `ends`, reading one of two columns over one dimension.
-
-| option | 8                                                       | 9                                              |
-| ------ | ------------------------------------------------------- | ---------------------------------------------- |
-| **A**  | `at(price, by=gen_bus, over=bus, into=generator)`       | `at(cap, by=ends, over=bus0, into=line)`       |
-| **B**  | `at(price, by=gen_bus, consume=bus, produce=generator)` | `at(cap, by=ends, consume=bus0, produce=line)` |
-| **C**  | `at(price, by=gen_bus, direction=bus -> generator)`     | `at(cap, by=ends, direction=bus0 -> line)`     |
-| **D**  | `at(price, by=gen_bus(bus -> generator))`               | `at(cap, by=ends(bus0 -> line))`               |
-| **E**  | `at(price, over=gen_bus.bus, into=gen_bus.generator)`   | `at(cap, over=ends.bus0, into=ends.line)`      |
-| **F**  | `at(price, by=gen_bus.bus)`                             | `at(cap, by=ends.bus0)`                        |
-| **G**  | `price[gen_bus.bus]`                                    | `cap[ends.bus0]`                               |
 
 ## The partitions
 
@@ -234,18 +290,31 @@ nothing to say here**, and E and F collapse into one spelling.
 | **E**  | `shift(x, along=cal.t, offset=1, within=cal.week)` |
 | **F**  | as E                                               |
 
-### 11 and 12 — position inside a group
+### 11 — position inside a group, over two columns
 
 A `where` predicate, so the frame stands.
 
-| option | 11                                             | 12                                      |
-| ------ | ---------------------------------------------- | --------------------------------------- |
-| **A**  | `position(t, by=cal, within=[day, week]) == 0` | `position(t, by=cal, within=week) == 0` |
-| **B**  | same                                           | same                                    |
-| **C**  | same                                           | same                                    |
-| **D**  | `position(t, by=cal([day, week])) == 0`        | `position(t, by=cal(week)) == 0`        |
-| **E**  | `position(cal.t, within=cal.[day, week]) == 0` | `position(cal.t, within=cal.week) == 0` |
-| **F**  | as E                                           | as E                                    |
+| option | the call                                       |
+| ------ | ---------------------------------------------- |
+| **A**  | `position(t, by=cal, within=[day, week]) == 0` |
+| **B**  | same                                           |
+| **C**  | same                                           |
+| **D**  | `position(t, by=cal([day, week])) == 0`        |
+| **E**  | `position(cal.t, within=cal.[day, week]) == 0` |
+| **F**  | as E                                           |
+
+### 12 — position inside a group, over one column
+
+A `where` predicate, so the frame stands.
+
+| option | the call                                |
+| ------ | --------------------------------------- |
+| **A**  | `position(t, by=cal, within=week) == 0` |
+| **B**  | same                                    |
+| **C**  | same                                    |
+| **D**  | `position(t, by=cal(week)) == 0`        |
+| **E**  | `position(cal.t, within=cal.week) == 0` |
+| **F**  | as E                                    |
 
 ## The macro
 
