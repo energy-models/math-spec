@@ -73,9 +73,7 @@ column per declared column, named after it.
 ## How a relation is used
 
 The declaration fixes no direction. A call names the columns it reads, and a
-key column named at neither end is **joined on**: the operand carries its
-dimension, and the result keeps it. A value column named at neither end is not
-read.
+key column it names at neither end is **joined on**.
 
 | kind      | what it does                                | written as                                            |
 | --------- | ------------------------------------------- | ----------------------------------------------------- |
@@ -109,41 +107,22 @@ bare `connection: { key: [generator, bus] }` and `p` over `[generator, period]`:
   ones.** The operand carries every dimension consumed or joined on, and none
   that the call lands on. `sum(load * p, by=gen_bus, over=generator, into=bus)`
   is refused; write `load * sum(p, by=gen_bus, over=generator, into=bus)`.
-- **`over=` and `into=` name different columns**, and neither names two
-  columns over one dimension.
-
-#### Which call the table admits
-
-A read needs one row per coordinate of its result, and a sum needs many. One
-question decides which call the table admits: do the columns a call lands on
-and joins on hold the whole key? A call that **covers** the key that way finds
-one row at each coordinate. A call that leaves a key column out finds many.
-
-|          | `sum`                                                      | `at`                                   |
-| -------- | ---------------------------------------------------------- | -------------------------------------- |
-| consumes | at least one key column, and any value column it names too | value columns only                     |
-| lands on | any column it does not consume, key or value               | the key, named in `into=` or joined on |
-
-A sum lands where the table lets it.
-`sum(p, by=connection, over=generator, into=bus)` lands on a key column,
-because a bare relation has no other kind, and the sums above it land on a
-value column. A read has no such choice. Its result carries the whole key, and
-whatever else the operand carries that the read does not consume.
-
-- **A sum that consumes no key column is a read.** Every key column is then
-  landed on or joined on, so each coordinate holds one term and nothing is
-  added up. The refusal names the call to write instead:
+- **A read finds one row per coordinate, and a sum finds many.** The columns a
+  read lands on and joins on hold the whole key. A sum leaves a key column out,
+  and each call is refused in the other's case:
 
   ```text
   Constraint 'cap': sum(by=zone_of): this sum lands on the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.
   ```
 
-- **A read that consumes a key column is a sum.** The key is then uncovered,
-  so the coordinate the read lands on has many rows and no one value:
-
-  ```text
-  Constraint 'cap': at(by=gen_bt): at reads one value per coordinate, and 'gen_bt' is not single-valued in ['generator'] at the columns the call lands on (['bus']) — its key is ['generator']. Key the table by the columns the call lands on, or read the other way.
-  ```
+- **A sum consumes at least one key column, and lands on any column it does not
+  consume.** Either end may name a value column beside a key one. `connection`
+  has only key columns, and the sum above consumes one and lands on the other.
+- **A read consumes value columns, and lands on the key.** Its result carries
+  every key column — named in `into=`, or joined on — and whatever else the
+  operand carries that the read does not consume.
+- **`over=` and `into=` name different columns**, and neither names two
+  columns over one dimension.
 
 ### Partitions
 
