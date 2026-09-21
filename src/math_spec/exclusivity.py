@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from math_spec._expression_parser import ArithmeticNode, NumberNode, ParameterNode, UnaryOperatorNode
+from math_spec._expression_parser import NumberNode, ParameterNode, UnaryOperatorNode
 from math_spec.program import (
     And,
     ArithmeticComparison,
@@ -192,25 +192,6 @@ class _Grid:
         return ', '.join(f'{subject} is {_shown(subject, value)}' for subject, value in cell.items())
 
 
-def _expression_rewrite(node: ArithmeticComparison | ExpressionComparison) -> str:
-    """Why a comparison of expressions is not decided, and what to write instead.
-
-    A parameter against a literal is decided, and one written the other way
-    round is the same test — so it is named as the order it is rather than
-    told to do what it already does.
-    """
-    if isinstance(node, ArithmeticComparison) and (plain := _plain_pair(node)) is not None:
-        name, op, literal = plain
-        return (
-            f'the literal is on the left, and a comparison is read as arithmetic there — write it as the '
-            f'same test the other way round, {name} {op} {literal}'
-        )
-    return (
-        'it compares expressions, whose values only the data decides — compare one parameter against a '
-        'literal, or precompute the test as a boolean parameter and test that'
-    )
-
-
 #: A comparator against its mirror, for a test written with its sides swapped.
 _FLIPPED: Mapping[PredicateOperator, PredicateOperator] = {
     '<': '>',
@@ -222,24 +203,28 @@ _FLIPPED: Mapping[PredicateOperator, PredicateOperator] = {
 }
 
 
-def _plain_pair(node: ArithmeticComparison) -> tuple[str, PredicateOperator, str] | None:
-    """The parameter, comparator and literal of ``<literal> <op> <parameter>``, or ``None``.
+def _expression_rewrite(node: ArithmeticComparison | ExpressionComparison) -> str:
+    """Why a comparison of expressions is not decided, and what to write instead.
 
-    Only the literal-first order: the other one resolves to a
-    :class:`~math_spec.program.ParameterComparison` and never reaches here. A
-    quoted label cannot stand on the left at all — the grammar takes one only
-    on the right — so a number is the whole of it.
+    A parameter against a literal is decided, and the same test with its sides
+    swapped is not — so that one is named as the order it is, rather than told
+    to do what it already does. Only the literal-first order needs naming: the
+    other resolves to a :class:`~math_spec.program.ParameterComparison` and
+    never reaches here, and a quoted label cannot stand on the left at all.
     """
-    literal, name = node.left, node.right
-    if not isinstance(name, ParameterNode) or not _is_number(literal):
-        return None
-    return name.name, _FLIPPED[node.op], str(literal)
-
-
-def _is_number(node: ArithmeticNode) -> bool:
-    """Whether *node* is a literal number, its sign included — what a rewrite can quote back."""
-    return isinstance(node, NumberNode) or (
-        isinstance(node, UnaryOperatorNode) and isinstance(node.operand, NumberNode)
+    if isinstance(node, ArithmeticComparison):
+        left, right = node.left, node.right
+        number = isinstance(left, NumberNode) or (
+            isinstance(left, UnaryOperatorNode) and isinstance(left.operand, NumberNode)
+        )
+        if number and isinstance(right, ParameterNode):
+            return (
+                f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
+                f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {left}'
+            )
+    return (
+        'it compares expressions, whose values only the data decides — compare one parameter against a '
+        'literal, or precompute the test as a boolean parameter and test that'
     )
 
 
