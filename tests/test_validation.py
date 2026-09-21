@@ -708,6 +708,137 @@ class TestAWhereSideIsReadInResolution:
         assert 'precompute the test as a boolean parameter' in message
 
 
+class TestAPredicateIsAnOperand:
+    """``count`` and ``shift`` over a predicate — the two calls that read one rather than arithmetic.
+
+    Everything else in the language takes arithmetic, so the grammar reads
+    these shapes itself and resolution decides what each name is.
+    """
+
+    @pytest.mark.parametrize(
+        'where',
+        [
+            pytest.param('count(flag, over=g) >= 2', id='a-bare-mask'),
+            pytest.param('count(c > 0, over=g) == 0', id='a-comparison'),
+            pytest.param('count(flag AND NOT shift(flag, along=g, offset=1), over=g) == 1', id='a-run-start'),
+            pytest.param('count(c > 0, over=g) == 0 OR count(c < 0, over=g) == 0', id='two-counts-under-or'),
+            pytest.param('shift(flag, along=g, offset=1)', id='a-translated-mask'),
+            pytest.param('shift(flag, along=g, offset=-1)', id='a-translation-forwards'),
+            pytest.param('count(shift(flag, along=g, offset=1), over=g) >= 1', id='a-translation-under-a-count'),
+        ],
+    )
+    def test_a_shape_the_language_admits(self, where):
+        mask = where_of(where, Namespace(_schema()), 'probe')
+        assert mask is not None, 'the predicate decides some rows, so it is a mask rather than nothing'
+
+    @pytest.mark.parametrize(
+        ('where', 'fragments'),
+        [
+            pytest.param(
+                'count(flag, by=lk) >= 2',
+                ("count(<predicate>) needs 'over='",),
+                id='a-count-with-no-over',
+            ),
+            pytest.param(
+                'count(flag, over=g, by=lk) >= 2',
+                ("does not take 'by='", "It takes 'over='"),
+                id='a-count-with-a-keyword-it-lacks',
+            ),
+            pytest.param(
+                'count(flag, over=c) >= 2',
+                ('names the dimension the coordinates are counted along',),
+                id='a-count-over-a-parameter',
+            ),
+            pytest.param(
+                'count(flag, over=h) >= 2',
+                ('counts along a dimension the predicate does not carry', "it reads 'g'"),
+                id='a-count-over-a-dim-the-predicate-lacks',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= 2.5',
+                ('a count is a whole number of coordinates',),
+                id='a-count-against-a-fraction',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= k',
+                ('a count is a whole number of coordinates',),
+                id='a-count-against-a-parameter',
+            ),
+            pytest.param(
+                'shift(flag, along=g, offset=1, edge=0)',
+                ("does not take 'edge='", 'a predicate is false where a translation vacates'),
+                id='a-translated-predicate-with-an-edge',
+            ),
+            pytest.param(
+                'shift(flag, along=g)',
+                ("shift(<predicate>) needs 'offset='",),
+                id='a-translation-with-no-offset',
+            ),
+            pytest.param(
+                'shift(flag, along=h, offset=1)',
+                ('reads the predicate back along a dimension it does not carry',),
+                id='a-translation-along-a-dim-the-predicate-lacks',
+            ),
+            pytest.param(
+                'shift(flag, along=g, offset=0.5)',
+                ('counts whole coordinates back',),
+                id='a-translation-by-a-fraction',
+            ),
+            pytest.param(
+                'sum_back(flag, along=g, window=2)',
+                ("'sum_back()' does not read a predicate", '`count` reads one and answers a number'),
+                id='an-operator-that-reads-arithmetic',
+            ),
+        ],
+    )
+    def test_a_shape_the_language_refuses(self, where, fragments):
+        with pytest.raises(LanguageError) as caught:
+            where_of(where, Namespace(_schema()), 'probe')
+        for fragment in fragments:
+            assert fragment in str(caught.value)
+
+    @pytest.mark.parametrize(
+        'where',
+        [
+            pytest.param('count(nope, over=g) >= 2', id='under-a-count'),
+            pytest.param('shift(nope, along=g, offset=1)', id='under-a-translation'),
+        ],
+    )
+    def test_a_name_the_operand_does_not_declare_is_reported_rather_than_walked(self, where):
+        """The operand is asked for its dims, and a walk over an unresolved node asserts rather than refusing (#590).
+
+        Resolution collects problems instead of raising, so a failed operand
+        comes back unresolved and the count had walked it anyway.
+        """
+        with pytest.raises(LanguageError) as caught:
+            where_of(where, Namespace(_schema()), 'probe')
+        assert "'nope' not found" in str(caught.value)
+
+    def test_a_count_is_undecidable_in_a_case_when(self):
+        """Two cases are proved apart with no data, and how many coordinates a mask admits is the data's to say."""
+        message = _refusal(
+            expressions={
+                'pick': {
+                    'dims': ['g'],
+                    'cases': {
+                        'many': {'when': 'count(flag, over=g) >= 2', 'expression': '1'},
+                        'some': {'when': 'c > 0', 'expression': '2'},
+                    },
+                    'otherwise': '0',
+                }
+            },
+            constraints={'cap': {'dims': ['g'], 'expression': 'p <= pick'}},
+        )
+        assert 'it counts the coordinates a predicate admits, which only the data decides' in message
+
+    def test_a_count_reduces_the_dim_it_counts_along_away(self):
+        """The count is one number per remaining coordinate, so a claim about each group needs no word for the group."""
+        mask = where_of('count(q, over=h) >= 2', Namespace(_schema()), 'probe')
+        assert mask is not None
+        assert sorted(mask.dims) == ['g'], "'q' is read over g and h, and h is counted away"
+        assert mask.names_read == frozenset({'q'}), 'a consumer binds what the counted predicate reads'
+
+
 class TestRulesDecidedWithoutData:
     """Every refusal the schema or the resolver makes with no data bound, one row each."""
 

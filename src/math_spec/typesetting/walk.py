@@ -43,6 +43,7 @@ from math_spec.program import (
     BooleanLiteral,
     Check,
     Contiguous,
+    CountComparison,
     Curved,
     DimensionComparison,
     DimensionPosition,
@@ -59,6 +60,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     VariableDefined,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
@@ -605,6 +607,18 @@ class Walk:
         if isinstance(node, ExpressionComparison):
             msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
             raise AssertionError(msg)
+
+        if isinstance(node, CountComparison):
+            index, inner = ctx.reducing(node.over)
+            counted = self.format.set_of(
+                self._membership(node.over, index), self._predicate(node.predicate.root, inner)
+            )
+            size = self.format.cardinality(counted)
+            return f'{size} {self._op(_PREDICATES[node.op])} {self._number(node.value)}', comparison
+
+        if isinstance(node, TranslatedPredicate):
+            moved = ctx.translated(node.along, _Step(node.offset, 'plain'))
+            return self._where(node.operand.root, moved)
 
         if isinstance(node, RelationDefined):
             return self._relation_row(node.name, self._frame_key(node.name, ctx)), comparison

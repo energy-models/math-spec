@@ -28,6 +28,7 @@ from math_spec.program import (
     BooleanLiteral,
     Cases,
     Constant,
+    CountComparison,
     DimensionComparison,
     DimensionDeclaration,
     Direction,
@@ -460,6 +461,42 @@ def test_an_assumption_lowers_both_of_its_masks():
     assert assumption_message('sound', assumption) == (
         "assumption 'sound' does not hold for the data bound to 'c', 'k'"
     ), 'the refusal names what the consumer bound, so it can say which column is wrong'
+
+
+def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
+    """A comparison of expressions inside a count is rebuilt too, so a program mask is program vocabulary throughout."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{'constraints.w': {'dims': ['g'], 'where': 'count(c <= 0.5 * k, over=g) >= 2', 'expression': 'p <= c'}},
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, CountComparison)
+    assert mask.root.predicate.root == ExpressionComparison(
+        Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
+    ), 'the counted predicate is rebuilt, not handed through with the resolved comparison still in it'
+    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer binds'
+
+
+def test_a_translated_predicate_keeps_what_it_reads_in_reach():
+    """A walk that asks a mask what it names has to see through the translation, or the column is silently dropped."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'flag AND NOT shift(flag, along=g, offset=1)',
+                    'expression': 'p <= c',
+                }
+            },
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None
+    assert mask.names_read == frozenset({'flag'}), 'the translated half reads the same column as the plain one'
+    assert sorted(mask.dims) == ['g']
 
 
 def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):
