@@ -119,17 +119,15 @@ question decides which call the table admits: do the columns a call lands on
 and joins on hold the whole key? A call that **covers** the key that way finds
 one row at each coordinate. A call that leaves a key column out finds many.
 
-|            | `sum`                                                      | `at`                                         |
-| ---------- | ---------------------------------------------------------- | -------------------------------------------- |
-| consumes   | at least one key column, and any value column it names too | value columns only                           |
-| lands on   | any column it does not consume, key or value               | any column it does not consume, key or value |
-| the key is | left uncovered, so many rows meet at one coordinate        | covered, so one row meets each coordinate    |
+|          | `sum`                                                      | `at`                                   |
+| -------- | ---------------------------------------------------------- | -------------------------------------- |
+| consumes | at least one key column, and any value column it names too | value columns only                     |
+| lands on | any column it does not consume, key or value               | the key, named in `into=` or joined on |
 
-Both calls land where the table lets them.
+A sum lands where the table lets it.
 `sum(p, by=connection, over=generator, into=bus)` lands on a key column,
-because a bare relation has no other kind.
-`at(x, by=gen_bt, over=bus, into=technology)` lands on a value column and joins
-on the key. What separates the two calls is the consumed end.
+because a bare relation has no other kind, and the sums above it land on a
+value column. A read has no such choice: it covers the key by landing on it.
 
 - **A sum that consumes no key column is a read.** Every key column is then
   landed on or joined on, so each coordinate holds one term and nothing is
