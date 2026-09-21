@@ -10,6 +10,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $cal(Z)$: index $z$ --- `zone` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z), upright("gen_zone"): cal(G) times cal(T) arrow.r cal(Z)$
 / $cal(S)$: index $s$ --- `season` with $upright("season_of"): cal(T) arrow.r cal(S)$
 / $cal(E)$: index $e$ --- `technology` with $upright("gen_bt"): cal(G) arrow.r cal(B) times cal(E)$
+/ $cal(A)$: index $a$ --- `bp`
 
 == Parameters
 / $upright("p")^(upright("max"))$: `p_max` over $cal(G)$
@@ -24,6 +25,13 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $upright("lead")$: `lead` over $cal(G)$
 / $upright("budget")$: `budget` (scalar)
 / $upright("growth")$: `growth` (scalar)
+/ $upright("bp_x")$: `bp_x` over $cal(A)$
+/ $upright("bp_y")$: `bp_y` over $cal(A)$
+/ $upright("heat")^(upright("x"))$: `heat_x` over $cal(A)$
+/ $upright("heat")^(upright("y"))$: `heat_y` over $cal(A)$
+/ $upright("fuel")^(upright("curve,points"))$: `fuel_curve_points` over $cal(A)$ --- where 'bp\_x' has a row, and so where the curve runs
+/ $upright("fuel")^(upright("curve,starts"))$: `fuel_curve_starts` over $cal(A)$ --- the first breakpoint of each curve
+/ $upright("fuel")^(upright("curve,ends"))$: `fuel_curve_ends` over $cal(A)$ --- the last breakpoint of each curve
 
 == Variables
 / $p$: `p` over $cal(T) times cal(G)$
@@ -36,6 +44,10 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $italic("reserve")$: `reserve` (scalar)
 / $italic("headroom")$: `headroom` (scalar)
 / $italic("weight")$: `weight` over $cal(T) times cal(G)$
+/ $p^(upright("bp"))$: `p_bp` over $cal(T)$
+/ $italic("fuel")$: `fuel` over $cal(T)$
+/ $q^(upright("bp"))$: `q_bp` over $cal(T)$
+/ $italic("heat")$: `heat` over $cal(T)$
 
 == Definitions
 / $upright("spend")^(upright("cap"))$: `spend_cap` over $cal(G)$
@@ -108,7 +120,13 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("counted") & theta_(b) & <= upright("budget") & forall b in cal(B) colon abs({e in cal(E) colon upright("tech_cap")_(b,e) > 0}) >= 2 \
   upright("counted_here") & theta_(b) & <= upright("tech_cap")_(b,e) & forall b in cal(B), e in cal(E) colon abs({e' in cal(E) colon upright("tech_cap")_(b,e') > 0}) >= 2 \
   upright("run_start") & italic("slack")_(t) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("load")_(t,b) upright(" is defined") and not (upright("load")_(t - 1,b) upright(" is defined")) \
-  upright("capped") & p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("spend")^(upright("cap"))_(g) > 0 or not upright("is_flexible")_(g) $
+  upright("capped") & p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("spend")^(upright("cap"))_(g) > 0 or not upright("is_flexible")_(g) \
+  upright("fuel_curve_chord") & italic("fuel")_(t) dot (upright("bp_x")_(a) - upright("bp_x")_(a minus.square_(0) 1)) & >= (upright("bp_y")_(a) - upright("bp_y")_(a minus.square_(0) 1)) dot (p^(upright("bp"))_(t) - upright("bp_x")_(a)) + upright("bp_y")_(a) dot (upright("bp_x")_(a) - upright("bp_x")_(a minus.square_(0) 1)) & forall t in cal(T), a in cal(A) colon upright("fuel")^(upright("curve,points"))_(a) and not upright("fuel")^(upright("curve,starts"))_(a) \
+  upright("fuel_curve_domain_lo") & p^(upright("bp"))_(t) & >= upright("bp_x")_(a) & forall t in cal(T), a in cal(A) colon upright("fuel")^(upright("curve,starts"))_(a) \
+  upright("fuel_curve_domain_hi") & p^(upright("bp"))_(t) & <= upright("bp_x")_(a) & forall t in cal(T), a in cal(A) colon upright("fuel")^(upright("curve,ends"))_(a) \
+  upright("heat_curve_chord") & italic("heat")_(t) dot (upright("heat")^(upright("x"))_(a) - upright("heat")^(upright("x"))_(a minus.square_(0) 1)) & <= (upright("heat")^(upright("y"))_(a) - upright("heat")^(upright("y"))_(a minus.square_(0) 1)) dot (q^(upright("bp"))_(t) - upright("heat")^(upright("x"))_(a)) + upright("heat")^(upright("y"))_(a) dot (upright("heat")^(upright("x"))_(a) - upright("heat")^(upright("x"))_(a minus.square_(0) 1)) & forall t in cal(T), a in cal(A) colon upright("pos")(a) != 0 \
+  upright("heat_curve_domain_lo") & q^(upright("bp"))_(t) & >= upright("heat")^(upright("x"))_(a) & forall t in cal(T), a in cal(A) colon upright("pos")(a) = 0 \
+  upright("heat_curve_domain_hi") & q^(upright("bp"))_(t) & <= upright("heat")^(upright("x"))_(a) & forall t in cal(T), a in cal(A) colon upright("pos")(a) = abs(cal(A)) - 1 $
 
 == Definitions
 #set math.equation(numbering: "(1)")
@@ -130,4 +148,26 @@ $ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^
   upright("reserve") & italic("reserve") & >= 0 \
   upright("headroom") & italic("headroom") & >= 0 & upright("where ") upright("budget") upright(" is defined") \
   upright("weight") & 0 <= italic("weight")_(t,g) & <= 1 & forall t in cal(T), g in cal(G) \
-  upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) $
+  upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) \
+  upright("p_bp") & 0 <= p^(upright("bp"))_(t) & <= 100 & forall t in cal(T) \
+  upright("fuel") & italic("fuel")_(t) & >= 0 & forall t in cal(T) \
+  upright("q_bp") & 0 <= q^(upright("bp"))_(t) & <= 100 & forall t in cal(T) \
+  upright("heat") & italic("heat")_(t) & >= 0 & forall t in cal(T) $
+
+== Assumptions
+#set math.equation(numbering: "(1)")
+$ upright("bounds_do_not_cross") & upright("p")^(upright("min"))_(g) & <= upright("p")^(upright("max"))_(g) & forall g in cal(G) \
+  upright("efficiency_is_a_fraction") & upright("eta")_(g) > 0 and upright("eta")_(g) <= 1 &  & forall g in cal(G) \
+  upright("lead_times_are_short") & upright("lead")_(g) & <= 3 & forall g in cal(G) \
+  upright("zones_agree") & upright("zone_of")(b) & = upright("area_of")(b) & forall b in cal(B) \
+  upright("budget_covers_the_peak") & sum_(g in cal(G)) upright("p")^(upright("max"))_(g) & >= upright("budget") \
+  upright("ramps_are_gentle") & upright("load")_(t,b) - upright("load")_(t minus.square_(0) 1,b) & <= upright("budget") & forall t in cal(T), b in cal(B) colon upright("pos")(t) > 0 \
+  upright("flexible_units_have_headroom") & upright("p")^(upright("min"))_(g) & < upright("p")^(upright("max"))_(g) & forall g in cal(G) colon upright("is_flexible")_(g) \
+  upright("northern_demand_is_real") & upright("load")_(t,b) & >= 0 & forall t in cal(T), b in cal(B) colon upright("zone_of")(b) = upright("'north'") \
+  upright("fuel_curve increasing") & upright("bp_x")_(a - 1) & < upright("bp_x")_(a) & forall a in cal(A) colon upright("fuel")^(upright("curve,points"))_(a) and upright("fuel")^(upright("curve,points"))_(a - 1) \
+  upright("fuel_curve curvature") & upright("bp_y")_(a) & upright(" is a convex function of ") upright("bp_x")_(a) upright(" along ") a \
+  upright("fuel_curve breakpoints") & abs({a in cal(A) colon upright("fuel")^(upright("curve,points"))_(a)}) & >= 2 \
+  upright("fuel_curve points") & {a in cal(A) colon upright("fuel")^(upright("curve,points"))_(a)} & upright(" is one run of consecutive breakpoints") \
+  upright("heat_curve increasing") & upright("heat")^(upright("x"))_(a - 1) & < upright("heat")^(upright("x"))_(a) & forall a in cal(A) \
+  upright("heat_curve curvature") & upright("heat")^(upright("y"))_(a) & upright(" is a concave function of ") upright("heat")^(upright("x"))_(a) upright(" along ") a \
+  upright("heat_curve breakpoints") & abs(cal(A)) & >= 2 $

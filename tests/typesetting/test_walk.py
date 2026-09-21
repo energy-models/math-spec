@@ -17,7 +17,7 @@ from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset, types
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
 from math_spec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, override
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
 
@@ -876,3 +876,36 @@ def test_a_count_along_a_dim_the_frame_carries_takes_a_primed_dummy():
     )
     line = typeset_declaration(model, 'balance', 'latex')
     assert r"g' \in \mathcal{G}" in line, 'the counted dimension is quantified already, so the set takes a fresh index'
+
+
+@EVERY_FORMAT
+def test_an_assumption_prints_under_its_own_heading(name: FormatName, fmt: Format):
+    """What the data is held to prints with the math, because a reader checking it reads the same document."""
+    model = override(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
+    text = typeset(model, name, legend=False)
+    section = text[text.index('Assumptions') :]
+    assert fmt.subscript(fmt.upright('cost'), ['g']) in section
+    assert f'{fmt.operators["gt"]} 0' in section, 'the line aligns on the relation, which leads the right side'
+    assert 'Assumptions' not in typeset(DISPATCH_MODEL, name, legend=False), (
+        'a model that assumes nothing of its data prints no heading for it'
+    )
+
+
+@EVERY_FORMAT
+def test_a_curve_prints_what_its_method_assumes_of_the_breakpoints(name: FormatName, fmt: Format):
+    """The conditions a method implies are the data's too, so they print where the written ones do.
+
+    ``convex`` is exact for a curve that bends once either way, which is no
+    single inequality — so that one is prose, as a paper writes it.
+    """
+    text = typeset(EXAMPLES / 'piecewise.yaml', name, legend=False)
+    assert fmt.prose(' is a convex or concave function of ') in text
+    assert fmt.operators['lt'] in text, 'the x-axis is strictly increasing between neighbours'
+
+
+def test_an_assumption_is_a_declaration_a_line_may_be_asked_for():
+    """`typeset_declaration` prints one line for a name; an assumption is now one of the names it takes."""
+    model = override(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
+    assert typeset_declaration(model, 'costs_are_positive', 'latex') == (
+        r'\mathrm{cost}_{g} > 0 \qquad \forall\, g \in \mathcal{G}'
+    )

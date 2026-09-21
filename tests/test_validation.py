@@ -1332,6 +1332,78 @@ class TestRulesDecidedWithoutData:
         _schema(objective={'expression': f'sum({rewrite})'})
 
 
+class TestAssumptions:
+    """What an ``assumptions:`` entry may state, and what the load refuses.
+
+    Everything here is about the data, so nothing in it is decided at load but
+    the shape of the predicate: the entry is refused where the connectives
+    already settle it, and where it names a variable, which is what the solver
+    decides rather than what the caller binds.
+    """
+
+    @pytest.mark.parametrize(
+        ('entry', 'fragments'),
+        [
+            pytest.param(
+                'c > 0 OR true',
+                ('folds to true', 'assumes nothing of the data'),
+                id='a-predicate-that-is-always-true',
+            ),
+            pytest.param(
+                'false AND c > 0',
+                ('folds to false', 'holds on no data at all'),
+                id='a-predicate-that-is-always-false',
+            ),
+            pytest.param(
+                'p',
+                ("variable 'p' stands in what the assumption assumes",),
+                id='a-variable-in-the-predicate',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'p'},
+                ("variable 'p' stands in what the assumption is checked where",),
+                id='a-variable-in-the-where',
+            ),
+            pytest.param(
+                'c > tag',
+                ("'tag' is declared dtype: str, and an expression is arithmetic",),
+                id='a-label-parameter-on-a-side',
+            ),
+            pytest.param('nope > 0', ("'nope' not found",), id='an-unknown-name'),
+        ],
+    )
+    def test_an_entry_the_language_refuses(self, entry, fragments):
+        message = _refusal(assumptions={'sound': entry})
+        assert "Assumption 'sound'" in message
+        for fragment in fragments:
+            assert fragment in message
+
+    @pytest.mark.parametrize(
+        'entry',
+        [
+            pytest.param('c <= k', id='two-parameters'),
+            pytest.param('c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param('sum(c, over=g) >= k', id='a-reduction-on-a-side'),
+            pytest.param("lk == 'north' AND c > 0", id='a-relation-and-a-connective'),
+            pytest.param({'holds': 'c > 0', 'where': 'flag'}, id='a-where-of-its-own'),
+            pytest.param({'holds': 'c > 0', 'description': 'costs are positive'}, id='a-description'),
+        ],
+    )
+    def test_an_entry_the_language_admits(self, entry):
+        spec = _schema(assumptions={'sound': entry})
+        assert set(spec.assumptions) == {'sound'}, 'the entry loads under the name the file wrote'
+
+    def test_an_entry_round_trips_as_the_form_it_was_written_in(self):
+        """A bare string stays one, and a mapping keeps only the keys it carried."""
+        spec = _schema(assumptions={'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}})
+        assert spec.to_dict()['assumptions'] == {'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}}
+
+    def test_a_variable_free_comparison_is_pointed_at_assumptions_rather_than_at_data_prep(self):
+        """The refusal named nowhere to put the fact until this section existed."""
+        message = _refusal(constraints={'cap': {'dims': ['g'], 'expression': 'c <= 1'}})
+        assert '`assumptions:`' in message, 'the refusal names the section that now holds such a fact'
+
+
 class TestTheFrontDoor:
     def test_a_list_of_models_is_not_a_model(self):
         """Composition is Python's, not the file's (#30) — and the refusal is the package's own, so the CLI's one except catches it."""

@@ -29,7 +29,7 @@ from math_spec.program import (
     Increasing,
     LastOf,
     MaskOf,
-    check_message,
+    assumption_message,
 )
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 
@@ -378,7 +378,7 @@ _CURVATURE_CASES = [
 @pytest.mark.parametrize(('raw', 'expected'), _CURVATURE_CASES)
 def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
     """The consumer holding the breakpoints checks the shape; this says what to check for."""
-    answer = next((c.curvature for c in to_program(raw).piecewise['cost_curve'].checks if isinstance(c, Curved)), None)
+    answer = next((c.curvature for c in to_program(raw).assumptions.values() if isinstance(c, Curved)), None)
     assert answer == expected
     assert answer is None or answer in CURVATURES, (
         f'{answer!r} is not one of the curvatures the package publishes, so a consumer '
@@ -423,30 +423,40 @@ def test_a_file_supplied_mask_derives_nothing():
     )
 
     assert program.parameters['reach'].derivation is None, 'the file declared it, so the caller binds it'
-    assert Contiguous('reach', None) in program.piecewise['cost_curve'].checks, (
+    assert program.assumptions['cost_curve points'] == Contiguous('cost_curve', 'reach', None), (
         'the mask is still one the data has to make contiguous, with no values parameter behind it'
     )
 
 
-def test_a_block_is_kept_as_the_checks_a_consumer_binding_it_runs():
-    """Every condition a curve puts on its data arrives carrying its own subjects."""
-    curve = to_program(LP_MASKED).piecewise['cost_curve']
+def test_a_block_assumes_of_its_data_what_the_method_implies():
+    """Every condition a curve puts on its data stands with the file's own, carrying its own subjects."""
+    program = to_program(LP_MASKED)
 
-    assert curve.breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
-    assert set(curve.checks) == {
-        Increasing('bp_x', 'bp'),
-        Curved('bp_x', 'bp_y', 'bp', 'convex'),
-        AtLeastTwo('bp', 'cost_curve_points'),
-        Contiguous('cost_curve_points', 'bp_x'),
+    assert program.piecewise['cost_curve'].breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
+    assert program.assumptions == {
+        'cost_curve increasing': Increasing('cost_curve', 'lp', 'bp_x', 'bp'),
+        'cost_curve curvature': Curved('cost_curve', 'lp', 'bp_x', 'bp_y', 'bp', 'convex'),
+        'cost_curve breakpoints': AtLeastTwo('cost_curve', 'bp', 'cost_curve_points'),
+        'cost_curve points': Contiguous('cost_curve', 'cost_curve_points', 'bp_x'),
     }, 'an lp curve with a mask assumes all four, each against the names the file wrote'
 
-    plain = to_program(raw_of(NONCONVEX_YAML)).piecewise['cost_curve']
-    assert plain.checks == (), 'adjacency over a whole curve is exact for any shape, and masks nothing'
+    plain = to_program(raw_of(NONCONVEX_YAML))
+    assert plain.assumptions == {}, 'adjacency over a whole curve is exact for any shape, and masks nothing'
+
+
+def test_a_curves_conditions_cannot_collide_with_a_written_assumption():
+    """The two kinds share one mapping, and the space in a derived name is what keeps them apart.
+
+    A declaration is named the way an expression writes it, so a file cannot
+    write `cost_curve increasing` and quietly replace the curve's own.
+    """
+    with pytest.raises(LanguageError, match="'cost_curve increasing' is not a name"):
+        to_program(override(LP, assumptions={'cost_curve increasing': 'bp_x > 0'}))
 
 
 @pytest.mark.parametrize('kind', get_args(Check), ids=lambda k: k.__name__)
 def test_every_check_has_a_sentence(kind):
-    curve = to_program(LP_MASKED).piecewise['cost_curve']
-    check = next((c for c in curve.checks if isinstance(c, kind)), None)
-    assert check is not None, 'the fixture is the block that assumes everything'
-    assert check_message('cost_curve', curve, check).startswith("piecewise 'cost_curve':")
+    found = [(n, c) for n, c in to_program(LP_MASKED).assumptions.items() if isinstance(c, kind)]
+    assert found, 'the fixture is the block that assumes everything'
+    name, check = found[0]
+    assert assumption_message(name, check).startswith("piecewise 'cost_curve':")
