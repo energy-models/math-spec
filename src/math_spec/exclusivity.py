@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, assert_never
 
+from math_spec._expression_parser import NumberNode, ParameterNode, UnaryOperatorNode
 from math_spec.program import (
     And,
     ArithmeticComparison,
@@ -193,6 +194,42 @@ class _Grid:
         return ', '.join(f'{subject} is {_shown(subject, value)}' for subject, value in cell.items())
 
 
+#: A comparator against its mirror, for a test written with its sides swapped.
+_FLIPPED: Mapping[PredicateOperator, PredicateOperator] = {
+    '<': '>',
+    '>': '<',
+    '<=': '>=',
+    '>=': '<=',
+    '==': '==',
+    '!=': '!=',
+}
+
+
+def _expression_rewrite(node: ArithmeticComparison | ExpressionComparison) -> str:
+    """Why a comparison of expressions is not decided, and what to write instead.
+
+    A parameter against a literal is decided, and the same test with its sides
+    swapped is not — so that one is named as the order it is, rather than told
+    to do what it already does. Only the literal-first order needs naming: the
+    other resolves to a :class:`~math_spec.program.ParameterComparison` and
+    never reaches here, and a quoted label cannot stand on the left at all.
+    """
+    if isinstance(node, ArithmeticComparison):
+        left, right = node.left, node.right
+        number = isinstance(left, NumberNode) or (
+            isinstance(left, UnaryOperatorNode) and isinstance(left.operand, NumberNode)
+        )
+        if number and isinstance(right, ParameterNode):
+            return (
+                f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
+                f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {left}'
+            )
+    return (
+        'it compares expressions, whose values only the data decides — compare one parameter against a '
+        'literal, or precompute the test as a boolean parameter and test that'
+    )
+
+
 def _observe(
     node: TypedPredicate, subject: Subject, values: set[_Literal], dtypes: Mapping[str, DeclaredDtype]
 ) -> None:
@@ -202,11 +239,7 @@ def _observe(
     rank is an ordering of integers and every comparator is admitted there.
     """
     if isinstance(node, ArithmeticComparison | ExpressionComparison):
-        msg = (
-            'it compares expressions, whose values only the data decides — compare one parameter against a '
-            'literal, or precompute the test as a boolean parameter and test that'
-        )
-        raise Undecidable(msg)
+        raise Undecidable(_expression_rewrite(node))
     if isinstance(node, CountComparison):
         msg = (
             'it counts the coordinates a predicate admits, which only the data decides — test a parameter '
