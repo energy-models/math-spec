@@ -37,10 +37,10 @@ constraints:
     expression: "sum(p) >= 0"
   grouped:
     dims: [t, zone]
-    expression: "sum(p, by=zone_of, over=g, into=zone) - q <= load"
+    expression: "sum(p, by=zone_of(g -> zone)) - q <= load"
   pulled_back:
     dims: [t, g]
-    expression: "p - at(q, by=zone_of, over=zone, into=g) <= 0"
+    expression: "p - at(q, by=zone_of(zone)) <= 0"
   translated:
     dims: [t, g]
     expression: "p - shift(p, along=t, offset=lead, edge='wrap') <= 0"

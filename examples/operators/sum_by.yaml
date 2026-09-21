@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The membership reduction — `sum(array, by=relation, over=a, into=b)` lands the result on the
-  column the relation is read to, which is what makes topology data rather than
-  structure.
+  The membership reduction — `sum(array, by=relation(a -> b))` lands the result
+  on the column the relation is read to, which is what makes topology data
+  rather than structure.
 
 dimensions:
   snapshot: { dtype: int }
@@ -26,6 +26,6 @@ variables:
 constraints:
   bus_total:
     dims: [snapshot, bus]
-    expression: sum(p, by=gen_bus, over=generator, into=bus) <= limit
+    expression: sum(p, by=gen_bus(generator -> bus)) <= limit
 
 objective: { sense: minimize, expression: sum(p) }

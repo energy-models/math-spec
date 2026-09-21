@@ -39,7 +39,7 @@ file, so it cannot say this. The formulation written out can.
        expression: sum(weight, over=bp) == 1
      on_the_curve: # one row per flow
        dims: [flow, time]
-       expression: rate == sum(at(weight, by=converter_of, over=converter, into=flow) * bp_rate, over=bp)
+       expression: rate == sum(at(weight, by=converter_of(converter)) * bp_rate, over=bp)
    ```
 
 A converter with a fourth flow is then a row in a table.

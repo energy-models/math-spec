@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A call that names its ends — `sum(array, by=relation, over=a, into=b)`
-  consumes column `a` and lands on column `b`, and the other key column is
-  joined on, so each zone's total is taken per period.
+  A call that writes its direction — `sum(array, by=relation(a -> b))` consumes
+  the key column over dimension `a` and lands on column `b`, and the other key
+  column is joined on, so each zone's total is taken per period.
 
 dimensions:
   generator: { dtype: str }
@@ -26,6 +26,6 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+    expression: sum(p, by=zone_of(generator -> zone)) >= demand
 
 objective: { sense: minimize, expression: sum(p) }

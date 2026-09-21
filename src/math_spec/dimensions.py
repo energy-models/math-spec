@@ -171,16 +171,16 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``at`` is the adjoint of ``sum(by=)``: it consumes the dims a sum produces and produces the ones it consumes."""
+    """``at`` is the adjoint of ``sum(by=)``: it reads by :meth:`Direction.read_by`, so the value dims the operand carries leave and the key arrives."""
     by = node.kwargs['by']
     assert isinstance(by, DirectionNode), 'resolution reads at(by=) in a direction'
-    direction = by.direction
-    if absent := sorted(set(direction.consumed_dims) - inner):
+    direction = by.direction.read_by(inner)
+    if not direction.consumed:
         raise DimensionError(
-            f'{context}: at(by={direction.name}) reads through '
-            f'{absent}, which the expression does not carry (dims '
-            f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
-            f'sum is the direction that produces them.'
+            f"{context}: at(by={direction.name}) reads '{direction.name}' through "
+            f'{list(by.direction.consumed)}, and the expression carries none of their dims '
+            f'{sorted(set(by.direction.consumed_dims))} (dims {sorted(inner)}). A pullback needs the coarse '
+            f'dims to read *from* — sum is the direction that produces them.'
         )
     return _read_dims(f'at(by={direction.name})', direction, inner, context)
 
@@ -233,9 +233,11 @@ def _read_dims(call: str, direction: Direction, inner: frozenset[str], context: 
 def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], context: str) -> None:
     """The columns a call joins on are read at their dimensions, so the operand carries every one, each once.
 
-    A joined dimension the call also consumes is the same ambiguity as two
-    joined columns over one dimension: the operand's one coordinate would
-    have to be read as both. A partition consumes nothing.
+    A column consumed is never also joined on: a sum consumes the one key
+    column over the dimension its direction names, a read produces every key
+    column the operand does not carry (:meth:`program.Direction.read_by`), and
+    a partition consumes nothing. Two key columns over one dimension are a
+    bare relation's, and joining on both is what this refuses.
     """
     dims = use.joined_dims
     if missing := sorted(set(dims) - inner):
@@ -245,8 +247,7 @@ def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], 
             f'read between two of its columns and joined at the others — index the operand by them, or '
             f'read it between different columns.'
         )
-    consumed = use.consumed_dims if isinstance(use, Direction) else ()
-    if twice := sorted({d for d in dims if dims.count(d) > 1 or d in consumed}):
+    if twice := sorted({d for d in dims if dims.count(d) > 1}):
         raise DimensionError(
             f"{context}: {call} joins '{use.name}' on {twice} through more than one column, and the operand "
             f'carries each dimension once. Read between different columns, or use a relation whose joined '

@@ -161,7 +161,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
         'constraints': {
             'held': {
                 'dims': ['snapshot'],
-                'expression': 'p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of, within=season)',
+                'expression': 'p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of(season))',
             }
         },
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
@@ -180,7 +180,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
     Whoever wrote it last used to win: ``at(shift(cap, along=period, offset=1,
-    edge=0), by=period_of, over=period, into=snapshot)`` printed `cap_{period_of(t)}`, dropping a
+    edge=0), by=period_of(period))`` printed `cap_{period_of(t)}`, dropping a
     translation the plan builds. The subscript is a composition, so it renders
     as one.
     """
@@ -195,7 +195,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
         'constraints': {
             'within': {
                 'dims': ['snapshot'],
-                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of, over=period, into=snapshot)',
+                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of(period))',
             }
         },
     }
@@ -298,7 +298,7 @@ def test_a_grouped_position_rides_a_subscript_rather_than_a_second_argument(name
     As ``pos(t, season_of(t))`` the second argument sits where a reader of the
     first one expects an integer, and nothing says it means "within".
     """
-    text = typeset(_selected('position(snapshot, by=season_of, within=season) == 0'), name)
+    text = typeset(_selected('position(snapshot, by=season_of(season)) == 0'), name)
     applied = fmt.apply(fmt.upright('season_of'), 't')
     assert fmt.apply(fmt.subscript(fmt.operators['position'], [applied]), 't') in text
 
@@ -323,7 +323,7 @@ def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(nam
         pytest.param('against positions', _selected('position(snapshot) == 0'), DISPATCH_MODEL, id='a-position'),
         pytest.param(
             'counts within the group',
-            _selected('position(snapshot, by=season_of, within=season) == 0'),
+            _selected('position(snapshot, by=season_of(season)) == 0'),
             _selected('position(snapshot) == 0'),
             id='a-grouped-position',
         ),
@@ -638,7 +638,7 @@ def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
 
 #: Two tables a call can leave a value column unread. A sum between
 #: `gen_zone`'s two key columns reads no value column at all, and a sum that
-#: consumes one of `gen_bt`'s two value columns leaves the other one.
+#: lands on one of `gen_bt`'s two value columns leaves the other one.
 UNREAD = {
     'dimensions': {
         'snapshot': {'dtype': 'int'},
@@ -654,7 +654,6 @@ UNREAD = {
     'parameters': {'cap': {'dims': []}},
     'variables': {
         'p': {'dims': ['snapshot', 'generator']},
-        'f': {'dims': ['generator', 'bus']},
         # indexed by the key column the sum consumes alone, so the column it lands on is one it brings
         'u': {'dims': ['generator']},
     },
@@ -668,33 +667,28 @@ def _grouped(dims: list[str], expression: str) -> str:
 
 
 def test_a_sum_that_reads_no_value_column_asks_only_that_the_key_has_a_row():
-    """`sum(u, by=gen_zone, over=generator, into=snapshot)` died with `KeyError: 'zone'`.
+    """`sum(u, by=gen_zone(generator -> snapshot))` died with `KeyError: 'zone'`.
 
     The domain was written as a whole row of the table, which needs an index
     for every column, and this sum goes between the two key columns: it reads
     no value column, so there is no index to write in `zone`'s place. What the
     sum asks of the table is that the key it reads between has a row at all.
     """
-    row = _grouped(['snapshot'], 'sum(u, by=gen_zone, over=generator, into=snapshot) <= cap')
+    row = _grouped(['snapshot'], 'sum(u, by=gen_zone(generator -> snapshot)) <= cap')
     assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}}' in row, (
         'the condition is that the row exists, and the unread value column is written nowhere'
     )
 
 
-def test_a_value_column_the_call_consumes_is_a_condition_like_a_produced_one():
-    """`sum(f, by=gen_bt, over=[generator, bus], into=technology)` bound `b` and then
-    said nothing about it, so the sum ran over every bus rather than over the
-    one the table puts each generator on.
+def test_a_value_column_the_call_does_not_land_on_is_not_read():
+    """A direction fixes its relation's key, and each value column it lands on is one lookup at that key.
 
-    The conditions were written per *produced* column. A call fixes a value
-    column by consuming it too, and either way the column is one lookup at the
-    key.
+    The column at neither end is not read, so no condition mentions it and
+    adding it to the table changes no call that was written before it.
     """
-    row = _grouped(['technology'], 'sum(f, by=gen_bt, over=[generator, bus], into=technology) <= cap')
-    assert (
-        r'\sum_{g \in \mathcal{G},\ b \in \mathcal{B} \,:\, '
-        r'\mathrm{gen\_bt.bus}(g) = b \wedge \mathrm{gen\_bt.technology}(g) = e}'
-    ) in row, 'both columns the call touches are read, in the order the table declares them'
+    row = _grouped(['snapshot', 'technology'], 'sum(p, by=gen_bt(generator -> technology)) <= cap')
+    assert r'\mathrm{gen\_bt.technology}(g) = e' in row, 'the column the sum lands on is read at the key'
+    assert r'gen\_bt.bus' not in row, 'the value column at neither end is written nowhere'
 
 
 # ---------------------------------------------------------------------------
@@ -725,7 +719,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
     ('expression', 'expected'),
     [
         pytest.param(
-            'p == at(sum(q, by=bus_of, over=generator, into=bus), by=bus_of, over=bus, into=generator)',
+            'p == at(sum(q, by=bus_of(generator -> bus)), by=bus_of(bus))',
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-relation',
         ),

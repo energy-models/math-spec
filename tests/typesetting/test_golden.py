@@ -133,7 +133,7 @@ def _rendered_trees() -> Iterator[object]:
 
 
 #: What resolution never hands the walk: the four nodes a where carries before
-#: its sides are read, and the three an expression only carries before names
+#: its sides are read, and the four an expression only carries before names
 #: are resolved. The walk raises on each rather than rendering it, so a fixture
 #: reaching one would be a bug in resolution rather than a case worth
 #: committing output for.
@@ -145,6 +145,7 @@ UNRESOLVED = {
     'NameNode',
     'NameListNode',
     'KeywordNode',
+    'WrittenDirectionNode',
 }
 
 #: A dataclass the walk steps *through* rather than renders: an arm has no

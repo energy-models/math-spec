@@ -268,10 +268,17 @@ class _Lowering:
         return program.GroupSum(operand, direction=by_node.direction)
 
     def at(self, node: FunctionCallNode) -> program.Expression:
-        """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
+        """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form.
+
+        Resolution names the value columns the call may read and lands the
+        direction on the whole key; :meth:`program.Direction.read_by` makes
+        the read the operand's dims decide, here, once, so a consumer reads it
+        off the node.
+        """
         by_node = node.kwargs['by']
         assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
-        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction)
+        carried = dims_of(node.args[0], self.schema, self.context)
+        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction.read_by(carried))
 
     def sum_back(self, node: FunctionCallNode) -> program.Expression:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.

@@ -132,6 +132,28 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
+class WrittenDirectionNode:
+    """A ``by=`` as the file writes it — ``by=zone_of(generator -> zone)``, or ``by=cal(week)`` on a partition.
+
+    The relation and each end are children rather than strings, so a macro
+    formal standing at any of the three is bound like any other. Unresolved:
+    which columns the ends name is the relation's business, and the operator
+    decides how many ends it may write. A partition and a read write only the
+    right end — the group, or the columns read — because the other end is not
+    theirs to choose.
+    """
+
+    relation: ArithmeticNode
+    consumed: ArithmeticNode | None
+    produced: ArithmeticNode
+
+    def __str__(self) -> str:
+        """The value as the author wrote it, which is what a refusal quotes back."""
+        inside = str(self.produced) if self.consumed is None else f'{self.consumed} -> {self.produced}'
+        return f'{self.relation}({inside})'
+
+
+@dataclass(frozen=True)
 class DirectionNode:
     """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
 
@@ -279,6 +301,7 @@ ArithmeticNode = (
     NumberNode
     | NameNode
     | NameListNode
+    | WrittenDirectionNode
     | VariableNode
     | ParameterNode
     | DualNode
@@ -341,12 +364,15 @@ def operand(node: ArithmeticNode) -> str:
 KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
-#: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode
+#: knows, the two kwarg-only literals its kwarg consumes, and the written
+#: direction whose ends are names. Meeting one downstream means the expression
+#: skipped :func:`~math_spec.resolution.expression_of`.
+UnresolvedNode = NameNode | NameListNode | KeywordNode | WrittenDirectionNode
 
-#: Every leaf — nothing below it to descend into.
-LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
+#: Every leaf — nothing below it to descend into. A written direction is
+#: unresolved but not a leaf: its relation and its ends are names a macro
+#: formal may stand at.
+LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | NameNode | NameListNode | KeywordNode
 
 
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
@@ -364,6 +390,8 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return (node.left, node.right)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
+    if isinstance(node, WrittenDirectionNode):
+        return (node.relation, *(() if node.consumed is None else (node.consumed,)), node.produced)
     if isinstance(node, CasesNode):
         return tuple(arm.value for arm in node.arms)
     if isinstance(node, DefinitionNode):
@@ -400,6 +428,9 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
             tuple(recurse(a) for a in node.args),
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
+    if isinstance(node, WrittenDirectionNode):
+        consumed = None if node.consumed is None else recurse(node.consumed)
+        return WrittenDirectionNode(recurse(node.relation), consumed, recurse(node.produced))
     if isinstance(node, CasesNode):
         return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
     if isinstance(node, DefinitionNode):
@@ -417,6 +448,10 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
 
     ``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would
     match the prefix of ``inflow``.
+
+    A written direction is tried before arithmetic in a kwarg value, and only
+    where its parenthesis ends that value, so ``k=dual(c) * 2`` stays the
+    arithmetic it reads as.
     """
     arith = pp.Forward()
 
@@ -430,14 +465,20 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    # pyrefly: ignore[implicit-any-lambda]
+    bare = name.copy().set_parse_action(lambda t: NameNode(t[0]))
+    end = name_list | bare
+    direction = (
+        bare + pp.Suppress('(') + pp.Optional(end + pp.Suppress('->')) + end + pp.Suppress(')')
+    ).set_parse_action(_make_direction) + pp.FollowedBy(pp.Regex(r'\s*[,)]'))
+    kwarg = (name + pp.Suppress('=') + (quoted | direction | name_list | arith)).set_parse_action(
+        lambda t: (t[0], t[1])
+    )
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
 
-    # pyrefly: ignore[implicit-any-lambda]
-    name_node = name.copy().set_parse_action(lambda t: NameNode(t[0]))
-    atom = func_call | number | name_node | (pp.Suppress('(') + arith + pp.Suppress(')'))
+    atom = func_call | number | bare | (pp.Suppress('(') + arith + pp.Suppress(')'))
 
     unary = pp.Forward()
     power = (atom + pp.Optional(pp.Literal('**') + unary)).set_parse_action(_make_power)
@@ -457,6 +498,12 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
     return arith, expression
+
+
+def _make_direction(tokens: pp.ParseResults) -> WrittenDirectionNode:
+    """``relation(a -> b)`` or ``relation(b)`` off the tokens the grammar captured; two tokens mean no left end."""
+    items: list[ArithmeticNode] = list(tokens)
+    return WrittenDirectionNode(items[0], None, items[1]) if len(items) == 2 else WrittenDirectionNode(*items)
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:

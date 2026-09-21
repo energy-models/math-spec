@@ -34,6 +34,7 @@ from math_spec._expression_parser import (
     PartitionNode,
     UnaryOperatorNode,
     VariableNode,
+    WrittenDirectionNode,
     parse_expression,
 )
 from math_spec._where_parser import (
@@ -233,6 +234,49 @@ def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
 
 
 @pytest.mark.parametrize(
+    ('text', 'consumed', 'produced'),
+    [
+        pytest.param('sum(p, by=l(a -> b))', NameNode('a'), NameNode('b'), id='one-name-at-each-end'),
+        pytest.param('sum(p, by=l([a, b] -> c))', NameListNode(('a', 'b')), NameNode('c'), id='a-list-consumed'),
+        pytest.param('sum(p, by=l(a -> [b, c]))', NameNode('a'), NameListNode(('b', 'c')), id='a-list-produced'),
+        pytest.param('sum(p,by=l(a->b))', NameNode('a'), NameNode('b'), id='no-spaces'),
+        pytest.param('shift(p, along=t, offset=1, by=l(b))', None, NameNode('b'), id='the-right-end-alone'),
+    ],
+)
+def test_a_direction_is_a_kwarg_value_with_the_relation_and_its_ends_as_nodes(text, consumed, produced):
+    """`by=l(a -> b)` is one value whose relation and ends are nodes, so a macro formal at any of the three is bound."""
+    node = parse_expression(text)
+    assert node.kwargs['by'] == WrittenDirectionNode(NameNode('l'), consumed, produced)
+
+
+def test_a_kwarg_value_that_goes_on_past_the_parenthesis_is_arithmetic():
+    """A direction is the whole value or nothing, so a call inside a larger kwarg value is still a call."""
+    node = parse_expression('m(p, k=dual(c) * 2)')
+    assert node.kwargs['k'] == BinaryOperatorNode('*', FunctionCallNode('dual', (NameNode('c'),)), NumberNode(2)), (
+        'the parenthesis is followed by arithmetic, so the value is read as arithmetic'
+    )
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('sum(p, by=l(a, b -> c))', id='two-names-without-brackets'),
+        pytest.param('sum(p, by=l(a -> b -> c))', id='a-chain'),
+        pytest.param('sum(p, by=l(-> b))', id='no-consumed-end'),
+        pytest.param('sum(p, by=l(a ->))', id='no-produced-end'),
+        pytest.param('sum(p, by=(a -> b))', id='no-relation'),
+        pytest.param('sum(p, by=l, over=a -> b)', id='a-direction-outside-a-parenthesis'),
+        pytest.param('sum(p -> q, by=l)', id='a-positional-argument'),
+        pytest.param('p -> q', id='the-whole-expression'),
+    ],
+)
+def test_a_direction_the_grammar_cannot_read_is_refused_at_load(text):
+    """A comma inside a call separates arguments, so two names at one end go in brackets, and a direction is written after its relation."""
+    with pytest.raises(SchemaError, match='Failed to parse expression'):
+        parse_expression(text)
+
+
+@pytest.mark.parametrize(
     ('text', 'value'),
     [
         pytest.param('1e5', 1e5, id='a-bare-exponent'),
@@ -352,10 +396,10 @@ def test_a_relation_column_is_named_with_a_dot():
         ('position(snapshot) == -1', '==', UnaryOperatorNode('-', NumberNode(1)), {}),
         ('position(snapshot, by=period_of) == 0', '==', NumberNode(0), {'by': NameNode('period_of')}),
         (
-            'position(snapshot, by=period_of, within=[a, b]) == 0',
+            'position(snapshot, by=period_of([a, b])) == 0',
             '==',
             NumberNode(0),
-            {'by': NameNode('period_of'), 'within': NameListNode(('a', 'b'))},
+            {'by': WrittenDirectionNode(NameNode('period_of'), None, NameListNode(('a', 'b')))},
         ),
     ],
     ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped', 'grouped within columns'],

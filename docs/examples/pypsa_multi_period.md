@@ -167,8 +167,8 @@ objective:
   sense: minimize
   description: operating cost by weighted snapshot and weighted period, and capacity once per period it stands in
   expression: >-
-    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot))
-    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot))
+    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period(period)))
+    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period(period)))
     + sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
 ```
 
@@ -314,10 +314,10 @@ Bus_nodal_balance:
     there
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, by=Generator_bus(generator -> bus))
+    - sum(Link_p, by=Link_bus0(link -> bus))
+    + sum(at(Link_p, by=Link_output_link(link)) * Link_efficiency, by=Link_output_bus(link_output -> bus))
+    == sum(Load_p_set, by=Load_bus(load -> bus))
 ```
 
 ```math
@@ -338,8 +338,8 @@ Carrier_growth_limit:
   dims: [carrier, period]
   where: Carrier_max_growth
   expression: >-
-    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier), along=period, offset=1, edge=0)
+    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier(generator -> carrier))
+    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier(generator -> carrier)), along=period, offset=1, edge=0)
     * Carrier_max_relative_growth
     <= Carrier_max_growth
 ```
