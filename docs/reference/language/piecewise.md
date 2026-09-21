@@ -63,10 +63,12 @@ The breakpoint order is the declared order of `over`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
 
 Every condition this page says is checked "when the data binds" is an
-[assumption](assumptions.md). The language derives each one from the `method:`
-rather than from anything the file writes, carries it beside the assumptions
-the file did write, and prints both under one heading. The consumer that binds
-the numbers runs them.
+[assumption](assumptions.md), written in the same grammar as one the file
+states. The `method:` implies it rather than the file writing it, so
+[`expand()`](#writing-a-formulation-out) writes it into `assumptions:` under
+the block's own name, and a model that still declares the block derives the
+same text when it loads. Both print under one heading, and the consumer that
+binds the numbers runs them.
 
 !!! warning "A values parameter short of a row does not build a shorter curve"
 

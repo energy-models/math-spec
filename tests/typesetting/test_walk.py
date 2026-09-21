@@ -894,12 +894,18 @@ def test_an_assumption_prints_under_its_own_heading(name: FormatName, fmt: Forma
 def test_a_curve_prints_what_its_method_assumes_of_the_breakpoints(name: FormatName, fmt: Format):
     """The conditions a method implies are the data's too, so they print where the written ones do.
 
-    ``convex`` is exact for a curve that bends once either way, which is no
-    single inequality — so that one is prose, as a paper writes it.
+    They are predicates rather than prose: the x-axis increases between
+    neighbours, and ``convex`` — exact for a curve that bends once either
+    way — counts the bends going each way and asks that one direction has
+    none, which is what "convex or concave" says of a whole axis.
     """
     text = typeset(EXAMPLES / 'piecewise.yaml', name, legend=False)
-    assert fmt.prose(' is a convex or concave function of ') in text
-    assert fmt.operators['lt'] in text, 'the x-axis is strictly increasing between neighbours'
+    section = text[text.index('Assumptions') :]
+    assert 'cost_curve_increasing' in section.replace(r'\_', '_'), (
+        'a condition is named after the block whose method implies it'
+    )
+    assert fmt.operators['lt'] in section, 'the x-axis is strictly increasing between neighbours'
+    assert fmt.operators['or'] in section, 'the either-way bend is two counts joined by or, one per direction'
 
 
 def test_an_assumption_is_a_declaration_a_line_may_be_asked_for():

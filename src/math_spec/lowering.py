@@ -35,7 +35,7 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import assumptions_of, declaration_of, derivations_of
+from math_spec.piecewise import declaration_of, derivations_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -178,19 +178,19 @@ def lower_program(expanded: Spec) -> program.Program:
 
 
 def _assumptions(expanded: Spec) -> dict[str, program.Assumption]:
-    """Everything the data has to satisfy, the file's entries first and each block's behind them.
+    """Everything the data has to satisfy, in the order the model states it.
 
     One mapping rather than two, because a consumer binding data checks them
-    all the same way and refuses in the same words.
+    all the same way and refuses in the same words. A curve's conditions are
+    already here: the expansion writes them into ``assumptions:``, and a load
+    derives the same text for a block the file still declares.
     """
     assumptions: dict[str, program.Assumption] = {}
-    for name, (holds, where) in expanded.resolved.assumptions.items():
+    for name, (holds, where, description) in expanded.resolved.assumptions.items():
         lowering = _Lowering(expanded, f"assumption '{name}'")
         predicate = lowering.mask(holds)
         assert predicate is not None, 'a predicate that admits every row was refused as deciding nothing'
-        assumptions[name] = program.Holds(predicate, lowering.mask(where))
-    for block, ex in expanded._expanded_piecewise.items():
-        assumptions.update(assumptions_of(block, ex.block))
+        assumptions[name] = program.Holds(predicate, lowering.mask(where), description)
     return assumptions
 
 

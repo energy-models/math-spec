@@ -560,62 +560,62 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 \mathrm{load}_{t,b} \ge 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'}
 ```
 
-**`cost_curve points`**
+**`cost_curve_contiguous`**
 
 ```math
-\{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \} \text{ is one run of consecutive breakpoints} \qquad \forall\, g \in \mathcal{G}
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \wedge \neg \mathrm{bp\_run}_{g,a - 1} \} \rvert = 1 \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`hull_curve increasing`**
+**`hull_curve_increasing`**
 
 ```math
-\mathrm{bp\_x}_{g,a - 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+\mathrm{bp\_x}_{g,a \boxminus_{0} 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) > 0
 ```
 
-**`hull_curve curvature`**
+**`hull_curve_curvature`**
 
 ```math
-\mathrm{bp\_heat}_{g,a} \text{ is a convex or concave function of } \mathrm{bp\_x}_{g,a} \text{ along } a \qquad \forall\, g \in \mathcal{G}
+\lvert \{ a \in \mathcal{A} \,:\, \left( \mathrm{bp\_heat}_{g,a} - \mathrm{bp\_heat}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) > \left( \mathrm{bp\_heat}_{g,a \boxplus_{0} 1} - \mathrm{bp\_heat}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) \wedge \mathrm{pos}(a) > 0 \wedge \mathrm{pos}(a) \neq \lvert \mathcal{A} \rvert - 1 \} \rvert = 0 \vee \lvert \{ a \in \mathcal{A} \,:\, \left( \mathrm{bp\_heat}_{g,a} - \mathrm{bp\_heat}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) < \left( \mathrm{bp\_heat}_{g,a \boxplus_{0} 1} - \mathrm{bp\_heat}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) \wedge \mathrm{pos}(a) > 0 \wedge \mathrm{pos}(a) \neq \lvert \mathcal{A} \rvert - 1 \} \rvert = 0 \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`lp_curve increasing`**
+**`lp_curve_increasing`**
 
 ```math
-\mathrm{bp\_x}_{g,a - 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_x}_{g,a - 1} \text{ is defined}
+\mathrm{bp\_x}_{g,a \boxminus_{0} 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_x}_{g,a - 1} \text{ is defined}
 ```
 
-**`lp_curve curvature`**
+**`lp_curve_curvature`**
 
 ```math
-\mathrm{bp\_y}_{g,a} \text{ is a convex function of } \mathrm{bp\_x}_{g,a} \text{ along } a \qquad \forall\, g \in \mathcal{G}
+\left( \mathrm{bp\_y}_{g,a} - \mathrm{bp\_y}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) \le \left( \mathrm{bp\_y}_{g,a \boxplus_{0} 1} - \mathrm{bp\_y}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_x}_{g,a - 1} \text{ is defined} \wedge \mathrm{bp\_x}_{g,a + 1} \text{ is defined}
 ```
 
-**`lp_curve breakpoints`**
+**`lp_curve_breakpoints`**
 
 ```math
 \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`lp_curve points`**
+**`lp_curve_contiguous`**
 
 ```math
-\{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \text{ is one run of consecutive breakpoints} \qquad \forall\, g \in \mathcal{G}
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \neg \left( \mathrm{bp\_x}_{g,a - 1} \text{ is defined} \right) \} \rvert = 1 \qquad \forall\, g \in \mathcal{G}
 ```
 
-**`ramp_curve increasing`**
+**`ramp_curve_increasing`**
 
 ```math
-\mathrm{bp\_x}_{g,a - 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+\mathrm{bp\_x}_{g,a \boxminus_{0} 1} < \mathrm{bp\_x}_{g,a} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) > 0
 ```
 
-**`ramp_curve curvature`**
+**`ramp_curve_curvature`**
 
 ```math
-\mathrm{bp\_heat}_{g,a} \text{ is a concave function of } \mathrm{bp\_x}_{g,a} \text{ along } a \qquad \forall\, g \in \mathcal{G}
+\left( \mathrm{bp\_heat}_{g,a} - \mathrm{bp\_heat}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) \ge \left( \mathrm{bp\_heat}_{g,a \boxplus_{0} 1} - \mathrm{bp\_heat}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) > 0 \wedge \mathrm{pos}(a) \neq \lvert \mathcal{A} \rvert - 1
 ```
 
-**`ramp_curve breakpoints`**
+**`ramp_curve_breakpoints`**
 
 ```math
-\lvert \mathcal{A} \rvert \ge 2
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G}
 ```

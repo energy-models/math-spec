@@ -193,10 +193,16 @@ class ResolvedConstraint(NamedTuple):
 
 
 class ResolvedAssumption(NamedTuple):
-    """One assumption's typed halves: the predicate it states, and the mask it is checked under."""
+    """One assumption's typed halves: the predicate it states, and the mask it is checked under.
+
+    ``description`` is the sentence a refusal quotes where one was written or
+    a method implied one, and ``None`` where the name is the whole of what a
+    reader is told.
+    """
 
     holds: Mask
     where: Mask | None
+    description: str | None = None
 
 
 @dataclass(frozen=True)

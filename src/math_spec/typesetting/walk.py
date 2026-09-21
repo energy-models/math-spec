@@ -35,21 +35,15 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import assumptions_of
 from math_spec.program import (
     And,
     ArithmeticComparison,
-    AtLeastTwo,
     BooleanLiteral,
-    Check,
-    Contiguous,
     CountComparison,
-    Curved,
     DimensionComparison,
     DimensionPosition,
     Direction,
     ExpressionComparison,
-    Increasing,
     Mask,
     Not,
     Or,
@@ -893,24 +887,15 @@ class Walk:
     def _assumptions(self) -> list[Line]:
         """What the model assumes of its data, in the order a program carries it.
 
-        A curve's conditions are the language's own, derived from the method
-        rather than written (:func:`~math_spec.piecewise.assumptions_of`), and
-        they print here beside the file's: the reader sees every condition the
-        data is held to, whoever stated it.
+        A curve's conditions stand here with the file's own, because the
+        method states them in the same language: the reader sees every
+        condition the data is held to, whoever stated it.
         """
-        lines = [self._assumption(name) for name in self.schema.assumptions]
-        for block, pw in self._curves().items():
-            lines += [self._derived(name, pw, check) for name, check in assumptions_of(block, pw).items()]
-        return lines
-
-    def _curves(self) -> dict[str, PiecewiseBlock]:
-        """Every block this model states a curve for, whether it still declares one or has written it out."""
-        written = {block: ex.block for block, ex in self.schema._expanded_piecewise.items()}
-        return self.schema.piecewise | written
+        return [self._assumption(name) for name in self.schema.resolved.assumptions]
 
     def _assumption(self, name: str) -> Line:
-        """One ``assumptions:`` entry: the predicate over the frame both its masks name, under its ``where``."""
-        holds, where = self.schema.resolved.assumptions[name]
+        """One assumption: the predicate over the frame both its masks name, under its ``where``."""
+        holds, where, _ = self.schema.resolved.assumptions[name]
         frame = self._sorted(holds.dims | (where.dims if where is not None else frozenset()))
         ctx = self._context(frame)
         if isinstance(holds.root, AlignedComparison):
@@ -918,77 +903,6 @@ class Walk:
         else:
             left, right = self._predicate(holds.root, ctx), ''
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, self._condition(ctx, where)))
-
-    def _derived(self, name: str, pw: PiecewiseBlock, check: Check) -> Line:
-        """One condition a curve puts on its breakpoints, as the line a reader checks the data against.
-
-        The strictly increasing x-axis is an inequality between neighbours,
-        printed with the plain translation whose vacated first row is absent.
-        The shape a method is exact for is prose, as a paper writes it, since
-        "convex or concave" is no one inequality. The two conditions on a
-        ``points:`` mask are stated of the set the mask admits.
-        """
-        match check:
-            case Increasing(_, _, parameter, over):
-                frame = self._sorted(frozenset(self.schema.parameters[parameter].dims))
-                ctx = self._context(frame)
-                previous = ctx.translated(over, _Step(1, 'plain'))
-                condition = ''
-                if (mask := pw.points) is not None:
-                    admitted = ParameterDefined(mask, tuple(self.schema.parameters[mask].dims))
-                    condition = self.format.joined(
-                        [self._predicate(admitted, ctx), self._predicate(admitted, previous)], self._op('and')
-                    )
-                return Line(
-                    label=name,
-                    left=self._parameter(parameter, previous),
-                    right=f'{self._op("lt")} {self._parameter(parameter, ctx)}',
-                    condition=self._quantifier(frame, condition),
-                )
-            case Curved(_, _, x, y, over, curvature):
-                dims = frozenset(self.schema.parameters[x].dims) | frozenset(self.schema.parameters[y].dims)
-                ctx = self._context(self._sorted(dims))
-                shape = 'convex or concave' if curvature == 'either' else curvature
-                return Line(
-                    label=name,
-                    left=self._parameter(y, ctx),
-                    right=(
-                        f'{self.format.prose(f" is a {shape} function of ")} {self._parameter(x, ctx)} '
-                        f'{self.format.prose(" along ")} {self.symbols.index[over]}'
-                    ),
-                    condition=self._quantifier(self._sorted(dims - {over}), ''),
-                )
-            case AtLeastTwo(_, over, mask):
-                members, frame = self.symbols.set[over], self._sorted(frozenset())
-                if mask is not None:
-                    members, frame = self._admitted(mask, over)
-                return Line(
-                    label=name,
-                    left=self.format.cardinality(members),
-                    right=f'{self._op("ge")} {self._number(2)}',
-                    condition=self._quantifier(frame, ''),
-                )
-            case Contiguous(_, mask, _):
-                members, frame = self._admitted(mask, pw.over)
-                return Line(
-                    label=name,
-                    left=members,
-                    right=self.format.prose(' is one run of consecutive breakpoints'),
-                    condition=self._quantifier(frame, ''),
-                )
-        assert_never(check)
-
-    def _admitted(self, mask: str, over: str) -> tuple[str, list[str]]:
-        """The breakpoints *mask* admits along *over* as a set, and the frame that set is one of per curve."""
-        dims = frozenset(self.schema.parameters[mask].dims)
-        frame = self._sorted(dims - {over})
-        ctx = self._context([*frame, over])
-        admitted = self._predicate(ParameterDefined(mask, tuple(self.schema.parameters[mask].dims)), ctx)
-        return self.format.set_of(self._membership(over), admitted), frame
-
-    def _parameter(self, name: str, ctx: _Context) -> str:
-        """A parameter's symbol, indexed by its own dims."""
-        return ctx.indexed(self.symbols.name[name], list(self.schema.parameters[name].dims))
 
     def _piecewise(self, name: str) -> Line:
         """One ``piecewise:`` block as the curve it states, over the frame it states one per coordinate of.

@@ -36,8 +36,9 @@ from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
-from math_spec.model import Spec
+from math_spec.model import AssumptionBlock, Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
+from math_spec.piecewise import assumptions_of
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
@@ -53,7 +54,7 @@ from math_spec.resolution import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from math_spec.model import AssumptionBlock, ExpressionBlock
+    from math_spec.model import ExpressionBlock
     from math_spec.program import Predicate
 
 
@@ -171,6 +172,12 @@ def validate_expressions(schema: Spec) -> Resolved:
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
 
+    for block, pw in schema.piecewise.items():
+        for aname, assumed in assumptions_of(block, pw).items():
+            entry = AssumptionBlock(holds=assumed.holds, where=assumed.where, description=assumed.description)
+            if (assumption := _assumption(aname, entry, ns, errors)) is not None:
+                assumptions[aname] = assumption
+
     piecewise = {}
     for pname, pdef in schema.piecewise.items():
         links = [
@@ -248,7 +255,7 @@ def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[s
     if len(errors) > found:
         return None
     assert holds is not None, 'a where string that read to nothing appended an error'
-    return ResolvedAssumption(Mask(holds), mask_of(where))
+    return ResolvedAssumption(Mask(holds), mask_of(where), block.description)
 
 
 def _decided_assumption(context: str, text: str, *, value: bool) -> str:

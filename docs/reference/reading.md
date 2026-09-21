@@ -104,18 +104,20 @@ refusal quotes. The engine, which has the numbers, runs each one and raises
 ```python
 from math_spec.program import Holds, assumption_message
 
-sorted(program.assumptions)  # ['curve curvature', 'curve increasing']
-isinstance(program.assumptions['curve increasing'], Holds)  # False
-message = assumption_message('curve increasing', program.assumptions['curve increasing'])
+sorted(program.assumptions)  # ['curve_curvature', 'curve_increasing']
+isinstance(program.assumptions['curve_increasing'], Holds)  # True
+message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
 message  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
 ```
 
-Two kinds stand in that mapping. A `Holds` carries what the file wrote under
-`assumptions:` as two masks: `predicate`, and the `where` it is checked under.
-The rest carry what a `piecewise:` block's method implies about its
-breakpoints — `Increasing`, `Curved`, `AtLeastTwo` and `Contiguous` — each
-naming the block it came from. The union is closed, so a kind added later is a
-type error at your match rather than a case you silently skip.
+One kind stands in that mapping. A `Holds` carries a predicate as two masks —
+`predicate`, and the `where` it is checked under — and the sentence to raise
+under `description`. What a `piecewise:` block's method implies about its
+breakpoints is written in the same language and stands beside what the file
+wrote: `expand()` emits those entries, and a model that still declares the
+block derives the same text at load. So a consumer reads one kind, and a
+condition a method adds later is a row in that mapping rather than a case to
+handle.
 
 ## Nodes and masks
 

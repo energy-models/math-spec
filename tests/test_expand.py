@@ -103,7 +103,7 @@ def test_what_a_curve_assumes_of_its_numbers_rides_on_the_expansion_too(model):
     stated = to_program(spec).assumptions
     written_out = to_program(spec.expand()).assumptions
 
-    assert {type(a).__name__ for a in stated.values()} >= {'Increasing', 'Curved'}, (
+    assert {'cost_curve_increasing', 'cost_curve_curvature'} <= set(stated), (
         'the breakpoints increase and the curve bends one way, both checked where the data is'
     )
     assert written_out == stated, 'and the expansion carries every condition the block came with'

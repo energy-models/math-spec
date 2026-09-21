@@ -11,8 +11,6 @@ methods exist, and which gates a block will accept.
 
 from __future__ import annotations
 
-from typing import get_args
-
 import pytest
 
 from math_spec import CURVATURES
@@ -20,12 +18,8 @@ from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
 from math_spec.lowering import lower_program, to_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
-    AtLeastTwo,
-    Check,
-    Contiguous,
-    Curved,
     FirstOf,
-    Increasing,
+    Holds,
     LastOf,
     MaskOf,
     assumption_message,
@@ -378,8 +372,9 @@ _CURVATURE_CASES = [
 @pytest.mark.parametrize(('raw', 'expected'), _CURVATURE_CASES)
 def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
     """The consumer holding the breakpoints checks the shape; this says what to check for."""
-    answer = next((c.curvature for c in to_program(raw).assumptions.values() if isinstance(c, Curved)), None)
-    assert answer == expected
+    stated = [a.description for n, a in to_program(raw).assumptions.items() if n.endswith('_curvature')]
+    answer = next((c for c in CURVATURES if stated and f'a {c} curve' in stated[0]), 'either' if stated else None)
+    assert answer == expected, 'the curvature the method is exact for is the shape its sentence names'
     assert answer is None or answer in CURVATURES, (
         f'{answer!r} is not one of the curvatures the package publishes, so a consumer '
         f'pinning its table against CURVATURES would never match it'
@@ -423,8 +418,9 @@ def test_a_file_supplied_mask_derives_nothing():
     )
 
     assert program.parameters['reach'].derivation is None, 'the file declared it, so the caller binds it'
-    assert program.assumptions['cost_curve points'] == Contiguous('cost_curve', 'reach', None), (
-        'the mask is still one the data has to make contiguous, with no values parameter behind it'
+    contiguous = program.assumptions['cost_curve_contiguous']
+    assert contiguous.predicate.names_read == frozenset({'reach'}), (
+        "the mask is still one the data has to make contiguous, and the condition reads the file's own name"
     )
 
 
@@ -433,30 +429,32 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
     program = to_program(LP_MASKED)
 
     assert program.piecewise['cost_curve'].breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
-    assert program.assumptions == {
-        'cost_curve increasing': Increasing('cost_curve', 'lp', 'bp_x', 'bp'),
-        'cost_curve curvature': Curved('cost_curve', 'lp', 'bp_x', 'bp_y', 'bp', 'convex'),
-        'cost_curve breakpoints': AtLeastTwo('cost_curve', 'bp', 'bp_x'),
-        'cost_curve points': Contiguous('cost_curve', 'bp_x', 'bp_x'),
-    }, 'an lp curve with a mask assumes all four, each against the names the file wrote'
+    assert list(program.assumptions) == [
+        'cost_curve_increasing',
+        'cost_curve_curvature',
+        'cost_curve_breakpoints',
+        'cost_curve_contiguous',
+    ], 'an lp curve with a mask assumes all four, each named after the block that implies it'
+    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+        'a method states its conditions in the same language the file does, so a consumer has one kind to read'
+    )
+    assert program.assumptions['cost_curve_increasing'].predicate.names_read == frozenset({'bp_x'}), (
+        'the x-axis is what increases, and the condition reads it and nothing else'
+    )
 
     plain = to_program(raw_of(NONCONVEX_YAML))
     assert plain.assumptions == {}, 'adjacency over a whole curve is exact for any shape, and masks nothing'
 
 
 def test_a_curves_conditions_cannot_collide_with_a_written_assumption():
-    """The two kinds share one mapping, and the space in a derived name is what keeps them apart.
-
-    A declaration is named the way an expression writes it, so a file cannot
-    write `cost_curve increasing` and quietly replace the curve's own.
-    """
-    with pytest.raises(LanguageError, match="'cost_curve increasing' is not a name"):
-        to_program(override(LP, assumptions={'cost_curve increasing': 'bp_x > 0'}))
+    """A condition a method states is a name the block emits, and a file writing it is the collision every emitted name is."""
+    with pytest.raises(LanguageError, match="emitted assumption 'cost_curve_increasing' collides"):
+        to_program(override(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}))
 
 
-@pytest.mark.parametrize('kind', get_args(Check), ids=lambda k: k.__name__)
-def test_every_check_has_a_sentence(kind):
-    found = [(n, c) for n, c in to_program(LP_MASKED).assumptions.items() if isinstance(c, kind)]
-    assert found, 'the fixture is the block that assumes everything'
-    name, check = found[0]
-    assert assumption_message(name, check).startswith("piecewise 'cost_curve':")
+@pytest.mark.parametrize('suffix', ['increasing', 'curvature', 'breakpoints', 'contiguous'])
+def test_every_check_has_a_sentence(suffix):
+    assumptions = to_program(LP_MASKED).assumptions
+    name = f'cost_curve_{suffix}'
+    assert name in assumptions, 'the fixture is the block that assumes everything'
+    assert assumption_message(name, assumptions[name]).startswith("piecewise 'cost_curve':")

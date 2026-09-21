@@ -133,7 +133,7 @@ def _rendered_trees() -> Iterator[object]:
     for mask in resolved.variables.values():
         if mask is not None:
             yield mask.root
-    for holds, where in resolved.assumptions.values():
+    for holds, where, _ in resolved.assumptions.values():
         yield holds.root
         if where is not None:
             yield where.root
