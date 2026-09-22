@@ -623,7 +623,7 @@ class TestAWhereSideIsReadInResolution:
         spec = _schema(
             constraints={'t': {'dims': [], 'where': 'sum(c, over=g) >= k', 'expression': 'sum(p, over=g) <= k'}}
         )
-        assert list(spec.constraints) == ['t']
+        assert list(spec.constraints) == ['t'], 'a scalar constraint whose where reduces the frame it lacks loads'
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -683,6 +683,16 @@ class TestAWhereSideIsReadInResolution:
                 ("Unknown operator 'position'",),
                 id='a-position-inside-arithmetic',
             ),
+            pytest.param(
+                {'variables.p.where': '2 < 1 AND c > 0'},
+                ("'2 < 1' compares two numbers", 'decided before any data arrives'),
+                id='two-numbers',
+            ),
+            pytest.param(
+                {'variables.p.where': '-(1 + 1) * 3 >= 0'},
+                ('compares two numbers',),
+                id='arithmetic-over-numbers-alone',
+            ),
         ],
     )
     def test_a_bad_comparison_of_expressions_is_refused_at_load(self, patch, fragments):
@@ -706,6 +716,17 @@ class TestAWhereSideIsReadInResolution:
         )
         assert 'cannot be told apart before the data arrives: it compares expressions' in message
         assert 'precompute the test as a boolean parameter' in message
+
+    def test_a_lone_case_comparing_expressions_is_refused_too(self):
+        """One case has no pair to be proved apart from, and it loaded: the pairwise
+        check never observed it. The rule is on the case, not on the pair — the
+        `otherwise` is its negation, and only the data decides where that falls."""
+        message = _refusal(
+            expressions={
+                'e': {'dims': ['g'], 'cases': {'wide': {'when': 'c > 2 * k', 'expression': 'c'}}, 'otherwise': 0}
+            }
+        )
+        assert "case 'wide' cannot be told apart before the data arrives: it compares expressions" in message
 
 
 class TestRulesDecidedWithoutData:

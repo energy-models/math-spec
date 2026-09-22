@@ -1400,12 +1400,15 @@ def _names_under(*expressions: Expression) -> frozenset[str]:
 
     :func:`parameters_of` alone misses the data an operator reads beside its
     operand: the relation a grouping or a pullback reads through, the one a
-    translation or a window is partitioned by, and the parameter a named
-    offset or width is read from.
+    translation or a window is partitioned by, the parameter a named offset or
+    width is read from, and whatever decides which region of a cased value
+    applies.
     """
     names: set[str] = set(parameters_of(*expressions))
     for node in walk(*expressions):
-        if isinstance(node, (GroupSum, Pullback)):
+        if isinstance(node, Cases):
+            names.update(*(region.when.names_read for region in node.regions))
+        elif isinstance(node, (GroupSum, Pullback)):
             names.add(node.direction.name)
         elif isinstance(node, (Translate, WindowSum)):
             if node.partition is not None:

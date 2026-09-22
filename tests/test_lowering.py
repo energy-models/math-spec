@@ -430,6 +430,29 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     )
 
 
+def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
+    """`names_read` promised every parameter and relation the sides read, and dropped the
+    `when:` of a cased entry: the walk descends a `Cases` by its values alone."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'expressions.e': {
+                    'dims': ['g'],
+                    'cases': {'linked': {'when': 'flag AND lk2', 'expression': 'c'}},
+                    'otherwise': 'k',
+                },
+                'variables.p.where': 'e > 0',
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.names_read == frozenset({'c', 'k', 'flag', 'lk2'}), (
+        'the flag and the relation decide which region applies, so the consumer binds them too'
+    )
+
+
 def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):
     """Every other predicate node is already the program's own, so lowering hands it through unchanged."""
     assert dispatch_program.variables['dispatch'].where == Mask(CAPACITY_POSITIVE)
