@@ -159,13 +159,15 @@ A name compared against a literal does not arrive this way. `p_max > 5` is a
 both mask the same coordinates. Match both where you read a comparison over
 parameters.
 
-Two predicates read another predicate rather than a declaration. A
-`CountComparison` carries the mask it counts and the dimension it counts away;
-a `TranslatedPredicate` carries the mask it reads at a neighbouring
-coordinate. Each holds that mask as a `Mask`, where a connective holds a bare
-predicate: the walk recurses through a connective and stops at these, so read
-the field where you need what is inside. `.names_read` and `.dims` already see
-through both.
+Three predicates read another predicate rather than a declaration. A
+`CountComparison` carries the mask it counts and the dimension it counts away.
+A `TranslatedPredicate` carries the mask it reads at a neighbouring
+coordinate. A `PulledBackPredicate` carries the mask it reads through a
+relation, and the `Direction` it reads in. Each holds that mask as a `Mask`,
+where a connective holds a bare predicate: the walk recurses through a
+connective and stops at these, so read the field where you need what is
+inside. `.names_read` and `.dims` already see through all three, and the
+relation a `PulledBackPredicate` reads is in its `.names_read`.
 
 A predicate you build yourself answers the same four questions: wrap it in
 `Mask`, or build it there with `~`, `&` and `|`. A mask folds as it is built,

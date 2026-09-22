@@ -324,6 +324,10 @@ constraints:
     dims: [snapshot, bus]
     where: "load AND NOT shift(load, along=snapshot, offset=1)"
     expression: slack <= load
+  zoned: # a predicate read through a relation: a bus is held only where its zone has a cap at all
+    dims: [bus]
+    where: "at(zone_cap, by=zone_of, over=zone, into=bus)"
+    expression: theta <= budget
   capped: # an expressions: entry on a side, read by the name the file gave it
     dims: [snapshot, generator]
     where: "spend_cap > 0 OR NOT is_flexible"

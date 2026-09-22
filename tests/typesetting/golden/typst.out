@@ -117,6 +117,7 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("counted") & theta_(b) & <= upright("budget") & forall b in cal(B) colon abs({e in cal(E) colon upright("tech_cap")_(b,e) > 0}) >= 2 \
   upright("counted_here") & theta_(b) & <= upright("tech_cap")_(b,e) & forall b in cal(B), e in cal(E) colon abs({e' in cal(E) colon upright("tech_cap")_(b,e') > 0}) >= 2 \
   upright("run_start") & italic("slack")_(t) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("load")_(t,b) upright(" is defined") and not (upright("load")_(t - 1,b) upright(" is defined")) \
+  upright("zoned") & theta_(b) & <= upright("budget") & forall b in cal(B) colon upright("zone_cap")_(upright("zone_of")(b)) upright(" is defined") \
   upright("capped") & p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("spend")^(upright("cap"))_(g) > 0 or not upright("is_flexible")_(g) \
   upright("fuel_curve") & (p_(t,g), italic("fuel")_(t,g), italic("heat")_(t,g)) & in italic("on")_(t,g) dot upright("pwl")_(a in cal(A))(upright("bp_x")_(g,a), upright("bp_y")_(g,a), upright("bp_heat")_(g,a)) & forall t in cal(T), g in cal(G) \
   upright("cost_curve") & italic("op_cost")_(t,g) & >= cases(italic("warm")_(t,g) & upright("if ") upright("is_flexible")_(g), 1 & upright("otherwise")) dot upright("pwl")_(a in cal(A) colon upright("bp_run")_(g,a))(upright("bp_x")_(g,a), upright("bp_y")_(g,a))(p_(t,g)) & forall t in cal(T), g in cal(G) \
