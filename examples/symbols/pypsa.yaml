@@ -16,6 +16,9 @@ dimensions:
   store: { index: v, set: '\mathcal{V}' }
   line: { index: k, set: '\mathcal{K}' }
   cycle: { index: c, set: '\mathcal{C}' }
+  scenario: { index: '\xi', set: '\Xi' }
+  period: { index: y, set: '\mathcal{Y}' }
+  carrier: { index: i, set: '\mathcal{I}' }
 names:
   snapshot_weightings_objective: '\mathrm{w}'
   Generator_p: p
@@ -153,3 +156,23 @@ names:
   Store_marginal_cost: '\mathrm{c}^{q}'
   Store_marginal_cost_storage: '\mathrm{c}^{e}'
   Store_e_set: '\mathrm{e}^{\mathrm{set}}'
+  scenario_weight: '\pi'
+  CVaR_omega: '\omega'
+  CVaR_inv_tail: '\mathrm{v}'
+  CVaR_a: a
+  CVaR_theta: '\theta'
+  CVaR: "CVaR"
+  period_weight_objective: '\mathrm{w}^{y}'
+  Generator_active: '\mathrm{on}'
+  Link_active: '\mathrm{on}^{f}'
+  StorageUnit_active: '\mathrm{on}^{h}'
+  Store_active: '\mathrm{on}^{e}'
+  Line_active: '\mathrm{on}^{s}'
+  Generator_capital_weight: '\mathrm{W}'
+  Link_capital_weight: '\mathrm{W}^{f}'
+  StorageUnit_capital_weight: '\mathrm{W}^{h}'
+  Store_capital_weight: '\mathrm{W}^{e}'
+  Line_capital_weight: '\mathrm{W}^{s}'
+  Generator_first_active: '\mathrm{new}'
+  Carrier_max_growth: '\overline{\Delta}'
+  Carrier_max_relative_growth: '\mathrm{r}'

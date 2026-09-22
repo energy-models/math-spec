@@ -1,0 +1,607 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The shape of the standard PyPSA model, frozen before examples/pypsa.yaml
+# became the unified superset. tests/test_pypsa_collapses.py asserts the
+# superset, fed one scenario and all-active periods, reduces to exactly this.
+
+constraints:
+  Bus_nodal_balance:
+  - snapshot
+  - bus
+  Generator_com_down_time:
+  - snapshot
+  - generator
+  Generator_com_ext_p_lower:
+  - snapshot
+  - generator
+  Generator_com_ext_p_lower_nonneg:
+  - snapshot
+  - generator
+  Generator_com_ext_p_upper_big_m:
+  - snapshot
+  - generator
+  Generator_com_ext_p_upper_cap:
+  - snapshot
+  - generator
+  Generator_com_mod_p_lower:
+  - snapshot
+  - generator
+  Generator_com_mod_p_upper:
+  - snapshot
+  - generator
+  Generator_com_p_lower:
+  - snapshot
+  - generator
+  Generator_com_p_upper:
+  - snapshot
+  - generator
+  Generator_com_status_must_stay_up:
+  - snapshot
+  - generator
+  Generator_com_transition_shut_down:
+  - snapshot
+  - generator
+  Generator_com_transition_start_up:
+  - snapshot
+  - generator
+  Generator_com_up_time:
+  - snapshot
+  - generator
+  Generator_e_sum_max:
+  - generator
+  Generator_e_sum_min:
+  - generator
+  Generator_ext_p_lower:
+  - snapshot
+  - generator
+  Generator_ext_p_nom_lower:
+  - generator
+  Generator_ext_p_nom_upper:
+  - generator
+  Generator_ext_p_upper:
+  - snapshot
+  - generator
+  Generator_fix_p_lower:
+  - snapshot
+  - generator
+  Generator_fix_p_upper:
+  - snapshot
+  - generator
+  Generator_p_nom_modularity:
+  - generator
+  Generator_p_nom_set:
+  - generator
+  Generator_p_ramp_limit_down:
+  - snapshot
+  - generator
+  Generator_p_ramp_limit_down_run_big_m:
+  - snapshot
+  - generator
+  Generator_p_ramp_limit_down_shut_big_m:
+  - snapshot
+  - generator
+  Generator_p_ramp_limit_up:
+  - snapshot
+  - generator
+  Generator_p_ramp_limit_up_run_big_m:
+  - snapshot
+  - generator
+  Generator_p_ramp_limit_up_start_big_m:
+  - snapshot
+  - generator
+  Generator_p_set:
+  - snapshot
+  - generator
+  Generator_shut_down_p_fixed_upper:
+  - snapshot
+  - generator
+  Generator_shut_down_p_nom_variable_upper:
+  - snapshot
+  - generator
+  Generator_start_up_p_fixed_upper:
+  - snapshot
+  - generator
+  Generator_start_up_p_nom_variable_upper:
+  - snapshot
+  - generator
+  Generator_status_p_fixed_upper:
+  - snapshot
+  - generator
+  Generator_status_p_nom_variable_upper:
+  - snapshot
+  - generator
+  GlobalConstraint_operational_limit_eq:
+  - global_constraint
+  GlobalConstraint_operational_limit_lb:
+  - global_constraint
+  GlobalConstraint_operational_limit_ub:
+  - global_constraint
+  GlobalConstraint_primary_energy_eq:
+  - global_constraint
+  GlobalConstraint_primary_energy_lb:
+  - global_constraint
+  GlobalConstraint_primary_energy_ub:
+  - global_constraint
+  GlobalConstraint_tech_capacity_expansion_limit_eq:
+  - global_constraint
+  GlobalConstraint_tech_capacity_expansion_limit_lb:
+  - global_constraint
+  GlobalConstraint_tech_capacity_expansion_limit_ub:
+  - global_constraint
+  GlobalConstraint_transmission_expansion_cost_limit_eq:
+  - global_constraint
+  GlobalConstraint_transmission_expansion_cost_limit_lb:
+  - global_constraint
+  GlobalConstraint_transmission_expansion_cost_limit_ub:
+  - global_constraint
+  GlobalConstraint_transmission_volume_expansion_limit_eq:
+  - global_constraint
+  GlobalConstraint_transmission_volume_expansion_limit_lb:
+  - global_constraint
+  GlobalConstraint_transmission_volume_expansion_limit_ub:
+  - global_constraint
+  Kirchhoff_Voltage_Law:
+  - snapshot
+  - cycle
+  Line_ext_s_lower:
+  - snapshot
+  - line
+  Line_ext_s_nom_lower:
+  - line
+  Line_ext_s_nom_upper:
+  - line
+  Line_ext_s_upper:
+  - snapshot
+  - line
+  Line_fix_s_lower:
+  - snapshot
+  - line
+  Line_fix_s_upper:
+  - snapshot
+  - line
+  Line_s_nom_set:
+  - line
+  Line_s_set:
+  - snapshot
+  - line
+  Link_ext_p_lower:
+  - snapshot
+  - link
+  Link_ext_p_nom_lower:
+  - link
+  Link_ext_p_nom_upper:
+  - link
+  Link_ext_p_upper:
+  - snapshot
+  - link
+  Link_fix_p_lower:
+  - snapshot
+  - link
+  Link_fix_p_upper:
+  - snapshot
+  - link
+  Link_p_nom_set:
+  - link
+  Link_p_ramp_limit_down:
+  - snapshot
+  - link
+  Link_p_ramp_limit_up:
+  - snapshot
+  - link
+  Link_p_set:
+  - snapshot
+  - link
+  StorageUnit_energy_balance:
+  - snapshot
+  - storage_unit
+  StorageUnit_ext_p_dispatch_lower:
+  - snapshot
+  - storage_unit
+  StorageUnit_ext_p_dispatch_upper:
+  - snapshot
+  - storage_unit
+  StorageUnit_ext_p_nom_lower:
+  - storage_unit
+  StorageUnit_ext_p_nom_upper:
+  - storage_unit
+  StorageUnit_ext_p_store_lower:
+  - snapshot
+  - storage_unit
+  StorageUnit_ext_p_store_upper:
+  - snapshot
+  - storage_unit
+  StorageUnit_ext_state_of_charge_lower:
+  - snapshot
+  - storage_unit
+  StorageUnit_ext_state_of_charge_upper:
+  - snapshot
+  - storage_unit
+  StorageUnit_fix_p_dispatch_lower:
+  - snapshot
+  - storage_unit
+  StorageUnit_fix_p_dispatch_upper:
+  - snapshot
+  - storage_unit
+  StorageUnit_fix_p_store_lower:
+  - snapshot
+  - storage_unit
+  StorageUnit_fix_p_store_upper:
+  - snapshot
+  - storage_unit
+  StorageUnit_fix_state_of_charge_lower:
+  - snapshot
+  - storage_unit
+  StorageUnit_fix_state_of_charge_upper:
+  - snapshot
+  - storage_unit
+  StorageUnit_p_nom_set:
+  - storage_unit
+  StorageUnit_p_set:
+  - snapshot
+  - storage_unit
+  StorageUnit_state_of_charge_set:
+  - snapshot
+  - storage_unit
+  Store_e_nom_set:
+  - store
+  Store_e_set:
+  - snapshot
+  - store
+  Store_energy_balance:
+  - snapshot
+  - store
+  Store_ext_e_lower:
+  - snapshot
+  - store
+  Store_ext_e_nom_lower:
+  - store
+  Store_ext_e_nom_upper:
+  - store
+  Store_ext_e_upper:
+  - snapshot
+  - store
+  Store_fix_e_lower:
+  - snapshot
+  - store
+  Store_fix_e_upper:
+  - snapshot
+  - store
+expressions:
+- Generator_p_nom_effective
+- Generator_previous_p
+- Generator_previous_status
+- Generator_ramp_down_allowance
+- Generator_ramp_up_allowance
+- Link_output_arrival
+- Link_p_nom_effective
+- StorageUnit_charge_carried_in
+- Store_energy_carried_in
+- operational_limit
+- primary_energy
+- tech_capacity_expansion
+- transmission_expansion_cost
+- transmission_volume_expansion
+parameters:
+  Generator_big_m:
+  - generator
+  Generator_capital_cost:
+  - generator
+  Generator_committable:
+  - generator
+  Generator_e_sum_max:
+  - generator
+  Generator_e_sum_min:
+  - generator
+  Generator_marginal_cost:
+  - snapshot
+  - generator
+  Generator_min_down_time:
+  - generator
+  Generator_min_up_time:
+  - generator
+  Generator_modules_installed:
+  - generator
+  Generator_must_stay_up:
+  - snapshot
+  - generator
+  Generator_operational_limit_weight:
+  - global_constraint
+  - generator
+  Generator_p_max_pu:
+  - snapshot
+  - generator
+  Generator_p_min_pu:
+  - snapshot
+  - generator
+  Generator_p_min_pu_nonneg:
+  - generator
+  Generator_p_nom:
+  - generator
+  Generator_p_nom_extendable:
+  - generator
+  Generator_p_nom_max:
+  - generator
+  Generator_p_nom_min:
+  - generator
+  Generator_p_nom_mod:
+  - generator
+  Generator_p_nom_set:
+  - generator
+  Generator_p_set:
+  - snapshot
+  - generator
+  Generator_primary_energy_weight:
+  - global_constraint
+  - generator
+  Generator_ramp_limit_down:
+  - generator
+  Generator_ramp_limit_shut_down:
+  - generator
+  Generator_ramp_limit_start_up:
+  - generator
+  Generator_ramp_limit_up:
+  - generator
+  Generator_shut_down_cost:
+  - generator
+  Generator_stand_by_cost:
+  - snapshot
+  - generator
+  Generator_start_up_cost:
+  - generator
+  Generator_status_initial:
+  - generator
+  Generator_tech_capacity_weight:
+  - global_constraint
+  - generator
+  GlobalConstraint_constant:
+  - global_constraint
+  GlobalConstraint_sense:
+  - global_constraint
+  GlobalConstraint_type:
+  - global_constraint
+  Line_capital_cost:
+  - line
+  Line_cycle_weight:
+  - line
+  - cycle
+  Line_expansion_cost_weight:
+  - global_constraint
+  - line
+  Line_s_max_pu:
+  - snapshot
+  - line
+  Line_s_nom:
+  - line
+  Line_s_nom_extendable:
+  - line
+  Line_s_nom_max:
+  - line
+  Line_s_nom_min:
+  - line
+  Line_s_nom_set:
+  - line
+  Line_s_set:
+  - snapshot
+  - line
+  Line_tech_capacity_weight:
+  - global_constraint
+  - line
+  Line_volume_weight:
+  - global_constraint
+  - line
+  Link_capital_cost:
+  - link
+  Link_efficiency:
+  - link_output
+  Link_expansion_cost_weight:
+  - global_constraint
+  - link
+  Link_marginal_cost:
+  - snapshot
+  - link
+  Link_output_cyclic_delay:
+  - link_output
+  Link_output_delay:
+  - link_output
+  Link_p_max_pu:
+  - snapshot
+  - link
+  Link_p_min_pu:
+  - snapshot
+  - link
+  Link_p_nom:
+  - link
+  Link_p_nom_extendable:
+  - link
+  Link_p_nom_max:
+  - link
+  Link_p_nom_min:
+  - link
+  Link_p_nom_set:
+  - link
+  Link_p_set:
+  - snapshot
+  - link
+  Link_ramp_limit_down:
+  - link
+  Link_ramp_limit_up:
+  - link
+  Link_tech_capacity_weight:
+  - global_constraint
+  - link
+  Link_volume_weight:
+  - global_constraint
+  - link
+  Load_p_set:
+  - snapshot
+  - load
+  StorageUnit_capital_cost:
+  - storage_unit
+  StorageUnit_cyclic_state_of_charge:
+  - storage_unit
+  StorageUnit_efficiency_dispatch:
+  - storage_unit
+  StorageUnit_efficiency_store:
+  - storage_unit
+  StorageUnit_inflow:
+  - snapshot
+  - storage_unit
+  StorageUnit_marginal_cost:
+  - snapshot
+  - storage_unit
+  StorageUnit_marginal_cost_storage:
+  - snapshot
+  - storage_unit
+  StorageUnit_max_hours:
+  - storage_unit
+  StorageUnit_operational_limit_weight:
+  - global_constraint
+  - storage_unit
+  StorageUnit_p_max_pu:
+  - snapshot
+  - storage_unit
+  StorageUnit_p_min_pu:
+  - snapshot
+  - storage_unit
+  StorageUnit_p_nom:
+  - storage_unit
+  StorageUnit_p_nom_extendable:
+  - storage_unit
+  StorageUnit_p_nom_max:
+  - storage_unit
+  StorageUnit_p_nom_min:
+  - storage_unit
+  StorageUnit_p_nom_set:
+  - storage_unit
+  StorageUnit_p_set:
+  - snapshot
+  - storage_unit
+  StorageUnit_primary_energy_weight:
+  - global_constraint
+  - storage_unit
+  StorageUnit_retention:
+  - snapshot
+  - storage_unit
+  StorageUnit_spill_cost:
+  - snapshot
+  - storage_unit
+  StorageUnit_state_of_charge_initial:
+  - storage_unit
+  StorageUnit_state_of_charge_set:
+  - snapshot
+  - storage_unit
+  StorageUnit_tech_capacity_weight:
+  - global_constraint
+  - storage_unit
+  Store_capital_cost:
+  - store
+  Store_e_cyclic:
+  - store
+  Store_e_initial:
+  - store
+  Store_e_max_pu:
+  - snapshot
+  - store
+  Store_e_min_pu:
+  - snapshot
+  - store
+  Store_e_nom:
+  - store
+  Store_e_nom_extendable:
+  - store
+  Store_e_nom_max:
+  - store
+  Store_e_nom_min:
+  - store
+  Store_e_nom_set:
+  - store
+  Store_e_set:
+  - snapshot
+  - store
+  Store_marginal_cost:
+  - snapshot
+  - store
+  Store_marginal_cost_storage:
+  - snapshot
+  - store
+  Store_operational_limit_weight:
+  - global_constraint
+  - store
+  Store_primary_energy_weight:
+  - global_constraint
+  - store
+  Store_retention:
+  - snapshot
+  - store
+  Store_tech_capacity_weight:
+  - global_constraint
+  - store
+  snapshot_is_last:
+  - snapshot
+  snapshot_weightings_generators:
+  - snapshot
+  snapshot_weightings_objective:
+  - snapshot
+  snapshot_weightings_stores:
+  - snapshot
+relations:
+- Generator_bus
+- Line_bus0
+- Line_bus1
+- Link_bus0
+- Link_output_bus
+- Link_output_link
+- Load_bus
+- StorageUnit_bus
+- Store_bus
+variables:
+  Generator_n_mod:
+  - generator
+  Generator_p:
+  - snapshot
+  - generator
+  Generator_p_nom_ext:
+  - generator
+  Generator_shut_down:
+  - snapshot
+  - generator
+  Generator_start_up:
+  - snapshot
+  - generator
+  Generator_status:
+  - snapshot
+  - generator
+  Line_s:
+  - snapshot
+  - line
+  Line_s_nom_ext:
+  - line
+  Link_p:
+  - snapshot
+  - link
+  Link_p_nom_ext:
+  - link
+  StorageUnit_p_dispatch:
+  - snapshot
+  - storage_unit
+  StorageUnit_p_nom_ext:
+  - storage_unit
+  StorageUnit_p_store:
+  - snapshot
+  - storage_unit
+  StorageUnit_spill:
+  - snapshot
+  - storage_unit
+  StorageUnit_state_of_charge:
+  - snapshot
+  - storage_unit
+  Store_e:
+  - snapshot
+  - store
+  Store_e_nom_ext:
+  - store
+  Store_p:
+  - snapshot
+  - store

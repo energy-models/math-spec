@@ -6,11 +6,16 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA in one file
 
 The model a plain `n.optimize()` builds, stated as one file and grown a rung
-at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
-`pypsa/optimization/`) and links each to its block in the file.
+at a time. The file also carries the two classes PyPSA switches on with a
+keyword: the two-stage stochastic class over a `scenario` axis (rung 14), and
+the multi-period investment class over a `period` axis (rung 15). A plain run
+feeds one scenario and one all-active period, so every extra axis collapses and
+the standard model returns. The index below lists every row PyPSA emits (PyPSA
+`1.3.0`, `pypsa/optimization/`) and links each to its block in the file.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
-their duals are row duals. Regimes are data columns and `where:` masks. Names are PyPSA's, `Component_attribute`, with a symbol table
+their duals are row duals. Regimes are data columns and `where:` masks. Names
+are PyPSA's, `Component_attribute`, with a symbol table
 (`examples/symbols/pypsa.yaml`) making the math read as math.
 
 ## Index
@@ -414,7 +419,7 @@ each type is three blocks by sense.
 | [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
 | `Bus-nom_min/max_{carrier}`           | out         | deprecated in PyPSA                               |
-| [`Carrier-growth_limit`](pypsa_multi_period.md) | done | rung 15, a file of its own |
+| [`Carrier-growth_limit`](#carrier-growth_limit) | done | rung 15, below |
 
 <!-- reference:rung_05_global_constraints:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333332`, 102 rows.
@@ -1095,6 +1100,166 @@ def build():
 </details>
 <!-- reference:rung_11_ac_dc_meshed:end -->
 
+### Rung 14 — two-stage stochastic
+
+Two futures and a risk preference: `n.set_scenarios(...)` with
+`n.set_risk_preference(alpha, omega)`. Everything over a snapshot spans a
+scenario as well. Capacity does not, because it is chosen once before the
+future is known. The operating cost is the expectation over the scenarios'
+weights. A risk preference adds the CVaR (conditional value at risk) rows: an
+excess per scenario and the tail's average, blended into the objective at
+`omega`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Generator-p`, `Link-p`](#variable-domains) | done | over `scenario`; `Generator-p_nom` is not — chosen once |
+| [`Generator-fix-p-*`, `-ext-p-*`, `Link-fix-p-*`, `Bus-nodal_balance`](#generator-fix-p-lower) | done | rungs 1 and 3, over `scenario` |
+| [`CVaR-a`, `CVaR-theta`, `CVaR`](#variable-domains) | done | |
+| [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names a row per scenario; one block over the dimension |
+| [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` is data prep |
+| [objective](#objective) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
+
+<!-- reference:rung_14_stochastic:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `9267.386666666665`, 87 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_14_stochastic.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 14: two futures and a risk preference — capacity chosen once, dispatch per scenario."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus an extendable wind unit whose availability and the south's load differ between a calm and a stormy future."""
+    n = spine.build()
+    n.add('Generator', 'wind14', bus='south', p_nom_extendable=True, p_nom_max=100, marginal_cost=1, capital_cost=20)
+    n.add('Load', 'port14', bus='south')
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    n.c.loads.dynamic.p_set[('calm', 'port14')] = [10, 20, 15, 10]
+    n.c.loads.dynamic.p_set[('stormy', 'port14')] = [40, 60, 50, 30]
+    n.c.generators.dynamic.p_max_pu[('calm', 'wind14')] = [0.9, 0.7, 0.8, 0.6]
+    n.c.generators.dynamic.p_max_pu[('stormy', 'wind14')] = [0.3, 0.2, 0.4, 0.1]
+    n.set_risk_preference(alpha=0.5, omega=0.3)
+    return n
+```
+
+</details>
+<!-- reference:rung_14_stochastic:end -->
+
+### Rung 15 — investment periods
+
+`n.optimize(multi_investment_periods=True)`. A snapshot belongs to an
+investment period. An asset stands in the periods its build year and lifetime
+span. Capacity is paid once per period the asset stands in, and each period
+carries a weight. A carrier may grow only so much per period. Which snapshots
+an asset is active in is data prep, because a `where` reaches only the frame's
+own dimensions.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Generator-p`](#variable-domains) | done | where the generator stands in the snapshot's period — `active`, data prep |
+| [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
+| [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
+| [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
+| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period, within=period)` has them; a later rung |
+
+<!-- reference:rung_15_multi_period:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_15_multi_period.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 15: two investment periods — build years, lifetimes, period weights and a carrier's growth limit."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def build():
+    """A whole network, not the spine: eight snapshots over two periods, a unit that retires, two wind builds capped by growth."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(4)] + [(2030, datetime(2030, 1, 1, t)) for t in range(4)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0, 2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', ['north', 'south'])
+    n.add('Carrier', 'wind', max_growth=50, max_relative_growth=0.5)
+    n.add('Carrier', 'gas')
+    n.add('Generator', 'old_gas', bus='north', carrier='gas', p_nom=40, marginal_cost=30, build_year=2010, lifetime=15)
+    n.add(
+        'Generator',
+        'wind20',
+        bus='north',
+        carrier='wind',
+        p_nom_extendable=True,
+        p_nom_max=200,
+        marginal_cost=1,
+        capital_cost=100,
+        build_year=2020,
+        lifetime=30,
+        p_max_pu=[0.8, 0.6, 0.7, 0.5, 0.8, 0.6, 0.7, 0.5],
+    )
+    n.add(
+        'Generator',
+        'wind30',
+        bus='south',
+        carrier='wind',
+        p_nom_extendable=True,
+        p_nom_max=200,
+        marginal_cost=1,
+        capital_cost=80,
+        build_year=2030,
+        lifetime=30,
+        p_max_pu=[0.9, 0.7, 0.6, 0.8, 0.9, 0.7, 0.6, 0.8],
+    )
+    n.add(
+        'Generator',
+        'gas30',
+        bus='south',
+        carrier='gas',
+        p_nom_extendable=True,
+        p_nom_max=200,
+        marginal_cost=40,
+        capital_cost=50,
+        build_year=2030,
+        lifetime=30,
+    )
+    n.add('Link', 'wire15', bus0='north', bus1='south', p_nom=60, p_min_pu=-1, efficiency=0.95)
+    n.add('Load', 'town15', bus='north', p_set=[20, 30, 25, 20, 35, 45, 40, 30])
+    n.add('Load', 'port15', bus='south', p_set=[10, 20, 15, 10, 30, 40, 35, 25])
+    return n
+```
+
+</details>
+<!-- reference:rung_15_multi_period:end -->
+
 ### Rung 16 — link delay
 
 A source feeding two sinks over links whose energy arrives late. PyPSA's
@@ -1183,7 +1348,6 @@ def build():
 | PyPSA                          | status | note                                 |
 | ------------------------------ | ------ | ------------------------------------ |
 | [`{c}-loss*`](pypsa_losses.md) | done   | rung 13, a file of its own; tangent form |
-| [`CVaR-*`](pypsa_stochastic.md) | done  | rung 14, a file of its own           |
 
 ## Refusals
 
@@ -1207,15 +1371,16 @@ concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 ## The file
 
 <!-- gallery:begin -->
-The model a plain `n.optimize()` builds, stated in one file. Every declaration is named `Component_attribute` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become `where:` masks. Bounds are the explicit rows PyPSA writes, so their duals are row duals. Parameters no PyPSA table carries verbatim are computed in data prep and say so in their description.
+A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. Capacity is chosen once, before the future is known, and paid once per active period; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. Which snapshots an asset is active in, and a scenario's weight, are data prep.
 
 #### Sets
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\Xi`$ | index $`\xi`$ — `scenario` — the futures dispatch is chosen in, each with a weight |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — dispatch periods |
 | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — network nodes |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
 | $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
@@ -1224,6 +1389,8 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
 | $`\mathcal{B}`$ | index $`b`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
+| $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
+| $`\mathcal{I}`$ | index $`i`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I}`$ — energy carriers, what a growth limit is set per |
 
 #### Parameters
 
@@ -1261,7 +1428,24 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
 | $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
-| $`\mathrm{load}`$ | `Load_p_set` over $`\mathcal{T} \times \mathcal{D}`$ — demand |
+| $`\mathrm{load}`$ | `Load_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{D}`$ — demand |
+| $`\pi`$ | `scenario_weight` over $`\Xi`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
+| $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
+| $`\mathrm{v}`$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
+| $`\mathrm{w}^{y}`$ | `period_weight_objective` over $`\mathcal{Y}`$ — PyPSA's `investment_period_weightings.objective` — what a period's cost weighs |
+| $`\mathrm{on}`$ | `Generator_active` over $`\mathcal{T} \times \mathcal{G}`$ — whether a generator stands in a snapshot's period — PyPSA's `active`, from build year and lifetime, data prep |
+| $`\mathrm{on}^{f}`$ | `Link_active` over $`\mathcal{T} \times \mathcal{L}`$ — whether a link stands in a snapshot's period — PyPSA's `active`, data prep |
+| $`\mathrm{on}^{h}`$ | `StorageUnit_active` over $`\mathcal{T} \times \mathcal{S}`$ — whether a storage unit stands in a snapshot's period — PyPSA's `active`, data prep |
+| $`\mathrm{on}^{e}`$ | `Store_active` over $`\mathcal{T} \times \mathcal{V}`$ — whether a store stands in a snapshot's period — PyPSA's `active`, data prep |
+| $`\mathrm{on}^{s}`$ | `Line_active` over $`\mathcal{T} \times \mathcal{K}`$ — whether a line stands in a snapshot's period — PyPSA's `active`, data prep |
+| $`\mathrm{W}`$ | `Generator_capital_weight` over $`\mathcal{G}`$ — the sum of period weights a generator stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{W}^{f}`$ | `Link_capital_weight` over $`\mathcal{L}`$ — the sum of period weights a link stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{W}^{h}`$ | `StorageUnit_capital_weight` over $`\mathcal{S}`$ — the sum of period weights a storage unit stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{W}^{e}`$ | `Store_capital_weight` over $`\mathcal{V}`$ — the sum of period weights a store stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{W}^{s}`$ | `Line_capital_weight` over $`\mathcal{K}`$ — the sum of period weights a line stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit |
+| $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top |
 | $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
 | $`\mathrm{f}^{\mathrm{set}}`$ | `Link_p_set` over $`\mathcal{T} \times \mathcal{L}`$ — a given flow schedule; a link without one has no row here |
 | $`\mathrm{w}^{\mathrm{sto}}`$ | `snapshot_weightings_stores` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance |
@@ -1343,43 +1527,47 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 
 | Symbol | Meaning |
 |---|---|
-| $`p`$ | `Generator_p` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-p` — output of a generator in a snapshot |
-| $`f`$ | `Link_p` over $`\mathcal{T} \times \mathcal{L}`$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $`h^{+}`$ | `StorageUnit_p_dispatch` over $`\mathcal{T} \times \mathcal{S}`$ — `StorageUnit-p_dispatch` — power delivered to the bus |
-| $`h^{-}`$ | `StorageUnit_p_store` over $`\mathcal{T} \times \mathcal{S}`$ — `StorageUnit-p_store` — power drawn from the bus into charge |
-| $`\mathit{soc}`$ | `StorageUnit_state_of_charge` over $`\mathcal{T} \times \mathcal{S}`$ — `StorageUnit-state_of_charge` — energy held at the end of a snapshot |
-| $`\mathit{spill}`$ | `StorageUnit_spill` over $`\mathcal{T} \times \mathcal{S}`$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
-| $`e`$ | `Store_e` over $`\mathcal{T} \times \mathcal{V}`$ — `Store-e` — energy held at the end of a snapshot |
-| $`q`$ | `Store_p` over $`\mathcal{T} \times \mathcal{V}`$ — `Store-p` — power delivered to the bus; charging is negative |
+| $`p`$ | `Generator_p` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-p` — output of a generator in a snapshot |
+| $`f`$ | `Link_p` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $`h^{+}`$ | `StorageUnit_p_dispatch` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-p_dispatch` — power delivered to the bus |
+| $`h^{-}`$ | `StorageUnit_p_store` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-p_store` — power drawn from the bus into charge |
+| $`\mathit{soc}`$ | `StorageUnit_state_of_charge` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-state_of_charge` — energy held at the end of a snapshot |
+| $`\mathit{spill}`$ | `StorageUnit_spill` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
+| $`e`$ | `Store_e` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — `Store-e` — energy held at the end of a snapshot |
+| $`q`$ | `Store_p` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — `Store-p` — power delivered to the bus; charging is negative |
 | $`N`$ | `Generator_n_mod` over $`\mathcal{G}`$ — `Generator-n_mod` — how many modules of an extendable modular build |
-| $`u`$ | `Generator_status` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-status` — how much of a committable unit is on: an integer the rows below cap at one, or at the module count where the build is modular |
-| $`\mathit{up}`$ | `Generator_start_up` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
-| $`\mathit{dn}`$ | `Generator_shut_down` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
-| $`s`$ | `Line_s` over $`\mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
+| $`u`$ | `Generator_status` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-status` — how much of a committable unit is on: an integer the rows below cap at one, or at the module count where the build is modular |
+| $`\mathit{up}`$ | `Generator_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
+| $`\mathit{dn}`$ | `Generator_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
+| $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $`S`$ | `Line_s_nom_ext` over $`\mathcal{K}`$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`F`$ | `Link_p_nom_ext` over $`\mathcal{L}`$ — `Link-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`H`$ | `StorageUnit_p_nom_ext` over $`\mathcal{S}`$ — `StorageUnit-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`E`$ | `Store_e_nom_ext` over $`\mathcal{V}`$ — `Store-e_nom` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $`a`$ | `CVaR_a` over $`\Xi`$ — `CVaR-a` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not |
+| $`\theta`$ | `CVaR_theta` (scalar) — `CVaR-theta` — where the tail starts, the value at risk |
+| $`CVaR`$ | `CVaR` (scalar) — `CVaR` — the tail's average cost, what the objective prices at `omega` |
 
 #### Definitions
 
 | Symbol | Meaning |
 |---|---|
-| $`\overleftarrow{u}`$ | `Generator_previous_status` over $`\mathcal{T} \times \mathcal{G}`$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
-| $`\overleftarrow{p}`$ | `Generator_previous_p` over $`\mathcal{T} \times \mathcal{G}`$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
+| $`\overleftarrow{u}`$ | `Generator_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
+| $`\overleftarrow{p}`$ | `Generator_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
 | $`\widetilde{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_effective` over $`\mathcal{G}`$ — the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise |
-| $`\Delta^{+}`$ | `Generator_ramp_up_allowance` over $`\mathcal{T} \times \mathcal{G}`$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
-| $`\Delta^{-}`$ | `Generator_ramp_down_allowance` over $`\mathcal{T} \times \mathcal{G}`$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
+| $`\Delta^{+}`$ | `Generator_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
+| $`\Delta^{-}`$ | `Generator_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_effective` over $`\mathcal{L}`$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
-| $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
-| $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
-| $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
-| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\mathcal{B}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
-| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\mathcal{B}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
+| $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
+| $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
+| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{B}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
+| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{B}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
 | $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\mathcal{B}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
 | $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{B}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{B}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
+| $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
@@ -1392,27 +1580,19 @@ $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own ord
 ```yaml
 objective:
   sense: minimize
-  description: operating cost, each snapshot weighted by the hours it stands for
+  description: capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
   expression: >-
-    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)
-    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective)
-    + sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective)
-    + sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective)
-    + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)
-    + sum(Store_p * Store_marginal_cost * snapshot_weightings_objective)
-    + sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective)
-    + sum(Generator_p_nom_ext * Generator_capital_cost)
-    + sum(Link_p_nom_ext * Link_capital_cost)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
-    + sum(Store_e_nom_ext * Store_capital_cost)
-    + sum(Line_s_nom_ext * Line_capital_cost)
-    + sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective)
-    + sum(Generator_start_up * Generator_start_up_cost)
-    + sum(Generator_shut_down * Generator_shut_down_cost)
+    sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
+    + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
+    + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
+    + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
+    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
+    + CVaR_omega * CVaR
 ```
 
 ```math
-\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}
+\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} \cdot \mathrm{W}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} \cdot \mathrm{W}^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} \cdot \mathrm{W}^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} \cdot \mathrm{W}^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} \cdot \mathrm{W}^{s}_{k} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
 ```
 
 ### `Generator-fix-p-lower`
@@ -1422,13 +1602,13 @@ objective:
 ```yaml
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a fixed generator outputs at least its minimum"
-  dims: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable
+  dims: [scenario, snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_active
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-fix-p-upper`
@@ -1438,13 +1618,13 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qq
 ```yaml
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a fixed generator outputs at most what is available"
-  dims: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable
+  dims: [scenario, snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-fix-p-lower`
@@ -1454,13 +1634,13 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qqu
 ```yaml
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a fixed link carries at least its minimum, negative for the other way"
-  dims: [snapshot, link]
-  where: not Link_p_nom_extendable
+  dims: [scenario, snapshot, link]
+  where: not Link_p_nom_extendable AND Link_active
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
 ```math
-f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-fix-p-upper`
@@ -1470,13 +1650,13 @@ f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qq
 ```yaml
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a fixed link carries at most its nominal power"
-  dims: [snapshot, link]
-  where: not Link_p_nom_extendable
+  dims: [scenario, snapshot, link]
+  where: not Link_p_nom_extendable AND Link_active
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
 ```math
-f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Generator-ext-p-lower`
@@ -1486,13 +1666,13 @@ f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qqu
 ```yaml
 Generator_ext_p_lower:
   description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
-  dims: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable
+  dims: [scenario, snapshot, generator]
+  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_active
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-ext-p-upper`
@@ -1502,13 +1682,13 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \mat
 ```yaml
 Generator_ext_p_upper:
   description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
-  dims: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable
+  dims: [scenario, snapshot, generator]
+  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-ext-p_nom-lower`
@@ -1566,13 +1746,13 @@ P_{g} = \mathrm{p}^{\mathrm{nom,set}}_{g} \qquad \forall\, g \in \mathcal{G} \,:
 ```yaml
 Generator_e_sum_min:
   description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
-  dims: [generator]
+  dims: [scenario, generator]
   where: Generator_e_sum_min
   expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \underline{\mathrm{E}}_{g} \text{ is defined}
+\sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \underline{\mathrm{E}}_{g} \text{ is defined}
 ```
 
 ### `Generator-e_sum_max`
@@ -1582,13 +1762,13 @@ Generator_e_sum_min:
 ```yaml
 Generator_e_sum_max:
   description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
-  dims: [generator]
+  dims: [scenario, generator]
   where: Generator_e_sum_max
   expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \overline{\mathrm{E}}_{g} \text{ is defined}
+\sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \overline{\mathrm{E}}_{g} \text{ is defined}
 ```
 
 ### `Link-ext-p-lower`
@@ -1598,13 +1778,13 @@ Generator_e_sum_max:
 ```yaml
 Link_ext_p_lower:
   description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
-  dims: [snapshot, link]
-  where: Link_p_nom_extendable
+  dims: [scenario, snapshot, link]
+  where: Link_p_nom_extendable AND Link_active
   expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
 ```
 
 ```math
-f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-ext-p-upper`
@@ -1614,13 +1794,13 @@ f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, t \in \mat
 ```yaml
 Link_ext_p_upper:
   description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
-  dims: [snapshot, link]
-  where: Link_p_nom_extendable
+  dims: [scenario, snapshot, link]
+  where: Link_p_nom_extendable AND Link_active
   expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
 ```
 
 ```math
-f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-ext-p_nom-lower`
@@ -1678,13 +1858,13 @@ F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\, l \in \mathcal{L} \,:
 ```yaml
 StorageUnit_fix_p_dispatch_lower:
   description: "`StorageUnit-fix-p_dispatch-lower` — dispatch is non-negative"
-  dims: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_dispatch >= 0
 ```
 
 ```math
-h^{+}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s}
+h^{+}_{\xi,t,s} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-p_dispatch-upper`
@@ -1694,13 +1874,13 @@ h^{+}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \
 ```yaml
 StorageUnit_fix_p_dispatch_upper:
   description: "`StorageUnit-fix-p_dispatch-upper` — a fixed unit dispatches at most its nominal power"
-  dims: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom
 ```
 
 ```math
-h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s}
+h^{+}_{\xi,t,s} \le \overline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-p_store-lower`
@@ -1710,13 +1890,13 @@ h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} 
 ```yaml
 StorageUnit_fix_p_store_lower:
   description: "`StorageUnit-fix-p_store-lower` — storing is non-negative"
-  dims: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_store >= 0
 ```
 
 ```math
-h^{-}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s}
+h^{-}_{\xi,t,s} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-p_store-upper`
@@ -1728,13 +1908,13 @@ StorageUnit_fix_p_store_upper:
   description: >-
     `StorageUnit-fix-p_store-upper` — a fixed unit stores at most its
     nominal power, the minimum-per-unit column carrying that cap negated
-  dims: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom
 ```
 
 ```math
-h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s}
+h^{-}_{\xi,t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-state_of_charge-lower`
@@ -1744,13 +1924,13 @@ h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s
 ```yaml
 StorageUnit_fix_state_of_charge_lower:
   description: "`StorageUnit-fix-state_of_charge-lower` — charge is non-negative"
-  dims: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_state_of_charge >= 0
 ```
 
 ```math
-\mathit{soc}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s}
+\mathit{soc}_{\xi,t,s} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-state_of_charge-upper`
@@ -1760,13 +1940,13 @@ StorageUnit_fix_state_of_charge_lower:
 ```yaml
 StorageUnit_fix_state_of_charge_upper:
   description: "`StorageUnit-fix-state_of_charge-upper` — a fixed unit holds at most its hours at nominal power"
-  dims: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
 ```
 
 ```math
-\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s}
+\mathit{soc}_{\xi,t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `Generator-com-p-lower`
@@ -1776,13 +1956,13 @@ StorageUnit_fix_state_of_charge_upper:
 ```yaml
 Generator_com_p_lower:
   description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
-  dims: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_active
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-p-upper`
@@ -1792,13 +1972,13 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cd
 ```yaml
 Generator_com_p_upper:
   description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
-  dims: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-transition-start-up`
@@ -1808,13 +1988,13 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdo
 ```yaml
 Generator_com_transition_start_up:
   description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
-  dims: [snapshot, generator]
-  where: Generator_committable
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_active
   expression: Generator_start_up >= Generator_status - Generator_previous_status
 ```
 
 ```math
-\mathit{up}_{t,g} \ge u_{t,g} - \overleftarrow{u}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+\mathit{up}_{\xi,t,g} \ge u_{\xi,t,g} - \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-transition-shut-down`
@@ -1824,13 +2004,13 @@ Generator_com_transition_start_up:
 ```yaml
 Generator_com_transition_shut_down:
   description: "`Generator-com-transition-shut-down` — turning off is a stop, counted against the state the unit carried into the snapshot"
-  dims: [snapshot, generator]
-  where: Generator_committable
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_active
   expression: Generator_shut_down >= Generator_previous_status - Generator_status
 ```
 
 ```math
-\mathit{dn}_{t,g} \ge \overleftarrow{u}_{t,g} - u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+\mathit{dn}_{\xi,t,g} \ge \overleftarrow{u}_{\xi,t,g} - u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-up-time`
@@ -1843,13 +2023,13 @@ Generator_com_up_time:
     `Generator-com-up-time` — a unit started within its own minimum up time
     is still on. The first snapshot's share of the window is the brought-in
     up time's, which the must-stay-up mask carries
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0 AND Generator_active
   expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}} \mathit{up}_{t',g} \le u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{UT}_{g} > 0 \wedge \mathrm{pos}(t) > 0
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}} \mathit{up}_{\xi,t',g} \le u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{UT}_{g} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-down-time`
@@ -1859,13 +2039,13 @@ Generator_com_up_time:
 ```yaml
 Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0 AND Generator_active
   expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{t',g} \le 1 - u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{DT}_{g} > 0 \wedge \mathrm{pos}(t) > 0
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{\xi,t',g} \le 1 - u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{DT}_{g} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-status-min_up_time_must_stay_up`
@@ -1875,13 +2055,13 @@ Generator_com_down_time:
 ```yaml
 Generator_com_status_must_stay_up:
   description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_must_stay_up
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_must_stay_up AND Generator_active
   expression: Generator_status == 1
 ```
 
 ```math
-u_{t,g} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g}
+u_{\xi,t,g} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-run-bigM`
@@ -1894,10 +2074,10 @@ Generator_p_ramp_limit_up_run_big_m:
     `Generator-p-ramp_limit_up-run-bigM` — a committed extendable unit
     raises output no faster than its limit of the chosen build; the big M
     releases the row in the snapshot it turns on
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_p - Generator_previous_p <=
     Generator_ramp_limit_up * Generator_p_nom_ext
@@ -1905,7 +2085,7 @@ Generator_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-p_{t,g} - \overleftarrow{p}_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-start-bigM`
@@ -1918,10 +2098,10 @@ Generator_p_ramp_limit_up_start_big_m:
     `Generator-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
     committed extendable unit ramps no further than its start-up ramp of
     the chosen build; the big M releases the row everywhere else
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_p - Generator_previous_p <=
     Generator_ramp_limit_start_up * Generator_p_nom_ext
@@ -1929,7 +2109,7 @@ Generator_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-p_{t,g} - \overleftarrow{p}_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-run-bigM`
@@ -1942,10 +2122,10 @@ Generator_p_ramp_limit_down_run_big_m:
     `Generator-p-ramp_limit_down-run-bigM` — a committed extendable unit
     lowers output no faster than its limit of the chosen build; the big M
     releases the row in the snapshot it turns off
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_previous_p - Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom_ext
@@ -1953,7 +2133,7 @@ Generator_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{p}_{t,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
@@ -1966,10 +2146,10 @@ Generator_p_ramp_limit_down_shut_big_m:
     `Generator-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
     a committed extendable unit ramps no further than its shut-down ramp of
     the chosen build; the big M releases the row everywhere else
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_previous_p - Generator_p <=
     Generator_ramp_limit_shut_down * Generator_p_nom_ext
@@ -1977,7 +2157,7 @@ Generator_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{p}_{t,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p_nom_modularity`
@@ -2005,13 +2185,13 @@ Generator_com_ext_p_upper_cap:
   description: >-
     `Generator-com-ext-p-upper-cap` — a committed extendable unit outputs
     at most what is available of the chosen build, whatever its status
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0) AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-ext-p-upper-bigM`
@@ -2021,13 +2201,13 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \math
 ```yaml
 Generator_com_ext_p_upper_big_m:
   description: "`Generator-com-ext-p-upper-bigM` — off, a unit outputs nothing; on, the big M is no bound"
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0) AND Generator_active
   expression: Generator_p <= Generator_big_m * Generator_status
 ```
 
 ```math
-p_{t,g} \le \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+p_{\xi,t,g} \le \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-ext-p-lower`
@@ -2039,8 +2219,8 @@ Generator_com_ext_p_lower:
   description: >-
     `Generator-com-ext-p-lower` — a committed extendable unit outputs at
     least its minimum of the chosen build; off, the big M releases the row
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0) AND Generator_active
   expression: >-
     Generator_p >=
     Generator_p_min_pu * Generator_p_nom_ext
@@ -2048,7 +2228,7 @@ Generator_com_ext_p_lower:
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{\xi,t,g} - \mathrm{M}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-ext-p-lower-nonneg`
@@ -2061,15 +2241,15 @@ Generator_com_ext_p_lower_nonneg:
     `Generator-com-ext-p-lower-nonneg` — where no minimum-per-unit is
     negative, output is also plainly non-negative, a row the big-M lower
     cannot assert while the unit is off
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_p_min_pu_nonneg AND NOT (Generator_p_nom_mod > 0)
+    AND Generator_p_min_pu_nonneg AND NOT (Generator_p_nom_mod > 0) AND Generator_active
   expression: Generator_p >= 0
 ```
 
 ```math
-p_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+p_{\xi,t,g} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-mod-p-lower`
@@ -2081,13 +2261,13 @@ Generator_com_mod_p_lower:
   description: >-
     `Generator-com-mod-p-lower` — a committed modular unit outputs at least
     its minimum of one module, whether the build is fixed or a decision
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_mod > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-mod-p-upper`
@@ -2099,13 +2279,13 @@ Generator_com_mod_p_upper:
   description: >-
     `Generator-com-mod-p-upper` — a committed modular unit outputs at most
     one module's share, whether the build is fixed or a decision
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_mod > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-status-p-fixed-upper`
@@ -2118,13 +2298,13 @@ Generator_status_p_fixed_upper:
     `Generator-status-p-fixed-upper` — a status is at most the modules in
     place, an explicit row as PyPSA writes it: one where the build is not
     modular, and the fixed build's whole count of modules where it is
-  dims: [snapshot, generator]
-  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0) AND Generator_active
   expression: Generator_status <= Generator_modules_installed
 ```
 
 ```math
-u_{t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+u_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-start_up-p-fixed-upper`
@@ -2137,13 +2317,13 @@ Generator_start_up_p_fixed_upper:
     `Generator-start_up-p-fixed-upper` — a start is at most the modules in
     place, an explicit row as PyPSA writes it: one where the build is not
     modular, and the fixed build's whole count of modules where it is
-  dims: [snapshot, generator]
-  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0) AND Generator_active
   expression: Generator_start_up <= Generator_modules_installed
 ```
 
 ```math
-\mathit{up}_{t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+\mathit{up}_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-shut_down-p-fixed-upper`
@@ -2156,13 +2336,13 @@ Generator_shut_down_p_fixed_upper:
     `Generator-shut_down-p-fixed-upper` — a stop is at most the modules in
     place, an explicit row as PyPSA writes it: one where the build is not
     modular, and the fixed build's whole count of modules where it is
-  dims: [snapshot, generator]
-  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0) AND Generator_active
   expression: Generator_shut_down <= Generator_modules_installed
 ```
 
 ```math
-\mathit{dn}_{t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)
+\mathit{dn}_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-status-p_nom-variable-upper`
@@ -2172,13 +2352,13 @@ Generator_shut_down_p_fixed_upper:
 ```yaml
 Generator_status_p_nom_variable_upper:
   description: "`Generator-status-p_nom-variable-upper` — a modular unit is on only where a module is built"
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0 AND Generator_active
   expression: Generator_status <= Generator_n_mod
 ```
 
 ```math
-u_{t,g} \le N_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
+u_{\xi,t,g} \le N_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-start_up-p_nom-variable-upper`
@@ -2188,13 +2368,13 @@ u_{t,g} \le N_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \
 ```yaml
 Generator_start_up_p_nom_variable_upper:
   description: "`Generator-start_up-p_nom-variable-upper` — a modular unit starts only where a module is built"
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0 AND Generator_active
   expression: Generator_start_up <= Generator_n_mod
 ```
 
 ```math
-\mathit{up}_{t,g} \le N_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
+\mathit{up}_{\xi,t,g} \le N_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-shut_down-p_nom-variable-upper`
@@ -2204,13 +2384,13 @@ Generator_start_up_p_nom_variable_upper:
 ```yaml
 Generator_shut_down_p_nom_variable_upper:
   description: "`Generator-shut_down-p_nom-variable-upper` — a modular unit stops only where a module is built"
-  dims: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0 AND Generator_active
   expression: Generator_shut_down <= Generator_n_mod
 ```
 
 ```math
-\mathit{dn}_{t,g} \le N_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
+\mathit{dn}_{\xi,t,g} \le N_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Line-fix-s-lower`
@@ -2220,13 +2400,13 @@ Generator_shut_down_p_nom_variable_upper:
 ```yaml
 Line_fix_s_lower:
   description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
-  dims: [snapshot, line]
-  where: not Line_s_nom_extendable
+  dims: [scenario, snapshot, line]
+  where: not Line_s_nom_extendable AND Line_active
   expression: Line_s >= -Line_s_max_pu * Line_s_nom
 ```
 
 ```math
-s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k}
+s_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-fix-s-upper`
@@ -2236,13 +2416,13 @@ s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qq
 ```yaml
 Line_fix_s_upper:
   description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
-  dims: [snapshot, line]
-  where: not Line_s_nom_extendable
+  dims: [scenario, snapshot, line]
+  where: not Line_s_nom_extendable AND Line_active
   expression: Line_s <= Line_s_max_pu * Line_s_nom
 ```
 
 ```math
-s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k}
+s_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s-lower`
@@ -2252,13 +2432,13 @@ s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qqu
 ```yaml
 Line_ext_s_lower:
   description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
-  dims: [snapshot, line]
-  where: Line_s_nom_extendable
+  dims: [scenario, snapshot, line]
+  where: Line_s_nom_extendable AND Line_active
   expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
 ```
 
 ```math
-s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k}
+s_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s-upper`
@@ -2268,13 +2448,13 @@ s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, t \in \mat
 ```yaml
 Line_ext_s_upper:
   description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
-  dims: [snapshot, line]
-  where: Line_s_nom_extendable
+  dims: [scenario, snapshot, line]
+  where: Line_s_nom_extendable AND Line_active
   expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
 ```
 
 ```math
-s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k}
+s_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s_nom-lower`
@@ -2332,13 +2512,13 @@ S_{k} = \mathrm{s}^{\mathrm{nom,set}}_{k} \qquad \forall\, k \in \mathcal{K} \,:
 ```yaml
 Line_s_set:
   description: "`Line-s_set` — flow pinned to the given schedule, wherever one is given"
-  dims: [snapshot, line]
-  where: Line_s_set
+  dims: [scenario, snapshot, line]
+  where: Line_s_set AND Line_active
   expression: Line_s == Line_s_set
 ```
 
 ```math
-s_{t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\, t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined}
+s_{\xi,t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Kirchhoff-Voltage-Law`
@@ -2351,12 +2531,12 @@ Kirchhoff_Voltage_Law:
     `Kirchhoff-Voltage-Law` — around every independent cycle the
     impedance-weighted flows sum to nothing, which is what makes the linear
     power flow physical rather than transport
-  dims: [snapshot, cycle]
+  dims: [scenario, snapshot, cycle]
   expression: sum(Line_s * Line_cycle_weight, over=line) == 0
 ```
 
 ```math
-\sum_{k \in \mathcal{K}} s_{t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\, t \in \mathcal{T},\ c \in \mathcal{C}
+\sum_{k \in \mathcal{K}} s_{\xi,t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
 ```
 
 ### `Generator-p-ramp_limit_up`
@@ -2371,16 +2551,16 @@ Generator_p_ramp_limit_up:
     start-up ramp in the snapshot it turns on. A unit that came into the
     horizon running brought an unknown output, so it carries no row at the
     first snapshot — nor does any unit a big M releases instead
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_ramp_limit_up
     AND NOT (Generator_committable AND Generator_p_nom_extendable)
-    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0))
+    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
   expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
 ```
 
 ```math
-p_{t,g} - \overleftarrow{p}_{t,g} \le \Delta^{+}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ru}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right)
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ru}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down`
@@ -2395,16 +2575,16 @@ Generator_p_ramp_limit_down:
     shut-down ramp in the snapshot it turns off. A unit that came into the
     horizon running brought an unknown output, so it carries no row at the
     first snapshot — nor does any unit a big M releases instead
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: >-
     Generator_ramp_limit_down
     AND NOT (Generator_committable AND Generator_p_nom_extendable)
-    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0))
+    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
   expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{p}_{t,g} - p_{t,g} \le \Delta^{-}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{rd}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right)
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{rd}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-p-ramp_limit_up`
@@ -2417,13 +2597,13 @@ Link_p_ramp_limit_up:
     `Link-p-ramp_limit_up` — a link raises flow no faster than its limit of
     the build. The translated term vacates the first snapshot, where a plain
     optimize builds no row either
-  dims: [snapshot, link]
-  where: Link_ramp_limit_up
+  dims: [scenario, snapshot, link]
+  where: Link_ramp_limit_up AND Link_active
   expression: Link_p - shift(Link_p, along=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
 ```
 
 ```math
-f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ru}^{f}_{l} \text{ is defined}
+f_{\xi,t,l} - f_{\xi,t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down`
@@ -2433,13 +2613,13 @@ f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mat
 ```yaml
 Link_p_ramp_limit_down:
   description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
-  dims: [snapshot, link]
-  where: Link_ramp_limit_down
+  dims: [scenario, snapshot, link]
+  where: Link_ramp_limit_down AND Link_active
   expression: shift(Link_p, along=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
 ```
 
 ```math
-f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{rd}^{f}_{l} \text{ is defined}
+f_{\xi,t - 1,l} - f_{\xi,t,l} \le \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `StorageUnit-ext-p_dispatch-lower`
@@ -2449,13 +2629,13 @@ f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mat
 ```yaml
 StorageUnit_ext_p_dispatch_lower:
   description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_dispatch >= 0
 ```
 
 ```math
-h^{+}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+h^{+}_{\xi,t,s} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-p_dispatch-upper`
@@ -2465,13 +2645,13 @@ h^{+}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \
 ```yaml
 StorageUnit_ext_p_dispatch_upper:
   description: "`StorageUnit-ext-p_dispatch-upper` — an extendable unit dispatches at most the chosen build"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom_ext
 ```
 
 ```math
-h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+h^{+}_{\xi,t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-p_store-lower`
@@ -2481,13 +2661,13 @@ h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, t \in \
 ```yaml
 StorageUnit_ext_p_store_lower:
   description: "`StorageUnit-ext-p_store-lower` — storing is non-negative"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_store >= 0
 ```
 
 ```math
-h^{-}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+h^{-}_{\xi,t,s} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-p_store-upper`
@@ -2499,13 +2679,13 @@ StorageUnit_ext_p_store_upper:
   description: >-
     `StorageUnit-ext-p_store-upper` — an extendable unit stores at most the
     chosen build, the minimum-per-unit column carrying that cap negated
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
 ```
 
 ```math
-h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+h^{-}_{\xi,t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-state_of_charge-lower`
@@ -2515,13 +2695,13 @@ h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, t \in
 ```yaml
 StorageUnit_ext_state_of_charge_lower:
   description: "`StorageUnit-ext-state_of_charge-lower` — charge is non-negative"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_state_of_charge >= 0
 ```
 
 ```math
-\mathit{soc}_{t,s} \ge 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+\mathit{soc}_{\xi,t,s} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-state_of_charge-upper`
@@ -2531,13 +2711,13 @@ StorageUnit_ext_state_of_charge_lower:
 ```yaml
 StorageUnit_ext_state_of_charge_upper:
   description: "`StorageUnit-ext-state_of_charge-upper` — an extendable unit holds at most its hours at the chosen build"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_active
   expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
 ```
 
 ```math
-\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot H_{s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+\mathit{soc}_{\xi,t,s} \le \mathrm{T}^{h}_{s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-p_nom-lower`
@@ -2598,7 +2778,8 @@ StorageUnit_energy_balance:
     `StorageUnit-energy_balance` — the charge carried in, plus what is
     stored after its efficiency, less what dispatch draws down before its
     own, plus inflow not spilled
-  dims: [snapshot, storage_unit]
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_active
   expression: >-
     StorageUnit_state_of_charge ==
     StorageUnit_charge_carried_in
@@ -2608,7 +2789,7 @@ StorageUnit_energy_balance:
 ```
 
 ```math
-\mathit{soc}_{t,s} = \overleftarrow{\mathit{soc}}_{t,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S}
+\mathit{soc}_{\xi,t,s} = \overleftarrow{\mathit{soc}}_{\xi,t,s} + \eta^{-}_{s} \cdot h^{-}_{\xi,t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{\xi,t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{\xi,t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{on}^{h}_{t,s}
 ```
 
 ### `Store-fix-e-lower`
@@ -2618,13 +2799,13 @@ StorageUnit_energy_balance:
 ```yaml
 Store_fix_e_lower:
   description: "`Store-fix-e-lower` — a fixed store holds at least its floor"
-  dims: [snapshot, store]
-  where: not Store_e_nom_extendable
+  dims: [scenario, snapshot, store]
+  where: not Store_e_nom_extendable AND Store_active
   expression: Store_e >= Store_e_min_pu * Store_e_nom
 ```
 
 ```math
-e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v}
+e_{\xi,t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-fix-e-upper`
@@ -2634,13 +2815,13 @@ e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qq
 ```yaml
 Store_fix_e_upper:
   description: "`Store-fix-e-upper` — a fixed store holds at most its nominal capacity"
-  dims: [snapshot, store]
-  where: not Store_e_nom_extendable
+  dims: [scenario, snapshot, store]
+  where: not Store_e_nom_extendable AND Store_active
   expression: Store_e <= Store_e_max_pu * Store_e_nom
 ```
 
 ```math
-e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v}
+e_{\xi,t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-ext-e-lower`
@@ -2650,13 +2831,13 @@ e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qqu
 ```yaml
 Store_ext_e_lower:
   description: "`Store-ext-e-lower` — an extendable store holds at least its floor of the chosen build"
-  dims: [snapshot, store]
-  where: Store_e_nom_extendable
+  dims: [scenario, snapshot, store]
+  where: Store_e_nom_extendable AND Store_active
   expression: Store_e >= Store_e_min_pu * Store_e_nom_ext
 ```
 
 ```math
-e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v}
+e_{\xi,t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-ext-e-upper`
@@ -2666,13 +2847,13 @@ e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, t \in \mat
 ```yaml
 Store_ext_e_upper:
   description: "`Store-ext-e-upper` — an extendable store holds at most the chosen build"
-  dims: [snapshot, store]
-  where: Store_e_nom_extendable
+  dims: [scenario, snapshot, store]
+  where: Store_e_nom_extendable AND Store_active
   expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
 ```
 
 ```math
-e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v}
+e_{\xi,t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-ext-e_nom-lower`
@@ -2730,7 +2911,8 @@ E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{v} \qquad \forall\, v \in \mathcal{V} \,:
 ```yaml
 Store_energy_balance:
   description: "`Store-energy_balance` — the energy carried in, less what is delivered to the bus"
-  dims: [snapshot, store]
+  dims: [scenario, snapshot, store]
+  where: Store_active
   expression: >-
     Store_e ==
     Store_energy_carried_in
@@ -2738,7 +2920,7 @@ Store_energy_balance:
 ```
 
 ```math
-e_{t,v} = \overleftarrow{e}_{t,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V}
+e_{\xi,t,v} = \overleftarrow{e}_{\xi,t,v} - q_{\xi,t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Generator-p_set`
@@ -2748,13 +2930,13 @@ e_{t,v} = \overleftarrow{e}_{t,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} 
 ```yaml
 Generator_p_set:
   description: "`Generator-p_set` — output pinned to the given schedule, wherever one is given"
-  dims: [snapshot, generator]
-  where: Generator_p_set
+  dims: [scenario, snapshot, generator]
+  where: Generator_p_set AND Generator_active
   expression: Generator_p == Generator_p_set
 ```
 
 ```math
-p_{t,g} = \mathrm{p}^{\mathrm{set}}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{set}}_{t,g} \text{ is defined}
+p_{\xi,t,g} = \mathrm{p}^{\mathrm{set}}_{t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{set}}_{t,g} \text{ is defined} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-p_set`
@@ -2764,13 +2946,13 @@ p_{t,g} = \mathrm{p}^{\mathrm{set}}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g
 ```yaml
 Link_p_set:
   description: "`Link-p_set` — flow pinned to the given schedule, wherever one is given"
-  dims: [snapshot, link]
-  where: Link_p_set
+  dims: [scenario, snapshot, link]
+  where: Link_p_set AND Link_active
   expression: Link_p == Link_p_set
 ```
 
 ```math
-f_{t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{f}^{\mathrm{set}}_{t,l} \text{ is defined}
+f_{\xi,t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{f}^{\mathrm{set}}_{t,l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `StorageUnit-p_set`
@@ -2780,13 +2962,13 @@ f_{t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\, t \in \mathcal{T},\ l
 ```yaml
 StorageUnit_p_set:
   description: "`StorageUnit-p_set` — net dispatch pinned to the given schedule, wherever one is given"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_p_set
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_set AND StorageUnit_active
   expression: StorageUnit_p_dispatch - StorageUnit_p_store == StorageUnit_p_set
 ```
 
 ```math
-h^{+}_{t,s} - h^{-}_{t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{\mathrm{set}}_{t,s} \text{ is defined}
+h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-state_of_charge_set`
@@ -2796,13 +2978,13 @@ h^{+}_{t,s} - h^{-}_{t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\, t \
 ```yaml
 StorageUnit_state_of_charge_set:
   description: "`StorageUnit-state_of_charge_set` — charge pinned to the given schedule, wherever one is given"
-  dims: [snapshot, storage_unit]
-  where: StorageUnit_state_of_charge_set
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_state_of_charge_set AND StorageUnit_active
   expression: StorageUnit_state_of_charge == StorageUnit_state_of_charge_set
 ```
 
 ```math
-\mathit{soc}_{t,s} = \mathrm{soc}^{\mathrm{set}}_{t,s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{soc}^{\mathrm{set}}_{t,s} \text{ is defined}
+\mathit{soc}_{\xi,t,s} = \mathrm{soc}^{\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{soc}^{\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `Store-e_set`
@@ -2812,13 +2994,13 @@ StorageUnit_state_of_charge_set:
 ```yaml
 Store_e_set:
   description: "`Store-e_set` — energy pinned to the given schedule, wherever one is given"
-  dims: [snapshot, store]
-  where: Store_e_set
+  dims: [scenario, snapshot, store]
+  where: Store_e_set AND Store_active
   expression: Store_e == Store_e_set
 ```
 
 ```math
-e_{t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined}
+e_{\xi,t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `primary_energy`
@@ -2828,13 +3010,13 @@ e_{t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\, t \in \mathcal{T},\ v
 ```yaml
 GlobalConstraint_primary_energy_ub:
   description: "`primary_energy` — its total, at most its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
   expression: primary_energy <= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{primary\_energy}_{b} \le \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{primary\_energy}_{\xi,b} \le \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `primary_energy`
@@ -2844,13 +3026,13 @@ GlobalConstraint_primary_energy_ub:
 ```yaml
 GlobalConstraint_primary_energy_lb:
   description: "`primary_energy` — its total, at least its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
   expression: primary_energy >= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{primary\_energy}_{b} \ge \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{primary\_energy}_{\xi,b} \ge \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `primary_energy`
@@ -2860,13 +3042,13 @@ GlobalConstraint_primary_energy_lb:
 ```yaml
 GlobalConstraint_primary_energy_eq:
   description: "`primary_energy` — its total, at its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
   expression: primary_energy == GlobalConstraint_constant
 ```
 
 ```math
-\mathit{primary\_energy}_{b} = \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{primary\_energy}_{\xi,b} = \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `operational_limit`
@@ -2876,13 +3058,13 @@ GlobalConstraint_primary_energy_eq:
 ```yaml
 GlobalConstraint_operational_limit_ub:
   description: "`operational_limit` — its total, at most its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
   expression: operational_limit <= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{operational\_limit}_{b} \le \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{operational\_limit}_{\xi,b} \le \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `operational_limit`
@@ -2892,13 +3074,13 @@ GlobalConstraint_operational_limit_ub:
 ```yaml
 GlobalConstraint_operational_limit_lb:
   description: "`operational_limit` — its total, at least its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
   expression: operational_limit >= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{operational\_limit}_{b} \ge \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{operational\_limit}_{\xi,b} \ge \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `operational_limit`
@@ -2908,13 +3090,13 @@ GlobalConstraint_operational_limit_lb:
 ```yaml
 GlobalConstraint_operational_limit_eq:
   description: "`operational_limit` — its total, at its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
   expression: operational_limit == GlobalConstraint_constant
 ```
 
 ```math
-\mathit{operational\_limit}_{b} = \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{operational\_limit}_{\xi,b} = \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -3074,7 +3256,7 @@ Bus_nodal_balance:
     load there.
     A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
-  dims: [snapshot, bus]
+  dims: [scenario, snapshot, bus]
   expression: >-
     sum(Generator_p, by=Generator_bus, over=generator, into=bus)
     + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus, over=storage_unit, into=bus)
@@ -3087,7 +3269,60 @@ Bus_nodal_balance:
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{t,o} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Carrier-growth_limit`
+
+`Carrier_growth_limit`
+
+```yaml
+Carrier_growth_limit:
+  description: >-
+    `Carrier-growth_limit` — what a carrier adds in a period, counting each build in the first
+    period it stands in, is at most its allowance plus a share of what it added the period before;
+    the first period has no predecessor, so `edge=0` leaves it the bare allowance
+  dims: [carrier, period]
+  where: Carrier_max_growth
+  expression: >-
+    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
+    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier), along=period, offset=1, edge=0)
+    * Carrier_max_relative_growth
+    <= Carrier_max_growth
+```
+
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} - \left( \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y \boxminus_{0} 1,g} \right) \cdot \mathrm{r}_{i} \le \overline{\Delta}_{i} \qquad \forall\, i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \overline{\Delta}_{i} \text{ is defined}
+```
+
+### `CVaR-excess-{s}`
+
+`CVaR_excess`
+
+```yaml
+CVaR_excess:
+  description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"
+  dims: [scenario]
+  expression: CVaR_a - scenario_opex + CVaR_theta >= 0
+```
+
+```math
+a_{\xi} - \mathit{scenario\_opex}_{\xi} + \theta \ge 0 \qquad \forall\, \xi \in \Xi
+```
+
+### `CVaR-def`
+
+`CVaR_def`
+
+```yaml
+CVaR_def:
+  description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
+  dims: []
+  expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+```
+
+```math
+\theta + \mathrm{v} \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot a_{\xi} \right) \le CVaR
 ```
 
 ### `Generator_previous_status`
@@ -3097,14 +3332,14 @@ Generator_previous_status:
   description: >-
     the commitment state a generator carries into a snapshot — the state it
     brought into the horizon at the first, the previous snapshot's after that
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
   otherwise: shift(Generator_status, along=snapshot, offset=1)
 ```
 
 ```math
-\overleftarrow{u}_{t,g} = \begin{cases} \mathrm{u}^{0}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ u_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\overleftarrow{u}_{\xi,t,g} = \begin{cases} \mathrm{u}^{0}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ u_{\xi,t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Generator_previous_p`
@@ -3115,14 +3350,14 @@ Generator_previous_p:
     the output a generator carries into a snapshot — nothing at the start of
     the horizon, which is why a unit that came in running carries no ramp row
     there
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: 0 }
   otherwise: shift(Generator_p, along=snapshot, offset=1)
 ```
 
 ```math
-\overleftarrow{p}_{t,g} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ p_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\overleftarrow{p}_{\xi,t,g} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ p_{\xi,t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Generator_p_nom_effective`
@@ -3148,7 +3383,7 @@ Generator_ramp_up_allowance:
     how far a generator may raise output between two snapshots — its ramp
     limit of the build while it stays on, plus its start-up ramp in the
     snapshot it turns on
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   cases:
     committed:
       when: Generator_committable
@@ -3160,7 +3395,7 @@ Generator_ramp_up_allowance:
 ```
 
 ```math
-\Delta^{+}_{t,g} = \begin{cases} \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{t,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \overleftarrow{u}_{t,g} \right) & \text{if } \mathrm{com}_{g} \\ \mathrm{ru}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\Delta^{+}_{\xi,t,g} = \begin{cases} \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{\xi,t,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{\xi,t,g} - \overleftarrow{u}_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \mathrm{ru}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Generator_ramp_down_allowance`
@@ -3171,7 +3406,7 @@ Generator_ramp_down_allowance:
     how far a generator may lower output between two snapshots — its ramp
     limit of the build while it stays on, plus its shut-down ramp in the
     snapshot it turns off
-  dims: [snapshot, generator]
+  dims: [scenario, snapshot, generator]
   cases:
     committed:
       when: Generator_committable
@@ -3183,7 +3418,7 @@ Generator_ramp_down_allowance:
 ```
 
 ```math
-\Delta^{-}_{t,g} = \begin{cases} \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{t,g} - u_{t,g} \right) & \text{if } \mathrm{com}_{g} \\ \mathrm{rd}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\Delta^{-}_{\xi,t,g} = \begin{cases} \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{\xi,t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{\xi,t,g} - u_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \mathrm{rd}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Link_p_nom_effective`
@@ -3210,7 +3445,7 @@ StorageUnit_charge_carried_in:
     standing loss where it is cyclic, the given initial charge at the start
     of the horizon, which no standing loss has touched yet, and the previous
     snapshot's less standing loss otherwise
-  dims: [snapshot, storage_unit]
+  dims: [scenario, snapshot, storage_unit]
   cases:
     cyclic:
       when: StorageUnit_cyclic_state_of_charge
@@ -3222,7 +3457,7 @@ StorageUnit_charge_carried_in:
 ```
 
 ```math
-\overleftarrow{\mathit{soc}}_{t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{t \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S}
+\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
 ```
 
 ### `Store_energy_carried_in`
@@ -3234,7 +3469,7 @@ Store_energy_carried_in:
     standing loss where it is cyclic, the given initial energy at the start
     of the horizon, which no standing loss has touched yet, and the previous
     snapshot's less standing loss otherwise
-  dims: [snapshot, store]
+  dims: [scenario, snapshot, store]
   cases:
     cyclic:
       when: Store_e_cyclic
@@ -3246,7 +3481,7 @@ Store_energy_carried_in:
 ```
 
 ```math
-\overleftarrow{e}_{t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{t \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V}
+\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{\xi,t \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
 ```
 
 ### `Link_output_arrival`
@@ -3260,7 +3495,7 @@ Link_output_arrival:
     is not the flow still in transit at the first snapshots is lost. A port
     that does not delay (`delay` zero) delivers its flow unshifted, cyclic or
     not
-  dims: [snapshot, link_output]
+  dims: [scenario, snapshot, link_output]
   cases:
     wrapping:
       when: Link_output_cyclic_delay
@@ -3269,7 +3504,7 @@ Link_output_arrival:
 ```
 
 ```math
-\overrightarrow{f}_{t,o} = \begin{cases} f_{t \ominus \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{t \boxminus_{0} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ o \in \mathcal{O}
+\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
 ```
 
 ### `primary_energy`
@@ -3287,7 +3522,7 @@ primary_energy:
 ```
 
 ```math
-\mathit{primary\_energy}_{b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) \qquad \forall\, b \in \mathcal{B}
+\mathit{primary\_energy}_{\xi,b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B}
 ```
 
 ### `operational_limit`
@@ -3305,7 +3540,7 @@ operational_limit:
 ```
 
 ```math
-\mathit{operational\_limit}_{b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) \qquad \forall\, b \in \mathcal{B}
+\mathit{operational\_limit}_{\xi,b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B}
 ```
 
 ### `transmission_volume_expansion`
@@ -3353,54 +3588,76 @@ tech_capacity_expansion:
 \mathit{tech\_capacity\_expansion}_{b} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} \qquad \forall\, b \in \mathcal{B}
 ```
 
+### `scenario_opex`
+
+```yaml
+scenario_opex:
+  description: what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight
+  expression: >-
+    sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+    + sum(sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+    + sum(sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+    + sum(sum(Store_p * Store_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+    + sum(sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+    + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum(Generator_start_up * Generator_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum(Generator_shut_down * Generator_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+```
+
+```math
+\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+```
+
 #### Variable domains
 
 **`Generator_p`**
 
 ```math
-p_{t,g} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+p_{\xi,t,g} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{on}_{t,g}
 ```
 
 **`Link_p`**
 
 ```math
-f_{t,l} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L}
+f_{\xi,t,l} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{on}^{f}_{t,l}
 ```
 
 **`StorageUnit_p_dispatch`**
 
 ```math
-h^{+}_{t,s} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S}
+h^{+}_{\xi,t,s} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{on}^{h}_{t,s}
 ```
 
 **`StorageUnit_p_store`**
 
 ```math
-h^{-}_{t,s} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S}
+h^{-}_{\xi,t,s} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{on}^{h}_{t,s}
 ```
 
 **`StorageUnit_state_of_charge`**
 
 ```math
-\mathit{soc}_{t,s} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S}
+\mathit{soc}_{\xi,t,s} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{on}^{h}_{t,s}
 ```
 
 **`StorageUnit_spill`**
 
 ```math
-0 \le \mathit{spill}_{t,s} \le \mathrm{inflow}_{t,s} \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{inflow}_{t,s} > 0
+0 \le \mathit{spill}_{\xi,t,s} \le \mathrm{inflow}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{inflow}_{t,s} > 0 \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 **`Store_e`**
 
 ```math
-e_{t,v} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V}
+e_{\xi,t,v} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{on}^{e}_{t,v}
 ```
 
 **`Store_p`**
 
 ```math
-q_{t,v} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V}
+q_{\xi,t,v} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{on}^{e}_{t,v}
 ```
 
 **`Generator_n_mod`**
@@ -3412,25 +3669,25 @@ N_{g} \ge 0, N_{g} \in \mathbb{Z} \qquad \forall\, g \in \mathcal{G} \,:\, \math
 **`Generator_status`**
 
 ```math
-u_{t,g} \ge 0, u_{t,g} \in \mathbb{Z} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+u_{\xi,t,g} \ge 0, u_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 **`Generator_start_up`**
 
 ```math
-\mathit{up}_{t,g} \ge 0, \mathit{up}_{t,g} \in \mathbb{Z} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+\mathit{up}_{\xi,t,g} \ge 0, \mathit{up}_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 **`Generator_shut_down`**
 
 ```math
-\mathit{dn}_{t,g} \ge 0, \mathit{dn}_{t,g} \in \mathbb{Z} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+\mathit{dn}_{\xi,t,g} \ge 0, \mathit{dn}_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 **`Line_s`**
 
 ```math
-s_{t,k} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ k \in \mathcal{K}
+s_{\xi,t,k} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{on}^{s}_{t,k}
 ```
 
 **`Line_s_nom_ext`**
@@ -3461,6 +3718,24 @@ H_{s} \in \mathbb{R} \qquad \forall\, s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{
 
 ```math
 E_{v} \in \mathbb{R} \qquad \forall\, v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v}
+```
+
+**`CVaR_a`**
+
+```math
+a_{\xi} \ge 0 \qquad \forall\, \xi \in \Xi
+```
+
+**`CVaR_theta`**
+
+```math
+\theta \in \mathbb{R}
+```
+
+**`CVaR`**
+
+```math
+CVaR \in \mathbb{R}
 ```
 <!-- gallery:end -->
 
