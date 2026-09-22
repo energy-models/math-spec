@@ -134,7 +134,7 @@ def test_what_a_curve_assumes_of_its_numbers_rides_on_the_expansion_too(model):
     decides. The program carries the condition for the consumer that has the numbers,
     and writing the curve out must not be the way a model loses it."""
     spec = schema_of(model)
-    stated = to_program(spec).assumptions
+    stated = to_program(spec.expand('piecewise')).assumptions
     written_out = to_program(spec.expand()).assumptions
 
     assert {'cost_curve_increasing', 'cost_curve_curvature'} <= set(stated), (
@@ -149,7 +149,7 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
     neither a set nor a curve emits a parameter. A consumer's `sources` argument
     is therefore the same either way."""
     spec = schema_of(model)
-    supplied = set(to_program(spec).parameters)
+    supplied = set(to_program(spec.expand('piecewise')).parameters)
     written_out = set(to_program(spec.expand()).parameters)
 
     assert written_out == supplied, 'writing a formulation out asks for data the model it came from did not'
