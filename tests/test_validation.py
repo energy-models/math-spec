@@ -1822,7 +1822,7 @@ class TestExpressionCases:
             to_spec(model)
 
     def test_a_fault_in_an_arm_names_the_declaration_and_is_reported_once(self):
-        """The block is expanded at every use, and the fault is in one place.
+        """The block is resolved once, and the fault is in one place.
 
         Naming the use site would report a case on a constraint that has none,
         and one sentence per constraint reading the expression is the same
