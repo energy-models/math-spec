@@ -35,14 +35,14 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import assumptions_of, declaration_of, derivations_of, expand_piecewise
+from math_spec.piecewise import declaration_of, derivations_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
     from pathlib import Path
 
-    from math_spec.model import Spec, _ExpandedSpec
+    from math_spec.model import Spec
 
 
 def _none_of(masks: list[program.Mask]) -> program.Mask:
@@ -65,7 +65,7 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program)
     model, or a program already. Idempotent, so a caller that does not know
     which it holds can call this and be sure.
 
-    Not memoised; :func:`~math_spec.piecewise.expand_piecewise` is.
+    Not memoised; :meth:`~math_spec.model.Spec.expand` is.
 
     Args:
         spec: What to read the declarations from.
@@ -81,22 +81,30 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program)
     """
     if isinstance(spec, program.Program):
         return spec
-    return lower_program(expand_piecewise(to_spec(spec)))
+    return lower_program(to_spec(spec).expand('piecewise'))
 
 
-def lower_program(expanded: _ExpandedSpec) -> program.Program:
-    """Compile an expanded model into a :class:`~math_spec.program.Program`.
+def lower_program(expanded: Spec) -> program.Program:
+    """Compile a model whose curves are written out into a :class:`~math_spec.program.Program`.
 
-    A ``domain: binary`` variable lowers with fixed 0/1 bounds.
+    A ``domain: binary`` variable lowers with fixed 0/1 bounds. A ``sos:``
+    block lowers as itself — a program carries a set, and
+    :meth:`~math_spec.model.Spec.expand` is what states one as binaries
+    instead.
+
+    Args:
+        expanded: A model with no ``piecewise:`` block left, which
+            :meth:`~math_spec.model.Spec.expand` returns.
 
     Raises:
         LanguageError: A construct outside the language, named with its
             rewrite.
     """
+    assert not expanded.piecewise, "a curve states rows, and lowering reads them: pass spec.expand('piecewise')"
     resolved = expanded.resolved
     derivations = {
         name: how
-        for block, ex in expanded.expanded_piecewise.items()
+        for block, ex in expanded._expanded_piecewise.items()
         for name, how in derivations_of(block, ex).items()
     }
     parameters = {
@@ -146,7 +154,6 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             sdef.variable,
             sdef.over,
             sos_type=sdef.type,
-            big_m=sdef.big_m,
         )
         for sname, sdef in expanded.sos.items()
     }
@@ -163,26 +170,26 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         dimensions=dimensions,
         relations=resolved.relations,
         sos=sos,
-        piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
+        piecewise={name: declaration_of(ex) for name, ex in expanded._expanded_piecewise.items()},
         assumptions=_assumptions(expanded),
         expressions=expressions,
     )
 
 
-def _assumptions(expanded: _ExpandedSpec) -> dict[str, program.Assumption]:
-    """Everything the data has to satisfy, the file's entries first and each block's behind them.
+def _assumptions(expanded: Spec) -> dict[str, program.Assumption]:
+    """Everything the data has to satisfy, in the order the model states it.
 
     One mapping rather than two, because a consumer binding data checks them
-    all the same way and refuses in the same words.
+    all the same way and refuses in the same words. A curve's conditions are
+    already here: the expansion writes them into ``assumptions:``, and a load
+    derives the same text for a block the file still declares.
     """
     assumptions: dict[str, program.Assumption] = {}
-    for name, (holds, where) in expanded.resolved.assumptions.items():
+    for name, (holds, where, description) in expanded.resolved.assumptions.items():
         lowering = _Lowering(expanded, f"assumption '{name}'")
         predicate = lowering.mask(holds)
         assert predicate is not None, 'a predicate that admits every row was refused as deciding nothing'
-        assumptions[name] = program.Holds(predicate, lowering.mask(where), expanded.assumptions[name].description)
-    for block, ex in expanded.expanded_piecewise.items():
-        assumptions.update(assumptions_of(block, ex))
+        assumptions[name] = program.Holds(predicate, lowering.mask(where), description)
     return assumptions
 
 
@@ -195,7 +202,7 @@ def _assumptions(expanded: _ExpandedSpec) -> dict[str, program.Assumption]:
 class _Lowering:
     """One expression walk, and the two things every step of it reads."""
 
-    schema: _ExpandedSpec
+    schema: Spec
     context: str
 
     def expr(self, node: ArithmeticNode) -> program.Expression:

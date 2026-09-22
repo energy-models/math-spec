@@ -35,21 +35,15 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import assumptions_of
 from math_spec.program import (
     And,
     ArithmeticComparison,
-    AtLeastTwo,
     BooleanLiteral,
-    Check,
-    Contiguous,
     CountComparison,
-    Curved,
     DimensionComparison,
     DimensionPosition,
     Direction,
     ExpressionComparison,
-    Increasing,
     Mask,
     Not,
     Or,
@@ -69,7 +63,7 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import ExpandedPiecewise, RelationBlock, SosBlock, _ExpandedSpec
+    from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -255,7 +249,7 @@ class Walk:
 
     def __init__(
         self,
-        schema: _ExpandedSpec,
+        schema: Spec,
         symbols: Symbols,
         fmt: Format,
         *,
@@ -740,7 +734,16 @@ class Walk:
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def _constraints(self) -> list[Line]:
-        return [self._constraint(name) for name in self.schema.constraints]
+        """Every constraint, then every curve.
+
+        A ``piecewise:`` block restricts what its link expressions may be
+        together, which is what a row does, so it prints here rather than among
+        the domains — where a set prints, being a property of one variable.
+        """
+        return [
+            *(self._constraint(name) for name in self.schema.constraints),
+            *(self._piecewise(name) for name in self.schema.piecewise),
+        ]
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
@@ -795,17 +798,22 @@ class Walk:
         )
 
     def line(self, name: str) -> Line:
-        """The one line *name* prints as: a named expression, a constraint, an assumption, or a variable's domain.
+        """The one line *name* prints as: a named expression, a constraint, an assumption, a curve, or a variable's domain.
 
-        *name* is one of the four; :func:`~math_spec.typesetting.typeset_declaration`
-        refuses the rest, and a constraint sharing a variable's name.
+        *name* is one of the five; :func:`~math_spec.typesetting.typeset_declaration`
+        refuses the rest, and a name declared as two of them. An assumption is
+        looked up where the document prints it from, so a condition a curve's
+        method states is a line a reader can ask for before the curve is
+        written out.
         """
         if name in self.schema.expressions:
             return self.definition(name)
         if name in self.schema.constraints:
             return self._constraint(name)
-        if name in self.schema.assumptions:
+        if name in self.schema.resolved.assumptions:
             return self._assumption(name)
+        if name in self.schema.piecewise:
+            return self._piecewise(name)
         return self._variable(name)
 
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
@@ -882,19 +890,15 @@ class Walk:
     def _assumptions(self) -> list[Line]:
         """What the model assumes of its data, in the order a program carries it.
 
-        A curve's conditions are the language's own, derived from the method
-        rather than written (:func:`~math_spec.piecewise.assumptions_of`), and
-        they print here beside the file's: the reader sees every condition the
-        data is held to, whoever stated it.
+        A curve's conditions stand here with the file's own, because the
+        method states them in the same language: the reader sees every
+        condition the data is held to, whoever stated it.
         """
-        lines = [self._assumption(name) for name in self.schema.assumptions]
-        for block, expanded in self.schema.expanded_piecewise.items():
-            lines += [self._derived(name, expanded, check) for name, check in assumptions_of(block, expanded).items()]
-        return lines
+        return [self._assumption(name) for name in self.schema.resolved.assumptions]
 
     def _assumption(self, name: str) -> Line:
-        """One ``assumptions:`` entry: the predicate over the frame both its masks name, under its ``where``."""
-        holds, where = self.schema.resolved.assumptions[name]
+        """One assumption: the predicate over the frame both its masks name, under its ``where``."""
+        holds, where, _ = self.schema.resolved.assumptions[name]
         frame = self._sorted(holds.dims | (where.dims if where is not None else frozenset()))
         ctx = self._context(frame)
         if isinstance(holds.root, AlignedComparison):
@@ -903,76 +907,99 @@ class Walk:
             left, right = self._predicate(holds.root, ctx), ''
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, self._condition(ctx, where)))
 
-    def _derived(self, name: str, expanded: ExpandedPiecewise, check: Check) -> Line:
-        """One condition a curve puts on its breakpoints, as the line a reader checks the data against.
+    def _piecewise(self, name: str) -> Line:
+        """One ``piecewise:`` block as the curve it states, over the frame it states one per coordinate of.
 
-        The strictly increasing x-axis is an inequality between neighbours,
-        printed with the plain translation whose vacated first row is absent.
-        The shape a method is exact for is prose, as a paper writes it, since
-        "convex or concave" is no one inequality. The two conditions on a
-        ``points:`` mask are stated of the set the mask admits.
+        The links' expressions are a point, and the block says that point lies
+        on the piecewise-linear locus through the breakpoints. A bounded link
+        states one side of the locus instead, so there the locus prints as the
+        function of the pinned link that it is and the link's own sign says
+        which side.
         """
-        match check:
-            case Increasing(_, _, parameter, over):
-                frame = self._sorted(frozenset(self.schema.parameters[parameter].dims))
-                ctx = self._context(frame)
-                previous = ctx.translated(over, _Step(1, 'plain'))
-                condition = ''
-                if (mask := expanded.points) is not None:
-                    admitted = ParameterDefined(mask, tuple(self.schema.parameters[mask].dims))
-                    condition = self.format.joined(
-                        [self._predicate(admitted, ctx), self._predicate(admitted, previous)], self._op('and')
-                    )
-                return Line(
-                    label=name,
-                    left=self._parameter(parameter, previous),
-                    right=f'{self._op("lt")} {self._parameter(parameter, ctx)}',
-                    condition=self._quantifier(frame, condition),
-                )
-            case Curved(_, _, x, y, over, curvature):
-                dims = frozenset(self.schema.parameters[x].dims) | frozenset(self.schema.parameters[y].dims)
-                ctx = self._context(self._sorted(dims))
-                shape = 'convex or concave' if curvature == 'either' else curvature
-                return Line(
-                    label=name,
-                    left=self._parameter(y, ctx),
-                    right=(
-                        f'{self.format.prose(f" is a {shape} function of ")} {self._parameter(x, ctx)} '
-                        f'{self.format.prose(" along ")} {self.symbols.index[over]}'
-                    ),
-                    condition=self._quantifier(self._sorted(dims - {over}), ''),
-                )
-            case AtLeastTwo(_, over, mask):
-                members, frame = self.symbols.set[over], self._sorted(frozenset())
-                if mask is not None:
-                    members, frame = self._admitted(mask, over)
-                return Line(
-                    label=name,
-                    left=self.format.cardinality(members),
-                    right=f'{self._op("ge")} {self._number(2)}',
-                    condition=self._quantifier(frame, ''),
-                )
-            case Contiguous(_, mask, _):
-                members, frame = self._admitted(mask, expanded.block.over)
-                return Line(
-                    label=name,
-                    left=members,
-                    right=self.format.prose(' is one run of consecutive breakpoints'),
-                    condition=self._quantifier(frame, ''),
-                )
-        assert_never(check)
+        block = self.schema.piecewise[name]
+        links = self.schema.resolved.piecewise[name]
+        frame = self._curve_frame(name, block, links)
+        ctx = self._context([*frame, block.over])
+        locus = self._locus(block, ctx)
+        bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
+        if bounded is None:
+            left = self._tuple([self._expression(node, ctx) for node in links])
+            right = f'{self._op("in")} {locus}'
+        else:
+            pinned = links[1 - bounded]
+            left = self._expression(links[bounded], ctx)
+            sign = self._op(_PREDICATES[block.links[bounded].sign])
+            right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
+        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, ''))
 
-    def _admitted(self, mask: str, over: str) -> tuple[str, list[str]]:
-        """The breakpoints *mask* admits along *over* as a set, and the frame that set is one of per curve."""
-        dims = frozenset(self.schema.parameters[mask].dims)
-        frame = self._sorted(dims - {over})
-        ctx = self._context([*frame, over])
-        admitted = self._predicate(ParameterDefined(mask, tuple(self.schema.parameters[mask].dims)), ctx)
-        return self.format.set_of(self._membership(over), admitted), frame
+    def _locus(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
 
-    def _parameter(self, name: str, ctx: _Context) -> str:
-        """A parameter's symbol, indexed by its own dims."""
-        return ctx.indexed(self.symbols.name[name], list(self.schema.parameters[name].dims))
+        A gate multiplies it, which is what gating a curve does — the weights
+        sum to the gate, so the locus is the origin where the gate is 0 and the
+        curve where it is 1.
+        """
+        operator = self._op('hull' if block.method == 'convex' else 'curve')
+        through = self.format.subscript(operator, [self._breakpoints(block, ctx)])
+        values = self.format.joined(
+            [
+                ctx.indexed(self.symbols.name[link.values], list(self.schema.parameters[link.values].dims))
+                for link in block.links
+            ],
+            '',
+        )
+        locus = self.format.apply(through, values)
+        gate = self._gate(block, ctx)
+        return f'{gate} {self._op("cdot")} {locus}' if gate else locus
+
+    def _breakpoints(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """Which breakpoints the curve runs through: every one of the dimension, or the ones ``points:`` admits.
+
+        A ``points:`` naming a boolean parameter reads as the flag it is, and
+        one naming a values parameter as the rows that parameter has, which is
+        the same reading a ``where`` gives either of them.
+        """
+        over = self._membership(block.over)
+        if block.points is None:
+            return over
+        admitted = ParameterDefined(block.points, tuple(self.schema.parameters[block.points].dims))
+        return f'{over} {self._op("such_that")} {self._predicate(admitted, ctx)}'
+
+    def _gate(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """The factor an ``activity:`` puts on the locus, or ``''`` where the block has none.
+
+        Where the gate is a variable that does not exist at every coordinate
+        the curve is built for, the factor is the gate where it exists and 1
+        where it does not — the two rows the expansion writes there, because a
+        variable that does not exist takes its row with it and would leave the
+        curve unstated rather than ungated. ``absence: zero`` is the other
+        reading and pins the curve off, which is the factor on its own.
+        """
+        if (activity := block.activity) is None:
+            return ''
+        gate = self.schema.variables[activity]
+        symbol = ctx.indexed(self.symbols.name[activity], list(gate.dims))
+        mask = self.schema.resolved.variables[activity]
+        if mask is None or gate.absence == 'zero':
+            return symbol
+        where = self._predicate(mask.root, ctx, need=_WHERE_PRECEDENCE['and'])
+        return self.format.cases(
+            [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
+        )
+
+    def _curve_frame(self, name: str, block: PiecewiseBlock, links: tuple[ArithmeticNode, ...]) -> list[str]:
+        """The dimensions the block builds one curve per coordinate of: every one its links and its gate carry.
+
+        The union the expansion takes its own frame from, and the expansion has
+        already held it to the rules — that no link carries the breakpoint
+        dimension among them (:mod:`math_spec.piecewise`).
+        """
+        dims: frozenset[str] = frozenset()
+        for i, node in enumerate(links):
+            dims |= dims_of(node, self.schema, f"piecewise '{name}' link {i}")
+        if block.activity is not None:
+            dims |= frozenset(self.schema.variables[block.activity].dims)
+        return self._sorted(dims)
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):

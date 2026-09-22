@@ -476,13 +476,17 @@ def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
     ``piecewise:`` block's conditions follow under the name a refusal quotes.
     """
     program = to_program(EXAMPLES / 'piecewise_lp.yaml')
-    written = [name for name, a in program.assumptions.items() if isinstance(a, Holds)]
-    derived = [name for name, a in program.assumptions.items() if not isinstance(a, Holds)]
+    derived = [name for name in program.assumptions if name.startswith('cost_curve_')]
 
-    assert list(program.assumptions) == [*written, *derived], 'the file first, then what the methods imply'
-    assert derived == ['cost_curve increasing', 'cost_curve curvature', 'cost_curve breakpoints'], (
-        'an lp curve over a whole axis assumes three things of its breakpoints'
+    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+        'a method states its conditions in the language the file writes, so one kind stands in the mapping'
     )
+    assert derived == [
+        'cost_curve_complete',
+        'cost_curve_increasing',
+        'cost_curve_curvature',
+        'cost_curve_breakpoints',
+    ], 'an lp curve over a whole axis assumes four things of its breakpoints, completeness first'
 
 
 def test_an_assumption_lowers_both_of_its_masks():

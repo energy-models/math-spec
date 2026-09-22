@@ -972,14 +972,23 @@ class TestRulesDecidedWithoutData:
                 id='sos-of-order-three',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'big_m': 0}}},
-                ('big_m must be a positive, finite number',),
-                id='sos-big-m-zero',
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}}, 'variables.p.bounds': {'lower': 0}},
+                ("variable 'p' has no upper bound", 'Declare bounds.upper'),
+                id='sos-over-a-member-with-no-coefficient',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'big_m': float('inf')}}},
-                ('big_m must be a positive, finite number',),
-                id='sos-big-m-infinite',
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}}, 'variables.p.bounds': {'upper': 10}},
+                ("variable 'p' has no lower bound", 'Declare bounds.lower'),
+                id='sos-over-a-member-with-no-floor',
+            ),
+            pytest.param(
+                {
+                    'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}},
+                    'variables.p.bounds': {'lower': 0, 'upper': 10},
+                    'variables.s_seg': {'dims': ['g'], 'domain': 'binary'},
+                },
+                ("its expansion writes variable 's_seg'",),
+                id='sos-whose-expansion-collides-with-a-declaration',
             ),
             pytest.param(
                 {'relations.tag': {'key': 'g', 'dtype': 'str'}},

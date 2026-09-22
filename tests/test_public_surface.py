@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 import math_spec
-from math_spec import program, typesetting
+from math_spec import Spec, program, typesetting
 
 #: Every name `math_spec` promises. Grouped as a reader meets them, not
 #: alphabetically: the alphabetical form is `__all__` itself, and repeating it
@@ -41,12 +41,26 @@ SURFACE = frozenset(
     }
 )  # fmt: skip
 
+#: What `Spec` promises beyond the sections a file declares: the two ways back
+#: out, the verb that writes a formulation out, the relations of one dimension,
+#: and the typed trees every reader in this package walks. A `model_`-prefixed
+#: name is pydantic's, not a contract this project keeps.
+SPEC_SURFACE = frozenset({'relations_of', 'to_dict', 'to_yaml', 'expand', 'resolved'})
+
 #: The modules whose `__all__` a consumer imports from.
 MODULES = [
     pytest.param(math_spec, id='math_spec'),
     pytest.param(typesetting, id='typesetting'),
     pytest.param(program, id='program'),
 ]
+
+
+def test_spec_promises_the_pinned_methods_and_nothing_else():
+    """A method on `Spec` is as public as a name in `__all__`, so adding one is the same decision."""
+    found = {name for name in vars(Spec) if not name.startswith(('_', 'model_')) and name not in Spec.model_fields}
+    assert found == SPEC_SURFACE, (
+        f'only on Spec: {sorted(found - SPEC_SURFACE)}; only in SPEC_SURFACE: {sorted(SPEC_SURFACE - found)}'
+    )
 
 
 def test_all_matches_the_pinned_surface():

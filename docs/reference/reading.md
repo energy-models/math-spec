@@ -77,6 +77,24 @@ on a `Program`, it returns the same object unchanged.
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts          |
 
+## Formulations written out
+
+`Spec.expand()` returns a `Spec` whose formulations — `piecewise:` and `sos:` —
+are stated as the variables and constraints they stand for. It is the same math,
+bound by the same data, and it is what to print for a reader who wants the rows
+rather than the curve:
+
+```python
+sorted(spec.expand().variables)  # ['cost', 'curve_lam', 'p']
+sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+spec.expand() is spec.expand()  # True
+```
+
+`to_program` writes the curves out and leaves the sets, because a program
+carries a set for a consumer that has the concept. A consumer without one
+refuses the model and names `spec.expand('sos')`; what that emits is on the
+[piecewise page](language/piecewise.md#what-a-set-is-written-out-as).
+
 `program.piecewise` keeps the curve: its breakpoint dimension, its method and
 its values parameters. `ParameterDeclaration.derivation` says how a parameter
 is filled, and `None` means the engine binds it from its data.
@@ -90,21 +108,22 @@ refusal quotes. The engine, which has the numbers, runs each one and raises
 ```python
 from math_spec.program import Holds, assumption_message
 
-sorted(program.assumptions)  # ['cost_is_never_negative', 'curve curvature', 'curve increasing']
-isinstance(program.assumptions['curve increasing'], Holds)  # False
-message = assumption_message('curve increasing', program.assumptions['curve increasing'])
-message  # "piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_complete', 'curve_curvature', 'curve_increasing']
+isinstance(program.assumptions['curve_increasing'], Holds)  # True
+message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
+message  # "assumption 'curve_increasing' does not hold for the data bound to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
 written = assumption_message('cost_is_never_negative', program.assumptions['cost_is_never_negative'])
 written  # "assumption 'cost_is_never_negative' does not hold for the data bound to 'bp_y' — a negative cost is a gain the objective would chase"
 ```
 
-Two kinds stand in that mapping. A `Holds` carries what the file wrote under
-`assumptions:`: the `predicate`, the `where` it is checked under, and the
-`description` the sentence quotes.
-The rest carry what a `piecewise:` block's method implies about its
-breakpoints — `Increasing`, `Curved`, `AtLeastTwo` and `Contiguous` — each
-naming the block it came from. The union is closed, so a kind added later is a
-type error at your match rather than a case you silently skip.
+One kind stands in that mapping. A `Holds` carries a predicate as two masks —
+`predicate`, and the `where` it is checked under — and the sentence a refusal
+trails under `description`. What a `piecewise:` block's method implies about
+its breakpoints is written in the same language and stands beside what the
+file wrote: `expand()` emits those entries, and a model that still declares
+the block derives the same text at load. So a consumer reads one kind, and a
+condition a method adds later is a row in that mapping rather than a case to
+handle.
 
 ## Nodes and masks
 

@@ -30,8 +30,9 @@ from pydantic import (
 )
 
 from math_spec._expression_parser import NAME, ComparisonOperator
-from math_spec.errors import did_you_mean, schema_error
+from math_spec.errors import SchemaError, did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.sos import Emitted, coefficients
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
@@ -117,10 +118,15 @@ SosType = Literal[1, 2]
 #: ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
-#: The shape a method needs a curve to have to be exact on it, carried by the
-#: :class:`~math_spec.program.Curved` check. ``convex`` and ``concave`` name
-#: one bend; ``either`` is the hull's weaker condition — any single bend will
-#: do, and only a *mixed* curve fails it.
+#: A block that states rows rather than being one, which :meth:`Spec.expand`
+#: writes out on request.
+Formulation = Literal['piecewise', 'sos']
+
+#: The shape a method needs a curve to have to be exact on it, which the
+#: ``<block>_curvature`` assumption states. ``convex`` and ``concave`` name the
+#: side a bounded link binds from; ``either`` is the weaker condition a block
+#: with both links pinned states — any single bend will do, and only a *mixed*
+#: curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
 
 #: The set form of each vocabulary above, for callers that want membership.
@@ -132,6 +138,10 @@ NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 CURVATURES = frozenset(get_args(Curvature))
+
+#: Every formulation, in the order :meth:`Spec.expand` writes them out: a curve
+#: emits a set, and no set emits a curve.
+FORMULATIONS: tuple[Formulation, ...] = ('piecewise', 'sos')
 
 
 def _also_written_as(
@@ -666,13 +676,13 @@ class SosBlock(_StrictBlock):
 
     One set per coordinate of the variable's ``dims`` minus ``over``; the
     members are the variable's *existing* coordinates along ``over``, in that
-    dimension's declared order, and ``big_m`` is the optional cap a consumer
-    that reformulates the set puts on its linking rows.
+    dimension's declared order.
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
-    and those two consecutive. Unlike every other block this one declares no
-    math to read off ``A``: it is a *set*, carried to a consumer that has the
-    concept and reformulated for one that does not.
+    and those two consecutive. A consumer with the concept takes the set as
+    one; :meth:`Spec.expand` states it as binaries instead, and the rows it
+    writes multiply by the member's own ``bounds``, which is why a member
+    needs both.
     """
 
     _label: ClassVar[str] = 'a sos declaration'
@@ -680,7 +690,6 @@ class SosBlock(_StrictBlock):
     variable: str
     over: str
     type: SosType
-    big_m: float | None = None
     description: str | None = None
 
     @field_validator('type', mode='wrap')
@@ -694,14 +703,6 @@ class SosBlock(_StrictBlock):
             return cast('SosType', handler(v))
         except ValidationError:
             raise ValueError(msg) from None
-
-    @field_validator('big_m')
-    @classmethod
-    def _check_big_m(cls, v: float | None) -> float | None:
-        if v is not None and not (v > 0 and math.isfinite(v)):
-            msg = f'big_m must be a positive, finite number, got {v!r} — it caps a linking coefficient.'
-            raise ValueError(msg)
-        return v
 
 
 #: The language surfaces this reader understands. A **language** version, not a
@@ -746,17 +747,25 @@ class Spec(_StrictBlock):
     Holding one is the proof, so nothing downstream checks it again.
 
     The API is the eleven declaration sections plus ``version`` and
-    ``description``, and two ways back out: :meth:`to_dict` for the model as
-    data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
-    this class is pydantic's, not a contract this package keeps.
+    ``description``, three ways back out — :meth:`to_dict` for the model as
+    data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
+    same math with its formulations written out — and :attr:`resolved`, the
+    typed trees every reader in this package walks. Everything else on this
+    class is pydantic's, not a contract this package keeps.
     """
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: The :class:`_ExpandedSpec` built from this model, at load — it holds
-    #: the resolved trees. Owned entirely — written and read — by
-    #: :func:`~math_spec.piecewise.expand_piecewise`; only the slot lives here.
-    _expansion: _ExpandedSpec | None = PrivateAttr(default=None)
+    #: What :meth:`expand` returned for each set of formulations asked for, so
+    #: a second ask is the same object rather than a second expansion. A model
+    #: that expands to itself is not stored: two of them compare by their
+    #: private state, which a model holding itself cannot answer.
+    _expansions: dict[tuple[Formulation, ...], Spec] = PrivateAttr(default_factory=dict)
+    #: What each ``piecewise:`` block of the model this one expanded became —
+    #: the block as written and the names its expansion chose. Empty on a model
+    #: that is not an expansion. Written by
+    #: :func:`~math_spec.piecewise.expand_piecewise`.
+    _expanded_piecewise: dict[str, ExpandedPiecewise] = PrivateAttr(default_factory=dict)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
@@ -843,10 +852,86 @@ class Spec(_StrictBlock):
         return self.model_dump()
 
     def to_yaml(self) -> str:
-        """The file a reviewer reads — including for a model that never had one."""
+        """The file a reviewer reads — including for a model that never had one.
+
+        Raises:
+            SchemaError: This model is an expansion that derived parameters
+                from a curve, which a file would declare as data nobody
+                supplies.
+        """
         import yaml
 
+        if derived := self._derived_parameters():
+            msg = (
+                f'this model is an expansion, and {derived} is derived from a piecewise: block rather than '
+                f'supplied. A file of it would declare data nobody has. Write the model it came from, or '
+                f'read this one with typeset().'
+            )
+            raise SchemaError(msg)
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
+
+    def _derived_parameters(self) -> list[str]:
+        """The parameters this model's own expansion emitted and derives, which no file can declare."""
+        from math_spec.piecewise import derivations_of
+
+        return sorted(
+            name for block, expanded in self._expanded_piecewise.items() for name in derivations_of(block, expanded)
+        )
+
+    def expand(self, *kinds: Formulation) -> Spec:
+        """This model with its formulations written out as plain variables and constraints.
+
+        A formulation states rows rather than being one — ``piecewise:`` states
+        a curve, ``sos:`` states which members of a family may be nonzero — and
+        expanding one writes those rows under names prefixed with the block's
+        own, then drops the block. The math is the same afterwards, and so are
+        the sources that bind it: a set emits no parameter, and every parameter
+        a curve emits it derives.
+
+        Args:
+            kinds: Which formulations to write out — ``'piecewise'``,
+                ``'sos'``, or none of them for every one. They go in
+                :data:`FORMULATIONS` order whatever order they are asked in,
+                because a ``method: sos2`` curve emits a set and no set emits a
+                curve.
+
+        Returns:
+            The model those blocks wrote out, or this one where it declares
+            none of them. An expanded curve's derived parameters ride with it
+            in process, so what reads the result is :func:`typeset`, not
+            :meth:`to_yaml`, which refuses on it.
+
+        Raises:
+            ValueError: *kinds* names something that is not a formulation.
+        """
+        wanted = _formulations(kinds)
+        if (found := self._expansions.get(wanted)) is not None:
+            return found
+        from math_spec.piecewise import expand_piecewise
+        from math_spec.sos import expand_sets
+
+        if wanted == ('piecewise',):
+            expanded = expand_piecewise(self)
+        else:
+            expanded = self.expand('piecewise') if 'piecewise' in wanted else self
+            if expanded.sos:
+                expanded = expand_sets(expanded)
+        if expanded is not self:
+            self._expansions[wanted] = expanded
+        return expanded
+
+    @cached_property
+    def resolved(self) -> Resolved:
+        """Every expression and where string this model declares, typed once — what every reader after validation walks.
+
+        Computing it *is* the expression pass, so a model the language refuses
+        raises here; loading forces it, so a spec in hand already holds it. It
+        holds what *this* model declares: the rows a formulation states are on
+        :meth:`expand`'s result instead.
+        """
+        from math_spec.validation import validate_expressions
+
+        return validate_expressions(self)
 
     @model_validator(mode='after')
     def _names_are_names(self) -> Spec:
@@ -879,6 +964,8 @@ class Spec(_StrictBlock):
             *self._relation_targets(),
             *self._bound_names(),
             *self._sos_shapes(),
+            *self._sos_bounds(),
+            *self._sos_emitted_names(),
         ]
         if errors:
             raise ValueError('\n'.join(errors))
@@ -1023,17 +1110,55 @@ class Spec(_StrictBlock):
             else:
                 claimed[block.variable] = sname
 
+    def _sos_bounds(self) -> Iterator[str]:
+        """A set states what the binaries it expands to state: each side of a member carries a coefficient.
+
+        The rewrite holds an unpicked member at zero from both sides, so a side
+        the model leaves open leaves the member free of it. Either coefficient
+        may be a parameter, because a row multiplies by it rather than reading
+        it. Decided here rather than where the rewrite runs, so a set the
+        language cannot state twice is refused before any data exists.
+        """
+        for sname, block in self.sos.items():
+            if (member := self.variables.get(block.variable)) is None:
+                continue
+            context = f"Sos '{sname}'"
+            below, above = coefficients(member.domain, member.bounds.lower, member.bounds.upper)
+            if below is None:
+                yield (
+                    f"{context}: variable '{block.variable}' has no lower bound, and the set expands to rows "
+                    f'that hold an unpicked member at zero from below as well as above. Declare bounds.lower, '
+                    f'as a number or a parameter.'
+                )
+            if above is None:
+                yield (
+                    f"{context}: variable '{block.variable}' has no upper bound, and the set expands to rows "
+                    f'that hold an unpicked member at zero from above as well as below. Declare bounds.upper, '
+                    f'as a number or a parameter.'
+                )
+
+    def _sos_emitted_names(self) -> Iterator[str]:
+        """No name a set's expansion writes is one the file already declares."""
+        declared: dict[str, Iterable[str]] = {'variable': self.variables, 'constraint': self.constraints}
+        for sname, block in self.sos.items():
+            for kind, names in Emitted.of(sname, block.type).by_kind:
+                yield from (
+                    f"Sos '{sname}': its expansion writes {kind} '{one}', which this file already declares. "
+                    f'Rename one of them.'
+                    for one in names
+                    if one in declared[kind]
+                )
+
     @model_validator(mode='after')
     def _validate_expressions(self) -> Spec:
-        """Every expression and where string — after expansion, whose emitted declarations are language too.
+        """Every expression and where string — this file's own, and every one a curve emits.
 
-        The expansion is what holds the resolved trees, so it is built here
-        for every model, ``piecewise:`` or not. The expander imports this
-        module, so the import is local.
+        A curve's expansion is a model in its own right, so validating it is
+        what holds the declarations it writes to the language; it runs first,
+        so a fault in a link is named against the link the file wrote.
         """
-        from math_spec.piecewise import expand_piecewise
-
-        _ = expand_piecewise(self).resolved
+        self.expand('piecewise')
+        _ = self.resolved
         return self
 
 
@@ -1053,34 +1178,14 @@ class ExpandedPiecewise(_StrictBlock):
     ends: str | None = None
 
 
-class _ExpandedSpec(Spec):
-    """A model with nothing left to expand — what rows are built from.
+def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:
+    """What *asked* names, in :data:`FORMULATIONS` order — all of them where it names none.
 
-    :func:`~math_spec.piecewise.expand_piecewise` produces one, and
-    ``variables:`` and ``constraints:`` then hold the whole model. A consumer
-    that builds takes this type; one that reads takes :class:`Spec` and
-    accepts either.
+    Raises:
+        ValueError: A name that is not a formulation.
     """
-
-    #: What each ``piecewise:`` block became, under the block's name — the
-    #: block as written and the names its expansion chose, which is what a
-    #: program's :class:`~math_spec.program.PiecewiseDeclaration` is built from.
-    expanded_piecewise: dict[str, ExpandedPiecewise] = {}
-
-    @model_validator(mode='after')
-    def _nothing_left_to_expand(self) -> _ExpandedSpec:
-        if self.piecewise:
-            msg = 'an _ExpandedSpec carries no piecewise: — expand_piecewise is what produces one'
-            raise ValueError(msg)
-        return self
-
-    @cached_property
-    def resolved(self) -> Resolved:
-        """Every expression and where string typed, once — what every reader after validation walks.
-
-        Computing it *is* the expression pass, so a model the language refuses
-        raises here; loading forces it, so a spec in hand already holds it.
-        """
-        from math_spec.validation import validate_expressions
-
-        return validate_expressions(self)
+    if unknown := [kind for kind in asked if kind not in FORMULATIONS]:
+        spelled = ' and '.join(repr(kind) for kind in FORMULATIONS)
+        msg = f'{unknown[0]!r} is not a formulation. Expand {spelled}, or pass none of them for every one.'
+        raise ValueError(msg)
+    return tuple(kind for kind in FORMULATIONS if not asked or kind in asked)
