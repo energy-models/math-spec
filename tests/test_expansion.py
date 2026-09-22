@@ -13,7 +13,7 @@ import pytest
 from math_spec._expression_parser import ComparisonNode, DefinitionNode, parse_expression, with_children
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from tests.fixtures import DISPATCH_MODEL, schema_of
+from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, schema_of
 
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],
@@ -223,8 +223,8 @@ def test_macro_collisions_rejected(patch, match):
         ),
         pytest.param(
             {'grouped': {'args': ['x'], 'template': 'sum(x, by=[nope, also])'}},
-            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation",
-            id='a-typo-in-a-relation-list',
+            r"Macro 'grouped'.*sum\(by=\[nope, also\]\) names 2 relations",
+            id='a-list-of-relations',
         ),
     ],
 )
@@ -234,8 +234,37 @@ def test_macro_templates_validated_even_when_unused(macros, match):
         schema(macros=macros)
 
 
+@pytest.mark.parametrize(
+    ('template', 'match'),
+    [
+        pytest.param('x * tag', "Macro 'm': 'tag' is declared dtype: str", id='a-label-parameter-as-a-value'),
+        pytest.param('sum(x, by=lk, over=nope, into=h)', "over=nope names no column of 'lk'", id='a-typo-in-a-column'),
+    ],
+)
+def test_a_template_is_held_to_the_rules_a_call_site_is(template, match):
+    """A template nothing calls was checked for names only: a label parameter or an unknown column passed load."""
+    with pytest.raises(LanguageError, match=match):
+        schema_of(SMALL_MODEL, macros={'m': {'args': ['x'], 'template': template}})
+
+
 @pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'escape'])
 def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     with pytest.raises(LanguageError) as exc:
         schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
     assert fragment in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ('formals', 'template'),
+    [
+        pytest.param(['x', 'e'], 'shift(x, along=g, offset=1, edge=e)', id='an-edge'),
+        pytest.param(['row'], 'dual(row)', id='a-constraint'),
+        pytest.param(['x', 'rel', 'a', 'b'], 'sum(x, by=rel, over=a, into=b)', id='a-relation-and-its-columns'),
+        pytest.param(['x', 'a', 'b'], 'sum(x, by=lk, over=a, into=b)', id='the-columns-of-a-declared-relation'),
+    ],
+)
+def test_a_formal_stands_where_a_call_site_will_bind_it(formals, template):
+    """A formal has no kind until a call binds it, so the template check leaves it bare in every slot."""
+    assert (
+        schema_of(SMALL_MODEL, macros={'m': {'args': formals, 'template': template}}).macros['m'].template == template
+    )

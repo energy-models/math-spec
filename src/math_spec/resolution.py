@@ -288,8 +288,13 @@ def resolve_expression(
     ns: Namespace,
     context: str,
     errors: list[str],
+    *,
+    formals: frozenset[str] = frozenset(),
 ) -> ParsedNode | None:
     """Rewrite every ``NameNode`` under *node* to a typed node, checking operator call shapes on the way.
+
+    A name in *formals* stays bare, so a macro template is checked by the
+    rules a call site is, before anything calls it.
 
     Returns:
         The typed tree, or ``None`` once anything failed — appending to
@@ -297,7 +302,7 @@ def resolve_expression(
         whole schema reports them together.
     """
     before = len(errors)
-    resolved = _Resolver(ns, context, errors).expression(node)
+    resolved = _Resolver(ns, context, errors, formals=formals).expression(node)
     return None if len(errors) > before else resolved
 
 
@@ -350,13 +355,19 @@ class _Resolver:
     appended to ``errors``; the public doors discard the tree once ``errors``
     grew, which is what lets a connective's children be typed as resolved.
     ``self_variable`` is the variable whose own ``where`` is being read, which
-    may not ask whether it exists.
+    may not ask whether it exists. ``formals`` are a macro template's formals,
+    which stay bare: a formal has no kind until a call site binds it.
     """
 
     ns: Namespace
     context: str
     errors: list[str]
     self_variable: str | None = None
+    formals: frozenset[str] = frozenset()
+
+    def _formal(self, value: ArithmeticNode) -> bool:
+        """Whether *value* is a formal, left for the call site to bind."""
+        return isinstance(value, NameNode) and value.name in self.formals
 
     # -- expressions -------------------------------------------------------
 
@@ -374,7 +385,7 @@ class _Resolver:
         numeric check here stands aside for it. A quoted keyword or a name list in
         arithmetic arrives through a macro formal bound to one.
         """
-        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode):
+        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode) or self._formal(node):
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
@@ -429,7 +440,7 @@ class _Resolver:
                 )
                 return node
             case _:
-                self.errors.append(self.ns.unknown(node.name, self.context, allow_dims=False))
+                self.errors.append(self.ns.unknown(node.name, self.context, allow_dims=False, formals=self.formals))
                 return node
 
     def _call(self, node: FunctionCallNode) -> ArithmeticNode:
@@ -495,6 +506,8 @@ class _Resolver:
 
     def _edge(self, value: ArithmeticNode, operator: str) -> ArithmeticNode:
         """``edge=``: the closed keyword ``wrap``, or a number to contribute; a name here is a typo."""
+        if self._formal(value):
+            return value
         if isinstance(value, KeywordNode):
             if value.value == EDGE_WRAP:
                 return EdgeNode()
@@ -519,6 +532,8 @@ class _Resolver:
 
     def _dim_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
         """An operator kwarg whose *value* must name a declared dimension."""
+        if self._formal(value):
+            return value
         if not isinstance(value, NameNode):
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a dimension.')
             return value
@@ -536,6 +551,8 @@ class _Resolver:
         (:mod:`math_spec.validation`); this pass only types the name.
         """
         (value,) = node.args
+        if self._formal(value):
+            return node
         if not isinstance(value, NameNode):
             self.errors.append(
                 f'{self.context}: dual() takes the name of a declared constraint, written bare — '
@@ -543,7 +560,7 @@ class _Resolver:
             )
             return node
         if value.name not in self.ns.constraints:
-            self.errors.append(self.ns.unknown_constraint(value.name, self.context))
+            self.errors.append(self.ns.unknown_constraint(value.name, self.context, formals=self.formals))
             return node
         return DualNode(value.name)
 
@@ -576,6 +593,8 @@ class _Resolver:
             )
             return value
         name = names[0]
+        if name in self.formals or any(n in self.formals for v in roles.values() for n in names_in(v)):
+            return value
 
         if (problem := self._not_a_relation(name, operator, key)) is not None:
             self.errors.append(problem)
