@@ -21,7 +21,7 @@ from math_spec.errors import SchemaError
 from math_spec.operators import EDGE_WRAP
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping
+    from collections.abc import Callable, Iterable, Iterator, Mapping
 
     from math_spec.program import Direction, Partition, Predicate
 
@@ -462,18 +462,22 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
     """The callee is cast: a ParseResults element is untyped, and the grammar guarantees an identifier in position 0."""
     name = cast('str', tokens[0])
-    args = []
-    kwargs = {}
+    args: list[ArithmeticNode] = []
+    pairs: list[tuple[str, ArithmeticNode]] = []
     for item in tokens[1:]:
-        if isinstance(item, tuple) and len(item) == 2:
-            k, v = item
-            if k in kwargs:
-                msg = f'{name}({k}=) is given twice. A keyword names one value; drop one of them.'
-                raise SchemaError(msg)
-            kwargs[k] = v
-        else:
-            args.append(item)
-    return FunctionCallNode(name=name, args=tuple(args), kwargs=kwargs)
+        (pairs if isinstance(item, tuple) and len(item) == 2 else args).append(item)
+    return FunctionCallNode(name=name, args=tuple(args), kwargs=keywords(name, pairs))
+
+
+def keywords[V](name: str, pairs: Iterable[tuple[str, V]]) -> dict[str, V]:
+    """A call's keywords, in the order written; a keyword given twice is refused, in both grammars."""
+    kwargs: dict[str, V] = {}
+    for key, value in pairs:
+        if key in kwargs:
+            msg = f'{name}({key}=) is given twice. A keyword names one value; drop one of them.'
+            raise SchemaError(msg)
+        kwargs[key] = value
+    return kwargs
 
 
 def _make_left_assoc(tokens: pp.ParseResults) -> ArithmeticNode:

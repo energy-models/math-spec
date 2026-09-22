@@ -124,7 +124,7 @@ ConstraintSense = ComparisonOperator
 #: How a shape operator's output rows relate to its input slots, answered by
 #: :func:`fan_in` for every node.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
-ObjectiveSense = Literal['minimize', 'maximize']
+ObjectiveSense = _model.ObjectiveSense
 
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
@@ -1222,32 +1222,6 @@ class Or:
     right: Predicate
 
 
-#: Every resolved predicate node. A lowered mask's ``root`` holds every member
-#: but :class:`ArithmeticComparison`, which lowering rewrites into an
-#: :class:`ExpressionComparison`, so a consumer walking a program never meets
-#: one. The parser's ``Unresolved*`` nodes are not members: they live with the
-#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
-#: before anything here is asked.
-Predicate = (
-    BooleanLiteral
-    | DimensionPosition
-    | ParameterDefined
-    | VariableDefined
-    | ParameterComparison
-    | ExpressionComparison
-    | ArithmeticComparison
-    | DimensionComparison
-    | RelationComparison
-    | RelationPairComparison
-    | RelationDefined
-    | CountComparison
-    | TranslatedPredicate
-    | PulledBackPredicate
-    | Not
-    | And
-    | Or
-)
-
 #: Every predicate resolution has typed: it names a declaration and the kind is
 #: settled. Resolution passes these straight through, having nothing left to
 #: decide about them.
@@ -1272,6 +1246,14 @@ TypedPredicate = (
 #: these classes directly, over leaves still unresolved, so a pre-resolution
 #: tree shares them — the transient impurity resolution normalizes away.
 Connective = Not | And | Or
+
+#: Every resolved predicate node. A lowered mask's ``root`` holds every member
+#: but :class:`ArithmeticComparison`, which lowering rewrites into an
+#: :class:`ExpressionComparison`, so a consumer walking a program never meets
+#: one. The parser's ``Unresolved*`` nodes are not members: they live with the
+#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
+#: before anything here is asked.
+Predicate = BooleanLiteral | TypedPredicate | Connective
 
 
 def where_children(where: Predicate) -> tuple[Predicate, ...]:
@@ -1327,6 +1309,9 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
             | VariableDefined()
             | CountComparison()
             | TranslatedPredicate()
+            | RelationComparison()
+            | RelationPairComparison()
+            | RelationDefined()
             | PulledBackPredicate()
         ):
             return frozenset(atom.dims)
@@ -1334,8 +1319,6 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
             return frozenset({atom.name})
         case DimensionPosition():
             return frozenset({atom.name, *(atom.partition.joined_dims if atom.partition is not None else ())})
-        case RelationComparison() | RelationPairComparison() | RelationDefined():
-            return frozenset(atom.dims)
         case _:
             assert_never(atom)
 
