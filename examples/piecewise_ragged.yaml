@@ -62,10 +62,11 @@ piecewise:
       counted over it, and the increasing and curvature tests are checked
       between admitted neighbours rather than along the whole axis.
     along: bp
+    dims: [snapshot, generator]
     where: metered
     links:
-      - [dispatch, bp_x]
-      - [op_cost, bp_y, ">="]
+      dispatch: [dispatch, bp_x]
+      op_cost: [op_cost, bp_y, ">="]
     method: lp
 
 constraints:

@@ -539,24 +539,19 @@ class AssumptionBlock(_StrictBlock):
 
 
 class PiecewiseLink(_StrictBlock):
-    """One link of a piecewise block: an expression pinned to a values curve.
+    """One link of a piecewise block: an expression tied to the curve through a values parameter.
 
     Written in YAML as ``[expression, values]`` or ``[expression, values,
     sign]``, and serialised back to exactly that form, so a round trip through
     :meth:`Spec.to_yaml` reproduces the file.
 
-    A link that names ``into:`` sits on a **refinement** of the curve's frame
-    rather than on the frame itself, and is written as a mapping. Its row is
-    ``(frame - over) | into``, the frame law a relation walk already follows, so
-    one link emits a row per fine coordinate and the weights it reads stay on
-    the curve's own frame. That is what lets one curve tie as many expressions
-    as the data says.
-
-    Two forms, one law. ``into:`` alone names a dimension the row gains and the
-    weights broadcast across, so every coordinate of it is a tie to the one
-    operating point. ``by:``, ``over:`` and ``into:`` together are the
-    :func:`at` walk, which loses a frame dimension and gains what the relation
-    maps it to.
+    A link that names ``by:``, ``over:`` and ``into:`` reads the curve's
+    weights through a relation, as :func:`at` reads an array, and is written as
+    a mapping. Its row is the block's ``dims:`` with the consumed columns'
+    dims replaced by the produced ones, so one link emits a row per fine
+    coordinate and every one of them reads the curve of the coarse coordinate
+    it maps to. That is what lets one curve tie as many expressions as the
+    data says.
     """
 
     _label: ClassVar[str] = 'a piecewise link'
@@ -566,34 +561,24 @@ class PiecewiseLink(_StrictBlock):
     sign: LinkSign = '=='
     #: The relation the link reads the curve's weights through, where it walks one.
     by: str | None = None
-    #: What the row loses: the relation columns the walk consumes, over the curve frame's own dims.
+    #: The relation columns the walk consumes, over the block's own dims.
     over: str | list[str] | None = None
-    #: What the row gains: a dimension it spans, or the relation columns the walk produces.
+    #: The relation columns the walk produces, which index the link's rows.
     into: str | list[str] | None = None
 
     @property
-    def refined(self) -> bool:
-        """Whether the link's row is a refinement of the curve's frame rather than the frame itself."""
-        return self.into is not None
-
-    @property
     def walks(self) -> bool:
-        """Whether the refinement is reached through a relation, rather than a dimension the row simply gains."""
+        """Whether the link reads the curve's weights through a relation, rather than on the block's own dims."""
         return self.by is not None
 
     @model_validator(mode='after')
     def _check_walk(self) -> PiecewiseLink:
-        if self.by is not None and (missing := [k for k in ('over', 'into') if getattr(self, k) is None]):
+        written = {'by': self.by, 'over': self.over, 'into': self.into}
+        if (missing := [k for k, v in written.items() if v is None]) and len(missing) < len(written):
             msg = (
-                f'a link reading through a relation names by, over and into together — {missing} '
-                f'{"is" if len(missing) == 1 else "are"} missing. A walk states which columns it '
-                f'consumes and which it produces; neither is defaulted.'
-            )
-            raise ValueError(msg)
-        if self.by is None and self.over is not None:
-            msg = (
-                'over: on a link names the columns a relation walk consumes, so it needs by: beside it. '
-                'A link that only spans a dimension loses none, and names that dimension with into:.'
+                f'a link reads the curve through a relation with by, over and into together — {missing} '
+                f'{"is" if len(missing) == 1 else "are"} missing. A walk states the relation, the columns it '
+                f'consumes and the columns it produces, as at() does; none is defaulted.'
             )
             raise ValueError(msg)
         return self
@@ -618,15 +603,17 @@ class PiecewiseLink(_StrictBlock):
     @model_serializer
     def _as_written(self) -> list[str] | dict[str, str | list[str]]:
         """The list form, or the mapping form a walk cannot be written in a list."""
-        if self.refined:
-            assert self.into is not None
-            written: dict[str, str | list[str]] = {'expression': self.expression, 'values': self.values}
-            if self.by is not None:
-                assert self.over is not None
-                written |= {'by': self.by, 'over': self.over}
-            written['into'] = self.into
-            return written if self.sign == '==' else {**written, 'sign': self.sign}
-        return [self.expression, self.values] if self.sign == '==' else [self.expression, self.values, self.sign]
+        if not self.walks:
+            return [self.expression, self.values] if self.sign == '==' else [self.expression, self.values, self.sign]
+        assert self.by is not None and self.over is not None and self.into is not None
+        written: dict[str, str | list[str]] = {
+            'expression': self.expression,
+            'values': self.values,
+            'by': self.by,
+            'over': self.over,
+            'into': self.into,
+        }
+        return written if self.sign == '==' else {**written, 'sign': self.sign}
 
 
 #: How a ``piecewise:`` block restricts its interpolation weights, and what
@@ -660,50 +647,49 @@ _TWO_LINKS = {
     ),
 }
 
-#: Why neither takes a link whose row refines the curve. Again two reasons:
-#: ``lp`` cannot tell which of the refined rows is its abscissa, and ``convex``
-#: has no pair of values parameters on one frame to read a shape from.
-_NO_REFINEMENT = {
+#: Why neither takes a link that walks a relation. Again two reasons: ``lp``
+#: cannot tell which of the walked rows is its abscissa, and ``convex`` has no
+#: pair of values parameters on one frame to read a shape from.
+_NO_WALK = {
     'lp': (
-        'Its segment line is written against an abscissa, and a refinement is one quantity at many fine '
+        'Its segment line is written against an abscissa, and a walked link is one quantity at many fine '
         'coordinates, so which row plays it is data rather than declaration.'
     ),
     'convex': (
-        'It reads one values parameter against another to certify its relaxation, and a refinement puts '
-        'them on different frames, so there is no shape left to check.'
+        'It reads one values parameter against another to certify its relaxation, and a walk puts them '
+        'on different frames, so there is no shape left to check.'
     ),
 }
 
 
 class PiecewiseBlock(_StrictBlock):
-    """N expressions jointly pinned to a breakpoint-indexed piecewise curve.
+    """Expressions tied to one breakpoint-indexed piecewise curve per coordinate of ``dims:``.
 
-    Mirrors ``linopy.Spec.add_piecewise_formulation``. Each link is
-    ``[expression, values_parameter]`` or ``[expression, values_parameter,
-    sign]``: *expression* is any affine expression string, *values_parameter*
-    names a parameter carrying the ``along`` dim, and *sign* bounds the link by
-    the curve instead of pinning it (at most one non-``"=="``, and only with
-    exactly two links).
+    Mirrors ``linopy.Spec.add_piecewise_formulation``. ``links:`` maps a name
+    to ``[expression, values_parameter]`` or ``[expression, values_parameter,
+    sign]``: *expression* is any affine expression string over ``dims:``,
+    *values_parameter* names a parameter carrying ``along`` and no dim the
+    link's row lacks, and *sign* bounds the link by the curve instead of
+    pinning it. The name is the
+    link's row in the expansion, ``<block>_<link>``.
 
-    The block builds one curve per coordinate of the **frame**. ``dims:``
-    declares it; where the file writes none it is inferred as the union of the
-    link expressions' dims. Two keys say something different about those
-    coordinates: ``where:`` which of them have a curve, and how far each runs
-    along ``along`` where it reads that dim too; ``activity:`` whether a curve
-    that exists is switched on.
-
-    A link naming ``by:`` sits on a refinement of the frame, so the number of
-    expressions one curve ties is data. Such a block declares its ``dims:``,
-    because the frame can no longer be told from the links.
+    ``dims:`` alone decides how many curves the block builds: one set of
+    weights per coordinate of it. ``where:`` says which of those coordinates
+    have a curve, and how far each runs along ``along`` where it reads that
+    dim too; ``activity:`` whether a curve that exists is switched on. A link
+    that walks a relation builds a row per fine coordinate, each reading the
+    one curve its coarse coordinate has, so how many expressions a curve ties
+    is data.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
 
     #: The dimension each curve runs along — its breakpoints, in that dimension's declared order.
     along: str
-    links: list[PiecewiseLink]
-    #: The curve's frame — one curve per coordinate of it. Inferred from the links where absent.
-    dims: list[str] | None = None
+    #: The curve's frame — one curve per coordinate of it.
+    dims: list[str]
+    #: Each link by the name its row takes, ``<block>_<link>``.
+    links: dict[str, PiecewiseLink]
     #: Which coordinates have a curve — none builds one everywhere. Over the
     #: frame it says which curves exist; reading ``along`` too, it says which
     #: breakpoints each runs through, for curves of unequal length.
@@ -720,8 +706,20 @@ class PiecewiseBlock(_StrictBlock):
 
         Two-link blocks only.
         """
-        x, y = self.links
+        x, y = self.links.values()
         return (y, x) if x.sign != '==' else (x, y)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _check_dims(cls, data: object) -> object:
+        if isinstance(data, dict) and data.get('dims') is None:
+            msg = (
+                'a piecewise block states dims:, the dimensions it builds one curve per coordinate of — as a '
+                'variable or a constraint states the coordinates it has. Write the dims its links are over, '
+                'less any a link walks into: dims: [generator, snapshot] for a link on p over [generator, snapshot].'
+            )
+            raise ValueError(msg)
+        return data
 
     @field_validator('method', mode='wrap')
     @classmethod
@@ -735,11 +733,12 @@ class PiecewiseBlock(_StrictBlock):
 
     @model_validator(mode='after')
     def _check_method_shape(self) -> PiecewiseBlock:
-        if (walked := [i for i, link in enumerate(self.links) if link.refined]) and self.method in ('convex', 'lp'):
+        walked = [key for key, link in self.links.items() if link.walks]
+        if walked and self.method in ('convex', 'lp'):
             msg = (
-                f'method: {self.method} does not take a link whose row refines the curve (link {walked[0]}). '
-                f'{_NO_REFINEMENT[self.method]} Use method: adjacency or sos2, which state the curve '
-                f'through its weights instead.'
+                f"method: {self.method} does not take a link that walks a relation (link '{walked[0]}'). "
+                f'{_NO_WALK[self.method]} Use method: adjacency or sos2, which state the curve through its '
+                f'weights instead.'
             )
             raise ValueError(msg)
         if self.method in ('convex', 'lp') and len(self.links) != 2:
@@ -749,7 +748,7 @@ class PiecewiseBlock(_StrictBlock):
                 f'the data says.'
             )
             raise ValueError(msg)
-        if self.method == 'lp' and sum(link.sign != '==' for link in self.links) != 1:
+        if self.method == 'lp' and sum(link.sign != '==' for link in self.links.values()) != 1:
             msg = (
                 "method: lp needs exactly one link bounded by the curve — a '<=' or '>=' third "
                 'element on it. With every link pinned the segment lines have nothing to bound.'
@@ -758,34 +757,34 @@ class PiecewiseBlock(_StrictBlock):
         if self.activity is not None and self.method in ('convex', 'lp'):
             msg = f'activity is not supported with method: {self.method}.'
             raise ValueError(msg)
-        if self.where is not None and (masked := [i for i, link in enumerate(self.links) if link.walks]):
+        if self.where is not None and walked:
             msg = (
-                f'where: does not reach link {masked[0]}, which reads through a relation. The mask tests the '
+                f"where: does not reach link '{walked[0]}', which reads through a relation. The mask tests the "
                 f"curve's frame and that link's row is built over a refinement of it, so the row would read "
                 f"its weights as absent and pin the expression to zero. Mask the link's own variable "
                 f'instead — a where: on it over the fine dimension leaves the row unbuilt.'
-            )
-            raise ValueError(msg)
-        if self.dims is None and (refined := [i for i, link in enumerate(self.links) if link.refined]):
-            msg = (
-                f'link {refined[0]} reads through a relation, so the block declares the curve it builds with '
-                f'dims:. A refined link carries a dim the curve does not, and the frame can no longer be read '
-                f'off the links.'
             )
             raise ValueError(msg)
         return self
 
     @field_validator('links')
     @classmethod
-    def _check_links(cls, v: list[PiecewiseLink]) -> list[PiecewiseLink]:
-        if len(v) < 2 and not any(link.refined for link in v):
+    def _check_links(cls, v: dict[str, PiecewiseLink]) -> dict[str, PiecewiseLink]:
+        if unnamed := [key for key in v if not re.fullmatch(NAME, key)]:
+            msg = (
+                f'links: {unnamed} {"is" if len(unnamed) == 1 else "are"} not a name. A link names the row it '
+                f'emits, <block>_<link>, so it is named the way a declaration is — a letter or an underscore, '
+                f'then letters, digits or underscores.'
+            )
+            raise ValueError(msg)
+        if len(v) < 2 and not any(link.walks for link in v.values()):
             msg = (
                 'piecewise needs at least two links ([expression, values, sign?]). One quantity on a curve is '
                 'a bound rather than a curve — a curve ties two or more through shared weights. A single link '
-                'that refines the curve is enough, because how many rows it builds is data.'
+                'that walks a relation is enough, because how many rows it builds is data.'
             )
             raise ValueError(msg)
-        if all(link.sign != '==' for link in v):
+        if all(link.sign != '==' for link in v.values()):
             msg = (
                 'every link is bounded by the curve, so nothing pins the operating point they are read '
                 'at. The weights are then free, and the block states only that some point on the curve '
@@ -1262,16 +1261,16 @@ class Spec(_StrictBlock):
         """Every declaration a block names by key exists and has the shape the block needs.
 
         The breakpoint dim, the frame ``dims:`` states, each link's values
-        parameter, the relation and columns a walk reads through, the
-        dimension a split spans, and the gate. What a link's expression and
-        the where carry is resolution's to say, and whether the pieces fit
-        together is the expansion's (:func:`math_spec.piecewise.check`).
+        parameter, the relation and columns a walk reads through, and the gate.
+        What a link's expression and the where carry is resolution's to say,
+        and whether the pieces fit together is the expansion's
+        (:func:`math_spec.piecewise.check`).
         """
         for name, block in self.piecewise.items():
             context = f"piecewise '{name}'"
             if block.along not in self.dimensions:
                 yield undeclared_dimension('piecewise', name, block.along)
-            for d in block.dims or []:
+            for d in block.dims:
                 if d not in self.dimensions:
                     yield undeclared_dimension('piecewise', name, d)
                 elif d == block.along:
@@ -1279,10 +1278,10 @@ class Spec(_StrictBlock):
                         f"{context}: dims carries '{block.along}', the breakpoint dim. The frame is what the block "
                         f'builds one curve per, and every curve runs along the breakpoints — drop it from dims:.'
                     )
-            if block.dims is not None and len(set(block.dims)) != len(block.dims):
+            if len(set(block.dims)) != len(block.dims):
                 yield f'{context}: dims repeats a dimension: {block.dims}'
-            for i, link in enumerate(block.links):
-                yield from self._piecewise_link_shape(name, block, i, link)
+            for key, link in block.links.items():
+                yield from self._piecewise_link_shape(name, block, key, link)
             if (activity := block.activity) is None:
                 continue
             if activity not in self.variables:
@@ -1292,36 +1291,32 @@ class Spec(_StrictBlock):
                 )
             elif self.variables[activity].domain != 'binary':
                 yield f"{context}: activity variable '{activity}' must be binary"
+            elif stray := [d for d in self.variables[activity].dims if d not in block.dims]:
+                yield (
+                    f"{context}: activity '{activity}' carries {stray}, which dims {block.dims} does not. The gate "
+                    f'switches the curve of one coordinate of dims:, and a gate varying along {stray} would need a '
+                    f'curve per coordinate of it — add {stray} to dims:, or gate with a variable over dims:.'
+                )
 
-    def _piecewise_link_shape(self, name: str, block: PiecewiseBlock, i: int, link: PiecewiseLink) -> Iterator[str]:
-        """One link's values parameter, and the relation or dimension its refinement names, exist as the link needs them."""
-        context = f"piecewise '{name}'"
+    def _piecewise_link_shape(self, name: str, block: PiecewiseBlock, key: str, link: PiecewiseLink) -> Iterator[str]:
+        """One link's values parameter, and the relation its walk names, exist as the link needs them."""
+        context = f"piecewise '{name}' link '{key}'"
         if link.values not in self.parameters:
-            yield f"{context}: link {i} values references undeclared parameter '{link.values}'"
+            yield f"{context}: values references undeclared parameter '{link.values}'"
         elif block.along not in self.parameters[link.values].dims:
             yield (
-                f"{context}: link {i} values parameter '{link.values}' must carry dim "
+                f"{context}: values parameter '{link.values}' must carry dim "
                 f"'{block.along}' (has {self.parameters[link.values].dims})"
             )
         if link.walks:
-            yield from self._piecewise_walk_shape(f'{context} link {i}', link)
-        elif link.refined:
-            assert link.into is not None
-            for d in [link.into] if isinstance(link.into, str) else link.into:
-                if d not in self.dimensions:
-                    yield undeclared_dimension('piecewise', name, d)
-                elif d == block.along:
-                    yield (
-                        f"{context} link {i}: into names '{d}', the breakpoint dim. A link spans the dimension its "
-                        f'ties are indexed by, and every tie runs along the breakpoints.'
-                    )
+            yield from self._piecewise_walk_shape(context, block, link)
 
-    def _piecewise_walk_shape(self, context: str, link: PiecewiseLink) -> Iterator[str]:
-        """A walked link's relation is declared, its columns are the relation's, and no column is both consumed and produced."""
+    def _piecewise_walk_shape(self, context: str, block: PiecewiseBlock, link: PiecewiseLink) -> Iterator[str]:
+        """A walk's relation is declared, it consumes the block's own dims, and it produces dims of its own."""
         assert link.by is not None and link.over is not None and link.into is not None
         if link.by not in self.relations:
             yield (
-                f"{context}: by references undeclared relation '{link.by}'. A refined link reads the curve's "
+                f"{context}: by references undeclared relation '{link.by}'. A walked link reads the curve's "
                 f'weights through a declared relation — declare it, or drop by, over and into.'
             )
             return
@@ -1332,11 +1327,32 @@ class Spec(_StrictBlock):
             if stray := [c for c in named if c not in roles]:
                 yield f"{context}: {side} names {stray}, which relation '{link.by}' has no column for (it has {sorted(roles)})"
                 return
+            if len(set(named)) != len(named):
+                yield f'{context}: {side} repeats a column: {named}'
+                return
             sides.append(frozenset(roles[c] for c in named))
-        if shared := sorted(sides[0] & sides[1]):
+        consumed, produced = sides
+        if shared := sorted(consumed & produced):
             yield (
                 f'{context}: over and into both reach {shared}, so the walk consumes and produces one dimension. '
                 f'Name different columns on each side.'
+            )
+        elif missing := sorted(consumed - set(block.dims)):
+            yield (
+                f"{context}: over reaches {missing}, which the block's dims {block.dims} do not carry. A walk "
+                f"consumes one of the curve's own dimensions — name a column over one of {block.dims}, or declare "
+                f'it in dims:.'
+            )
+        elif framed := sorted(produced & set(block.dims)):
+            yield (
+                f"{context}: into reaches {framed}, which the block's dims {block.dims} already carry. The block "
+                f"builds one curve per coordinate of dims:, so {framed} cannot also index this link's rows — drop "
+                f'it from dims:, or walk into a dimension of its own.'
+            )
+        elif block.along in produced:
+            yield (
+                f"{context}: into reaches '{block.along}', the breakpoint dim. A walk indexes the link's rows, "
+                f'and every row runs along the breakpoints.'
             )
 
     def _piecewise_emitted_names(self) -> Iterator[str]:
@@ -1350,7 +1366,13 @@ class Spec(_StrictBlock):
             'assumption': self.assumptions,
         }
         for name, block in self.piecewise.items():
-            for kind, names in Names.of(name, len(block.links)).by_kind:
+            written = Names.of(name, block.links)
+            yield from (
+                f"piecewise '{name}': link '{row.removeprefix(f'{name}_')}' names its row '{row}', which the block "
+                f'already writes for itself. Rename the link.'
+                for row in written.reused
+            )
+            for kind, names in written.by_kind:
                 yield from (
                     f"piecewise '{name}': emitted {kind} '{one}' collides with a declared {kind}"
                     for one in names

@@ -22,10 +22,10 @@ constraints:
   curve_convexity:
     dims: []
     expression: sum(curve_lam, over=bp) == (running)
-  curve_link0:
+  curve_x:
     dims: []
     expression: (x) == sum(curve_lam * x_bp, over=bp)
-  curve_link1:
+  curve_y:
     dims: []
     expression: (y) == sum(curve_lam * y_bp, over=bp)
   curve_pick:

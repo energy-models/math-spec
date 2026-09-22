@@ -1853,7 +1853,7 @@ class TestADeclarationIsNamed:
             'expressions': {'expression': 'c'},
             'macros': {'args': ['x'], 'template': 'x * 2'},
             'constraints': {'dims': ['g'], 'expression': 'p <= c'},
-            'piecewise': {'along': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
+            'piecewise': {'along': 'g', 'dims': [], 'links': {'p': ['p', 'c'], 'q': ['q', 'c']}, 'method': 'convex'},
             'sos': {'variable': 'p', 'along': 'g', 'type': 1},
         }
         model = copy.deepcopy(SMALL_MODEL)

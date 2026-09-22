@@ -52,9 +52,10 @@ piecewise:
       nothing but the restriction keeps the weights on one segment: a binary
       per segment picks the one they may sit on
     along: bp
+    dims: [snapshot, generator]
     links:
-      - [dispatch, bp_x]
-      - [op_cost, bp_y]
+      dispatch: [dispatch, bp_x]
+      op_cost: [op_cost, bp_y]
     method: adjacency
 
 constraints:

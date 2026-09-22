@@ -105,38 +105,55 @@ sos:
 piecewise:
   fuel_curve: # three expressions on one curve, gated by a binary every unit has
     along: bp
+    dims: [snapshot, generator]
     links:
-      - [p, bp_x]
-      - [fuel, bp_y]
-      - [heat, bp_heat]
+      p: [p, bp_x]
+      fuel: [fuel, bp_y]
+      heat: [heat, bp_heat]
     activity: on
   cost_curve: # a bounded link, which prints as the side of the curve it is on, and a gate only some units have
     along: bp
+    dims: [snapshot, generator]
     method: sos2
     where: bp_run
     activity: warm
     links:
-      - [p, bp_x]
-      - [op_cost, bp_y, ">="]
+      p: [p, bp_x]
+      op_cost: [op_cost, bp_y, ">="]
   hull_curve: # the convex method, whose weights range over the hull the breakpoints span rather than the curve
     along: bp
+    dims: [snapshot, generator]
     method: convex
     links:
-      - [p, bp_x]
-      - [fuel, bp_heat]
+      p: [p, bp_x]
+      fuel: [fuel, bp_heat]
   lp_curve: # the lp method masked by one of its own breakpoints: every condition that method puts on data
     along: bp
+    dims: [snapshot, generator]
     method: lp
     where: bp_x
     links:
-      - [p, bp_x]
-      - [fuel, bp_y, ">="]
+      p: [p, bp_x]
+      fuel: [fuel, bp_y, ">="]
   ramp_curve: # the same method bounded the other way over a whole axis, so the shape is concave and nothing masks it
     along: bp
+    dims: [snapshot, generator]
     method: lp
     links:
-      - [p, bp_x]
-      - [heat, bp_heat, "<="]
+      p: [p, bp_x]
+      heat: [heat, bp_heat, "<="]
+  chp_curve: # bounds on two sides of one point, which print as the cone their signs add to the curve
+    along: bp
+    dims: [snapshot, generator]
+    links:
+      p: [p, bp_x]
+      fuel: [fuel, bp_y, ">="]
+      heat: [heat, bp_heat, "<="]
+  bus_curve: # one curve per bus, read by each generator on it: a link that walks a relation prints as the family it ties
+    along: bp
+    dims: [snapshot, bus]
+    links:
+      p: { expression: p, values: bp_x, by: gen_bus, over: bus, into: generator }
 
 expressions:
   spend_cap: cost * 2 # a data-only entry, so a where may compare it

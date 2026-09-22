@@ -20,6 +20,7 @@ from math_spec._expression_parser import (
     BinaryOperator,
     BinaryOperatorNode,
     CasesNode,
+    ComparisonOperator,
     DefinitionNode,
     DimensionNode,
     DirectionNode,
@@ -63,7 +64,7 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
+    from math_spec.model import PiecewiseBlock, PiecewiseLink, RelationBlock, SosBlock, Spec
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -97,6 +98,10 @@ _PREDICATES: dict[PredicateOperator, OperatorName] = {
     '<': 'lt',
     '>': 'gt',
 }
+
+#: What a link's sign leaves between its expression and the curve's coordinate:
+#: nothing where it is pinned, a half-line where the curve bounds it.
+_HALF_LINES: dict[ComparisonOperator, OperatorName] = {'==': 'origin', '>=': 'nonnegative', '<=': 'nonpositive'}
 
 
 #: What a translation does with the row the shift vacates. Three policies get
@@ -908,33 +913,82 @@ class Walk:
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, self._condition(ctx, where)))
 
     def _piecewise(self, name: str) -> Line:
-        """One ``piecewise:`` block as the curve it states, over the frame it states one per coordinate of.
+        """One ``piecewise:`` block as the curve it states, over the ``dims:`` it states one per coordinate of.
 
         The links' expressions are a point, and the block says that point lies
         on the piecewise-linear locus through the breakpoints. A bounded link
-        states one side of the locus instead, so there the locus prints as the
-        function of the pinned link that it is and the link's own sign says
-        which side.
+        states one side of the locus instead. Beside one pinned link the locus
+        prints as the function of it that it is, and the bounded link's own
+        sign says which side; beside more, the point lies on the locus plus
+        the cone the signs span, ``{0}`` for a pinned coordinate and a
+        half-line for a bounded one.
         """
         block = self.schema.piecewise[name]
-        links, where = self.schema.resolved.piecewise[name]
-        frame = self._curve_frame(name, block, links)
+        nodes, where = self.schema.resolved.piecewise[name]
+        frame = list(block.dims)
         ctx = self._context([*frame, block.along])
         ragged = where is not None and block.along in where.dims
-        locus = self._locus(block, where if ragged else None, ctx)
-        bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
-        if bounded is None:
-            left = self._tuple([self._expression(node, ctx) for node in links])
-            right = f'{self._op("in")} {locus}'
+        links = list(block.links.values())
+        points, values = zip(
+            *(self._link(link, node, ctx) for link, node in zip(links, nodes, strict=True)), strict=True
+        )
+        locus = self._locus(block, list(values), where if ragged else None, ctx)
+        bounded = [i for i, link in enumerate(links) if link.sign != '==']
+        if not bounded:
+            left, right = self._tuple(list(points)), f'{self._op("in")} {locus}'
+        elif len(links) == 2:
+            (i,) = bounded
+            left = points[i]
+            right = f'{self._op(_PREDICATES[links[i].sign])} {self.format.apply(locus, points[1 - i])}'
         else:
-            pinned = links[1 - bounded]
-            left = self._expression(links[bounded], ctx)
-            sign = self._op(_PREDICATES[block.links[bounded].sign])
-            right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
+            cone = self.format.joined([self._op(_HALF_LINES[link.sign]) for link in links], self._op('times'))
+            left, right = self._tuple(list(points)), f'{self._op("in")} {locus} {self._op("plus")} {cone}'
         condition = '' if ragged else self._condition(ctx, where)
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, condition))
 
-    def _locus(self, block: PiecewiseBlock, admitted: Mask | None, ctx: _Context) -> str:
+    def _link(self, link: PiecewiseLink, node: ArithmeticNode, ctx: _Context) -> tuple[str, str]:
+        """One link's point coordinate and its breakpoints, each a family where the link walks a relation.
+
+        A walked link is one coordinate per fine index that maps to the curve's
+        own, so it prints as the family over those, which is what ties them to
+        the one curve rather than to a curve each.
+        """
+        dims = list(self.schema.parameters[link.values].dims)
+        if not link.walks:
+            return self._expression(node, ctx), ctx.indexed(self.symbols.name[link.values], dims)
+        domain, inner = self._walked(link, ctx)
+        return (
+            self.format.subscript(self.format.parenthesise(self._expression(node, inner)), [domain]),
+            self.format.subscript(
+                self.format.parenthesise(inner.indexed(self.symbols.name[link.values], dims)), [domain]
+            ),
+        )
+
+    def _walked(self, link: PiecewiseLink, ctx: _Context) -> tuple[str, _Context]:
+        """The fine indices a walked link's family runs over, and the context its members read under.
+
+        The members are every produced index whose row in the relation reads
+        the curve's own coordinate at the consumed columns.
+        """
+        assert link.by is not None and link.over is not None and link.into is not None
+        relation = self.schema.relations[link.by]
+        roles = dict(relation.pairs)
+        produced = [link.into] if isinstance(link.into, str) else list(link.into)
+        dummies: dict[str, str] = {}
+        inner = ctx
+        for column in produced:
+            dummies[column], inner = inner.reducing(roles[column])
+        at = {c: dummies.get(c) or ctx.subscript(roles[c]) for c in roles}
+        fixed = [c for c in relation.value_roles if c in at]
+        conditions = (
+            [f'{self._relation_read(link.by, at, c)} {self._op("equal")} {at[c]}' for c in fixed]
+            if fixed
+            else [self._relation_row(link.by, at)]
+        )
+        members = self.format.joined([self._membership(roles[c], dummies[c]) for c in produced], '')
+        return f'{members} {self._op("such_that")} {self.format.joined(conditions, self._op("and"))}', inner
+
+    def _locus(self, block: PiecewiseBlock, values: list[str], admitted: Mask | None, ctx: _Context) -> str:
         """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
 
         A gate multiplies it, which is what gating a curve does — the weights
@@ -943,14 +997,7 @@ class Walk:
         """
         operator = self._op('hull' if block.method == 'convex' else 'curve')
         through = self.format.subscript(operator, [self._breakpoints(block, admitted, ctx)])
-        values = self.format.joined(
-            [
-                ctx.indexed(self.symbols.name[link.values], list(self.schema.parameters[link.values].dims))
-                for link in block.links
-            ],
-            '',
-        )
-        locus = self.format.apply(through, values)
+        locus = self.format.apply(through, self.format.joined(values, ''))
         gate = self._gate(block, ctx)
         return f'{gate} {self._op("cdot")} {locus}' if gate else locus
 
@@ -986,20 +1033,6 @@ class Walk:
         return self.format.cases(
             [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
         )
-
-    def _curve_frame(self, name: str, block: PiecewiseBlock, links: tuple[ArithmeticNode, ...]) -> list[str]:
-        """The dimensions the block builds one curve per coordinate of: every one its links and its gate carry.
-
-        The union the expansion takes its own frame from, and the expansion has
-        already held it to the rules — that no link carries the breakpoint
-        dimension among them (:mod:`math_spec.piecewise`).
-        """
-        dims: frozenset[str] = frozenset()
-        for i, node in enumerate(links):
-            dims |= dims_of(node, self.schema, f"piecewise '{name}' link {i}")
-        if block.activity is not None:
-            dims |= frozenset(self.schema.variables[block.activity].dims)
-        return self._sorted(dims)
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):

@@ -15,42 +15,44 @@ out.
 
 ## `piecewise`
 
-A `piecewise` block ties two or more expressions to one piecewise-linear curve.
-The curve is given as breakpoints: the corner values each expression takes
-together.
+A `piecewise` block ties expressions to one piecewise-linear curve for every
+coordinate of its `dims:`. The curve is given as breakpoints: the corner values
+each expression takes together.
 
 ```yaml
 piecewise:
   chp:
     along: bp # the dimension each curve runs along
-    links:
-      - [power, power_bp] # [expression, values-parameter]
-      - [fuel, fuel_bp]
-      - [heat, heat_bp]
+    dims: [generator, snapshot] # one curve per coordinate of these
+    links: # each link by the name of the row it writes, chp_<link>
+      power: [power, power_bp] # [expression, values-parameter]
+      fuel: [fuel, fuel_bp]
+      heat: [heat, heat_bp]
     method: adjacency # how the weights are restricted — below
     activity: null # optional: a binary variable that the weights sum to
 
-  # a two-link block may bound one side instead of pinning it
+  # a link may be bounded by the curve instead of pinned to it
   fuel_cap:
     along: bp
+    dims: [generator, snapshot]
     links:
-      - [power, power_bp]
-      - [fuel, fuel_bp, "<="]
+      power: [power, power_bp]
+      fuel: [fuel, fuel_bp, "<="]
 ```
 
-| Part of a link |                                                                                                                                                                       |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| _expression_   | Any affine expression. The simplest is a bare variable name                                                                                                           |
-| _values_       | A parameter that carries the `along` dimension, plus any dimensions the link expressions carry. A dimension the links do not carry is refused                         |
-| _sign_         | `<=` or `>=`. It bounds the link by the curve instead of pinning it to it. Any number of links may carry one, as long as at least one link does not ([below](#signs)) |
-| _into_         | A dimension the link's row gains, so every coordinate of it is a tie to the one operating point ([below](#a-link-that-refines-the-curve))                             |
-| _by_, _over_   | A relation and the columns the walk consumes, where the refinement is reached through one rather than simply gained                                                   |
+| Part of a link       |                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _name_               | The key. The link's row in the expansion is `<block>_<name>`                                                                                                          |
+| _expression_         | Any affine expression over the link's row. The simplest is a bare variable name                                                                                       |
+| _values_             | A parameter that carries the `along` dimension. Every other dimension it carries is one the link's row carries                                                        |
+| _sign_               | `<=` or `>=`. It bounds the link by the curve instead of pinning it to it. Any number of links may carry one, as long as at least one link does not ([below](#signs)) |
+| _by_, _over_, _into_ | A relation walk from the curve's `dims:` to the link's row ([below](#a-link-that-walks-a-relation))                                                                   |
 
 | Key        |                                                                                          |                     |
 | ---------- | ---------------------------------------------------------------------------------------- | ------------------- |
 | `along`    | required. The dimension each curve runs along                                            |                     |
-| `links`    | required. Two or more links                                                              |                     |
-| `dims`     | the curve's frame ([below](#dims))                                                       | inferred            |
+| `dims`     | required. The dimensions the block builds one curve per coordinate of ([below](#dims))   |                     |
+| `links`    | required. Two or more links, or one that walks a relation                                |                     |
 | `where`    | which coordinates have a curve, and how far each runs ([below](#where))                  | default `null`      |
 | `method`   | `adjacency`, `sos2`, `convex` or `lp`: how the weights are restricted ([below](#method)) | default `adjacency` |
 | `activity` | a binary variable that gates the curve ([below](#activity))                              | default `null`      |
@@ -62,6 +64,9 @@ consumer builds them; the [typeset output](../typeset.md) prints the curve
 itself, and [`spec.expand()`](#writing-a-formulation-out) is what writes the
 rows into a model of their own.
 
+A link names the row it writes, so a link may not take a name the block
+already writes for itself, such as `convexity` or `lam`.
+
 The breakpoint order is the declared order of `along`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
 
@@ -71,7 +76,8 @@ states. The `method:` implies it rather than the file writing it, so
 [`expand()`](#writing-a-formulation-out) writes it into `assumptions:` under
 the block's own name, and a model that still declares the block derives the
 same text when it loads. Both print under one heading, and the consumer that
-binds the numbers runs them.
+binds the numbers runs them. Each one is asked only where the block's
+[`where:`](#where) says a curve runs.
 
 !!! warning "A values parameter short of a row does not build a shorter curve"
 
@@ -82,24 +88,17 @@ binds the numbers runs them.
 
 ### `dims`
 
-A block builds one curve for every coordinate of its **frame**. `dims:` states
-the frame. Where the file writes none, the frame is the union of the dims the
-link expressions carry.
+A block builds one curve for every coordinate of `dims:`. Each curve is one set
+of weights. `dims:` may not carry the breakpoint dimension, because every curve
+runs along it.
 
-A block whose links all sit on the frame needs no `dims:`. Write it where the
-links no longer say what the frame is, which is any block with a link through a
-relation.
-
-`dims:` may not carry the breakpoint dimension. Every curve runs along that
-axis, so it is not something the block builds one curve per.
-
-**A link expression carries exactly the dimensions its row is built over**,
-which is the frame, or the refinement of it a relation walk names. A dimension
-the expression carries and the row does not multiplies the rows the link
-builds. A dimension the row carries and the expression does not repeats one row
-across it, which pins the expression to a single operating point along a
-dimension the curve varies over. Both are refused, and the message names which
-one it is.
+**A link expression carries exactly the dimensions of its row.** The row of a
+link is `dims:`, or the dimensions a [walk](#a-link-that-walks-a-relation)
+reaches. A dimension the expression carries and the row does not multiplies the
+rows the link builds. A dimension the row carries and the expression does not
+repeats one row across it, which pins the expression to a single operating point
+along a dimension the curve varies over. Both are refused, and the message
+names which one it is.
 
 A quantity that varies along a dimension the curve does not, such as a rate per
 period read off a curve that has none, is said by adding that dimension to
@@ -107,20 +106,23 @@ period read off a curve that has none, is said by adding that dimension to
 vary along it is the data's business: values that do not carry it give one curve
 shape and a per-period operating point.
 
+An [`activity:`](#activity) gate carries no dimension that `dims:` does not. A
+gate over fewer dimensions switches every curve it covers: a gate per generator
+switches that generator's curve in every snapshot.
+
 ### `where`
 
-A block builds one curve for every coordinate of its **frame**, which `dims:`
-states or the link expressions imply. `where:` says which of those coordinates
-have a curve:
+`where:` says which coordinates of `dims:` have a curve:
 
 ```yaml
 piecewise:
   cost_curve:
     along: bp
+    dims: [generator]
     where: has_curve # only some generators run on a cost curve
     links:
-      - [dispatch, bp_x]
-      - [op_cost, bp_y]
+      dispatch: [dispatch, bp_x]
+      op_cost: [op_cost, bp_y]
 ```
 
 Off the mask the block builds nothing. There are no weights, no convexity row
@@ -132,9 +134,9 @@ are not read there either: a generator with no curve needs no row in `bp_x` or
 curve. A gated coordinate has a curve that the solver may switch off, and its
 rows are built either way.
 
-A mask carrying a dimension that no link expression carries is refused,
-because a mask cannot add coordinates. The breakpoint dimension is the one
-exception, and reading it is how a block says how far each curve runs.
+A mask carrying a dimension that `dims:` does not carry is refused, because a
+mask cannot add coordinates. The breakpoint dimension is the one exception, and
+reading it is how a block says how far each curve runs.
 
 #### Curves of unequal length
 
@@ -146,24 +148,25 @@ parameters, and the curve is as long as that parameter has rows:
 piecewise:
   cost_curve:
     along: bp
+    dims: [generator]
     where: bp_x # this curve runs as far as its own breakpoints do
     links:
-      - [p, bp_x]
-      - [op_cost, bp_y]
+      p: [p, bp_x]
+      op_cost: [op_cost, bp_y]
 ```
 
 The other links are still read against the parameter you named, so a row missing
 from `bp_y` is refused. Where the length is its own data, name a boolean
-parameter over the frame and the breakpoint dimension instead. Either composes
-with a mask over the frame: `has_curve AND bp_x` says which generators have a
+parameter over `dims:` and the breakpoint dimension instead. Either composes
+with a mask over `dims:`: `has_curve AND bp_x` says which generators have a
 curve and how far each one runs.
 
 The marked breakpoints must be consecutive. They need not start at the head of
 the axis. A gap is refused when the data binds, and a coordinate the mask
 leaves with no breakpoint has no curve.
 
-The rows a block writes over its frame alone, such as the one making the
-weights sum to 1, cannot read the breakpoint dimension. There the mask reads as
+The rows a block writes over `dims:` alone, such as the one making the weights
+sum to 1, cannot read the breakpoint dimension. There the mask reads as
 `count(where, over=bp) > 0`: a curve exists where it admits at least one
 breakpoint.
 
@@ -186,42 +189,14 @@ Where the gate does not exist, the curve is ungated. To pin the curve off
 there instead, put `absence: zero` on the gate. To build no curve there at all,
 use [`where:`](#where).
 
-### A link that refines the curve
+### A link that walks a relation
 
-`links:` is a list, so the number of _kinds_ of link a block ties is written in
-the file. The number of **rows** each link builds is data. A link that names
-`into:` builds one row per fine coordinate, all reading the one set of weights.
-
-Its row is `(frame - over) | into`, which is the frame law a
-[relation](relations.md#how-a-relation-is-used) walk already follows. Two forms
-fall out of it:
-
-| written                                         | the row                                  | the weights                |
-| ----------------------------------------------- | ---------------------------------------- | -------------------------- |
-| `into: carrier`                                 | the frame, plus `carrier`                | broadcast across `carrier` |
-| `by: converter_of, over: converter, into: flow` | the frame, less `converter`, plus `flow` | read through the relation  |
-
-**`into:` alone names a dimension the row gains.** Every coordinate of it is a
-tie to the one operating point, so a converter's carriers move together:
-
-```yaml
-piecewise:
-  op:
-    along: bp
-    dims: [converter, snapshot] # one curve per converter
-    links:
-      - { expression: rate, values: bp_rate, into: carrier }
-```
-
-`rate` is over `[converter, carrier, snapshot]` and `bp_rate` over
-`[converter, carrier, bp]`, so each carrier has its own breakpoint column and
-reads the same weights. The dimension `into:` names may not be one the curve's
-`dims:` already carries: the curve builds one per coordinate of those, so they
-cannot also index a link's ties.
-
-**`by:`, `over:` and `into:` together** reach the refinement through a relation
-instead, which is what a ragged fan-out needs — one converter tying two flows and
-another five:
+A link that names `by:`, `over:` and `into:` reads the curve's weights through a
+[relation](relations.md#how-a-relation-is-used), as [`at`](operators.md#at)
+does. It builds one row per coordinate that the walk reaches, and every row
+reads the curve of the coordinate it maps back to. So the number of **rows** a
+link builds is data. A converter with two flows and a converter with five share
+one block:
 
 ```yaml
 relations:
@@ -232,39 +207,35 @@ piecewise:
     along: bp
     dims: [generator, snapshot] # one curve per generator
     links:
-      - { expression: power, values: bp_power, by: generator_of, over: generator, into: flow }
-      - [fuel, bp_fuel]
+      power: { expression: power, values: bp_power, by: generator_of, over: generator, into: flow }
+      fuel: [fuel, bp_fuel]
 ```
 
-`power` is per flow and the curve is per generator, so the first link builds one
-row for each of a generator's flows. A generator with five flows and a generator
-with two share the block. A sixth flow is a row in `generator_of`, not an edit to
-the model.
+`power` is per flow and the curve is per generator, so the `power` link builds
+one row for each flow of a generator. A sixth flow is a row in `generator_of`,
+not an edit to the model.
 
-`by:`, `over:` and `into:` are the [`at`](operators.md#at) walk, and mean there
-what they mean everywhere. A link's `over:` names a relation column the walk
-consumes; the block's `along:` names the dimension each curve runs along, and a
-walk never consumes that. The block writes
-`at(coupling_lam, by=generator_of, over=generator, into=flow)` into that link's
-row, so the weights stay on the curve's frame and the model never names them. A
-link's row is built over the frame with the consumed dimension replaced by the
-produced one — `[flow, snapshot]` above.
+The row of a walked link is `dims:` with the dimension that `over:` consumes
+replaced by the one that `into:` produces: `[flow, snapshot]` above. The block
+writes `at(coupling_lam, by=generator_of, over=generator, into=flow)` into that
+row, so the weights stay on `dims:` and the model never names them.
 
-The three are written together. A walk states which columns it consumes and
-which it produces, and neither is defaulted.
+`by:`, `over:` and `into:` are written together. A walk states the relation, the
+columns it consumes and the columns it produces, and none is defaulted. A link
+whose row is finer than `dims:` is always a walk: a link that names only
+`into:` is refused.
 
-A block whose links are all refined needs only one of them. Two links is what
-a curve needs when a link is one row; a refined link is one row per fine
-coordinate, so the relation supplies the arity the second link otherwise would.
+A block whose only link walks a relation is a curve. Two links is what a curve
+needs when a link is one row; a walked link is one row per fine coordinate, so
+the relation supplies the second.
 
-| A refined link |                                                                                                                                                              |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| the block      | declares `dims:`, because the links no longer say what the frame is                                                                                          |
-| _over_         | names a column over one of the frame's own dimensions, and needs `by:` beside it                                                                             |
-| _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                                                                                      |
-| `where:`       | reads a values parameter of a link that reads no relation, because raggedness is the curve's                                                                 |
-| `method:`      | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from   |
-| `where:`       | reaches a link that only gains a dimension. A walk is refused, because it replaces the frame dimension the mask tests — mask the link's own variable instead |
+| A walked link |                                                                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _over_        | names a column over a dimension of `dims:`                                                                                                                 |
+| _into_        | names a column over a dimension that `dims:` does not carry, and that is not `along`                                                                       |
+| _values_      | follows the **link's** row: `bp_power` is per flow, not per generator                                                                                      |
+| `where:`      | is refused on the block, because the walk replaces the dimension of `dims:` that the mask tests. Mask the link's own variable instead                      |
+| `method:`     | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from |
 
 ### Signs
 
@@ -274,19 +245,25 @@ instead, and each link carries its own.
 
 **At least one link is pinned.** A pinned link fixes the operating point every
 other link is read at. With every link bounded the weights are free, and the
-block no longer says that its quantities sit together on a curve — it says only
+block no longer says that its quantities sit together on a curve. It says only
 that some point on the curve satisfies the bounds. That is a different model,
-so it is refused rather than guessed.
+so it is refused.
 
 ```yaml
 piecewise:
   chp:
     along: bp
+    dims: [generator, snapshot]
     links:
-      - [power, power_bp] # pinned: it fixes the operating point
-      - [fuel, fuel_bp, ">="] # bounded below by the curve
-      - [heat, heat_bp, "<="] # bounded above, at that same point
+      power: [power, power_bp] # pinned: it fixes the operating point
+      fuel: [fuel, fuel_bp, ">="] # bounded below by the curve
+      heat: [heat, heat_bp, "<="] # bounded above, at that same point
 ```
+
+The typeset line prints this block as the point `(power, fuel, heat)` on the
+curve plus `{0} × ℝ≥0 × ℝ≤0`: the pinned coordinate moves by nothing, and each
+bounded one by the half-line its sign allows. A block with exactly two links
+prints its bounded link as a function of the pinned one instead.
 
 `convex` and `lp` take exactly two links, so there a sign is one link's at
 most. Under `adjacency` and `sos2` each link is its own row against the shared
@@ -328,10 +305,11 @@ one is bounded by the lines. It takes no `activity:`:
 piecewise:
   cost_curve:
     along: bp
+    dims: [generator]
     method: lp
     links:
-      - [p, bp_x]
-      - [op_cost, bp_y, ">="] # cost bounded below by the curve
+      p: [p, bp_x]
+      op_cost: [op_cost, bp_y, ">="] # cost bounded below by the curve
 ```
 
 The bounded link decides the shape, as it does under `convex` above. The two

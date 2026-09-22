@@ -12,7 +12,8 @@ variables:
 piecewise:
   curve:
     along: bp
+    dims: []
     method: sos2
     links:
-      - [x, x_bp]
-      - [y, y_bp]
+      x: [x, x_bp]
+      y: [y, y_bp]

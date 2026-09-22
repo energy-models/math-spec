@@ -152,7 +152,7 @@ def declaration_of(block: PiecewiseBlock, where: Mask | None = None) -> Piecewis
     return PiecewiseDeclaration(
         along=block.along,
         method=block.method,
-        breakpoints=tuple(link.values for link in block.links),
+        breakpoints=tuple(link.values for link in block.links.values()),
         where=where,
     )
 
@@ -171,17 +171,17 @@ def assumptions_of(name: str, block: PiecewiseBlock, where: CurveMask) -> dict[s
     assumes whether or not its curves have been written out. Each condition is
     a where string over the parameters the file declared: the expansion writes
     them into ``assumptions:``, and a model that still declares the block
-    derives the same text at load. A ``where:`` over the frame alone is not
-    written into them: a program carries it on the declaration, and asks each
-    condition only where it holds.
+    derives the same text at load. Each is asked only where a curve runs, so
+    the ``where:`` goes into every one of them: a model written out and read
+    back holds the data to what the block did.
     """
     d = block.along
     mask = where.text if where.ragged else None
-    values = [link.values for link in block.links]
+    values = [link.values for link in block.links.values()]
     assumed = {
         f'{name}_complete': AssumptionBlock(
             holds=' AND '.join(dict.fromkeys(values)),
-            where=mask,
+            where=where.text,
             description=f"piecewise '{name}': every breakpoint the curve runs through needs a row in "
             f'{_quoted(values)} — a missing row is read as a zero rather than as a shorter curve, so it sits '
             f'the curve on the origin. '
@@ -197,7 +197,7 @@ def assumptions_of(name: str, block: PiecewiseBlock, where: CurveMask) -> dict[s
         x, y = (link.values for link in block.curve)
         assumed[f'{name}_increasing'] = AssumptionBlock(
             holds=f'{_neighbour(x, d, 1)} < {x}',
-            where=where.neighbours(),
+            where=_all_of(where.frame, where.neighbours()),
             description=f"piecewise '{name}': method: {block.method} requires strictly increasing breakpoints "
             f"in '{x}' along '{d}'",
         )
@@ -205,6 +205,7 @@ def assumptions_of(name: str, block: PiecewiseBlock, where: CurveMask) -> dict[s
     if block.method == 'lp':
         assumed[f'{name}_breakpoints'] = AssumptionBlock(
             holds=f'count({mask or block.curve[0].values}, over={d}) >= 2',
+            where=where.exists,
             description=f"piecewise '{name}': method: lp needs at least two breakpoints per curve — the method "
             f'*is* its segment lines, so a curve with no segment states nothing and leaves the bounded link on '
             f'its own bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.',
@@ -212,6 +213,7 @@ def assumptions_of(name: str, block: PiecewiseBlock, where: CurveMask) -> dict[s
     if mask is not None:
         assumed[f'{name}_contiguous'] = AssumptionBlock(
             holds=f'count({where.edge("first")}, over={d}) == 1',
+            where=where.exists,
             description=f"piecewise '{name}': where: {mask!r} must mark a consecutive run of at least one "
             f'breakpoint per curve — {_GAP[block.method]}.',
         )
@@ -266,10 +268,13 @@ def _bends(name: str, block: PiecewiseBlock, where: CurveMask, x: str, y: str, c
         up, down = bend.format('>'), bend.format('<')
         return AssumptionBlock(
             holds=f'count({up} AND {interior}, over={d}) == 0 OR count({down} AND {interior}, over={d}) == 0',
+            where=where.exists,
             description=description,
         )
     return AssumptionBlock(
-        holds=bend.format('<=' if curvature == 'convex' else '>='), where=interior, description=description
+        holds=bend.format('<=' if curvature == 'convex' else '>='),
+        where=_all_of(where.frame, interior),
+        description=description,
     )
 
 
@@ -306,8 +311,8 @@ class Names:
     sos: Emitted
 
     @classmethod
-    def of(cls, name: str, links: int) -> Names:
-        """The names block *name* with *links* links writes."""
+    def of(cls, name: str, links: Iterable[str]) -> Names:
+        """The names block *name* writes, a link's row named after the link."""
         return cls(
             name=name,
             weights=f'{name}_lam',
@@ -315,9 +320,16 @@ class Names:
             chord=f'{name}_chord',
             domain_lo=f'{name}_domain_lo',
             domain_hi=f'{name}_domain_hi',
-            links=tuple(f'{name}_link{i}' for i in range(links)),
+            links=tuple(f'{name}_{link}' for link in links),
             sos=Emitted.of(name, 2),
         )
+
+    @property
+    def reused(self) -> tuple[str, ...]:
+        """Each link row whose name the block's own rows or variables already take."""
+        own = {self.weights, self.sos.seg, self.convexity, self.ungated, self.sos.pick, self.sos.link, self.sos.below}
+        own |= {self.chord, self.domain_lo, self.domain_hi}
+        return tuple(row for row in self.links if row in own)
 
     @property
     def ungated(self) -> str:
@@ -351,9 +363,8 @@ class Curve:
     Attributes:
         name: The block's key.
         block: The block as written.
-        frame: The dims the block builds one curve per coordinate of.
-        rows: Each link's row frame — the frame, or its refinement through the
-            link's relation.
+        rows: Each link's row frame, in link order — ``dims:``, or its
+            refinement through the link's relation.
         mask: The block's ``where:``, as each shape of row reads it.
         gates: The rows the weights sum under, one or two.
         names: Every name the expansion writes.
@@ -361,11 +372,15 @@ class Curve:
 
     name: str
     block: PiecewiseBlock
-    frame: tuple[str, ...]
     rows: tuple[tuple[str, ...], ...]
     mask: CurveMask
     gates: tuple[GateRow, ...]
     names: Names
+
+    @property
+    def frame(self) -> tuple[str, ...]:
+        """The dims the block builds one curve per coordinate of, in the order ``dims:`` writes them."""
+        return tuple(self.block.dims)
 
 
 def check(schema: Spec, name: str, block: PiecewiseBlock) -> Curve:
@@ -376,79 +391,43 @@ def check(schema: Spec, name: str, block: PiecewiseBlock) -> Curve:
     cross-declaration rule (:class:`~math_spec.model.Spec`); the link
     expressions and the where are typed with the rest of the model
     (:attr:`~math_spec.model.Spec.resolved`), so a fault in one is named
-    against the link there. What is left is what needs those typed forms: the
-    frame, declared by ``dims:`` or read off the links; each link's row; that
-    each link's expression and values fit its row; and that the ``where:``
-    fits the frame.
+    against the link there. What is left is what needs those typed forms:
+    each link's row, that each link's expression and values fit it, and that
+    the ``where:`` fits ``dims:``.
 
     Raises:
-        PiecewiseExpansionError: A link that does not fit its row, a frame
-            that reaches the breakpoint dim, or a where outside the frame.
+        PiecewiseExpansionError: A link that does not fit its row, or a where
+            outside ``dims:``.
     """
     ctx = f"piecewise '{name}'"
-    links, where = schema.resolved.piecewise[name]
-    expressions = tuple(dims_of(node, schema, f'{ctx} link {i}') for i, node in enumerate(links))
-    frame = _frame(schema, block, expressions, ctx)
-    rows = tuple(_row(schema, block, i, link, frame, ctx) for i, link in enumerate(block.links))
+    nodes, where = schema.resolved.piecewise[name]
+    links = tuple(block.links.items())
+    expressions = tuple(
+        dims_of(node, schema, f"{ctx} link '{key}'") for node, (key, _) in zip(nodes, links, strict=True)
+    )
+    rows = tuple(_row(schema, block, link) for _, link in links)
     _links_fit(block, expressions, rows, ctx)
     _values_fit(schema, block, rows, ctx)
     mask = CurveMask(block, where)
-    _where_fits(block, mask, frame, ctx)
-    return Curve(name, block, frame, rows, mask, _gate_rows(schema, block), Names.of(name, len(block.links)))
+    _where_fits(block, mask, ctx)
+    return Curve(name, block, rows, mask, _gate_rows(schema, block), Names.of(name, block.links))
 
 
-def _frame(schema: Spec, block: PiecewiseBlock, expressions: tuple[frozenset[str], ...], ctx: str) -> tuple[str, ...]:
-    """The dims the block builds one curve per: ``dims:`` as written, or the union of the link expressions' dims.
+def _row(schema: Spec, block: PiecewiseBlock, link: PiecewiseLink) -> tuple[str, ...]:
+    """The dims one link's row is built over: ``dims:``, or its refinement through the link's relation.
 
-    Declared order where ``dims:`` states it — the same key a variable and a
-    constraint carry, and there the file's order is the emitted one — and
-    declaration order where it is read off the links, because iterating a set
-    would vary the emitted ``dims``, and every column index behind it, per
-    process. The gate's dims widen either, and neither may carry the
-    breakpoint dim: the frame is what the block builds one curve per, and
-    every curve runs along the breakpoints.
-    """
-    frame: list[str] = list(block.dims) if block.dims is not None else []
-    if block.dims is None:
-        for i, found in enumerate(expressions):
-            _widen(schema, block, frame, f'link {i} expression', found, ctx)
-    if block.activity is not None:
-        _widen(schema, block, frame, 'activity', frozenset(schema.variables[block.activity].dims), ctx)
-    return tuple(frame)
-
-
-def _widen(schema: Spec, block: PiecewiseBlock, frame: list[str], what: str, found: frozenset[str], ctx: str) -> None:
-    """Add *found* to *frame* in declaration order, refusing the breakpoint dim."""
-    for d in (d for d in schema.dimensions if d in found):
-        if d == block.along:
-            raise PiecewiseExpansionError(f"{ctx}: {what} already carries the breakpoint dim '{block.along}'")
-        if d not in frame:
-            frame.append(d)
-
-
-def _row(
-    schema: Spec, block: PiecewiseBlock, i: int, link: PiecewiseLink, frame: tuple[str, ...], ctx: str
-) -> tuple[str, ...]:
-    """The dims one link's row is built over: the curve's frame, or its refinement through the link's relation.
-
-    The produced dims stand where the consumed ones did, so a refined row
+    The produced dims stand where the consumed ones did, so a walked row
     reads in the shape of the curve it ties rather than in relation order.
     """
-    if not link.refined:
-        return frame
-    consumed, produced = _walk(schema, link) if link.walks else (frozenset(), _spans(link, frame, f'{ctx} link {i}'))
-    if missing := sorted(consumed - set(frame)):
-        raise PiecewiseExpansionError(
-            f"{ctx} link {i}: over reaches {missing}, which the curve's dims {list(frame)} do not "
-            f"carry. A walk consumes the frame's own dimension — name one of {list(frame)}, or declare it in dims:."
-        )
+    if not link.walks:
+        return tuple(block.dims)
+    consumed, produced = _walk(schema, link)
     refined: list[str] = []
-    for d in frame:
+    for d in block.dims:
         if d in consumed:
             refined.extend(p for p in schema.dimensions if p in produced and p not in refined)
         elif d not in refined:
             refined.append(d)
-    refined.extend(p for p in schema.dimensions if p in produced and p not in refined)
     return tuple(refined)
 
 
@@ -463,20 +442,6 @@ def _walk(schema: Spec, link: PiecewiseLink) -> tuple[frozenset[str], frozenset[
     return consumed, produced
 
 
-def _spans(link: PiecewiseLink, frame: tuple[str, ...], ctx: str) -> frozenset[str]:
-    """The dims a link spans without walking a relation — dimensions the curve does not already carry."""
-    assert link.into is not None
-    named = [link.into] if isinstance(link.into, str) else list(link.into)
-    for d in named:
-        if d in frame:
-            raise PiecewiseExpansionError(
-                f"{ctx}: into names '{d}', which the curve's dims already carries. The curve builds one "
-                f"per coordinate of it, so it cannot also index this link's ties — drop it from dims:, "
-                f'or split along a dimension of its own.'
-            )
-    return frozenset(named)
-
-
 def _links_fit(
     block: PiecewiseBlock, expressions: tuple[frozenset[str], ...], rows: tuple[tuple[str, ...], ...], ctx: str
 ) -> None:
@@ -486,64 +451,58 @@ def _links_fit(
     A stray dim multiplies the rows the link builds; a missing one repeats
     the same row across it, which pins the expression to one operating point
     along a dimension the curve varies over. Neither is sayable another way,
-    so neither is guessed, and the rewrite differs by where the frame came from.
+    so neither is guessed.
     """
-    for i, (found, own) in enumerate(zip(expressions, rows, strict=True)):
+    for key, found, own in zip(block.links, expressions, rows, strict=True):
         if block.along in found:
             raise PiecewiseExpansionError(
-                f"{ctx}: link {i} expression already carries the breakpoint dim '{block.along}'"
+                f"{ctx}: link '{key}' expression already carries the breakpoint dim '{block.along}'"
             )
         if stray := sorted(found - set(own)):
             raise PiecewiseExpansionError(
-                f"{ctx}: link {i} expression carries {stray}, which its row's frame {list(own)} does "
-                f'not — every stray dim multiplies the rows the link builds. Add it to dims:, sum it out, '
-                f'or read it through a relation with by, over and into.'
+                f"{ctx}: link '{key}' expression carries {stray}, which its row {list(own)} does not — "
+                f'every stray dim multiplies the rows the link builds. Add it to dims:, sum it out, or read '
+                f'it through a relation with by, over and into.'
             )
         if missing := sorted(set(own) - found):
-            repeated = (
-                f"link {i} expression does not carry {missing}, which its row's frame {list(own)} does — the same "
-                f'row would repeat across {missing}, pinning the expression to one operating point along '
-                f'{"it" if len(missing) == 1 else "them"}. '
+            raise PiecewiseExpansionError(
+                f"{ctx}: link '{key}' expression does not carry {missing}, which its row {list(own)} does — "
+                f'the same row would repeat across {missing}, pinning the expression to one operating point '
+                f'along {"it" if len(missing) == 1 else "them"}. Drop {missing} from dims:, or vary the '
+                f'expression along {missing}.'
             )
-            rewrite = (
-                f"The frame is the union of the link expressions' dims, so another link carries {missing}. "
-                f'Declare dims: to say which curve the block builds, or vary this expression along {missing}.'
-                if block.dims is None
-                else f'Drop {missing} from dims:, or vary the expression along {missing}.'
-            )
-            raise PiecewiseExpansionError(f'{ctx}: {repeated}{rewrite}')
 
 
 def _values_fit(schema: Spec, block: PiecewiseBlock, rows: tuple[tuple[str, ...], ...], ctx: str) -> None:
     """A values parameter varies along its own link's row and the breakpoint dim, and nothing else.
 
-    Its own link's, because a refined link's curve is read per fine
+    Its own link's, because a walked link's curve is read per fine
     coordinate: ``bp_power`` is per flow where the block's frame is per
     converter, and comparing it against the frame would refuse it.
     """
-    for i, (link, own) in enumerate(zip(block.links, rows, strict=True)):
+    for (key, link), own in zip(block.links.items(), rows, strict=True):
         if stray := [d for d in schema.parameters[link.values].dims if d != block.along and d not in own]:
             raise PiecewiseExpansionError(
-                f"{ctx}: link {i} values parameter '{link.values}' carries {stray}, which its "
-                f"row's frame {list(own)} does not — the link builds one curve per coordinate of {list(own)}, so a "
-                f'curve varying along {stray} has nothing to vary against. Declare a link expression over '
-                f"it, or drop it from '{link.values}'."
+                f"{ctx}: link '{key}' values parameter '{link.values}' carries {stray}, which its row "
+                f'{list(own)} does not — the link reads one curve per coordinate of {list(own)}, so a curve '
+                f"varying along {stray} has nothing to vary against. Drop it from '{link.values}', or add it to "
+                f'dims:.'
             )
 
 
-def _where_fits(block: PiecewiseBlock, mask: CurveMask, frame: tuple[str, ...], ctx: str) -> None:
-    """A block's ``where:`` tests the frame it builds curves over and the breakpoint dim, and nothing else.
+def _where_fits(block: PiecewiseBlock, mask: CurveMask, ctx: str) -> None:
+    """A block's ``where:`` tests ``dims:`` and the breakpoint dim, and nothing else.
 
     Read here rather than left to the emitted declarations, whose refusal
-    would name ``<block>_lam`` — a variable the author never wrote. A
-    refined link's values parameter carries the link's own frame, so a
-    where naming it is refused here too: raggedness is the curve's.
+    would name ``<block>_lam`` — a variable the author never wrote. A walked
+    link's values parameter carries the link's own row, so a where naming it
+    is refused here too: raggedness is the curve's.
     """
-    if stray := sorted(mask.dims - set(frame) - {block.along}):
+    if stray := sorted(mask.dims - set(block.dims) - {block.along}):
         raise PiecewiseExpansionError(
-            f'{ctx}: where {block.where!r} tests {stray}, which no link expression carries — a mask says '
-            f"which of the block's own coordinates have a curve, and cannot add coordinates. Declare a "
-            f'link expression over {stray}, or drop it from the where.'
+            f'{ctx}: where {block.where!r} tests {stray}, which dims {block.dims} does not carry — a mask says '
+            f'which of the curves the block builds exist, and cannot add coordinates. Add {stray} to dims:, '
+            f'or drop it from the where.'
         )
 
 
@@ -624,7 +583,7 @@ def _weights(raw: dict[str, object], curve: Curve) -> None:
             f'sum({names.weights}, over={d}) == {rhs}',
             _all_of(where.exists, gate),
         )
-    for cname, link, row in zip(names.links, block.links, curve.rows, strict=True):
+    for cname, link, row in zip(names.links, block.links.values(), curve.rows, strict=True):
         _constraint(
             raw,
             cname,

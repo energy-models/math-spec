@@ -386,6 +386,18 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 \mathit{heat}_{t,g} \le \mathrm{pwl}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_heat}_{g,a})(p_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+**`chp_curve`**
+
+```math
+\left( p_{t,g},\ \mathit{fuel}_{t,g},\ \mathit{heat}_{t,g} \right) \in \mathrm{pwl}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_y}_{g,a},\ \mathrm{bp\_heat}_{g,a}) + \{0\} \times \mathbb{R}_{\ge 0} \times \mathbb{R}_{\le 0} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+**`bus_curve`**
+
+```math
+\left( p_{t,g} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \in \mathrm{pwl}_{a \in \mathcal{A}}(\left( \mathrm{bp\_x}_{g,a} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b}) \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+```
+
 #### Definitions
 
 **`spend_cap`**
@@ -575,7 +587,7 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 **`cost_curve_contiguous`**
 
 ```math
-\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \wedge \neg \mathrm{bp\_run}_{g,a - 1} \} \rvert = 1 \qquad \forall\, g \in \mathcal{G}
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \wedge \neg \mathrm{bp\_run}_{g,a - 1} \} \rvert = 1 \qquad \forall\, g \in \mathcal{G} \,:\, \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \} \rvert > 0
 ```
 
 **`hull_curve_complete`**
@@ -617,13 +629,13 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 **`lp_curve_breakpoints`**
 
 ```math
-\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G}
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G} \,:\, \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert > 0
 ```
 
 **`lp_curve_contiguous`**
 
 ```math
-\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \neg \left( \mathrm{bp\_x}_{g,a - 1} \text{ is defined} \right) \} \rvert = 1 \qquad \forall\, g \in \mathcal{G}
+\lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \neg \left( \mathrm{bp\_x}_{g,a - 1} \text{ is defined} \right) \} \rvert = 1 \qquad \forall\, g \in \mathcal{G} \,:\, \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert > 0
 ```
 
 **`ramp_curve_complete`**
@@ -648,4 +660,16 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 
 ```math
 \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G}
+```
+
+**`chp_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_y}_{g,a} \text{ is defined} \wedge \mathrm{bp\_heat}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+```
+
+**`bus_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
 ```

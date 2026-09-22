@@ -179,8 +179,8 @@ def validate_expressions(schema: Spec) -> Resolved:
     for pname, pdef in schema.piecewise.items():
         context = f"piecewise '{pname}'"
         links = [
-            _check_expression(link.expression, ns, f'{context} link {i}', errors, comparison=False, ceiling=1)
-            for i, link in enumerate(pdef.links)
+            _check_expression(link.expression, ns, f"{context} link '{key}'", errors, comparison=False, ceiling=1)
+            for key, link in pdef.links.items()
         ]
         where = mask_of(resolve_where_text(pdef.where, ns, f'{context} where', errors))
         if all(link is not None for link in links):

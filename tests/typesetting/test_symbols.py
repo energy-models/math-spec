@@ -103,7 +103,11 @@ CURVED = override(
         'parameters.bp_x': {'dims': ['generator', 'bp']},
         'parameters.bp_y': {'dims': ['generator', 'bp']},
         'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
-        'piecewise.curve': {'along': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
+        'piecewise.curve': {
+            'along': 'bp',
+            'dims': ['snapshot', 'generator'],
+            'links': {'p': ['p', 'bp_x'], 'op_cost': ['op_cost', 'bp_y']},
+        },
     },
 )
 

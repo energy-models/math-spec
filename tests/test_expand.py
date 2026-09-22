@@ -33,7 +33,7 @@ MASKED = override(
     **{
         'piecewise.cost_curve.method': 'lp',
         'piecewise.cost_curve.where': 'bp_x',
-        'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']],
+        'piecewise.cost_curve.links': {'p': ['p', 'bp_x'], 'op_cost': ['op_cost', 'bp_y', '>=']},
     },
 )
 

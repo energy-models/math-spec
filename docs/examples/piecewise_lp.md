@@ -71,9 +71,10 @@ piecewise:
       envelope a convex curve would cut a concave one, and the solve comes back
       optimal either way
     along: bp
+    dims: [snapshot, generator]
     links:
-      - [dispatch, bp_x]
-      - [op_cost, bp_y, ">="]
+      dispatch: [dispatch, bp_x]
+      op_cost: [op_cost, bp_y, ">="]
     method: lp
 
 constraints:

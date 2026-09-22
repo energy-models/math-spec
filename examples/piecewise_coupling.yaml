@@ -68,7 +68,8 @@ piecewise:
     along: bp
     dims: [converter, snapshot]
     links:
-      - expression: rate
+      rate:
+        expression: rate
         values: bp_rate
         by: converter_of
         over: converter

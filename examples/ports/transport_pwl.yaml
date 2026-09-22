@@ -64,9 +64,10 @@ piecewise:
       allows. The binaries are what make the answer right — and what make this
       port a MILP.
     along: bp
+    dims: [plant, market]
     links:
-      - [shipment, bp_x]
-      - [scaled, bp_y]
+      shipment: [shipment, bp_x]
+      scaled: [scaled, bp_y]
 
 constraints:
   within_capacity:

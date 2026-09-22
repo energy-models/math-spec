@@ -384,7 +384,7 @@
     },
     "PiecewiseBlock": {
       "additionalProperties": false,
-      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``along`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\nThe block builds one curve per coordinate of the **frame**. ``dims:``\ndeclares it; where the file writes none it is inferred as the union of the\nlink expressions' dims. Two keys say something different about those\ncoordinates: ``where:`` which of them have a curve, and how far each runs\nalong ``along`` where it reads that dim too; ``activity:`` whether a curve\nthat exists is switched on.\n\nA link naming ``by:`` sits on a refinement of the frame, so the number of\nexpressions one curve ties is data. Such a block declares its ``dims:``,\nbecause the frame can no longer be told from the links.",
+      "description": "Expressions tied to one breakpoint-indexed piecewise curve per coordinate of ``dims:``.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. ``links:`` maps a name\nto ``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string over ``dims:``,\n*values_parameter* names a parameter carrying ``along`` and no dim the\nlink's row lacks, and *sign* bounds the link by the curve instead of\npinning it. The name is the\nlink's row in the expansion, ``<block>_<link>``.\n\n``dims:`` alone decides how many curves the block builds: one set of\nweights per coordinate of it. ``where:`` says which of those coordinates\nhave a curve, and how far each runs along ``along`` where it reads that\ndim too; ``activity:`` whether a curve that exists is switched on. A link\nthat walks a relation builds a row per fine coordinate, each reading the\none curve its coarse coordinate has, so how many expressions a curve ties\nis data.",
       "properties": {
         "activity": {
           "anyOf": [
@@ -415,26 +415,18 @@
           "title": "Description"
         },
         "dims": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Dims"
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
         },
         "links": {
-          "items": {
+          "additionalProperties": {
             "$ref": "#/$defs/PiecewiseLink"
           },
           "title": "Links",
-          "type": "array"
+          "type": "object"
         },
         "method": {
           "default": "adjacency",
@@ -462,6 +454,7 @@
       },
       "required": [
         "along",
+        "dims",
         "links"
       ],
       "title": "PiecewiseBlock",
@@ -471,7 +464,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "One link of a piecewise block: an expression pinned to a values curve.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]``, and serialised back to exactly that form, so a round trip through\n:meth:`Spec.to_yaml` reproduces the file.\n\nA link that names ``into:`` sits on a **refinement** of the curve's frame\nrather than on the frame itself, and is written as a mapping. Its row is\n``(frame - over) | into``, the frame law a relation walk already follows, so\none link emits a row per fine coordinate and the weights it reads stay on\nthe curve's own frame. That is what lets one curve tie as many expressions\nas the data says.\n\nTwo forms, one law. ``into:`` alone names a dimension the row gains and the\nweights broadcast across, so every coordinate of it is a tie to the one\noperating point. ``by:``, ``over:`` and ``into:`` together are the\n:func:`at` walk, which loses a frame dimension and gains what the relation\nmaps it to.",
+          "description": "One link of a piecewise block: an expression tied to the curve through a values parameter.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]``, and serialised back to exactly that form, so a round trip through\n:meth:`Spec.to_yaml` reproduces the file.\n\nA link that names ``by:``, ``over:`` and ``into:`` reads the curve's\nweights through a relation, as :func:`at` reads an array, and is written as\na mapping. Its row is the block's ``dims:`` with the consumed columns'\ndims replaced by the produced ones, so one link emits a row per fine\ncoordinate and every one of them reads the curve of the coarse coordinate\nit maps to. That is what lets one curve tie as many expressions as the\ndata says.",
           "properties": {
             "by": {
               "anyOf": [

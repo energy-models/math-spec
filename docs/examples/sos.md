@@ -66,9 +66,10 @@ piecewise:
       non-zero — the restriction the default method builds out of binaries,
       declared as a set instead
     along: bp
+    dims: [snapshot, generator]
     links:
-      - [dispatch, bp_x]
-      - [op_cost, bp_y]
+      dispatch: [dispatch, bp_x]
+      op_cost: [op_cost, bp_y]
     method: sos2
 
 constraints:

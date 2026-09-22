@@ -41,9 +41,10 @@ variables:
 piecewise:
   curve:
     along: bp
+    dims: [generator]
     links:
-      - [p, bp_x]
-      - [cost, bp_y, ">="]
+      p: [p, bp_x]
+      cost: [cost, bp_y, ">="]
     method: convex
 assumptions:
   cost_is_never_negative:
@@ -65,7 +66,7 @@ spec = to_spec('curve.yaml')
 sorted(spec.constraints)  # ['target']
 
 program = to_program(spec.expand('piecewise'))
-sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(program.constraints)  # ['curve_convexity', 'curve_cost', 'curve_p', 'target']
 sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
@@ -91,7 +92,7 @@ rather than the curve:
 
 ```python
 sorted(spec.expand().variables)  # ['cost', 'curve_lam', 'p']
-sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_cost', 'curve_p', 'target']
 spec.expand() is spec.expand()  # True
 ```
 

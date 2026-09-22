@@ -66,9 +66,10 @@ piecewise:
       cost read off the generator's curve — convex, so the weights need no
       binaries to keep them on one segment
     along: bp
+    dims: [snapshot, generator]
     links:
-      - [dispatch, bp_x]
-      - [op_cost, bp_y]
+      dispatch: [dispatch, bp_x]
+      op_cost: [op_cost, bp_y]
     method: convex
 
 constraints:
