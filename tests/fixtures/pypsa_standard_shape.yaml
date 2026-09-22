@@ -347,6 +347,9 @@ parameters:
   Generator_marginal_cost:
     - snapshot
     - generator
+  Generator_marginal_cost_quadratic:
+    - snapshot
+    - generator
   Generator_min_down_time:
     - generator
   Generator_min_up_time:
@@ -449,6 +452,9 @@ parameters:
     - global_constraint
     - link
   Link_marginal_cost:
+    - snapshot
+    - link
+  Link_marginal_cost_quadratic:
     - snapshot
     - link
   Link_output_cyclic_delay:

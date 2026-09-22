@@ -44,7 +44,6 @@ MODELS = {
 #: the declaration's own description.
 DECLARED = {
     'pypsa.md': ROOT / 'examples' / 'pypsa.yaml',
-    'pypsa_quadratic.md': ROOT / 'examples' / 'pypsa_quadratic.yaml',
     'pypsa_linearized_uc.md': ROOT / 'examples' / 'pypsa_linearized_uc.yaml',
     'pypsa_losses.md': ROOT / 'examples' / 'pypsa_losses.yaml',
 }

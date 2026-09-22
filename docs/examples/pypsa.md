@@ -86,7 +86,7 @@ def build():
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | out    | the same balance rows, dealt into linopy containers by how many component columns name a bus — `meshed_thresholds`, an `n.optimize()` keyword defaulting to `[30, 100, 400]`. Same rows, same duals, another name; a modeler whose engine wants the split states it, the file does not (#123) |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
-| [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own                                 |
+| [`marginal_cost_quadratic`](#objective)             | done   | rung 10, below; Generator and Link — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — rungs 11 and 13 carry a nonzero one, `21915277.52` and `160.0`, so the netting is under test |
 
 <!-- reference:rung_01_transport:begin -->
@@ -810,6 +810,59 @@ def build():
 
 </details>
 <!-- reference:rung_09_multilink:end -->
+
+### Rung 10 — quadratic costs
+
+A marginal cost quadratic in output: PyPSA's `marginal_cost_quadratic`, one
+squared term per component in the objective, each snapshot weighted by the hours
+it stands for. Generator and Link carry it here; PyPSA also carries it on
+storage units and stores, one more term each of the same shape. A plain run
+feeds zero, so the term vanishes and the objective stays linear.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`marginal_cost_quadratic`](#objective) | done | degree 2 in the objective; Generator and Link here |
+
+<!-- reference:rung_10_quadratic_costs:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `12587.437500000098`, 60 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_10_quadratic_costs.py`
+
+```python
+"""Rung 10: quadratic costs — a marginal cost quadratic in output."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'village')
+    n.add('Generator', 'steam', bus='north', p_nom=80, marginal_cost=5, marginal_cost_quadratic=0.08)
+    n.add('Generator', 'engine', bus='north', p_nom=80, marginal_cost=20, marginal_cost_quadratic=0.01)
+    n.add(
+        'Link',
+        'wire2',
+        bus0='north',
+        bus1='village',
+        p_nom=40,
+        p_min_pu=-1,
+        efficiency=0.9,
+        marginal_cost=1,
+        marginal_cost_quadratic=0.02,
+    )
+    n.add('Load', 'village_load', bus='village', p_set=15)
+    n.add('Load', 'extra10', bus='north', p_set=[30, 50, 40, 60])
+    return n
+```
+
+</details>
+<!-- reference:rung_10_quadratic_costs:end -->
 
 ### Rung 11 — ac-dc-meshed
 
@@ -1577,6 +1630,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\underline{\mathrm{p}}`$ | `Generator_p_min_pu` over $`\mathcal{T} \times \mathcal{G}`$ — least output, per unit of nominal power |
 | $`\overline{\mathrm{p}}`$ | `Generator_p_max_pu` over $`\mathcal{T} \times \mathcal{G}`$ — most output, per unit of nominal power — an availability profile |
 | $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\mathcal{T} \times \mathcal{G}`$ — cost of one unit of output |
+| $`\mathrm{c}^{(2)}`$ | `Generator_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{G}`$ — cost of the square of one unit of output |
 | $`\mathrm{com}`$ | `Generator_committable` over $`\mathcal{G}`$ — whether output is gated by an on/off status decision |
 | $`\mathrm{ru}`$ | `Generator_ramp_limit_up` over $`\mathcal{G}`$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
 | $`\mathrm{rd}`$ | `Generator_ramp_limit_down` over $`\mathcal{G}`$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
@@ -1603,6 +1657,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
 | $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
+| $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
 | $`\mathrm{z}^{\mathrm{nom}}`$ | `Process_p_nom` over $`\mathcal{J}`$ — nominal internal power |
 | $`\mathrm{ext}^{z}`$ | `Process_p_nom_extendable` over $`\mathcal{J}`$ — whether the nominal internal power is a decision |
 | $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
@@ -4146,7 +4201,9 @@ scenario_opex:
   description: what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight
   expression: >-
     sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
     + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
     + sum(sum(Process_p * Process_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
     + sum(sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
     + sum(sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
@@ -4159,7 +4216,7 @@ scenario_opex:
 ```
 
 ```math
-\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
 ```
 
 #### Variable domains
