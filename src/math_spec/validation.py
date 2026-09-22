@@ -33,15 +33,17 @@ from math_spec._expression_parser import (
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError
+from math_spec.errors import LanguageError, SchemaError, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
-from math_spec.model import Spec
+from math_spec.model import AssumptionBlock, Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.program import BooleanLiteral
+from math_spec.piecewise import assumptions_of
+from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
     Resolved,
+    ResolvedAssumption,
     ResolvedConstraint,
     mask_of,
     names_in,
@@ -110,6 +112,9 @@ def validate_expressions(schema: Spec) -> Resolved:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
+    A ``piecewise:`` block's links are resolved here too, so the typesetter
+    reads the curve a file states without expanding it.
+
     Returns:
         Every declaration's typed tree — what the dim rules, lowering and the
         typesetter read instead of resolving the text again.
@@ -119,7 +124,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         DimensionError: The first dim rule a declaration breaks, once every
             name resolves.
     """
-    ns = Namespace.of(schema)
+    ns = Namespace(schema)
     errors: list[str] = []
 
     for mname, macro in schema.macros.items():
@@ -128,7 +133,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         try:
             body_ast = expand(parse_template(mname, macro, context), schema, context, shadow=formals)
         except ValueError as e:
-            errors.append(_prefixed(context, e))
+            errors.append(prefixed(context, e))
             continue
         errors.extend(
             f"{context}: formal '{f}' collides with declared dimension '{f}'. "
@@ -140,7 +145,7 @@ def validate_expressions(schema: Spec) -> Resolved:
 
     expressions: dict[str, CasesNode | DefinitionNode] = {}
     for ename, block in schema.expressions.items():
-        if (node := _named(ename, block, schema, ns, errors)) is not None:
+        if (node := _named(ename, block, ns, errors)) is not None:
             expressions[ename] = node
 
     variables = {
@@ -152,27 +157,45 @@ def validate_expressions(schema: Spec) -> Resolved:
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         where = resolve_where_text(cdef.where, ns, context, errors)
-        expression = _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
+        expression = _check_expression(cdef.expression, ns, context, errors, comparison=True, ceiling=2)
         if expression is not None:
             constraints[cname] = ResolvedConstraint(expression, mask_of(where))
 
     objective = None
     if schema.objective is not None:
         objective = _check_expression(
-            schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
+            schema.objective.expression, ns, 'The objective', errors, comparison=False, ceiling=2
         )
+
+    assumptions: dict[str, ResolvedAssumption] = {}
+    for aname, adef in schema.assumptions.items():
+        if (assumption := _assumption(aname, adef, ns, errors)) is not None:
+            assumptions[aname] = assumption
+
+    for block, pw in schema.piecewise.items():
+        for aname, assumed in assumptions_of(block, pw).items():
+            entry = AssumptionBlock(holds=assumed.holds, where=assumed.where, description=assumed.description)
+            if (assumption := _assumption(aname, entry, ns, errors)) is not None:
+                assumptions[aname] = assumption
+
+    piecewise = {}
+    for pname, pdef in schema.piecewise.items():
+        links = [
+            _check_expression(link.expression, ns, f"piecewise '{pname}' link {i}", errors, comparison=False, ceiling=1)
+            for i, link in enumerate(pdef.links)
+        ]
+        if all(link is not None for link in links):
+            piecewise[pname] = tuple(link for link in links if link is not None)
 
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
+    resolved = Resolved(expressions, variables, constraints, objective, ns.relations, assumptions, piecewise)
     check_schema(schema, resolved)
     return resolved
 
 
-def _named(
-    name: str, block: ExpressionBlock, schema: Spec, ns: Namespace, errors: list[str]
-) -> CasesNode | DefinitionNode | None:
+def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) -> CasesNode | DefinitionNode | None:
     """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
 
     A cased entry's arms are checked one by one, so every fault is collected
@@ -181,7 +204,7 @@ def _named(
     context = f"Named expression '{name}'"
     if not block.cases:
         assert block.expression is not None
-        body = _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
+        body = _check_expression(block.expression, ns, context, errors, comparison=False, ceiling=None)
         return None if body is None else DefinitionNode(name, body)
 
     found = len(errors)
@@ -194,22 +217,71 @@ def _named(
             errors.append(_constant_arm(arm_context, value=when.value))
         elif when is not None:
             masks[case_name] = when
-        value = _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
+        value = _check_expression(case.expression, ns, arm_context, errors, comparison=False, ceiling=None)
         if when is not None and value is not None:
             arms.append(CaseArm(case_name, when, value))
     assert block.otherwise is not None
-    fallback = _check_expression(
-        block.otherwise, schema, ns, case_context(name, None), errors, comparison=False, ceiling=None
-    )
+    fallback = _check_expression(block.otherwise, ns, case_context(name, None), errors, comparison=False, ceiling=None)
     if len(errors) > found or fallback is None:
         return None
     errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
     return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
 
 
-def _prefixed(context: str, e: ValueError) -> str:
-    """*e* under *context*, once — expansion errors already carry it."""
-    return str(e) if str(e).startswith(context) else f'{context}: {e}'
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> ResolvedAssumption | None:
+    """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
+
+    A predicate the connectives decide is refused: one that folds to true
+    assumes nothing, and one that folds to false refuses every dataset. A
+    variable is refused too, since an assumption is about the data and a
+    variable is what the solver decides from it.
+    """
+    context = f"Assumption '{name}'"
+    found = len(errors)
+    holds = resolve_where_text(block.holds, ns, context, errors)
+    where = resolve_where_text(block.where, ns, f'{context}, where', errors)
+    if isinstance(holds, BooleanLiteral):
+        errors.append(_decided_assumption(context, block.holds, value=holds.value))
+    if isinstance(where, BooleanLiteral):
+        assert block.where is not None, 'a where the file did not write resolves to nothing'
+        errors.append(_decided_where(context, block.where, value=where.value))
+    for mask, part in ((holds, 'assumes'), (where, 'is checked where')):
+        if mask is None or isinstance(mask, BooleanLiteral):
+            continue
+        errors.extend(
+            f"{context}: variable '{atom.name}' stands in what the assumption {part}, and an assumption is "
+            f'about the data — a variable is what the solver decides from it. Name a parameter, or state the '
+            f'rule as a constraint.'
+            for atom in Mask(mask).atoms
+            if isinstance(atom, VariableDefined)
+        )
+    if len(errors) > found:
+        return None
+    assert holds is not None, 'a where string that read to nothing appended an error'
+    return ResolvedAssumption(Mask(holds), mask_of(where), block.description)
+
+
+def _decided_assumption(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a predicate the connectives already decided, whose data is never read."""
+    if value:
+        return (
+            f'{context}: the predicate {text!r} folds to true, so it assumes nothing of the data. '
+            f'Delete it, or name a parameter it constrains.'
+        )
+    return (
+        f'{context}: the predicate {text!r} folds to false, so it holds on no data at all. '
+        f'Delete it, or write the predicate the data can satisfy.'
+    )
+
+
+def _decided_where(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a ``where`` the connectives already decided, which narrows nothing or everything."""
+    if value:
+        return f'{context}: the where {text!r} folds to true, so it narrows nothing. Delete the where.'
+    return (
+        f'{context}: the where {text!r} folds to false, so the assumption is checked on no row. '
+        f'Delete the entry, or write the where the data can satisfy.'
+    )
 
 
 def _constant_arm(context: str, *, value: bool) -> str:
@@ -232,7 +304,6 @@ def _constant_arm(context: str, *, value: bool) -> str:
 @overload
 def _check_expression(
     expression: str,
-    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -243,7 +314,6 @@ def _check_expression(
 @overload
 def _check_expression(
     expression: str,
-    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -255,7 +325,6 @@ def _check_expression(
 
 def _check_expression(
     expression: str,
-    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -274,9 +343,9 @@ def _check_expression(
     declared.
     """
     try:
-        ast = parse_and_expand(expression, schema, context)
+        ast = parse_and_expand(expression, ns.schema, context)
     except ValueError as e:
-        errors.append(_prefixed(context, e))
+        errors.append(prefixed(context, e))
         return None
     if comparison and not isinstance(ast, ComparisonNode):
         errors.append(
@@ -300,7 +369,7 @@ def _check_expression(
             f'Got: {expression!r}\n'
             f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
             f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or drop the declaration and check the fact where the data is prepared.'
+            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
         )
         return None
     return resolved

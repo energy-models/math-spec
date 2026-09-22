@@ -2,11 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-# The sidecar symbol table for `examples/piecewise.yaml`. The weights a curve
-# expands to are named after the block that declared them, which is right in
-# the file and unreadable in an equation that names one six times: papers write
-# the convex-combination weight as lambda, so this says so out loud rather than
-# the typesetter renaming anything behind the reader's back.
+# The sidecar symbol table for `examples/piecewise.yaml`. `x` and `y` are what
+# the piecewise-linear literature calls the breakpoints, and `lambda` the
+# convex-combination weight the expansion writes out.
 notation: latex
 
 names:

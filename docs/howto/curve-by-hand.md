@@ -26,7 +26,7 @@ file, so it cannot say this. The formulation written out can.
 
    ```yaml
    sos:
-     on_one_segment: { variable: weight, over: bp, type: 2, big_m: 1 }
+     on_one_segment: { variable: weight, over: bp, type: 2 }
    ```
 
 3. **Write the convexity row, and one row per flow.** The row per flow is where

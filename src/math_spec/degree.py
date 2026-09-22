@@ -45,7 +45,7 @@ def carries_variable(node: ParsedNode) -> bool:
     """
     for found in nodes(node):
         if isinstance(found, UnresolvedNode):
-            msg = f'{found!r} reached the degree check. Expressions go through resolution.expression_of() first.'
+            msg = f'{found!r} reached the degree check. Expressions go through resolution.resolve_expression() first.'
             raise AssertionError(msg)
         if isinstance(found, VariableNode):
             return True

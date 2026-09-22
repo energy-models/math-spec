@@ -37,9 +37,12 @@ from math_spec._expression_parser import (
 from math_spec.dimensions import dims_of
 from math_spec.program import (
     And,
+    ArithmeticComparison,
     BooleanLiteral,
+    CountComparison,
     DimensionComparison,
     DimensionPosition,
+    ExpressionComparison,
     Join,
     Mask,
     Not,
@@ -51,6 +54,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     VariableDefined,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
@@ -59,7 +63,7 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import RelationBlock, SosBlock, _ExpandedSpec
+    from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -72,6 +76,18 @@ _ATOM = 5
 #: The same for a predicate: ``OR`` binds loosest, then ``AND``, then ``NOT``;
 #: a comparison sits above the connectives and is bracketed under none.
 _WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
+
+#: The predicates that are one relation between two sides, which a line may
+#: align on the way it aligns a constraint.
+AlignedComparison = (
+    ParameterComparison
+    | ArithmeticComparison
+    | CountComparison
+    | DimensionComparison
+    | DimensionPosition
+    | RelationComparison
+    | RelationPairComparison
+)
 
 _PREDICATES: dict[PredicateOperator, OperatorName] = {
     '==': 'equal',
@@ -233,7 +249,7 @@ class Walk:
 
     def __init__(
         self,
-        schema: _ExpandedSpec,
+        schema: Spec,
         symbols: Symbols,
         fmt: Format,
         *,
@@ -579,36 +595,17 @@ class Walk:
                 comparison,
             )
 
-        if isinstance(node, ParameterComparison):
-            left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
+        if isinstance(node, AlignedComparison):
+            left, right = self.sides(node, ctx)
+            return f'{left} {right}', comparison
 
-        if isinstance(node, DimensionComparison):
-            if isinstance(node.value, int | float):
-                self.noticed.numeric_coordinates.add(node.name)
-            return (
-                f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}',
-                comparison,
-            )
+        if isinstance(node, ExpressionComparison):
+            msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
+            raise AssertionError(msg)
 
-        if isinstance(node, DimensionPosition):
-            grouping = (
-                None
-                if node.partition is None
-                else self._tuple([self._value_read(node.partition.name, c, ctx) for c in node.partition.grouped])
-            )
-            place = self._position(ctx.subscript(node.name), grouping)
-            ordinal = self._ordinal(node.name, node.position, grouping)
-            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
-
-        if isinstance(node, RelationComparison):
-            applied = self._value_read(node.name, node.column, ctx)
-            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
-
-        if isinstance(node, RelationPairComparison):
-            left = self._value_read(node.name, node.column, ctx)
-            right = self._value_read(node.other, node.other_column, ctx)
-            return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
+        if isinstance(node, TranslatedPredicate):
+            moved = ctx.translated(node.along, _Step(node.offset, 'plain'))
+            return self._where(node.operand.root, moved)
 
         if isinstance(node, RelationDefined):
             return self._relation_row(node.name, self._frame_key(node.name, ctx)), comparison
@@ -630,6 +627,43 @@ class Walk:
             return self.format.joined(sides, self._op('or')), need
 
         assert_never(node)
+
+    def sides(self, node: AlignedComparison, ctx: _Context) -> tuple[str, str]:
+        """One comparison as its two sides, the relation symbol leading the right.
+
+        Split so that a line whose whole predicate is one comparison aligns on
+        the relation, as a constraint does.
+        """
+        if isinstance(node, ParameterComparison):
+            left, right = ctx.indexed(self.symbols.name[node.name], list(node.dims)), self._literal(node.value)
+        elif isinstance(node, ArithmeticComparison):
+            left, right = self._expression(node.left, ctx), self._expression(node.right, ctx)
+        elif isinstance(node, DimensionComparison):
+            if isinstance(node.value, int | float):
+                self.noticed.numeric_coordinates.add(node.name)
+            left, right = ctx.subscript(node.name), self._literal(node.value)
+        elif isinstance(node, DimensionPosition):
+            grouping = (
+                None
+                if node.partition is None
+                else self._tuple([self._value_read(node.partition.name, c, ctx) for c in node.partition.grouped])
+            )
+            left = self._position(ctx.subscript(node.name), grouping)
+            right = self._ordinal(node.name, node.position, grouping)
+        elif isinstance(node, RelationComparison):
+            left, right = self._value_read(node.name, node.column, ctx), self._literal(node.value)
+        elif isinstance(node, RelationPairComparison):
+            left = self._value_read(node.name, node.column, ctx)
+            right = self._value_read(node.other, node.other_column, ctx)
+        elif isinstance(node, CountComparison):
+            index, inner = ctx.reducing(node.over)
+            counted = self.format.set_of(
+                self._membership(node.over, index), self._predicate(node.predicate.root, inner)
+            )
+            left, right = self.format.cardinality(counted), self._number(node.value)
+        else:
+            assert_never(node)
+        return left, f'{self._op(_PREDICATES[node.op])} {right}'
 
     def _literal(self, value: float | str | datetime.date) -> str:
         return self._number(value) if isinstance(value, int | float) else self.format.quoted(str(value))
@@ -680,6 +714,7 @@ class Walk:
             ('Subject to', self._constraints()),
             ('Definitions', self._definitions()),
             ('Variable domains', self._variables()),
+            ('Assumptions', self._assumptions()),
         ]
         return sections, self.noticed
 
@@ -699,7 +734,16 @@ class Walk:
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def _constraints(self) -> list[Line]:
-        return [self._constraint(name) for name in self.schema.constraints]
+        """Every constraint, then every curve.
+
+        A ``piecewise:`` block restricts what its link expressions may be
+        together, which is what a row does, so it prints here rather than among
+        the domains — where a set prints, being a property of one variable.
+        """
+        return [
+            *(self._constraint(name) for name in self.schema.constraints),
+            *(self._piecewise(name) for name in self.schema.piecewise),
+        ]
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
@@ -754,15 +798,22 @@ class Walk:
         )
 
     def line(self, name: str) -> Line:
-        """The one line *name* prints as: a named expression's definition, a constraint, or a variable's domain.
+        """The one line *name* prints as: a named expression, a constraint, an assumption, a curve, or a variable's domain.
 
-        *name* is one of the three; :func:`~math_spec.typesetting.typeset_declaration`
-        refuses the rest, and a constraint sharing a variable's name.
+        *name* is one of the five; :func:`~math_spec.typesetting.typeset_declaration`
+        refuses the rest, and a name declared as two of them. An assumption is
+        looked up where the document prints it from, so a condition a curve's
+        method states is a line a reader can ask for before the curve is
+        written out.
         """
         if name in self.schema.expressions:
             return self.definition(name)
         if name in self.schema.constraints:
             return self._constraint(name)
+        if name in self.schema.resolved.assumptions:
+            return self._assumption(name)
+        if name in self.schema.piecewise:
+            return self._piecewise(name)
         return self._variable(name)
 
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
@@ -833,6 +884,122 @@ class Walk:
             right=f'{self._op("in")} {self._op("sos_set")}{block.type}',
             condition=self._quantifier([d for d in dims if d != block.over], ''),
         )
+
+    # -- assumptions -------------------------------------------------------
+
+    def _assumptions(self) -> list[Line]:
+        """What the model assumes of its data, in the order a program carries it.
+
+        A curve's conditions stand here with the file's own, because the
+        method states them in the same language: the reader sees every
+        condition the data is held to, whoever stated it.
+        """
+        return [self._assumption(name) for name in self.schema.resolved.assumptions]
+
+    def _assumption(self, name: str) -> Line:
+        """One assumption: the predicate over the frame both its masks name, under its ``where``."""
+        holds, where, _ = self.schema.resolved.assumptions[name]
+        frame = self._sorted(holds.dims | (where.dims if where is not None else frozenset()))
+        ctx = self._context(frame)
+        if isinstance(holds.root, AlignedComparison):
+            left, right = self.sides(holds.root, ctx)
+        else:
+            left, right = self._predicate(holds.root, ctx), ''
+        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, self._condition(ctx, where)))
+
+    def _piecewise(self, name: str) -> Line:
+        """One ``piecewise:`` block as the curve it states, over the frame it states one per coordinate of.
+
+        The links' expressions are a point, and the block says that point lies
+        on the piecewise-linear locus through the breakpoints. A bounded link
+        states one side of the locus instead, so there the locus prints as the
+        function of the pinned link that it is and the link's own sign says
+        which side.
+        """
+        block = self.schema.piecewise[name]
+        links = self.schema.resolved.piecewise[name]
+        frame = self._curve_frame(name, block, links)
+        ctx = self._context([*frame, block.over])
+        locus = self._locus(block, ctx)
+        bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
+        if bounded is None:
+            left = self._tuple([self._expression(node, ctx) for node in links])
+            right = f'{self._op("in")} {locus}'
+        else:
+            pinned = links[1 - bounded]
+            left = self._expression(links[bounded], ctx)
+            sign = self._op(_PREDICATES[block.links[bounded].sign])
+            right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
+        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, ''))
+
+    def _locus(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
+
+        A gate multiplies it, which is what gating a curve does — the weights
+        sum to the gate, so the locus is the origin where the gate is 0 and the
+        curve where it is 1.
+        """
+        operator = self._op('hull' if block.method == 'convex' else 'curve')
+        through = self.format.subscript(operator, [self._breakpoints(block, ctx)])
+        values = self.format.joined(
+            [
+                ctx.indexed(self.symbols.name[link.values], list(self.schema.parameters[link.values].dims))
+                for link in block.links
+            ],
+            '',
+        )
+        locus = self.format.apply(through, values)
+        gate = self._gate(block, ctx)
+        return f'{gate} {self._op("cdot")} {locus}' if gate else locus
+
+    def _breakpoints(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """Which breakpoints the curve runs through: every one of the dimension, or the ones ``points:`` admits.
+
+        A ``points:`` naming a boolean parameter reads as the flag it is, and
+        one naming a values parameter as the rows that parameter has, which is
+        the same reading a ``where`` gives either of them.
+        """
+        over = self._membership(block.over)
+        if block.points is None:
+            return over
+        admitted = ParameterDefined(block.points, tuple(self.schema.parameters[block.points].dims))
+        return f'{over} {self._op("such_that")} {self._predicate(admitted, ctx)}'
+
+    def _gate(self, block: PiecewiseBlock, ctx: _Context) -> str:
+        """The factor an ``activity:`` puts on the locus, or ``''`` where the block has none.
+
+        Where the gate is a variable that does not exist at every coordinate
+        the curve is built for, the factor is the gate where it exists and 1
+        where it does not — the two rows the expansion writes there, because a
+        variable that does not exist takes its row with it and would leave the
+        curve unstated rather than ungated. ``absence: zero`` is the other
+        reading and pins the curve off, which is the factor on its own.
+        """
+        if (activity := block.activity) is None:
+            return ''
+        gate = self.schema.variables[activity]
+        symbol = ctx.indexed(self.symbols.name[activity], list(gate.dims))
+        mask = self.schema.resolved.variables[activity]
+        if mask is None or gate.absence == 'zero':
+            return symbol
+        where = self._predicate(mask.root, ctx, need=_WHERE_PRECEDENCE['and'])
+        return self.format.cases(
+            [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
+        )
+
+    def _curve_frame(self, name: str, block: PiecewiseBlock, links: tuple[ArithmeticNode, ...]) -> list[str]:
+        """The dimensions the block builds one curve per coordinate of: every one its links and its gate carry.
+
+        The union the expansion takes its own frame from, and the expansion has
+        already held it to the rules — that no link carries the breakpoint
+        dimension among them (:mod:`math_spec.piecewise`).
+        """
+        dims: frozenset[str] = frozenset()
+        for i, node in enumerate(links):
+            dims |= dims_of(node, self.schema, f"piecewise '{name}' link {i}")
+        if block.activity is not None:
+            dims |= frozenset(self.schema.variables[block.activity].dims)
+        return self._sorted(dims)
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):
