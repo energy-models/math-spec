@@ -20,7 +20,7 @@ from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
-from math_spec.model import Curvature, PiecewiseBlock, Spec, undeclared_dimension
+from math_spec.model import Curvature, PiecewiseBlock, PiecewiseMethod, Spec, undeclared_dimension
 from math_spec.program import PiecewiseDeclaration
 from math_spec.resolution import Namespace, resolve_expression
 from math_spec.sos import Emitted, emit
@@ -134,10 +134,19 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
             f'count({_edge(d, mask, "first")}, over={d}) == 1',
             None,
             f"piecewise '{block}': points: '{mask}' must mark a consecutive run of at least one breakpoint per "
-            f'curve — the chord row joins a breakpoint to the one before it, and the domain rows sit on the '
-            f"curve's own first and last.",
+            f'curve — {_GAP[pw.method]}.',
         )
     return assumed
+
+
+#: Why a gap in ``points:`` breaks each method, in the rows that method writes.
+_GAP: dict[PiecewiseMethod, str] = {
+    'adjacency': 'the weights are nonzero only on two neighbouring breakpoints, and a gap leaves no neighbour across it',
+    'sos2': 'the weights are nonzero only on two neighbouring breakpoints, and a gap leaves no neighbour across it',
+    'convex': 'the checks on the shape compare a breakpoint with its neighbours, so a bend across a gap goes unchecked',
+    'lp': "the chord row joins a breakpoint to the one before it, and the domain rows sit on the curve's own first "
+    'and last',
+}
 
 
 def _quoted(names: Iterable[str]) -> str:
