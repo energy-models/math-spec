@@ -168,7 +168,7 @@ def typeset_declaration(
     """Render one declaration as the bare line the document prints for it.
 
     The line the whole-model render prints for it — a named expression's
-    definition, a constraint, or a variable's domain, quantifier included —
+    definition, a constraint, an assumption, or a variable's domain, quantifier included —
     with no document, label, equation number or math delimiters around it, for
     a math context the caller lays out: a docstring, a table cell. A line on
     its own has no Definitions section beside it, so the plain named
@@ -177,7 +177,7 @@ def typeset_declaration(
 
     Args:
         model: Anything :func:`math_spec.to_spec` accepts.
-        name: A named expression, constraint or variable the model declares.
+        name: A named expression, constraint, assumption or variable the model declares.
         fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print; see :func:`typeset`.
         inline_expressions: Substitute the plain named expressions the line uses, so it
@@ -191,20 +191,27 @@ def typeset_declaration(
     Raises:
         ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
-        SchemaError: *name* is declared as none of the three, or as two — a
+        SchemaError: *name* is declared as none of the four, or as two — a
             constraint may share a variable's name; or a symbol table entry
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     schema = walk.schema
-    kinds = {'named expression': schema.expressions, 'constraint': schema.constraints, 'variable': schema.variables}
+    kinds = {
+        'named expression': schema.expressions,
+        'constraint': schema.constraints,
+        'assumption': schema.assumptions,
+        'variable': schema.variables,
+    }
     found = [kind for kind, group in kinds.items() if name in group]
     if not found:
         everything = {n for group in kinds.values() for n in group}
-        msg = f"'{name}' is not a named expression, constraint or variable. {did_you_mean(name, everything)}"
+        msg = (
+            f"'{name}' is not a named expression, constraint, assumption or variable. {did_you_mean(name, everything)}"
+        )
         raise SchemaError(msg)
     if len(found) > 1:
-        msg = f"'{name}' is both a {found[0]} and a {found[1]}, and one line prints one of them — rename one."
+        msg = f"'{name}' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."
         raise SchemaError(msg)
     return walk.format.equation(walk.line(name))
 

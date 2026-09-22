@@ -57,6 +57,12 @@ is what the rest of the model sees, and what the
 The breakpoint order is the declared order of `over`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
 
+Every condition this page says is checked "when the data binds" is an
+[assumption](assumptions.md). The language derives each one from the `method:`
+rather than from anything the file writes, carries it beside the assumptions
+the file did write, and prints both under one heading. The consumer that binds
+the numbers runs them.
+
 !!! warning "A values parameter short of a row does not build a shorter curve"
 
     The missing row reads as a breakpoint at the origin, and the table is

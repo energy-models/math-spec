@@ -43,6 +43,7 @@ __all__ = [
     'Add',
     'And',
     'ArithmeticComparison',
+    'Assumption',
     'AtLeastTwo',
     'BooleanLiteral',
     'Cases',
@@ -68,6 +69,7 @@ __all__ = [
     'FirstOf',
     'Footprint',
     'GroupSum',
+    'Holds',
     'Increasing',
     'LastOf',
     'Mask',
@@ -108,8 +110,8 @@ __all__ = [
     'VariableDefined',
     'VariableDomain',
     'WindowSum',
+    'assumption_message',
     'carries_variable',
-    'check_message',
     'children',
     'divisor_parameters',
     'fan_in',
@@ -580,9 +582,50 @@ Derivation = MaskOf | FirstOf | LastOf
 
 
 @dataclass(frozen=True)
-class Increasing:
-    """*parameter* is strictly increasing along *over* within each curve — the x-axis a method sorts by."""
+class PiecewiseDeclaration:
+    """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
 
+    The expansion lowered the links into constraints and emitted the
+    parameters it needs — each of those says how it is filled, on its own
+    :attr:`ParameterDeclaration.derivation`. What the block assumes of its
+    numbers is an :data:`Assumption` like any other, under
+    :attr:`Program.assumptions`; what is left here is the curve.
+
+    Attributes:
+        over: The breakpoint dimension.
+        method: How the weights are restricted.
+        breakpoints: The links' values parameters, in link order.
+    """
+
+    over: str
+    method: _model.PiecewiseMethod
+    breakpoints: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Holds:
+    """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
+
+    ``predicate`` is true at every coordinate of its frame — the product of
+    every dim the two masks name — that ``where`` admits, a missing row
+    reading as false as it does in any mask. Nothing here is decidable at
+    load: both sides are the data's, which is why the consumer binding it
+    checks.
+    """
+
+    predicate: Mask
+    where: Mask | None = None
+    #: What the file wrote under ``description:``. The refusal quotes it: the
+    #: names alone say which columns are wrong, and not why the rule is there.
+    description: str | None = None
+
+
+@dataclass(frozen=True)
+class Increasing:
+    """*parameter* is strictly increasing along *over* within each curve — the x-axis *method* sorts by."""
+
+    block: str
+    method: _model.PiecewiseMethod
     parameter: str
     over: str
 
@@ -591,10 +634,12 @@ class Increasing:
 class Curved:
     """*y* over *x* bends, along *over*, the way *curvature* says.
 
-    That is the shape the method is exact for. ``either`` is the hull's
-    weaker condition: any single bend, so only a mixed curve fails it.
+    That is the shape *method* is exact for. ``either`` is the hull's weaker
+    condition: any single bend, so only a mixed curve fails it.
     """
 
+    block: str
+    method: _model.PiecewiseMethod
     x: str
     y: str
     over: str
@@ -605,6 +650,7 @@ class Curved:
 class AtLeastTwo:
     """Each curve has at least two breakpoints — every position along *over*, or those *mask* admits."""
 
+    block: str
     over: str
     mask: str | None
 
@@ -613,75 +659,66 @@ class AtLeastTwo:
 class Contiguous:
     """*mask* admits one consecutive run of at least one breakpoint per curve."""
 
+    block: str
     mask: str
     #: The breakpoint parameter the mask was derived from, where it was — the
     #: name the file wrote, and the one a refusal names.
     values: str | None
 
 
-#: What a ``piecewise:`` block assumes of the numbers it is bound to. The data
-#: decides whether each holds, so the language names the condition with its
-#: subjects and its sentence (:func:`check_message`), and the consumer holding
-#: the numbers checks. Closed, like :data:`Derivation`.
+#: What a ``piecewise:`` block assumes of the numbers it is bound to, each
+#: naming the block whose expansion derived it. The file writes none of these:
+#: the method implies them, which is why each carries the method its sentence
+#: quotes.
 Check = Increasing | Curved | AtLeastTwo | Contiguous
 
-
-@dataclass(frozen=True)
-class PiecewiseDeclaration:
-    """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
-
-    The expansion lowered the links into constraints and emitted the
-    parameters it needs — each of those says how it is filled, on its own
-    :attr:`ParameterDeclaration.derivation`. What is left here is the curve
-    and what the block assumes of it.
-
-    Attributes:
-        over: The breakpoint dimension.
-        method: How the weights are restricted.
-        breakpoints: The links' values parameters, in link order.
-        checks: What the block assumes of the numbers, each carrying its own
-            subjects, for the consumer holding them to check.
-    """
-
-    over: str
-    method: _model.PiecewiseMethod
-    breakpoints: tuple[str, ...]
-    checks: tuple[Check, ...]
+#: One fact about the data a consumer has to check before it solves — the
+#: file's own under :class:`Holds`, and a curve's under :data:`Check`. The data
+#: decides whether each holds, so the language names the condition with its
+#: subjects and its sentence (:func:`assumption_message`), and the consumer
+#: holding the numbers checks. Closed, like :data:`Derivation`.
+Assumption = Holds | Check
 
 
-def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:
-    """The sentence a consumer raises when the data bound to *block* fails *check*.
+def assumption_message(name: str, assumption: Assumption) -> str:
+    """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
-    a consumer appends what it saw.
+    a consumer appends the coordinates it saw. Where the file wrote a
+    ``description:``, it trails the sentence, since the author said there why
+    the rule is there.
     """
-    ctx = f"piecewise '{block}'"
-    match check:
-        case Increasing(parameter, over):
+    match assumption:
+        case Holds(predicate, _, description):
+            read = ', '.join(f"'{n}'" for n in sorted(predicate.names_read))
+            sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+            return f'{sentence} — {description}' if description else sentence
+        case Increasing(block, method, parameter, over):
             return (
-                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
+                f"piecewise '{block}': method: {method} requires strictly increasing breakpoints in "
+                f"'{parameter}' along '{over}'"
             )
-        case Curved(x, y, over, curvature):
+        case Curved(block, method, x, y, over, curvature):
             shape = 'a single bend' if curvature == 'either' else f'a {curvature} curve'
             return (
-                f"{ctx}: method: {pw.method} is exact only for {shape}, and '{y}' over '{x}' along "
+                f"piecewise '{block}': method: {method} is exact only for {shape}, and '{y}' over '{x}' along "
                 f"'{over}' is not one, so the answer is wrong rather than loose. Use method: adjacency "
                 f'or sos2, which take a curve of any shape.'
             )
-        case AtLeastTwo():
+        case AtLeastTwo(block):
             return (
-                f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
-                f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
+                f"piecewise '{block}': method: lp needs at least two breakpoints per curve — the method *is* its "
+                f'segment lines, so a curve with no segment states nothing and leaves the bounded link on its own '
                 f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
             )
-        case Contiguous(mask, values):
+        case Contiguous(block, mask, values):
             return (
-                f"{ctx}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
-                f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
-                f"the domain rows sit on the curve's own first and last."
+                f"piecewise '{block}': points: '{values if values is not None else mask}' must mark a consecutive "
+                f'run of at least one breakpoint per curve — the chord row joins a breakpoint to the one before '
+                f"it, and the domain rows sit on the curve's own first and last."
             )
         case _:
-            assert_never(check)
+            assert_never(assumption)
 
 
 @dataclass(frozen=True)
@@ -931,6 +968,12 @@ class Program:
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
     piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
+    #: What the data has to satisfy for the answer to mean anything, by the
+    #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
+    #: what each ``piecewise:`` block's method assumes of its breakpoints. The
+    #: language decides none of it, so the consumer binding the data checks
+    #: each and refuses with :func:`assumption_message`.
+    assumptions: Mapping[str, Assumption] = Sealed({})
     #: Declared ``expressions:``, lowered, each saying whether the math reads
     #: it. None builds a row of its own — one the math reads is inlined where
     #: it is read — but all are lowered with the program, so a file whose

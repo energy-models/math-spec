@@ -188,6 +188,13 @@ class ResolvedConstraint(NamedTuple):
     where: Mask | None
 
 
+class ResolvedAssumption(NamedTuple):
+    """One assumption's typed halves: the predicate it states, and the mask it is checked under."""
+
+    holds: Mask
+    where: Mask | None
+
+
 @dataclass(frozen=True)
 class Resolved:
     """Every expression and where string of one schema, typed once at load.
@@ -212,6 +219,8 @@ class Resolved:
         relations: Each relation's columns and key, as declared — the one
             copy, which every :class:`~math_spec.program.Direction` and
             :class:`~math_spec.program.Partition` in the trees holds.
+        assumptions: Each ``assumptions:`` entry's predicate and the mask it
+            is checked under.
     """
 
     expressions: dict[str, CasesNode | DefinitionNode]
@@ -219,6 +228,7 @@ class Resolved:
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
     relations: dict[str, RelationDeclaration]
+    assumptions: dict[str, ResolvedAssumption]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:

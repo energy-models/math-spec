@@ -38,10 +38,11 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.program import BooleanLiteral
+from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
     Resolved,
+    ResolvedAssumption,
     ResolvedConstraint,
     mask_of,
     names_in,
@@ -52,7 +53,7 @@ from math_spec.resolution import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from math_spec.model import ExpressionBlock
+    from math_spec.model import AssumptionBlock, ExpressionBlock
     from math_spec.program import Predicate
 
 
@@ -162,10 +163,15 @@ def validate_expressions(schema: Spec) -> Resolved:
             schema.objective.expression, ns, 'The objective', errors, comparison=False, ceiling=2
         )
 
+    assumptions: dict[str, ResolvedAssumption] = {}
+    for aname, adef in schema.assumptions.items():
+        if (assumption := _assumption(aname, adef, ns, errors)) is not None:
+            assumptions[aname] = assumption
+
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
+    resolved = Resolved(expressions, variables, constraints, objective, ns.relations, assumptions)
     check_schema(schema, resolved)
     return resolved
 
@@ -201,6 +207,62 @@ def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) 
         return None
     errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
     return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
+
+
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> ResolvedAssumption | None:
+    """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
+
+    A predicate the connectives decide is refused: one that folds to true
+    assumes nothing, and one that folds to false refuses every dataset. A
+    variable is refused too, since an assumption is about the data and a
+    variable is what the solver decides from it.
+    """
+    context = f"Assumption '{name}'"
+    found = len(errors)
+    holds = resolve_where_text(block.holds, ns, context, errors)
+    where = resolve_where_text(block.where, ns, f'{context}, where', errors)
+    if isinstance(holds, BooleanLiteral):
+        errors.append(_decided_assumption(context, block.holds, value=holds.value))
+    if isinstance(where, BooleanLiteral):
+        assert block.where is not None, 'a where the file did not write resolves to nothing'
+        errors.append(_decided_where(context, block.where, value=where.value))
+    for mask, part in ((holds, 'assumes'), (where, 'is checked where')):
+        if mask is None or isinstance(mask, BooleanLiteral):
+            continue
+        errors.extend(
+            f"{context}: variable '{atom.name}' stands in what the assumption {part}, and an assumption is "
+            f'about the data — a variable is what the solver decides from it. Name a parameter, or state the '
+            f'rule as a constraint.'
+            for atom in Mask(mask).atoms
+            if isinstance(atom, VariableDefined)
+        )
+    if len(errors) > found:
+        return None
+    assert holds is not None, 'a where string that read to nothing appended an error'
+    return ResolvedAssumption(Mask(holds), mask_of(where))
+
+
+def _decided_assumption(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a predicate the connectives already decided, whose data is never read."""
+    if value:
+        return (
+            f'{context}: the predicate {text!r} folds to true, so it assumes nothing of the data. '
+            f'Delete it, or name a parameter it constrains.'
+        )
+    return (
+        f'{context}: the predicate {text!r} folds to false, so it holds on no data at all. '
+        f'Delete it, or write the predicate the data can satisfy.'
+    )
+
+
+def _decided_where(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a ``where`` the connectives already decided, which narrows nothing or everything."""
+    if value:
+        return f'{context}: the where {text!r} folds to true, so it narrows nothing. Delete the where.'
+    return (
+        f'{context}: the where {text!r} folds to false, so the assumption is checked on no row. '
+        f'Delete the entry, or write the where the data can satisfy.'
+    )
 
 
 def _constant_arm(context: str, *, value: bool) -> str:
@@ -288,7 +350,7 @@ def _check_expression(
             f'Got: {expression!r}\n'
             f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
             f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or drop the declaration and check the fact where the data is prepared.'
+            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
         )
         return None
     return resolved

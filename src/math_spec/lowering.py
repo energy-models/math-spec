@@ -35,7 +35,7 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
+from math_spec.piecewise import assumptions_of, declaration_of, derivations_of, expand_piecewise
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -164,8 +164,26 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         relations=resolved.relations,
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
+        assumptions=_assumptions(expanded),
         expressions=expressions,
     )
+
+
+def _assumptions(expanded: _ExpandedSpec) -> dict[str, program.Assumption]:
+    """Everything the data has to satisfy, the file's entries first and each block's behind them.
+
+    One mapping rather than two, because a consumer binding data checks them
+    all the same way and refuses in the same words.
+    """
+    assumptions: dict[str, program.Assumption] = {}
+    for name, (holds, where) in expanded.resolved.assumptions.items():
+        lowering = _Lowering(expanded, f"assumption '{name}'")
+        predicate = lowering.mask(holds)
+        assert predicate is not None, 'a predicate that admits every row was refused as deciding nothing'
+        assumptions[name] = program.Holds(predicate, lowering.mask(where), expanded.assumptions[name].description)
+    for block, ex in expanded.expanded_piecewise.items():
+        assumptions.update(assumptions_of(block, ex))
+    return assumptions
 
 
 # ---------------------------------------------------------------------------
