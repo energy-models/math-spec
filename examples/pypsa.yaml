@@ -46,7 +46,7 @@ dimensions:
   line:
     description: passive branches, each between two buses, their flow set by impedance
   transformer:
-    description: passive branches between two buses, their flow set by impedance and tap ratio, with a fixed phase shift
+    description: passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised
   cycle:
     description: independent cycles of the passive network graph — the cycle basis, data prep
   segment:
@@ -559,10 +559,35 @@ parameters:
     dims: [transformer, cycle]
   Transformer_phase_shift_weight:
     description: >-
-      the transformer's fixed phase shift in radians, signed by its orientation
-      in the cycle — a constant added to the cycle sum, data prep; a transformer
-      with no shift or in no cycle has no row. PyPSA also admits an optimisable
-      phase shift, a later rung this file does not carry
+      a fixed transformer's phase shift in radians, signed by its orientation
+      in the cycle — a constant added to the cycle sum, data prep; zero for a
+      varying transformer, whose shift is a decision instead, so the constant and
+      the variable term never both count a shift. A transformer with no shift or
+      in no cycle has no row
+    dims: [transformer, cycle]
+  Transformer_phase_shift_varying:
+    description: >-
+      whether a transformer's phase shift is a decision — PyPSA's
+      `phase_shift_min < phase_shift_max`, read as a flag in data prep; false is a
+      fixed shift carried by `phase_shift`
+    dims: [transformer]
+    dtype: bool
+  Transformer_phase_shift_min:
+    description: >-
+      the least a varying transformer's phase shift may take, in degrees —
+      PyPSA's `phase_shift_min`; where it is below `phase_shift_max` the shift is
+      a decision, otherwise the transformer keeps its fixed `phase_shift`
+    dims: [transformer]
+  Transformer_phase_shift_max:
+    description: >-
+      the most a varying transformer's phase shift may take, in degrees —
+      PyPSA's `phase_shift_max`; equal to `phase_shift_min` for a fixed transformer
+    dims: [transformer]
+  Transformer_phase_shift_cycle_weight:
+    description: >-
+      the cycle sign for a varying transformer's phase shift, times π/180 so a
+      shift in degrees enters the cycle sum in radians — data prep; zero for a
+      fixed transformer or one in no cycle
     dims: [transformer, cycle]
   GlobalConstraint_type:
     description: >-
@@ -812,6 +837,18 @@ variables:
       `Transformer_bus1`, lossless
     dims: [scenario, snapshot, transformer]
     where: Transformer_active
+  Transformer_phase_shift:
+    description: >-
+      `Transformer-phase_shift` — a phase-shifting transformer's voltage angle
+      shift in degrees, chosen per snapshot to redistribute the flows around its
+      cycles without moving active power; absent, and zero in the cycle sum,
+      where the shift is fixed
+    dims: [scenario, snapshot, transformer]
+    where: Transformer_phase_shift_varying AND Transformer_active
+    absence: zero
+    bounds:
+      lower: Transformer_phase_shift_min
+      upper: Transformer_phase_shift_max
   Line_s_nom_ext:
     description: >-
       `Line-s_nom` — nominal apparent power where it is a decision; the
@@ -1475,13 +1512,15 @@ constraints:
       `Kirchhoff-Voltage-Law` — around every independent cycle the
       impedance-weighted flows sum to nothing, which is what makes the linear
       power flow physical rather than transport. A transformer's flow weighs its
-      effective reactance, and its fixed phase shift enters the cycle sum as a
-      constant
+      effective reactance, and its phase shift enters the cycle sum too: a
+      constant where the shift is fixed, or the shift decision times its cycle
+      weight where the shift is a phase-shifting transformer's to choose
     dims: [scenario, snapshot, cycle]
     expression: >-
       sum(Line_s * Line_cycle_weight, over=line)
       + sum(Transformer_s * Transformer_cycle_weight, over=transformer)
-      + sum(Transformer_phase_shift_weight, over=transformer) == 0
+      + sum(Transformer_phase_shift_weight, over=transformer)
+      + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer) == 0
   Generator_p_ramp_limit_up:
     description: >-
       `Generator-p-ramp_limit_up` — a generator raises output no faster than

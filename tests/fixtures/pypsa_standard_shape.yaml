@@ -657,6 +657,15 @@ parameters:
   Transformer_cycle_weight:
     - transformer
     - cycle
+  Transformer_phase_shift_cycle_weight:
+    - transformer
+    - cycle
+  Transformer_phase_shift_max:
+    - transformer
+  Transformer_phase_shift_min:
+    - transformer
+  Transformer_phase_shift_varying:
+    - transformer
   Transformer_phase_shift_weight:
     - transformer
     - cycle

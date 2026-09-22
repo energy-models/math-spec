@@ -1607,12 +1607,12 @@ def build():
 ### Rung 18 — transformer
 
 A transformer is a passive branch between two buses, as a line is, but its flow
-follows its effective series reactance and a fixed phase shift. It obeys the
-Kirchhoff voltage law (KVL) around every independent cycle, so it builds no flow
-outside a mesh. A non-extendable transformer carries a fixed nominal apparent
-power. An extendable one chooses it between `s_nom_min` and `s_nom_max`. An
-`s_set` fixes a flow schedule. An `s_nom_set` fixes an extendable transformer's
-built capacity.
+follows its effective series reactance and a phase shift, fixed or optimised. It
+obeys the Kirchhoff voltage law (KVL) around every independent cycle, so it
+builds no flow outside a mesh. A non-extendable transformer carries a fixed
+nominal apparent power. An extendable one chooses it between `s_nom_min` and
+`s_nom_max`. An `s_set` fixes a flow schedule. An `s_nom_set` fixes an extendable
+transformer's built capacity.
 
 | PyPSA | status | note |
 | --- | --- | --- |
@@ -1621,6 +1621,7 @@ built capacity.
 | [`Transformer-s_set`](#transformer-s_set) | done | a fixed flow schedule |
 | [`Transformer-s_nom_set`](#transformer-s_nom_set) | done | a fixed built capacity |
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | rung 6, over `x_pu_eff` and a phase shift |
+| [`Transformer-phase_shift`](#variable-domains) | done | rung 20, an optimised phase shift |
 | [objective](#objective) | done | capital on capacity |
 
 <!-- reference:rung_18_transformer:begin -->
@@ -1700,6 +1701,67 @@ def build():
 </details>
 <!-- reference:rung_18_transformer:end -->
 
+### Rung 20 — phase shifter
+
+A phase-shifting transformer's voltage angle shift is a per-snapshot decision
+where its `phase_shift_min` sits below its `phase_shift_max`, bounded between the
+two in degrees. The shift enters the same KVL cycle sum as a fixed one, so it
+redistributes the flows around a cycle without moving active power. Here the
+shift holds the transformer at its rating while the upstream unit serves the
+whole varying load, and the fixed `phase_shift` gives way to it.
+
+<!-- reference:rung_20_phase_shifter:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `16455.0`, 88 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_20_phase_shifter.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 20: phase shifter — a transformer whose per-snapshot phase shift is optimised, holding it at its rating and rerouting the surplus around the cycle.
+
+The parallel lines carry low reactance, so a few degrees of shift move tens of
+megawatts: the phase-shifting transformer keeps its flow at its ``s_nom`` while
+the upstream hydro serves the whole varying load, and the costly local unit
+stays off. A fixed shift could not follow the load, so the shift is a decision.
+"""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus a triangle where a phase-shifting transformer reroutes cheap power around a binding leg, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b', 'c'])
+    n.add('Generator', 'hydro20', bus='a', p_nom=300, marginal_cost=10)
+    n.add('Generator', 'diesel20', bus='c', p_nom=300, marginal_cost=200)
+    n.add('Load', 'town20', bus='c', p_set=[90, 75, 120, 105])
+    n.add('Line', 'ab20', bus0='a', bus1='b', carrier='AC', x=0.002, r=0.0002, s_nom=120)
+    n.add('Line', 'bc20', bus0='b', bus1='c', carrier='AC', x=0.002, r=0.0002, s_nom=120)
+    n.add(
+        'Transformer',
+        'ca20',
+        bus0='c',
+        bus1='a',
+        x=0.002,
+        r=0.0002,
+        s_nom=40,
+        phase_shift_min=-30,
+        phase_shift_max=30,
+    )
+    return n
+```
+
+</details>
+<!-- reference:rung_20_phase_shifter:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -1741,7 +1803,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
 | $`\mathcal{V}`$ | index $`v`$ — `store` with $`\mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — pure energy stores, each on one bus |
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
-| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a fixed phase shift |
+| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
 | $`\mathcal{B}`$ | index $`b`$ — `segment` — the cuts a line's loss curve is held above — PyPSA's tangents, as many as its `segments` count, or its secants, as many as its tolerance loop places; none in a lossless run |
 | $`\mathcal{I}`$ | index $`i`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
@@ -1893,7 +1955,11 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\sigma^{\mathrm{nom,set}}`$ | `Transformer_s_nom_set` over $`\mathcal{M}`$ — a given nominal apparent power for an extendable transformer; one without a value has no row here |
 | $`\sigma^{\mathrm{set}}`$ | `Transformer_s_set` over $`\mathcal{T} \times \mathcal{M}`$ — a given flow schedule; a transformer without one has no row here |
 | $`\mathrm{x}^{\sigma}`$ | `Transformer_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's effective series reactance, `x` times its tap ratio, signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle basis, data prep; a transformer in no cycle has no row |
-| $`\vartheta`$ | `Transformer_phase_shift_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's fixed phase shift in radians, signed by its orientation in the cycle — a constant added to the cycle sum, data prep; a transformer with no shift or in no cycle has no row. PyPSA also admits an optimisable phase shift, a later rung this file does not carry |
+| $`\vartheta`$ | `Transformer_phase_shift_weight` over $`\mathcal{M} \times \mathcal{C}`$ — a fixed transformer's phase shift in radians, signed by its orientation in the cycle — a constant added to the cycle sum, data prep; zero for a varying transformer, whose shift is a decision instead, so the constant and the variable term never both count a shift. A transformer with no shift or in no cycle has no row |
+| $`\mathrm{Transformer\_phase\_shift\_varying}`$ | `Transformer_phase_shift_varying` over $`\mathcal{M}`$ — whether a transformer's phase shift is a decision — PyPSA's `phase_shift_min < phase_shift_max`, read as a flag in data prep; false is a fixed shift carried by `phase_shift` |
+| $`\mathrm{Transformer\_phase\_shift\_min}`$ | `Transformer_phase_shift_min` over $`\mathcal{M}`$ — the least a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_min`; where it is below `phase_shift_max` the shift is a decision, otherwise the transformer keeps its fixed `phase_shift` |
+| $`\mathrm{Transformer\_phase\_shift\_max}`$ | `Transformer_phase_shift_max` over $`\mathcal{M}`$ — the most a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_max`; equal to `phase_shift_min` for a fixed transformer |
+| $`\mathrm{Transformer\_phase\_shift\_cycle\_weight}`$ | `Transformer_phase_shift_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the cycle sign for a varying transformer's phase shift, times π/180 so a shift in degrees enters the cycle sum in radians — data prep; zero for a fixed transformer or one in no cycle |
 | $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{I}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
 | $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{I}`$ — which way the row binds — `<=`, `>=` or `==` |
 | $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
@@ -1935,6 +2001,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the cuts; absent, and zero in the balance, where the network is lossless |
 | $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
+| $`\mathit{Transformer\_phase\_shift}`$ | `Transformer_phase_shift` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-phase_shift` — a phase-shifting transformer's voltage angle shift in degrees, chosen per snapshot to redistribute the flows around its cycles without moving active power; absent, and zero in the cycle sum, where the shift is fixed |
 | $`S`$ | `Line_s_nom_ext` over $`\mathcal{K}`$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`F`$ | `Link_p_nom_ext` over $`\mathcal{L}`$ — `Link-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -1967,6 +2034,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
+
+Upright is what the model is given — a parameter such as $`\mathrm{Transformer\_phase\_shift\_varying}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{Transformer\_phase\_shift}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
@@ -3226,17 +3295,19 @@ Kirchhoff_Voltage_Law:
     `Kirchhoff-Voltage-Law` — around every independent cycle the
     impedance-weighted flows sum to nothing, which is what makes the linear
     power flow physical rather than transport. A transformer's flow weighs its
-    effective reactance, and its fixed phase shift enters the cycle sum as a
-    constant
+    effective reactance, and its phase shift enters the cycle sum too: a
+    constant where the shift is fixed, or the shift decision times its cycle
+    weight where the shift is a phase-shifting transformer's to choose
   dims: [scenario, snapshot, cycle]
   expression: >-
     sum(Line_s * Line_cycle_weight, over=line)
     + sum(Transformer_s * Transformer_cycle_weight, over=transformer)
-    + sum(Transformer_phase_shift_weight, over=transformer) == 0
+    + sum(Transformer_phase_shift_weight, over=transformer)
+    + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer) == 0
 ```
 
 ```math
-\sum_{k \in \mathcal{K}} s_{\xi,t,k} \cdot \mathrm{x}_{k,c} + \sum_{m \in \mathcal{M}} \sigma_{\xi,t,m} \cdot \mathrm{x}^{\sigma}_{m,c} + \sum_{m \in \mathcal{M}} \vartheta_{m,c} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
+\sum_{k \in \mathcal{K}} s_{\xi,t,k} \cdot \mathrm{x}_{k,c} + \sum_{m \in \mathcal{M}} \sigma_{\xi,t,m} \cdot \mathrm{x}^{\sigma}_{m,c} + \sum_{m \in \mathcal{M}} \vartheta_{m,c} + \sum_{m \in \mathcal{M}} \mathit{Transformer\_phase\_shift}_{\xi,t,m} \cdot \mathrm{Transformer\_phase\_shift\_cycle\_weight}_{m,c} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
 ```
 
 ### `Generator-p-ramp_limit_up`
@@ -4505,6 +4576,12 @@ s_{\xi,t,k} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k 
 
 ```math
 \sigma_{\xi,t,m} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{on}^{\sigma}_{t,m}
+```
+
+**`Transformer_phase_shift`**
+
+```math
+\mathrm{Transformer\_phase\_shift\_min}_{m} \le \mathit{Transformer\_phase\_shift}_{\xi,t,m} \le \mathrm{Transformer\_phase\_shift\_max}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{Transformer\_phase\_shift\_varying}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 **`Line_s_nom_ext`**
