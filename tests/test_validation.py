@@ -762,8 +762,23 @@ class TestAPredicateIsAnOperand:
             ),
             pytest.param(
                 'count(flag, over=g, by=lk) >= 2',
-                ("does not take 'by='", "It takes 'over='"),
+                ("does not take 'by='", "It takes 'over=', and nothing else."),
                 id='a-count-with-a-keyword-it-lacks',
+            ),
+            pytest.param(
+                'count(flag, over=g, over=h) >= 2',
+                ('count(over=) is given twice',),
+                id='a-count-with-a-keyword-given-twice',
+            ),
+            pytest.param(
+                'count(flag, over=g)',
+                ('count() answers a number', 'count(<predicate>, over=<dimension>) <op> <integer>'),
+                id='a-count-standing-as-a-predicate',
+            ),
+            pytest.param(
+                '2 <= count(flag, over=g)',
+                ('count() stands on the left of its comparison',),
+                id='a-count-on-the-right',
             ),
             pytest.param(
                 'count(flag, over=c) >= 2',
@@ -786,9 +801,29 @@ class TestAPredicateIsAnOperand:
                 id='a-count-against-a-parameter',
             ),
             pytest.param(
+                'count(flag, over=g) >= -1',
+                ('a count is never negative',),
+                id='a-count-against-a-negative-number',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= 0',
+                ('holds at every coordinate', 'a count is never negative'),
+                id='a-count-at-least-zero',
+            ),
+            pytest.param(
+                'count(flag, over=g) < 0',
+                ('holds at no coordinate', 'a count is never negative'),
+                id='a-count-below-zero',
+            ),
+            pytest.param(
                 'shift(flag, along=g, offset=1, edge=0)',
-                ("does not take 'edge='", 'a predicate is false where a translation vacates'),
+                ("does not take 'edge='", 'A predicate is false where a translation vacates'),
                 id='a-translated-predicate-with-an-edge',
+            ),
+            pytest.param(
+                'shift(flag, along=g, offset=1, offset=2)',
+                ('shift(offset=) is given twice',),
+                id='a-translation-with-a-keyword-given-twice',
             ),
             pytest.param(
                 'shift(flag, along=g)',

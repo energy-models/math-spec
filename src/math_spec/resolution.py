@@ -819,6 +819,12 @@ class _Resolver:
         predicate for its dims asserts instead of refusing.
         """
         context, found = self.context, len(self.errors)
+        if node.name == 'count':
+            self.errors.append(
+                f'{context}: count() answers a number, and a where is a predicate. Compare it: '
+                f'count(<predicate>, over=<dimension>) <op> <integer>.'
+            )
+            return node
         if node.name != 'shift':
             self.errors.append(
                 f"{context}: '{node.name}()' does not read a predicate. `shift` reads one and answers one, "
@@ -881,6 +887,12 @@ class _Resolver:
             self.errors.append(
                 f'{context}: a count is a whole number of coordinates, so it is compared against one. '
                 f'Write count(…, over={over.name}) {node.op} <integer>.'
+            )
+            return node
+        if (decided := _decided_count(node.op, value.value)) is not None:
+            self.errors.append(
+                f'{context}: count(…, over={over.name}) {node.op} {value} holds at {decided} coordinate, because '
+                f'a count is never negative. Delete the comparison, or write the bound it means.'
             )
             return node
         mask = Mask(operand)
@@ -947,6 +959,12 @@ class _Resolver:
         for side in (node.left, node.right):
             if isinstance(side, ColumnNode | QuotedNode):
                 self.errors.append(_not_arithmetic(context, side))
+                continue
+            if any(isinstance(n, FunctionCallNode) and n.name == 'count' for n in nodes(side)):
+                self.errors.append(
+                    f'{context}: count() stands on the left of its comparison, and reads a predicate rather than '
+                    f'arithmetic. Write count(<predicate>, over=<dimension>) <op> <integer>.'
+                )
                 continue
             try:
                 expanded = expand(side, ns.schema, context)
@@ -1275,11 +1293,25 @@ def _kwargs_error(
     if missing:
         return f'{context}: {name}(<predicate>) needs {_listed([f"{key}=" for key in missing])}.'
     if extra := sorted(set(kwargs) - set(required)):
+        edge = ' A predicate is false where a translation vacates, so there is no edge to state.'
         return (
             f'{context}: {name}(<predicate>) does not take {_listed([f"{key}=" for key in extra])}. '
-            f'It takes {_listed([f"{key}=" for key in required])}, and nothing else: a predicate is false '
-            f'where a translation vacates, so there is no edge to state.'
+            f'It takes {_listed([f"{key}=" for key in required])}, and nothing else.'
+            f'{edge if "edge" in extra else ""}'
         )
+    return None
+
+
+def _decided_count(op: str, value: float) -> str | None:
+    """Whether comparing a count with *op* against *value* is settled by the count never being negative.
+
+    Returns ``'every'`` where the comparison always holds, ``'no'`` where it
+    never does, and ``None`` where the data decides.
+    """
+    if value < 0:
+        return 'every' if op in ('>', '>=', '!=') else 'no'
+    if value == 0 and op in ('>=', '<'):
+        return 'every' if op == '>=' else 'no'
     return None
 
 

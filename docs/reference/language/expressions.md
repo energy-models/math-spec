@@ -140,8 +140,8 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `expression OP expression`                | arithmetic over parameters | Coordinate by coordinate, over every dimension either side carries ([arithmetic in a comparison](#arithmetic-in-a-comparison)). A side with no value at a coordinate compares false |
 | `position(name) OP i`                     | dimension                  | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                         |
 | `position(name, by=relation, within=c)`   | dimension                  | The same, counted within each group the relation makes                                                                                                                              |
-| `count(where_expr, over=name) OP i`       | dimension                  | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
-| `shift(where_expr, along=name, offset=i)` | dimension                  | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
+| `count(where_expr, over=name) OP i`       | a predicate                | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
+| `shift(where_expr, along=name, offset=i)` | a predicate                | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
 | `AND` `OR` `NOT`                          | —                          | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                       |
 | `True` / `False`                          | —                          | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either                   |
 
@@ -188,7 +188,9 @@ The count therefore states a fact about each group without naming the group.
 Counting along a dimension the predicate does not read is a load error.
 
 The comparison takes a whole number on the right. A count is a number of
-coordinates, so a fraction and a parameter are both load errors.
+coordinates, so a fraction and a parameter are both load errors, and so is a
+comparison a count can never fail or never meet: `>= 0`, `< 0`, or any
+negative number.
 
 ### Reading a predicate at the previous coordinate
 
