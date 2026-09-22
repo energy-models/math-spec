@@ -872,25 +872,101 @@ def test_a_gate_over_fewer_dims_than_the_block_switches_each_curve_it_covers():
     assert expanded.variables['cost_curve_lam'].dims == ['snapshot', 'generator', 'bp']
 
 
-def test_a_block_mask_that_cannot_reach_a_walked_link_is_refused():
-    """The mask is on the curve's dims and the row is on a refinement, so the row would pin its expression to zero.
+#: fluxopt's system: only some generators run on a curve, and the rest have none at all.
+CURVED = override(
+    WALKED,
+    **{
+        'parameters.curved': {'dims': ['generator'], 'dtype': 'bool'},
+        'piecewise.coupling.where': 'curved',
+    },
+)
 
-    Left to the emitted declarations the refusal is a dimension error about
-    `coupling_power`; emitted without the mask it is the silent `power == 0`
-    that `where:` exists to prevent.
+
+def test_a_block_mask_reaches_a_walked_link_through_its_relation():
+    """The row is over flows and the mask over generators, so the row reads the mask at each flow's generator.
+
+    The block refused a mask beside a walk, so a model with one curved
+    generator built a curve, a convexity row and its binaries for every
+    generator it declared.
     """
-    with pytest.raises(LanguageError, match="Mask the link's own variable"):
+    expanded = expand_piecewise(schema_of(CURVED))
+    assert expanded.variables['coupling_lam'].where == 'curved', 'no weights where a generator has no curve'
+    assert expanded.constraints['coupling_convexity'].where == 'curved'
+    assert expanded.constraints['coupling_fuel'].where == 'curved', 'a link on dims: reads the mask as written'
+    assert expanded.constraints['coupling_power'].where == ('at(curved, by=generator_of, over=generator, into=flow)'), (
+        'a walked link reads it at the generator each flow maps to'
+    )
+
+
+def test_a_ragged_mask_reaches_a_walked_link_as_the_count_of_its_curves_breakpoints():
+    """A walked row is over the curve's dims less the walk, so it takes what a row over dims: alone takes, read through."""
+    expanded = expand_piecewise(
         schema_of(
             WALKED,
             **{
-                'parameters.curved': {'dims': ['generator'], 'dtype': 'bool'},
-                'piecewise.coupling.where': 'curved',
+                'parameters.reach': {'dims': ['generator', 'bp'], 'dtype': 'bool'},
+                'piecewise.coupling.where': 'reach',
             },
         )
+    )
+    assert expanded.variables['coupling_lam'].where == 'reach'
+    assert expanded.constraints['coupling_power'].where == (
+        'at(count(reach, over=bp) > 0, by=generator_of, over=generator, into=flow)'
+    )
 
 
-def test_the_rewrite_that_refusal_names_leaves_the_walked_row_unbuilt():
-    """A mask on the link's own variable takes its row with it, which is what absence through arithmetic does."""
+def test_a_mask_over_dims_the_walk_keeps_reaches_the_walked_row_as_written():
+    """A mask over `snapshot` alone says nothing about generators, and the walked row keeps `snapshot`."""
+    expanded = expand_piecewise(
+        schema_of(
+            WALKED,
+            **{
+                'parameters.season': {'dims': ['snapshot'], 'dtype': 'bool'},
+                'piecewise.coupling.where': 'season',
+            },
+        )
+    )
+    assert expanded.constraints['coupling_power'].where == 'season'
+
+
+def test_a_mask_carrying_part_of_what_a_walk_reads_through_is_refused():
+    """The relation is keyed by flow and snapshot, so the read joins on snapshot and needs the mask to carry it too."""
+    model = override(
+        CURVED,
+        **{
+            'relations.generator_of': {'key': ['flow', 'snapshot'], 'values': 'generator'},
+        },
+    )
+    with pytest.raises(LanguageError, match=r"where 'curved' carries \['generator'\] and not \['snapshot'\]"):
+        schema_of(model)
+
+
+@pytest.mark.parametrize(
+    ('model', 'read'),
+    [
+        pytest.param(WALKED, {'generator_of'}, id='no-mask-asks-only-where-the-relation-reaches'),
+        pytest.param(CURVED, {'curved', 'generator_of'}, id='a-mask-read-through'),
+    ],
+)
+def test_a_walked_links_breakpoints_are_asked_only_at_the_rows_it_reads_the_curve_at(model, read):
+    """Asked with the other links, `bp_power` was demanded at every flow, including those of a generator with no curve."""
+    assumptions = to_program(schema_of(model).expand('piecewise')).assumptions
+    walked = assumptions['coupling_power_complete']
+    assert walked.predicate.names_read == frozenset({'bp_power'})
+    assert walked.where is not None and walked.where.dims == frozenset({'flow'}), 'asked per flow the walk reaches'
+    assert walked.where.names_read == frozenset(read)
+    assert assumptions['coupling_complete'].predicate.names_read == frozenset({'bp_fuel'}), (
+        'the link on dims: keeps the block condition to itself'
+    )
+
+
+def test_a_walked_links_own_condition_is_a_name_the_block_reserves():
+    with pytest.raises(LanguageError, match="emitted assumption 'coupling_power_complete' collides"):
+        schema_of(WALKED, assumptions={'coupling_power_complete': 'bp_power >= 0'})
+
+
+def test_a_mask_on_the_links_own_variable_leaves_the_walked_row_unbuilt():
+    """Absence spreads through arithmetic, so a flow with no variable has no row, with or without a block mask."""
     expanded = expand_piecewise(
         schema_of(
             WALKED,
@@ -1077,5 +1153,5 @@ def test_every_assumption_a_block_may_derive_is_a_name_it_reserves(method):
     block = spec.piecewise['cost_curve']
     ragged = CurveMask(block, spec.resolved.piecewise['cost_curve'].where)
 
-    derived = set(assumptions_of('cost_curve', block, ragged))
+    derived = set(assumptions_of('cost_curve', block, ragged, {}))
     assert derived <= {f'cost_curve_{what}' for what in ASSUMED}, 'a condition the block derives under no reserved name'

@@ -26,7 +26,7 @@ from math_spec.program import Mask, PiecewiseDeclaration
 from math_spec.sos import Emitted, emit
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
 # ---------------------------------------------------------------------------
 # the mask
@@ -157,12 +157,17 @@ def declaration_of(block: PiecewiseBlock, where: Mask | None = None) -> Piecewis
     )
 
 
-def assumptions_of(name: str, block: PiecewiseBlock, where: CurveMask) -> dict[str, AssumptionBlock]:
+def assumptions_of(
+    name: str, block: PiecewiseBlock, where: CurveMask, reads: Mapping[str, bool]
+) -> dict[str, AssumptionBlock]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
     Every curve assumes its breakpoints are there: a missing parameter row is
     not absence, it is a zero, so an undeclared breakpoint sits the curve on
-    the origin rather than shortening it. A curve has an x-axis only where two
+    the origin rather than shortening it. A walked link's breakpoints are over
+    its own rows, so each is asked of the rows that link reads the curve at,
+    under a name of its own; *reads* says, by link, whether that link reads the
+    ``where:`` through its relation (:func:`walk_reads`). A curve has an x-axis only where two
     links tie it, so the increasing condition — and the shape it is checked
     with — exist only there; ``lp`` alone needs a segment to state a line for;
     a ragged ``where:`` must mark one run.
@@ -177,21 +182,29 @@ def assumptions_of(name: str, block: PiecewiseBlock, where: CurveMask) -> dict[s
     """
     d = block.along
     mask = where.text if where.ragged else None
-    values = [link.values for link in block.links.values()]
-    assumed = {
-        f'{name}_complete': AssumptionBlock(
+    rewrite = (
+        f'Bind the rows, or narrow where: {mask!r} to where the curve runs.'
+        if mask is not None
+        else 'Bind the rows, or declare where: to say how far the curve runs.'
+    )
+    assumed: dict[str, AssumptionBlock] = {}
+    if values := [link.values for link in block.links.values() if not link.walks]:
+        assumed[f'{name}_complete'] = AssumptionBlock(
             holds=' AND '.join(dict.fromkeys(values)),
             where=where.text,
             description=f"piecewise '{name}': every breakpoint the curve runs through needs a row in "
             f'{_quoted(values)} — a missing row is read as a zero rather than as a shorter curve, so it sits '
-            f'the curve on the origin. '
-            + (
-                f'Bind the rows, or narrow where: {mask!r} to where the curve runs.'
-                if mask is not None
-                else 'Bind the rows, or declare where: to say how far the curve runs.'
-            ),
+            f'the curve on the origin. {rewrite}',
         )
-    }
+    for key, link in block.links.items():
+        if link.walks:
+            assumed[f'{name}_{key}_complete'] = AssumptionBlock(
+                holds=link.values,
+                where=through(where.text, link, reads=True) if reads[key] else _all_of(link.by, where.text),
+                description=f"piecewise '{name}' link '{key}': every breakpoint the curve runs through needs a row "
+                f"in '{link.values}' at every row the link reads the curve at — a missing row is read as a zero "
+                f'rather than as a shorter curve, so it sits that row on the origin. {rewrite}',
+            )
     curvature = _curvature_required(block)
     if curvature is not None:
         x, y = (link.values for link in block.curve)
@@ -228,6 +241,43 @@ _GAP: dict[PiecewiseMethod, str] = {
     'lp': "the chord row joins a breakpoint to the one before it, and the domain rows sit on the curve's own first "
     'and last',
 }
+
+
+def walk_reads(schema: Spec, name: str, block: PiecewiseBlock, where: CurveMask) -> dict[str, bool]:
+    """Whether each walked link reads the block's ``where:`` through its relation, by link.
+
+    A walked row is over the dims the walk produces, where a mask over the
+    ones it consumes cannot be read as written. Read through the relation it
+    can, as ``at`` reads it, when the mask carries every dim the walk consumes
+    or joins on. A mask carrying none of them is over dims the row keeps, and
+    reads as written.
+
+    Raises:
+        PiecewiseExpansionError: A mask carrying some of the dims a walk
+            reads through and not the rest.
+    """
+    carried = where.dims - {block.along}
+    reads: dict[str, bool] = {}
+    for key, link in block.links.items():
+        if not link.walks:
+            continue
+        needed = _walk_reads(schema, link)
+        if (partial := sorted(needed - carried)) and needed & carried:
+            raise PiecewiseExpansionError(
+                f"piecewise '{name}' link '{key}': where {block.where!r} carries "
+                f"{sorted(needed & carried)} and not {partial}, and the link reads the curve through '{link.by}' "
+                f'at all of {sorted(needed)}. Carry all of them in the where, so the row reads it through the '
+                f'relation, or none, so the row reads it as written.'
+            )
+        reads[key] = bool(needed & carried)
+    return reads
+
+
+def through(text: str | None, link: PiecewiseLink, *, reads: bool) -> str | None:
+    """*text* as a link's row reads it: through the link's relation where it *reads* so, else as written."""
+    if text is None or not link.walks or not reads:
+        return text
+    return f'at({text}, by={link.by}, over={_columns(link.over)}, into={_columns(link.into)})'
 
 
 def _quoted(names: Iterable[str]) -> str:
@@ -344,7 +394,7 @@ class Names:
             ('variable', (self.weights, self.sos.seg)),
             ('constraint', (*rows, *self.links)),
             ('sos', (self.name,)),
-            ('assumption', tuple(f'{self.name}_{what}' for what in ASSUMED)),
+            ('assumption', (*(f'{self.name}_{what}' for what in ASSUMED), *(f'{row}_complete' for row in self.links))),
         )
 
 
@@ -366,6 +416,8 @@ class Curve:
         rows: Each link's row frame, in link order — ``dims:``, or its
             refinement through the link's relation.
         mask: The block's ``where:``, as each shape of row reads it.
+        reads: Whether each walked link reads the ``where:`` through its
+            relation, by link (:func:`walk_reads`).
         gates: The rows the weights sum under, one or two.
         names: Every name the expansion writes.
     """
@@ -374,6 +426,7 @@ class Curve:
     block: PiecewiseBlock
     rows: tuple[tuple[str, ...], ...]
     mask: CurveMask
+    reads: dict[str, bool]
     gates: tuple[GateRow, ...]
     names: Names
 
@@ -410,7 +463,8 @@ def check(schema: Spec, name: str, block: PiecewiseBlock) -> Curve:
     _values_fit(schema, block, rows, ctx)
     mask = CurveMask(block, where)
     _where_fits(block, mask, ctx)
-    return Curve(name, block, rows, mask, _gate_rows(schema, block), Names.of(name, block.links))
+    reads = walk_reads(schema, name, block, mask)
+    return Curve(name, block, rows, mask, reads, _gate_rows(schema, block), Names.of(name, block.links))
 
 
 def _row(schema: Spec, block: PiecewiseBlock, link: PiecewiseLink) -> tuple[str, ...]:
@@ -429,6 +483,16 @@ def _row(schema: Spec, block: PiecewiseBlock, link: PiecewiseLink) -> tuple[str,
         elif d not in refined:
             refined.append(d)
     return tuple(refined)
+
+
+def _walk_reads(schema: Spec, link: PiecewiseLink) -> frozenset[str]:
+    """The dims a walked link reads the curve at: the ones it consumes, and the ones its relation joins on."""
+    assert link.by is not None and link.over is not None and link.into is not None
+    consumed, _ = _walk(schema, link)
+    relation = schema.relations[link.by]
+    roles = dict(relation.pairs)
+    written = {c for side in (link.over, link.into) for c in ([side] if isinstance(side, str) else side)}
+    return consumed | {roles[c] for c in relation.key_roles if c not in written}
 
 
 def _walk(schema: Spec, link: PiecewiseLink) -> tuple[frozenset[str], frozenset[str]]:
@@ -561,7 +625,7 @@ def _write(raw: dict[str, object], curve: Curve) -> None:
     else:
         _weights(raw, curve)
     section = _section(raw, 'assumptions')
-    for name, assumed in assumptions_of(curve.name, curve.block, curve.mask).items():
+    for name, assumed in assumptions_of(curve.name, curve.block, curve.mask, curve.reads).items():
         section[name] = assumed.model_dump()
 
 
@@ -583,13 +647,13 @@ def _weights(raw: dict[str, object], curve: Curve) -> None:
             f'sum({names.weights}, over={d}) == {rhs}',
             _all_of(where.exists, gate),
         )
-    for cname, link, row in zip(names.links, block.links.values(), curve.rows, strict=True):
+    for cname, (key, link), row in zip(names.links, block.links.items(), curve.rows, strict=True):
         _constraint(
             raw,
             cname,
             row,
             f'({link.expression}) {link.sign} sum({_weights_read(names, link)} * {link.values}, over={d})',
-            where.exists,
+            through(where.exists, link, reads=curve.reads.get(key, False)),
         )
     if block.method in ('sos2', 'adjacency'):
         _section(raw, 'sos')[curve.name] = {'variable': names.weights, 'along': d, 'type': 2}

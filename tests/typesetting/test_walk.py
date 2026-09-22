@@ -1050,7 +1050,9 @@ def test_a_walked_link_prints_as_the_family_of_rows_that_read_one_curve():
     family = r'_{f \in \mathcal{F} \,:\, \mathrm{converter\_of}(f) = c}'
     assert printed.startswith(rf'\left( \mathit{{rate}}_{{f,t}} \right){family} \in'), 'a converter ties its own flows'
     assert rf'(\left( \mathrm{{bp\_rate}}_{{f,b}} \right){family})' in printed, 'each flow reads its own breakpoints'
-    assert printed.endswith(r'\forall\, c \in \mathcal{C},\ t \in \mathcal{T}'), 'one curve per converter, not per flow'
+    assert printed.endswith(r'\forall\, c \in \mathcal{C},\ t \in \mathcal{T} \,:\, \mathrm{has\_curve}_{c}'), (
+        'one curve per converter that has one, not per flow'
+    )
 
 
 def test_the_expansion_prints_the_rows_the_block_states():

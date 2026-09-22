@@ -125,7 +125,7 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("lp_curve") & italic("fuel")_(t,g) & >= upright("pwl")_(a in cal(A) colon upright("bp_x")_(g,a) upright(" is defined"))(upright("bp_x")_(g,a), upright("bp_y")_(g,a))(p_(t,g)) & forall t in cal(T), g in cal(G) \
   upright("ramp_curve") & italic("heat")_(t,g) & <= upright("pwl")_(a in cal(A))(upright("bp_x")_(g,a), upright("bp_heat")_(g,a))(p_(t,g)) & forall t in cal(T), g in cal(G) \
   upright("chp_curve") & (p_(t,g), italic("fuel")_(t,g), italic("heat")_(t,g)) & in upright("pwl")_(a in cal(A))(upright("bp_x")_(g,a), upright("bp_y")_(g,a), upright("bp_heat")_(g,a)) + {0} times RR_(>= 0) times RR_(<= 0) & forall t in cal(T), g in cal(G) \
-  upright("bus_curve") & (p_(t,g))_(g in cal(G) colon upright("gen_bus")(g) = b) & in upright("pwl")_(a in cal(A))((upright("bp_x")_(g,a))_(g in cal(G) colon upright("gen_bus")(g) = b)) & forall t in cal(T), b in cal(B) $
+  upright("bus_curve") & (p_(t,g))_(g in cal(G) colon upright("gen_bus")(g) = b) & in upright("pwl")_(a in cal(A))((upright("bp_x")_(g,a))_(g in cal(G) colon upright("gen_bus")(g) = b)) & forall t in cal(T), b in cal(B) colon upright("load")_(t,b) upright(" is defined") $
 
 == Definitions
 #set math.equation(numbering: "(1)")
@@ -179,4 +179,4 @@ $ upright("bounds_do_not_cross") & upright("p")^(upright("min"))_(g) & <= uprigh
   upright("ramp_curve_curvature") & (upright("bp_heat")_(g,a) - upright("bp_heat")_(g,a minus.square_(0) 1)) dot (upright("bp_x")_(g,a plus.square_(0) 1) - upright("bp_x")_(g,a)) & >= (upright("bp_heat")_(g,a plus.square_(0) 1) - upright("bp_heat")_(g,a)) dot (upright("bp_x")_(g,a) - upright("bp_x")_(g,a minus.square_(0) 1)) & forall g in cal(G), a in cal(A) colon upright("pos")(a) > 0 and upright("pos")(a) != abs(cal(A)) - 1 \
   upright("ramp_curve_breakpoints") & abs({a in cal(A) colon upright("bp_x")_(g,a) upright(" is defined")}) & >= 2 & forall g in cal(G) \
   upright("chp_curve_complete") & upright("bp_x")_(g,a) upright(" is defined") and upright("bp_y")_(g,a) upright(" is defined") and upright("bp_heat")_(g,a) upright(" is defined") &  & forall g in cal(G), a in cal(A) \
-  upright("bus_curve_complete") & upright("bp_x")_(g,a) upright(" is defined") &  & forall g in cal(G), a in cal(A) $
+  upright("bus_curve_p_complete") & upright("bp_x")_(g,a) upright(" is defined") &  & forall t in cal(T), g in cal(G), a in cal(A) colon upright("load")_(t,upright("gen_bus")(g)) upright(" is defined") $

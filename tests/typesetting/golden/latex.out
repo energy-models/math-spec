@@ -138,7 +138,7 @@
 \text{lp\_curve} && \mathit{fuel}_{t,g} & \ge \mathrm{pwl}_{a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_y}_{g,a})(p_{t,g}) && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{ramp\_curve} && \mathit{heat}_{t,g} & \le \mathrm{pwl}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_heat}_{g,a})(p_{t,g}) && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{chp\_curve} && \left( p_{t,g},\ \mathit{fuel}_{t,g},\ \mathit{heat}_{t,g} \right) & \in \mathrm{pwl}_{a \in \mathcal{A}}(\mathrm{bp\_x}_{g,a},\ \mathrm{bp\_y}_{g,a},\ \mathrm{bp\_heat}_{g,a}) + \{0\} \times \mathbb{R}_{\ge 0} \times \mathbb{R}_{\le 0} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{bus\_curve} && \left( p_{t,g} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} & \in \mathrm{pwl}_{a \in \mathcal{A}}(\left( \mathrm{bp\_x}_{g,a} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b}) && \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+\text{bus\_curve} && \left( p_{t,g} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} & \in \mathrm{pwl}_{a \in \mathcal{A}}(\left( \mathrm{bp\_x}_{g,a} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b}) && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} \text{ is defined}
 \end{align}
 
 \paragraph{Definitions}
@@ -195,7 +195,7 @@
 \text{ramp\_curve\_curvature} && \left( \mathrm{bp\_heat}_{g,a} - \mathrm{bp\_heat}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) & \ge \left( \mathrm{bp\_heat}_{g,a \boxplus_{0} 1} - \mathrm{bp\_heat}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) && \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) > 0 \wedge \mathrm{pos}(a) \neq \lvert \mathcal{A} \rvert - 1 \\
 \text{ramp\_curve\_breakpoints} && \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \} \rvert & \ge 2 && \forall\, g \in \mathcal{G} \\
 \text{chp\_curve\_complete} && \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_y}_{g,a} \text{ is defined} \wedge \mathrm{bp\_heat}_{g,a} \text{ is defined} &  && \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \\
-\text{bus\_curve\_complete} && \mathrm{bp\_x}_{g,a} \text{ is defined} &  && \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+\text{bus\_curve\_p\_complete} && \mathrm{bp\_x}_{g,a} \text{ is defined} &  && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{load}_{t,\mathrm{gen\_bus}(g)} \text{ is defined}
 \end{align}
 
 \end{document}

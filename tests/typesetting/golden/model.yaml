@@ -149,9 +149,10 @@ piecewise:
       p: [p, bp_x]
       fuel: [fuel, bp_y, ">="]
       heat: [heat, bp_heat, "<="]
-  bus_curve: # one curve per bus, read by each generator on it: a link that walks a relation prints as the family it ties
+  bus_curve: # one curve per bus, read by each generator on it: a link that walks a relation prints as the family it ties, and the mask is read through the relation too
     along: bp
     dims: [snapshot, bus]
+    where: load
     links:
       p: { expression: p, values: bp_x, by: gen_bus, over: bus, into: generator }
 

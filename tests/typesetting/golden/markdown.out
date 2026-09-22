@@ -401,7 +401,7 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 **`bus_curve`**
 
 ```math
-\left( p_{t,g} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \in \mathrm{pwl}_{a \in \mathcal{A}}(\left( \mathrm{bp\_x}_{g,a} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b}) \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+\left( p_{t,g} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \in \mathrm{pwl}_{a \in \mathcal{A}}(\left( \mathrm{bp\_x}_{g,a} \right)_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b}) \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} \text{ is defined}
 ```
 
 #### Definitions
@@ -674,8 +674,8 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_y}_{g,a} \text{ is defined} \wedge \mathrm{bp\_heat}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
 ```
 
-**`bus_curve_complete`**
+**`bus_curve_p_complete`**
 
 ```math
-\mathrm{bp\_x}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+\mathrm{bp\_x}_{g,a} \text{ is defined} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{load}_{t,\mathrm{gen\_bus}(g)} \text{ is defined}
 ```

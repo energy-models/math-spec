@@ -757,14 +757,6 @@ class PiecewiseBlock(_StrictBlock):
         if self.activity is not None and self.method in ('convex', 'lp'):
             msg = f'activity is not supported with method: {self.method}.'
             raise ValueError(msg)
-        if self.where is not None and walked:
-            msg = (
-                f"where: does not reach link '{walked[0]}', which reads through a relation. The mask tests the "
-                f"curve's frame and that link's row is built over a refinement of it, so the row would read "
-                f"its weights as absent and pin the expression to zero. Mask the link's own variable "
-                f'instead — a where: on it over the fine dimension leaves the row unbuilt.'
-            )
-            raise ValueError(msg)
         return self
 
     @field_validator('links')

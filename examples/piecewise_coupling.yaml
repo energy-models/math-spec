@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A heat and power system whose converters each run on one piecewise curve
-  tying all of their flows. A boiler ties two flows and a CHP unit three, in
-  one model: the curve reads its weights through `converter_of`, so how many
-  flows a converter ties is a row in that relation rather than a line here.
+  A heat and power system whose converters mix. A CHP unit runs on one
+  piecewise curve that ties all of its flows, and a boiler turns gas into heat
+  at a fixed ratio. The curve reads `has_curve` through `converter_of`, so a
+  boiler flow has no row on it, and the fixed-ratio row reads the same mask
+  negated. How many flows a converter ties is a row in `converter_of`, not a
+  line here.
 
 dimensions:
   snapshot:
@@ -42,11 +44,18 @@ parameters:
   price:
     description: what a unit bought on the market costs
     dims: [carrier]
+  has_curve:
+    description: whether a converter runs on an operating curve rather than at a fixed ratio
+    dims: [converter]
+    dtype: bool
   bp_rate:
     description: >-
       the rate of each flow at each corner of its converter's curve — the
       table that says a CHP's fuel, heat and power move together
     dims: [flow, bp]
+  ratio:
+    description: the rate of each flow of a fixed-ratio converter per unit of the level it runs at
+    dims: [flow]
 
 variables:
   rate:
@@ -54,6 +63,12 @@ variables:
       how much of each flow runs in each period, positive where the flow leaves
       its converter and negative where it enters
     dims: [flow, snapshot]
+  level:
+    description: how hard a converter with no curve runs
+    dims: [converter, snapshot]
+    where: NOT has_curve
+    bounds:
+      lower: 0
   bought:
     description: what the market supplies where the converters do not
     dims: [carrier, snapshot]
@@ -63,10 +78,11 @@ variables:
 piecewise:
   operating_point:
     description: >-
-      every flow of one converter is read off one curve at one operating point,
-      so the converter's flows move together
+      every flow of a converter with a curve is read off that curve at one
+      operating point, so the converter's flows move together
     along: bp
     dims: [converter, snapshot]
+    where: has_curve
     links:
       rate:
         expression: rate
@@ -77,6 +93,11 @@ piecewise:
     method: sos2
 
 constraints:
+  fixed_ratio:
+    description: every flow of a converter with no curve runs in proportion to that converter's level
+    dims: [flow, snapshot]
+    where: NOT at(has_curve, by=converter_of, over=converter, into=flow)
+    expression: rate == ratio * at(level, by=converter_of, over=converter, into=flow)
   balance:
     description: every carrier is delivered by the converters, or bought
     dims: [carrier, snapshot]

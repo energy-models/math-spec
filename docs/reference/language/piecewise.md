@@ -82,9 +82,10 @@ binds the numbers runs them. Each one is asked only where the block's
 !!! warning "A values parameter short of a row does not build a shorter curve"
 
     The missing row reads as a breakpoint at the origin. Every block states
-    `<block>_complete` for this, whatever its `method:`, so the table is
-    refused when the data binds and the refusal names `where:` as the way to
-    say how far a curve runs.
+    `<block>_complete` for this, whatever its `method:`, and a link that walks
+    a relation states `<block>_<link>_complete` for its own values. So the
+    table is refused when the data binds, and the refusal names `where:` as the
+    way to say how far a curve runs.
 
 ### `dims`
 
@@ -229,12 +230,37 @@ A block whose only link walks a relation is a curve. Two links is what a curve
 needs when a link is one row; a walked link is one row per fine coordinate, so
 the relation supplies the second.
 
+**A walked row reads the block's `where:` through its relation.** The mask is
+over `dims:` and the row is over the dimensions the walk produces, so the row
+takes `at(<where>, by=…, over=…, into=…)`, a
+[predicate read through a relation](expressions.md#reading-a-predicate-through-a-relation).
+Only some generators have a curve:
+
+```yaml
+piecewise:
+  coupling:
+    along: bp
+    dims: [generator, snapshot]
+    where: has_curve # over generator: a generator with no curve has no weights and no rows
+    links:
+      power: { expression: power, values: bp_power, by: generator_of, over: generator, into: flow }
+```
+
+The `power` row is built where
+`at(has_curve, by=generator_of, over=generator, into=flow)` holds, which is at
+every flow of a generator with a curve. The values of a walked link are asked
+for at the same rows, so a flow of a generator with no curve needs no row in
+`bp_power`. A mask over dimensions the walk keeps, such as `snapshot` alone,
+reaches the row as written. A mask that carries some of the dimensions the walk
+reads through and not the others is refused, and the message names the ones
+missing.
+
 | A walked link |                                                                                                                                                            |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | _over_        | names a column over a dimension of `dims:`                                                                                                                 |
 | _into_        | names a column over a dimension that `dims:` does not carry, and that is not `along`                                                                       |
 | _values_      | follows the **link's** row: `bp_power` is per flow, not per generator                                                                                      |
-| `where:`      | is refused on the block, because the walk replaces the dimension of `dims:` that the mask tests. Mask the link's own variable instead                      |
+| `where:`      | on the block reaches the link's row read through the relation, or as written where the mask carries none of the dimensions the walk reads through          |
 | `method:`     | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from |
 
 ### Signs

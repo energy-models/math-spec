@@ -33,12 +33,12 @@ from math_spec._expression_parser import (
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError, prefixed
+from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.piecewise import CurveMask, assumptions_of
+from math_spec.piecewise import CurveMask, assumptions_of, walk_reads
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
@@ -185,7 +185,13 @@ def validate_expressions(schema: Spec) -> Resolved:
         where = mask_of(resolve_where_text(pdef.where, ns, f'{context} where', errors))
         if all(link is not None for link in links):
             piecewise[pname] = ResolvedPiecewise(tuple(link for link in links if link is not None), where)
-        for aname, assumed in assumptions_of(pname, pdef, CurveMask(pdef, where)).items():
+        mask = CurveMask(pdef, where)
+        try:
+            reads = walk_reads(schema, pname, pdef, mask)
+        except PiecewiseExpansionError as refusal:
+            errors.append(str(refusal))
+            continue
+        for aname, assumed in assumptions_of(pname, pdef, mask, reads).items():
             if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
                 assumptions[aname] = assumption
 
