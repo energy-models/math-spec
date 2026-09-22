@@ -175,27 +175,26 @@ def validate_expressions(schema: Spec) -> Resolved:
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
 
+    piecewise = {}
     for pname, pdef in schema.piecewise.items():
-        for aname, assumed in assumptions_of(pname, pdef, ns).items():
+        context = f"piecewise '{pname}'"
+        links = [
+            _check_expression(link.expression, ns, f'{context} link {i}', errors, comparison=False, ceiling=1)
+            for i, link in enumerate(pdef.links)
+        ]
+        where = mask_of(resolve_where_text(pdef.where, ns, f'{context} where', errors))
+        if all(link is not None for link in links):
+            piecewise[pname] = ResolvedPiecewise(tuple(link for link in links if link is not None), where)
+        for aname, assumed in assumptions_of(pname, pdef, CurveMask(pdef, where)).items():
             if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
                 assumptions[aname] = assumption
 
-    expanded_piecewise = {
-        name: mask_of(
-            resolve_where_text(CurveMask(pw, ns, f"piecewise '{name}'").exists, ns, f"piecewise '{name}'", errors)
-        )
-        for name, pw in schema._expanded_piecewise.items()
-    }
-
-    piecewise = {}
-    for pname, pdef in schema.piecewise.items():
-        links = [
-            _check_expression(link.expression, ns, f"piecewise '{pname}' link {i}", errors, comparison=False, ceiling=1)
-            for i, link in enumerate(pdef.links)
-        ]
-        where = mask_of(resolve_where_text(pdef.where, ns, f"piecewise '{pname}' where", errors))
-        if all(link is not None for link in links):
-            piecewise[pname] = ResolvedPiecewise(tuple(link for link in links if link is not None), where)
+    expanded_piecewise = {}
+    for pname, pdef in schema._expanded_piecewise.items():
+        context = f"piecewise '{pname}'"
+        where = mask_of(resolve_where_text(pdef.where, ns, f'{context} where', errors))
+        exists = CurveMask(pdef, where).exists
+        expanded_piecewise[pname] = mask_of(resolve_where_text(exists, ns, context, errors))
 
     if errors:
         raise SchemaError(_once(errors))
