@@ -38,7 +38,7 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.piecewise import assumptions_of, exists_where
+from math_spec.piecewise import Where, assumptions_of
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
@@ -175,15 +175,14 @@ def validate_expressions(schema: Spec) -> Resolved:
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
 
-    for block, pw in schema.piecewise.items():
-        for aname, assumed in assumptions_of(block, pw, ns).items():
-            entry = AssumptionBlock(holds=assumed.holds, where=assumed.where, description=assumed.description)
-            if (assumption := _assumption(aname, entry, ns, errors)) is not None:
+    for pname, pdef in schema.piecewise.items():
+        for aname, assumed in assumptions_of(pname, pdef, ns).items():
+            if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
                 assumptions[aname] = assumption
 
     expanded_piecewise = {
         name: mask_of(
-            resolve_where_text(exists_where(pw, ns, f"piecewise '{name}'"), ns, f"piecewise '{name}'", errors)
+            resolve_where_text(Where(pw, ns, f"piecewise '{name}'").exists, ns, f"piecewise '{name}'", errors)
         )
         for name, pw in schema._expanded_piecewise.items()
     }
