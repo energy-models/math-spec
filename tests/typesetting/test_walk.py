@@ -12,12 +12,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from math_spec.errors import LanguageError
-from math_spec.piecewise import expand_piecewise
-from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
+from math_spec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
 from math_spec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, varied
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, varied
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
 
@@ -512,7 +511,7 @@ def test_a_parameter_is_upright_and_a_variable_is_italic(name: FormatName, fmt: 
 def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
-    schema = expand_piecewise(to_spec(golden.MODEL))
+    schema = to_spec(golden.MODEL)
     computed = set(schema.variables) | chosen_expressions(schema)
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= computed, (
@@ -823,3 +822,209 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
     assert fmt.quoted('gas_ccgt') in text
     unquoted = text.replace(fmt.quoted('gas_ccgt'), '')
     assert fmt.prose('gas_ccgt') not in unquoted, 'a string value is data, never words inside math'
+
+
+@EVERY_FORMAT
+def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: FormatName, fmt: Format):
+    """`cost <= p_max / 2` on a quantifier renders each side as an expression, around the relation."""
+    model = varied(DISPATCH_MODEL, **{'variables.p.where': 'cost <= p_max / 2'})
+    text = typeset(model, name, legend=False)
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    cost = fmt.subscript(fmt.upright('cost'), ['g'])
+    assert f'{cost} {fmt.operators["le"]} {fmt.fraction(p_max, "2")}' in text
+
+
+@EVERY_FORMAT
+def test_a_count_prints_as_the_size_of_the_set_the_predicate_admits(name: FormatName, fmt: Format):
+    """A count is a cardinality over a set by comprehension, which is how a paper writes one."""
+    model = varied(DISPATCH_MODEL, **{'constraints.balance.where': 'count(p_max > 0, over=generator) >= 2'})
+    text = typeset(model, name, legend=False)
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    counted = fmt.set_of(
+        f'g {fmt.operators["in"]} {"\\mathcal{G}" if name == "latex" or name == "markdown" else "cal(G)"}',
+        f'{p_max} {fmt.operators["gt"]} 0',
+    )
+    assert f'{fmt.cardinality(counted)} {fmt.operators["ge"]} 2' in text
+
+
+@EVERY_FORMAT
+def test_a_translated_predicate_prints_at_the_index_it_reads(name: FormatName, fmt: Format):
+    """The translation shows at the leaf, as it does for arithmetic — it emits no operator of its own."""
+    model = varied(
+        DISPATCH_MODEL, **{'constraints.balance.where': 'load AND NOT shift(load, along=snapshot, offset=1)'}
+    )
+    text = typeset(model, name, legend=False)
+    assert f'{fmt.subscript(fmt.upright("load"), ["t"])} {fmt.prose(" is defined")}' in text
+    moved = fmt.subscript(fmt.upright('load'), [f't {fmt.operators["minus"]} 1'])
+    assert f'{moved} {fmt.prose(" is defined")}' in text, 'the translated half reads one coordinate back'
+
+
+def test_a_count_along_a_dim_the_frame_carries_takes_a_primed_dummy():
+    """The set's index would otherwise shadow the frame's, and the two stand for different coordinates."""
+    model = varied(
+        DISPATCH_MODEL,
+        **{
+            'constraints.balance': {
+                'dims': ['snapshot', 'generator'],
+                'where': 'count(p_max > 0, over=generator) >= 2',
+                'expression': 'p <= p_max',
+            }
+        },
+    )
+    line = typeset_declaration(model, 'balance', 'latex')
+    assert r"g' \in \mathcal{G}" in line, 'the counted dimension is quantified already, so the set takes a fresh index'
+
+
+@EVERY_FORMAT
+def test_an_assumption_prints_under_its_own_heading(name: FormatName, fmt: Format):
+    """What the data is held to prints with the math, because a reader checking it reads the same document."""
+    model = varied(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
+    text = typeset(model, name, legend=False)
+    section = text[text.index('Assumptions') :]
+    assert fmt.subscript(fmt.upright('cost'), ['g']) in section
+    assert f'{fmt.operators["gt"]} 0' in section, 'the line aligns on the relation, which leads the right side'
+    assert 'Assumptions' not in typeset(DISPATCH_MODEL, name, legend=False), (
+        'a model that assumes nothing of its data prints no heading for it'
+    )
+
+
+@EVERY_FORMAT
+def test_a_curve_prints_what_its_method_assumes_of_the_breakpoints(name: FormatName, fmt: Format):
+    """The conditions a method implies are the data's too, so they print where the written ones do.
+
+    They are predicates rather than prose: the x-axis increases between
+    neighbours, and ``convex`` — exact for a curve that bends once either
+    way — counts the bends going each way and asks that one direction has
+    none, which is what "convex or concave" says of a whole axis.
+    """
+    text = typeset(EXAMPLES / 'piecewise.yaml', name, legend=False)
+    section = text[text.index('Assumptions') :]
+    assert 'cost_curve_increasing' in section.replace(r'\_', '_'), (
+        'a condition is named after the block whose method implies it'
+    )
+    assert fmt.operators['lt'] in section, 'the x-axis is strictly increasing between neighbours'
+    assert fmt.operators['or'] in section, 'the either-way bend is two counts joined by or, one per direction'
+
+
+def test_an_assumption_is_a_declaration_a_line_may_be_asked_for():
+    """`typeset_declaration` prints one line for a name; an assumption is now one of the names it takes."""
+    model = varied(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
+    assert typeset_declaration(model, 'costs_are_positive', 'latex') == (
+        r'\mathrm{cost}_{g} > 0 \qquad \forall\, g \in \mathcal{G}'
+    )
+
+
+def test_a_condition_a_method_states_is_a_line_that_may_be_asked_for_before_it_is_written_out():
+    """The document prints a curve's conditions from an unexpanded model, so the reader may ask for one by name.
+
+    They are looked up where the document reads them. Looking in the file's
+    own ``assumptions:`` instead finds nothing until ``expand()`` writes them
+    there, and the page shows a line no caller can reach.
+    """
+    curve = to_spec(EXAMPLES / 'piecewise_lp.yaml')
+    line = typeset_declaration(curve, 'cost_curve_increasing', 'latex')
+
+    assert 'is defined' not in line, 'the increasing condition is a comparison, not a definedness test'
+    assert line == typeset_declaration(curve.expand('piecewise'), 'cost_curve_increasing', 'latex'), (
+        'and it prints the same line whether or not the curve has been written out'
+    )
+
+
+#: One curve, varied per case: two links pinned to it, over one breakpoint dim.
+_CURVE = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'bp': {'dtype': 'int'}},
+    'parameters': {
+        'bp_x': {'dims': ['bp']},
+        'bp_y': {'dims': ['bp']},
+        'reaches': {'dims': ['bp'], 'dtype': 'bool'},
+        'committable': {'dims': ['snapshot'], 'dtype': 'bool'},
+    },
+    'variables': {
+        'p': {'dims': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}},
+        'op_cost': {'dims': ['snapshot'], 'bounds': {'lower': 0}},
+        'on': {'dims': ['snapshot'], 'domain': 'binary'},
+        'warm': {'dims': ['snapshot'], 'domain': 'binary', 'where': 'committable'},
+    },
+    'piecewise': {'curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(op_cost, over=snapshot)'},
+}
+
+
+@pytest.mark.parametrize(
+    ('patch', 'expected'),
+    [
+        pytest.param(
+            {},
+            r'\left( p_{t},\ \mathit{op\_cost}_{t} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}'
+            r'(\mathrm{bp\_x}_{b},\ \mathrm{bp\_y}_{b})',
+            id='the-links-are-a-point-on-the-curve',
+        ),
+        pytest.param(
+            {'piecewise.curve.method': 'convex'},
+            r'\in \mathrm{conv}_{b \in \mathcal{B}}',
+            id='the-convex-method-relaxes-it-onto-the-hull',
+        ),
+        pytest.param(
+            {'piecewise.curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']], 'piecewise.curve.method': 'lp'},
+            r'\mathit{op\_cost}_{t} \ge \mathrm{pwl}_{b \in \mathcal{B}}'
+            r'(\mathrm{bp\_x}_{b},\ \mathrm{bp\_y}_{b})(p_{t})',
+            id='a-bounded-link-states-one-side-of-the-curve',
+        ),
+        pytest.param(
+            {'piecewise.curve.points': 'reaches'},
+            r'\mathrm{pwl}_{b \in \mathcal{B} \,:\, \mathrm{reaches}_{b}}',
+            id='points-narrows-the-breakpoints-to-the-ones-it-admits',
+        ),
+        pytest.param(
+            {'piecewise.curve.activity': 'on'},
+            r'\in \mathit{on}_{t} \cdot \mathrm{pwl}',
+            id='a-gate-multiplies-the-curve',
+        ),
+    ],
+)
+def test_a_curve_prints_as_the_curve_it_states(patch: dict[str, Any], expected: str):
+    """The block, not the rows it stands for: `typeset(spec.expand())` prints those."""
+    assert expected in typeset_declaration(varied(_CURVE, **patch), 'curve', 'latex')
+
+
+def test_a_gate_that_does_not_exist_everywhere_prints_the_two_arms_the_expansion_writes_two_rows_for():
+    """The one place the walk decides what the weights sum to, which the expansion decides again."""
+    spec = to_spec(varied(_CURVE, **{'piecewise.curve.activity': 'warm'}))
+
+    rows = [name for name in spec.expand('piecewise').constraints if name.startswith('curve_convexity')]
+    assert rows == ['curve_convexity', 'curve_convexity_ungated'], (
+        'one row where the gate exists and one where it does not, because a row with an absent variable is no row'
+    )
+    assert (
+        r'\begin{cases} \mathit{warm}_{t} & \text{if } \mathrm{committable}_{t} \\ 1 '
+        r'& \text{otherwise} \end{cases} \cdot \mathrm{pwl}'
+    ) in typeset_declaration(spec, 'curve', 'latex'), 'and the factor on the curve carries the same two arms'
+
+
+def test_a_curve_prints_over_the_frame_its_expansion_builds_one_per_coordinate_of():
+    """Two homes for one union, so the line's quantifier is held to the rows the expansion emits."""
+    model = varied(
+        _CURVE,
+        **{
+            'dimensions.generator': {'dtype': 'str'},
+            'parameters.bp_x.dims': ['generator', 'bp'],
+            'parameters.bp_y.dims': ['generator', 'bp'],
+            'variables.p.dims': ['snapshot', 'generator'],
+            'variables.op_cost.dims': ['snapshot', 'generator'],
+            'objective.expression': 'sum(op_cost)',
+        },
+    )
+    spec = to_spec(model)
+    emitted = spec.expand('piecewise').constraints['curve_link0'].dims
+
+    printed = typeset_declaration(spec, 'curve', 'latex')
+    assert printed.endswith(r'\forall\, t \in \mathcal{T},\ g \in \mathcal{G}')
+    assert emitted == ['snapshot', 'generator'], 'the quantifier above is that frame, in that order'
+
+
+def test_the_expansion_prints_the_rows_the_block_states():
+    """Which is the whole reason the block prints as one line: the two readings are one call apart."""
+    spec = to_spec(_CURVE)
+
+    assert 'curve_lam' not in to_markdown(spec), 'nothing a curve emits is named where the curve itself prints'
+    assert 'curve_convexity' in to_markdown(spec.expand()), 'and every row of it is named where the expansion prints'

@@ -47,7 +47,18 @@ keep the document current as the file changes.
    `notation: typst` or none. Without `--standalone` the output is a fragment
    to `\input` or `#include` into a paper.
 
-4. **Keep it current** with a rule in the paper's build:
+4. **Print the rows a solver holds** with `--expand`, where the model states a
+   curve or a set and the reader wants the formulation rather than the
+   construct:
+
+   ```bash
+   python -m math_spec markdown model.yaml --expand
+   ```
+
+   The same table serves both renders: a name the expansion emits, such as
+   `cost_curve_lam`, may be spelled in it.
+
+5. **Keep it current** with a rule in the paper's build:
 
    ```make
    model.tex: model.yaml model.symbols.yaml

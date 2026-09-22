@@ -29,7 +29,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, TypedDict, Unpack
 
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.piecewise import expand_piecewise
 from math_spec.typesetting.latex import LatexFormat
 from math_spec.typesetting.markdown import MarkdownFormat
 from math_spec.typesetting.symbols import Symbols, SymbolTable
@@ -87,7 +86,7 @@ def _walk(
     if fmt not in FORMATS:
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
-    schema = expand_piecewise(to_spec(model))
+    schema = to_spec(model)
     format_ = FORMATS[fmt]
     if symbols is None:
         symbols = SymbolTable(format_.notation)
@@ -116,7 +115,9 @@ def typeset(
         model: Anything :func:`math_spec.to_spec` accepts. A
             :class:`~math_spec.model.Spec` is rendered as it stands, so
             printing one model in several formats reads and checks the file
-            once rather than once per format.
+            once rather than once per format, and a curve prints as the curve it
+            states. Pass ``spec.expand()`` for the rows a solver holds
+            instead.
         fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
             mapping. Names it does not carry are derived, and it must be
@@ -168,7 +169,8 @@ def typeset_declaration(
     """Render one declaration as the bare line the document prints for it.
 
     The line the whole-model render prints for it — a named expression's
-    definition, a constraint, or a variable's domain, quantifier included —
+    definition, a constraint, an assumption, a ``piecewise:`` curve, or a
+    variable's domain, quantifier included —
     with no document, label, equation number or math delimiters around it, for
     a math context the caller lays out: a docstring, a table cell. A line on
     its own has no Definitions section beside it, so the plain named
@@ -177,7 +179,8 @@ def typeset_declaration(
 
     Args:
         model: Anything :func:`math_spec.to_spec` accepts.
-        name: A named expression, constraint or variable the model declares.
+        name: A named expression, constraint, assumption, ``piecewise:``
+            block or variable the model declares.
         fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print; see :func:`typeset`.
         inline_expressions: Substitute the plain named expressions the line uses, so it
@@ -191,14 +194,20 @@ def typeset_declaration(
     Raises:
         ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
-        SchemaError: *name* is declared as none of the three, as two — a
+        SchemaError: *name* is declared as none of the four, or as two — a
             constraint may share a variable's name — or under ``given:``, which
             prints in the legend rather than as a line; or a symbol table entry
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     schema = walk.schema
-    kinds = {'named expression': schema.expressions, 'constraint': schema.constraints, 'variable': schema.variables}
+    kinds = {
+        'named expression': schema.expressions,
+        'constraint': schema.constraints,
+        'assumption': schema.resolved.assumptions,
+        'curve': schema.piecewise,
+        'variable': schema.variables,
+    }
     found = [kind for kind, group in kinds.items() if name in group]
     if not found:
         givens = {'variable': schema.given.variables, 'constraint': schema.given.constraints}
@@ -211,10 +220,13 @@ def typeset_declaration(
             )
             raise SchemaError(msg)
         everything = {n for group in kinds.values() for n in group}
-        msg = f"'{name}' is not a named expression, constraint or variable. {did_you_mean(name, everything)}"
+        msg = (
+            f"'{name}' is not a named expression, constraint, assumption, curve or variable. "
+            f'{did_you_mean(name, everything)}'
+        )
         raise SchemaError(msg)
     if len(found) > 1:
-        msg = f"'{name}' is both a {found[0]} and a {found[1]}, and one line prints one of them — rename one."
+        msg = f"'{name}' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."
         raise SchemaError(msg)
     return walk.format.equation(walk.line(name))
 

@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # File shape
 
-A model file is a YAML mapping with **eleven declaration keys**, plus `version`
-and `description`. Any subset of the eleven is accepted.
+A model file is a YAML mapping with **eleven declaration keys**, plus
+`version` and `description`. Any subset of the eleven is accepted.
 
 | Key           |                                                                                                   |
 | ------------- | ------------------------------------------------------------------------------------------------- |
@@ -21,6 +21,7 @@ and `description`. Any subset of the eleven is accepted.
 | `macros`      | templates that take arguments ([macros](named.md#macros))                                         |
 | `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                               |
 | `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                    |
+| `assumptions` | what the model expects of its data ([assumptions](assumptions.md))                                |
 
 A file with no `objective` is a **feasibility problem**: it asks whether the
 constraints can all be met.

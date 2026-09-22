@@ -56,7 +56,7 @@ def schema() -> Spec:
 
 def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
     """Resolve each case's `when` against *schema*, then decide every pair."""
-    namespace = Namespace.of(schema)
+    namespace = Namespace(schema)
     return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, namespace.dtypes))
 
 
@@ -193,6 +193,37 @@ class TestWillNotDecide:
         [refusal] = refusals(schema, cases)
         assert 'within each period_of group' in refusal
 
+    def test_a_literal_written_first_is_named_as_the_order_it_is(self, schema: Spec):
+        """The advice was to do what the author had already done.
+
+        `capacity > 2` is a parameter against a literal and proves apart;
+        `2 < capacity` is the same test with the sides swapped, and it reached
+        the general refusal for a comparison of expressions — which told the
+        author to compare one parameter against a literal.
+        """
+        [refusal, other] = refusals(schema, {'big': '2 < capacity', 'small': '2 >= capacity'})
+        assert "case 'big'" in refusal and "case 'small'" in other, 'each case is refused on its own, not as a pair'
+        assert 'the literal is on the left' in refusal
+        assert 'capacity > 2.0' not in refusal, 'the rewrite quotes the number as the file wrote it'
+        assert 'capacity > 2' in refusal, 'the rewrite is the same test written the other way round'
+
+    @pytest.mark.parametrize(
+        ('when', 'rewrite'),
+        [
+            pytest.param('-2 < capacity', 'capacity > -2', id='a-signed-literal'),
+            pytest.param('2.5 >= capacity', 'capacity <= 2.5', id='a-fraction-and-a-flipped-comparator'),
+            pytest.param('0 != age', 'age != 0', id='a-comparator-that-is-its-own-mirror'),
+        ],
+    )
+    def test_the_rewrite_is_the_same_test_with_the_sides_swapped(self, schema: Spec, when: str, rewrite: str):
+        [refusal] = refusals(schema, {'one': when, 'two': 'cyclic'})
+        assert rewrite in refusal
+
+    def test_a_comparison_of_real_expressions_keeps_the_general_refusal(self, schema: Spec):
+        """Only the plain shape is named; anything else is still the data's to decide."""
+        [refusal, _] = refusals(schema, {'over': 'capacity > soc_initial', 'under': 'capacity <= soc_initial'})
+        assert 'it compares expressions, whose values only the data decides' in refusal
+
     def test_a_pair_with_more_regions_than_the_budget(self):
         """Cells multiply across subjects, and a pair wide enough to blow the
         budget is several expressions wearing one name.
@@ -260,7 +291,7 @@ class TestSoundness:
 
     @pytest.mark.parametrize('seed', [1, 7])
     def test_a_pair_proved_apart_stays_apart_on_a_finer_grid(self, schema: Spec, seed: int):
-        namespace = Namespace.of(schema)
+        namespace = Namespace(schema)
         atoms = [_mask(text, namespace, 'a probe') for text in self.ATOMS]
         subjects = {
             'capacity': Subject('param', 'capacity'),

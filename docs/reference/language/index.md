@@ -51,6 +51,7 @@ That file is a complete model. The pages below give the exact rules.
 | [Operators](operators.md)                                               | `sum`, `sum_back`, `at` and `shift`                                       |
 | [Absence and `where`](absence.md)                                       | which rows are built, and which are not                                   |
 | [Piecewise curves and SOS](piecewise.md)                                | `piecewise:` and `sos:`                                                   |
+| [Assumptions](assumptions.md)                                           | what the model expects of the data it is bound to                         |
 | [Errors and limits](errors.md)                                          | what fails when, and what the language will not express                   |
 
 ## The ten rules

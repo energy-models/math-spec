@@ -21,11 +21,15 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, assert_never
 
+from math_spec._expression_parser import NumberNode, ParameterNode, UnaryOperatorNode
 from math_spec.program import (
     And,
+    ArithmeticComparison,
     BooleanLiteral,
+    CountComparison,
     DimensionComparison,
     DimensionPosition,
+    ExpressionComparison,
     Mask,
     Not,
     Or,
@@ -34,6 +38,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     TypedPredicate,
     VariableDefined,
 )
@@ -70,7 +75,16 @@ def overlapping(cases: Mapping[str, Predicate], dtypes: Mapping[str, DeclaredDty
         both claim or what stopped the pair being decided. Empty where every
         pair is proved apart.
     """
+    undecided = {name: reason for name, mask in cases.items() if (reason := _undecided(mask)) is not None}
+    for name, reason in undecided.items():
+        yield (
+            f"case '{name}' cannot be told apart before the data arrives: {reason}. "
+            f'The `otherwise` is its negation, and only the data says where that falls, so this is refused '
+            f'the way a proven overlap is.'
+        )
     for (first, left), (second, right) in itertools.combinations(cases.items(), 2):
+        if first in undecided or second in undecided:
+            continue
         try:
             witness = _witness(left, right, dtypes)
         except Undecidable as exc:
@@ -140,7 +154,7 @@ class Subject:
     a rank is further split by the ``by=`` relation it is counted within.
     """
 
-    kind: Literal['param', 'dim', 'rank', 'relation', 'relation_pair', 'variable']
+    kind: Literal['param', 'expression', 'dim', 'rank', 'relation', 'relation_pair', 'variable']
     name: str
     qualifier: str | None = None
     #: A rank's group columns: two positions by one relation into different columns are two subjects.
@@ -189,6 +203,55 @@ class _Grid:
         return ', '.join(f'{subject} is {_shown(subject, value)}' for subject, value in cell.items())
 
 
+#: A comparator against its mirror, for a test written with its sides swapped.
+_FLIPPED: Mapping[PredicateOperator, PredicateOperator] = {
+    '<': '>',
+    '>': '<',
+    '<=': '>=',
+    '>=': '<=',
+    '==': '==',
+    '!=': '!=',
+}
+
+
+def _undecided(mask: Predicate) -> str | None:
+    """The rewrite for a comparison of expressions under *mask*, or ``None`` where every atom is decidable alone.
+
+    A case is refused on its own rather than as a pair, because a block of one
+    case has no pair and the rule is the same: nothing proves where a
+    comparison of expressions falls before the numbers arrive.
+    """
+    for atom in Mask(mask).atoms:
+        if isinstance(atom, ArithmeticComparison | ExpressionComparison):
+            return _expression_rewrite(atom)
+    return None
+
+
+def _expression_rewrite(node: ArithmeticComparison | ExpressionComparison) -> str:
+    """Why a comparison of expressions is not decided, and what to write instead.
+
+    A parameter against a literal is decided, and the same test with its sides
+    swapped is not — so that one is named as the order it is, rather than told
+    to do what it already does. Only the literal-first order needs naming: the
+    other resolves to a :class:`~math_spec.program.ParameterComparison` and
+    never reaches here, and a quoted label cannot stand on the left at all.
+    """
+    if isinstance(node, ArithmeticComparison):
+        left, right = node.left, node.right
+        number = isinstance(left, NumberNode) or (
+            isinstance(left, UnaryOperatorNode) and isinstance(left.operand, NumberNode)
+        )
+        if number and isinstance(right, ParameterNode):
+            return (
+                f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
+                f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {left}'
+            )
+    return (
+        'it compares expressions, whose values only the data decides — compare one parameter against a '
+        'literal, or precompute the test as a boolean parameter and test that'
+    )
+
+
 def _observe(
     node: TypedPredicate, subject: Subject, values: set[_Literal], dtypes: Mapping[str, DeclaredDtype]
 ) -> None:
@@ -197,6 +260,20 @@ def _observe(
     ``position()`` converts the dimension to an integer, so an ordering over a
     rank is an ordering of integers and every comparator is admitted there.
     """
+    if isinstance(node, ArithmeticComparison | ExpressionComparison):
+        raise Undecidable(_expression_rewrite(node))
+    if isinstance(node, CountComparison):
+        msg = (
+            'it counts the coordinates a predicate admits, which only the data decides — test a parameter '
+            'against a literal, or precompute the count as a parameter and test that'
+        )
+        raise Undecidable(msg)
+    if isinstance(node, TranslatedPredicate):
+        msg = (
+            'it reads a predicate at a neighbouring coordinate, and which rows that admits only the data '
+            'decides — test this row, or precompute the neighbour as a boolean parameter and test that'
+        )
+        raise Undecidable(msg)
     if isinstance(node, DimensionPosition):
         values.add(node.position)
     elif isinstance(node, RelationPairComparison):
@@ -234,6 +311,12 @@ def _subject_of(node: TypedPredicate) -> Subject:
             return Subject('relation', name)
         case RelationPairComparison(name=name, other=other):
             return Subject('relation_pair', name, other)
+        case ArithmeticComparison() | ExpressionComparison():
+            return Subject('expression', 'a comparison of expressions')
+        case CountComparison():
+            return Subject('expression', 'a count of the coordinates a predicate admits')
+        case TranslatedPredicate():
+            return Subject('expression', 'a predicate read at a neighbouring coordinate')
         case _:
             assert_never(node)
 
@@ -425,6 +508,12 @@ def _atom(node: TypedPredicate, cell: dict[Subject, Cell], grid: _Grid) -> bool:
             return bool(value)
         case RelationPairComparison(op=op):
             return bool(value) if op == '==' else not value
+        case ArithmeticComparison() | ExpressionComparison():
+            msg = 'a comparison of expressions is refused as undecidable before any cell is read'
+            raise AssertionError(msg)
+        case CountComparison() | TranslatedPredicate():
+            msg = 'a predicate read as a count or at a neighbour is refused as undecidable before any cell is read'
+            raise AssertionError(msg)
         case DimensionPosition(op=op, position=position):
             return _compare(value, op, position)
         case ParameterComparison(op=op, value=literal) | RelationComparison(op=op, value=literal):

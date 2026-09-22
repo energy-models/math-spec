@@ -12,6 +12,7 @@ import pytest
 
 from math_spec.errors import SchemaError
 from math_spec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
+from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, varied
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
@@ -91,6 +92,35 @@ def test_a_named_expression_has_a_legend_row_exactly_while_its_symbol_prints(nam
     """
     assert 'what a snapshot costs' in typeset(DESCRIBED, name)
     assert 'what a snapshot costs' not in typeset(DESCRIBED, name, inline_expressions=True)
+
+
+#: The dispatch model with a curve on it, so one model has two readings and one
+#: table has to spell both.
+CURVED = varied(
+    DISPATCH_MODEL,
+    **{
+        'dimensions.bp': {'dtype': 'int'},
+        'parameters.bp_x': {'dims': ['generator', 'bp']},
+        'parameters.bp_y': {'dims': ['generator', 'bp']},
+        'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+        'piecewise.curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
+    },
+)
+
+
+def test_one_table_spells_the_blocks_a_file_states_and_the_rows_they_state():
+    """The weights are named after the block, which no equation can carry, and the
+    table that renames them has to render the file they came from too."""
+    spec = to_spec(CURVED)
+    table = {'notation': 'latex', 'names': {'curve_lam': r'\lambda'}}
+
+    assert r'\lambda' not in to_latex(spec, symbols=table, legend=False), 'no weight stands where the curve prints'
+    assert r'\lambda_{t,g,b}' in to_latex(spec.expand(), symbols=table, legend=False)
+
+
+def test_a_misspelled_name_is_still_a_typo_where_a_formulation_could_have_emitted_it():
+    with pytest.raises(SchemaError, match="Did you mean 'curve_lam'"):
+        to_latex(CURVED, symbols={'notation': 'latex', 'names': {'curve_laam': 'x'}})
 
 
 @pytest.mark.parametrize(

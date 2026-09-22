@@ -140,7 +140,10 @@ GIVEN = varied(
     ('model', 'name', 'match'),
     [
         pytest.param(
-            PLAIN, 'spent', r"'spent' is not a named expression, constraint or variable.*spend", id='a-near-miss'
+            PLAIN,
+            'spent',
+            r"'spent' is not a named expression, constraint, assumption, curve or variable.*spend",
+            id='a-near-miss',
         ),
         pytest.param(PLAIN, 'objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
         pytest.param(GIVEN, 'flow', r"'flow' is a given variable.*no line of its own.*legend", id='a-given-variable'),
@@ -157,7 +160,7 @@ def test_a_name_that_prints_no_line_of_its_own_is_refused(model: dict[str, Any],
 def test_a_name_shared_by_a_constraint_and_a_variable_is_refused_rather_than_guessed():
     """Constraints sit outside the flat namespace, so the model admits the pair; one line prints one of them."""
     model = varied(PLAIN, **{'constraints.p': {'dims': ['snapshot', 'generator'], 'expression': 'p <= 1'}})
-    with pytest.raises(SchemaError, match="'p' is both a constraint and a variable"):
+    with pytest.raises(SchemaError, match="'p' is declared twice, as constraint and as variable"):
         typeset_declaration(model, 'p', 'latex')
 
 
