@@ -138,7 +138,7 @@ Every declared axis has an entry. A coupling that a `piecewise:` expansion
 introduced is named under the declaration the expansion emitted.
 
 - `coupled` names each declaration that ties the whole axis together: a sum
-  over the axis in a constraint, a grouping that consumes the axis, a wrapped
+  over the axis in a constraint, a grouping that sums the axis away, a wrapped
   shift, or a set. After the dash, each entry names the one change that would
   remove the tie.
 - `undecided` lists each read whose reach only the data can say, as a `Reach`:

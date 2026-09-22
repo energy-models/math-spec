@@ -23,10 +23,10 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
-    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
+    JoinNode,
     NameListNode,
     NameNode,
     NumberNode,
@@ -47,7 +47,7 @@ from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
-    Direction,
+    Join,
     Not,
     Or,
     Partition,
@@ -554,9 +554,9 @@ _ZONE_OF = RelationDeclaration((('u', 'unit'), ('zone', 'zone')), ('u',))
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
         pytest.param(
-            DirectionNode(Direction('zone_of', _ZONE_OF, ('u',), ('zone',), ())),
+            JoinNode(Join('zone_of', _ZONE_OF, ('u',), ('zone',))),
             'zone_of',
-            id='a-relation-read-in-a-direction',
+            id='a-relation-as-a-call-joins-it',
         ),
         pytest.param(
             PartitionNode(Partition('zone_of', _ZONE_OF, 'u', ('zone',), ())),

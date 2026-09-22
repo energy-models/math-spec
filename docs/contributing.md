@@ -110,8 +110,8 @@ two nodes, so the file's spelling cannot decide the name.
 | File verb          | Node        | What the node names            |
 | ------------------ | ----------- | ------------------------------ |
 | `sum(over=)`       | `Sum`       | dims removed from the result   |
-| `sum(by=)`         | `GroupSum`  | a sum through a relation       |
-| `at(by=)`          | `Pullback`  | a read through a relation      |
+| `sum(by=)`         | `GroupSum`  | a join and group-by            |
+| `at(by=)`          | `Lookup`    | a join with no group-by        |
 | `shift(along=)`    | `Translate` | a re-index along one dimension |
 | `sum_back(along=)` | `WindowSum` | a sum over a trailing window   |
 

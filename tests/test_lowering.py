@@ -30,12 +30,13 @@ from math_spec.program import (
     Constant,
     DimensionComparison,
     DimensionDeclaration,
-    Direction,
     Divide,
     Dual,
     Expression,
     Footprint,
     GroupSum,
+    Join,
+    Lookup,
     Mask,
     Multiply,
     Negate,
@@ -47,7 +48,6 @@ from math_spec.program import (
     Partition,
     Power,
     Program,
-    Pullback,
     Region,
     RelationDeclaration,
     Sum,
@@ -84,15 +84,15 @@ TINY = {
     'constraints': {'c': {'dims': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
-#: `lk` as `sum` reads it: key consumed, value produced, nothing joined.
+#: `lk` as `sum` joins it: joined on the key, grouped by the value, no key column left unnamed.
 LK = RelationDeclaration((('g', 'g'), ('h', 'h')), ('g',))
 LK2 = RelationDeclaration((('g', 'g'), ('z', 'z')), ('g',))
-LK_DIRECTION = Direction('lk', LK, ('g',), ('h',), ())
+LK_JOIN = Join('lk', LK, ('g',), ('h',))
 AT_BUS = RelationDeclaration((('g', 'g'), ('bus', 'bus')), ('g',))
 
 #: `fixtures.SMALL_MODEL` plus a second relation and a per-entity
 #: offset. Which node a construct becomes is mostly a claim about the dim it
-#: consumes and the dim it lands on, and stating that needs a third dimension
+#: joins on and the dim it groups by, and stating that needs a third dimension
 #: and two relations over one of them.
 SHAPES_MODEL = override(
     SMALL_MODEL,
@@ -409,17 +409,17 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
 @pytest.mark.parametrize(
     ('expression', 'expected'),
     [
-        pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
-        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
+        pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-sums-away-every-dim-the-operand-carries'),
+        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-sums-away-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk, over=g, into=h)',
-            GroupSum(Variable('p'), direction=LK_DIRECTION),
-            id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
+            GroupSum(Variable('p'), join=LK_JOIN),
+            id='a-grouped-sum-names-the-dim-it-joins-on-and-the-one-it-groups-by',
         ),
         pytest.param(
             'at(r, by=lk, over=h, into=g)',
-            Pullback(Variable('r'), direction=Direction('lk', LK, ('h',), ('g',), ())),
-            id='a-pullback-reads-the-same-table-back',
+            Lookup(Variable('r'), join=Join('lk', LK, ('h',), ('g',))),
+            id='a-lookup-joins-the-same-table-the-other-way',
         ),
         pytest.param(
             "shift(p, along=g, offset=1, edge='wrap')",
@@ -499,7 +499,7 @@ def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
                 },
             }
         )
-        grouping[str(values)] = _partition_of(program.constraints['k']).group
+        grouping[str(values)] = _partition_of(program.constraints['k']).grouped
     assert grouping == {'day': ('day',), "['day', 'week']": ('day',)}, (
         'the group is the columns the call named, on both calendars'
     )
@@ -512,8 +512,8 @@ def _partition_of(row):
     return partition
 
 
-def test_a_relation_lowers_with_the_direction_each_call_names():
-    """Every node reading a relation carries its columns, its key and the direction, so a consumer joins on the right columns."""
+def test_a_relation_lowers_with_the_join_each_call_names():
+    """Every node reading a relation carries its columns, its key and the join, so a consumer joins on the right columns."""
     program = to_program(
         {
             'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
@@ -548,30 +548,32 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
     assert program.relations == {'zone_of': declared}, 'the relation sits once in the program, under its name'
     zonal = program.constraints['zonal'].lhs
     assert zonal == GroupSum(
-        Variable('p'), direction=Direction('zone_of', declared, ('generator',), ('zone',), ('snapshot',))
-    ), 'a grouped sum names the column it consumes, the one it produces and the one it joins on'
+        Variable('p'), join=Join('zone_of', declared, ('generator', 'snapshot'), ('zone', 'snapshot'))
+    ), (
+        'a grouped sum joins on the over= column and the unnamed key column, and groups by the into= column and that key column'
+    )
     assert isinstance(zonal, GroupSum)
-    assert (zonal.direction.consumed_dims, zonal.direction.produced_dims, zonal.direction.joined_dims) == (
+    assert (zonal.join.dropped_dims, zonal.join.added_dims, zonal.join.kept) == (
         ('generator',),
         ('zone',),
         ('snapshot',),
-    ), 'the dims a consumer reads are read off the direction'
-    assert zonal.direction.relation is program.relations['zone_of'], (
-        'the direction holds the one declaration the program holds, not an equal copy built again'
+    ), 'the dims a consumer reads are read off the join: dropped, added, and the key columns kept'
+    assert zonal.join.relation is program.relations['zone_of'], (
+        'the join holds the one declaration the program holds, not an equal copy built again'
     )
     assert program.constraints['history'].lhs == GroupSum(
-        Variable('p'), direction=Direction('zone_of', declared, ('snapshot',), ('zone',), ('generator',))
-    ), 'the same table read from its other key column'
+        Variable('p'), join=Join('zone_of', declared, ('snapshot', 'generator'), ('zone', 'generator'))
+    ), 'the same table joined on its other key column'
     priced = program.constraints['priced'].rhs
-    assert priced == Pullback(
-        Parameter('price'), direction=Direction('zone_of', declared, ('zone',), ('generator',), ('snapshot',))
-    ), 'and its adjoint consumes the value column and produces the key column'
-    assert isinstance(priced, Pullback)
-    assert (priced.direction.consumed_dims, priced.direction.produced_dims, priced.direction.joined_dims) == (
+    assert priced == Lookup(
+        Parameter('price'), join=Join('zone_of', declared, ('zone', 'snapshot'), ('generator', 'snapshot'))
+    ), 'and the lookup joins on the value column and groups by the key column'
+    assert isinstance(priced, Lookup)
+    assert (priced.join.dropped_dims, priced.join.added_dims, priced.join.kept) == (
         ('zone',),
         ('generator',),
         ('snapshot',),
-    ), 'an at consumes the coarse dims, produces the fine, and joins on the rest of the key'
+    ), 'an at joins on the coarse dims, groups by the fine, and keeps the rest of the key'
     p_where = program.variables['p'].where
     assert p_where is not None
     assert [(type(a).__name__, a.dims) for a in p_where.atoms] == [
@@ -590,13 +592,13 @@ def test_a_binary_variable_lowers_to_a_binary_domain():
     assert program.variables['dispatch'].domain == 'binary'
 
 
-def test_a_divisor_under_a_pullback_is_still_named():
+def test_a_divisor_under_a_lookup_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
     component_of = RelationDeclaration((('flow', 'flow'), ('component', 'component')), ('flow',))
-    pulled = Pullback(quotient, direction=Direction('component_of', component_of, ('component',), ('flow',), ()))
+    pulled = Lookup(quotient, join=Join('component_of', component_of, ('component',), ('flow',)))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
+    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Lookup`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
@@ -669,8 +671,8 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), direction=Direction('at_bus', AT_BUS, ('g',), ('bus',), ())): 'many-to-one',
-    Pullback(Variable('p'), direction=Direction('at_bus', AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
+    GroupSum(Variable('p'), join=Join('at_bus', AT_BUS, ('g',), ('bus',))): 'many-to-one',
+    Lookup(Variable('p'), join=Join('at_bus', AT_BUS, ('bus',), ('g',))): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',

@@ -25,11 +25,11 @@ from math_spec.program import (
     Dual,
     Expression,
     GroupSum,
+    Lookup,
     Multiply,
     Negate,
     Parameter,
     Power,
-    Pullback,
     Sum,
     Translate,
     Variable,
@@ -162,7 +162,7 @@ def _record_signs(node: Expression, sign: Sign, signs: dict[str, Sign]) -> None:
         _record_signs(node.base, None, signs)
         _record_signs(node.exponent, None, signs)
         return
-    if isinstance(node, Sum | GroupSum | Pullback | Translate | WindowSum | Cases):
+    if isinstance(node, Sum | GroupSum | Lookup | Translate | WindowSum | Cases):
         for child in children(node):
             _record_signs(child, sign, signs)
         return

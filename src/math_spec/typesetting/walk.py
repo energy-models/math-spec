@@ -22,10 +22,10 @@ from math_spec._expression_parser import (
     CasesNode,
     DefinitionNode,
     DimensionNode,
-    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
+    JoinNode,
     KwargNode,
     NumberNode,
     ParameterNode,
@@ -40,7 +40,7 @@ from math_spec.program import (
     BooleanLiteral,
     DimensionComparison,
     DimensionPosition,
-    Direction,
+    Join,
     Mask,
     Not,
     Or,
@@ -154,8 +154,8 @@ class _Context:
 
     walk: Walk
     offsets: dict[str, tuple[_Step, ...]] = field(default_factory=dict)
-    #: dim -> the rendered subscript that replaces its index, as ``at`` re-indexes a leaf.
-    pullbacks: dict[str, str] = field(default_factory=dict)
+    #: dim -> the rendered subscript that replaces its index, as ``at`` looks a leaf up through a relation.
+    lookups: dict[str, str] = field(default_factory=dict)
     #: Every dimension whose index is in use here — the frame, then one entry
     #: per reduction entered — so a reduction over one takes a fresh dummy.
     bound: tuple[str, ...] = ()
@@ -164,10 +164,10 @@ class _Context:
         steps = self.offsets.get(dim, ())
         merged = steps[-1].merged(step) if steps else None
         steps = (*steps[:-1], merged) if merged is not None else (*steps, step)
-        return _Context(self.walk, {**self.offsets, dim: steps}, self.pullbacks, self.bound)
+        return _Context(self.walk, {**self.offsets, dim: steps}, self.lookups, self.bound)
 
-    def pulled_back(self, dim: str, rendered: str) -> _Context:
-        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered}, self.bound)
+    def looked_up(self, dim: str, rendered: str) -> _Context:
+        return _Context(self.walk, self.offsets, {**self.lookups, dim: rendered}, self.bound)
 
     def reducing(self, dim: str) -> tuple[str, _Context]:
         """A dummy index for a reduction over *dim*, and the context its body reads under.
@@ -178,18 +178,18 @@ class _Context:
         """
         primes = "'" * self.bound.count(dim)
         dummy = f'{self.walk.symbols.index[dim]}{primes}'
-        body = _Context(self.walk, self.offsets, {**self.pullbacks, dim: dummy}, (*self.bound, dim))
+        body = _Context(self.walk, self.offsets, {**self.lookups, dim: dummy}, (*self.bound, dim))
         return dummy, body
 
     def subscript(self, dim: str) -> str:
-        """The index for *dim* here: its pullback if it has one, then every translation.
+        """The index for *dim* here: its lookup if it has one, then every translation.
 
-        A pullback is a base like any other rather than a stopping point.
+        A lookup is a base like any other rather than a stopping point.
         ``at`` and ``shift`` both re-index the leaf and the leaf has one
         subscript, so a reading that showed only whichever ran last dropped the
         other operator out of the equation.
         """
-        text = self.pullbacks.get(dim, self.walk.symbols.index[dim])
+        text = self.lookups.get(dim, self.walk.symbols.index[dim])
         translated = False
         for step in self.offsets.get(dim, ()):
             if step.by == 0:
@@ -447,30 +447,30 @@ class Walk:
 
         if node.name == 'at':
             by = node.kwargs['by']
-            assert isinstance(by, DirectionNode)
+            assert isinstance(by, JoinNode)
             outer = ctx
-            direction = by.direction
-            at = {r: outer.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
-            for read in direction.consumed:
-                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.name, at, read))
+            join = by.join
+            at = {r: outer.subscript(join.dim(r)) for r in join.grouped}
+            for read in join.dropped:
+                ctx = ctx.looked_up(join.dim(read), self._relation_read(join.name, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
-            assert isinstance(by, DirectionNode)
-            direction = by.direction
+            assert isinstance(by, JoinNode)
+            join = by.join
             dummies: dict[str, str] = {}
             inner = ctx
-            for d in direction.consumed_dims:
+            for d in join.dropped_dims:
                 dummies[d], inner = inner.reducing(d)
-            conditions = list(self._grouping(direction, dummies, ctx))
+            conditions = list(self._grouping(join, dummies, ctx))
             domain = (
-                f'{self.format.joined([self._membership(d, dummies[d]) for d in direction.consumed_dims], "")} '
+                f'{self.format.joined([self._membership(d, dummies[d]) for d in join.dropped_dims], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
-        elif (consumed := node.kwargs.get('over')) is not None:
-            assert isinstance(consumed, DimensionNode)
-            dummy, inner = ctx.reducing(consumed.name)
-            domain = self._membership(consumed.name, dummy)
+        elif (summed := node.kwargs.get('over')) is not None:
+            assert isinstance(summed, DimensionNode)
+            dummy, inner = ctx.reducing(summed.name)
+            domain = self._membership(summed.name, dummy)
         else:
             memberships = []
             inner = ctx
@@ -480,23 +480,23 @@ class Walk:
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
-    def _grouping(self, direction: Direction, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
-        """The conditions a grouped sum's domain carries for one direction: what it fixes of the row it joins on.
+    def _grouping(self, join: Join, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
+        """The conditions a grouped sum's domain carries for one join: what it fixes of the row it joins on.
 
-        A direction fixes its relation's key either way, so each value column
-        it fixes — consumed or produced, one lookup at the key either way — is
-        that column read there. One that fixes none of them asks only that the
+        A join fixes its relation's key either way, so each value column it
+        names — joined on or grouped by, one read at the key either way — is
+        that column read there. One that names none of them asks only that the
         row is there, because a value column it does not touch is not read,
         and a bare relation has no value column to read at all.
         """
         at = {
-            **{r: dummies[direction.dim(r)] for r in direction.consumed},
-            **{r: ctx.subscript(direction.dim(r)) for r in (*direction.joined, *direction.produced)},
+            **{r: dummies[join.dim(r)] for r in join.dropped},
+            **{r: ctx.subscript(join.dim(r)) for r in join.grouped},
         }
-        fixed = [r for r in self.schema.relations[direction.name].value_roles if r in at]
+        fixed = [r for r in self.schema.relations[join.name].value_roles if r in at]
         if not fixed:
-            return [self._relation_row(direction.name, at)]
-        return [f'{self._relation_read(direction.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
+            return [self._relation_row(join.name, at)]
+        return [f'{self._relation_read(join.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -510,7 +510,7 @@ class Walk:
         assert isinstance(by, PartitionNode)
         partition = by.partition
         at = {r: self.symbols.index[partition.dim(r)] for r in (partition.along, *partition.joined)}
-        return self._tuple([self._relation_read(partition.name, at, r) for r in partition.group])
+        return self._tuple([self._relation_read(partition.name, at, r) for r in partition.grouped])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
@@ -595,7 +595,7 @@ class Walk:
             grouping = (
                 None
                 if node.partition is None
-                else self._tuple([self._value_read(node.partition.name, c, ctx) for c in node.partition.group])
+                else self._tuple([self._value_read(node.partition.name, c, ctx) for c in node.partition.grouped])
             )
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)

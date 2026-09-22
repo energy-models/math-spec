@@ -152,7 +152,7 @@ UNRESOLVED = {
 #: relation it reads are the facts a node carries rather than nodes. None is a
 #: member of any node union, so they are subtracted from what the tree walk
 #: finds rather than added to what the vocabulary declares.
-CARRIERS = {'CaseArm', 'Direction', 'Partition', 'RelationDeclaration'}
+CARRIERS = {'CaseArm', 'Join', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():

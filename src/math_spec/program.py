@@ -55,7 +55,6 @@ __all__ = [
     'DimensionDeclaration',
     'DimensionDtype',
     'DimensionPosition',
-    'Direction',
     'Divide',
     'Dual',
     'Expression',
@@ -65,7 +64,9 @@ __all__ = [
     'Footprint',
     'GroupSum',
     'Increasing',
+    'Join',
     'LastOf',
+    'Lookup',
     'Mask',
     'MaskOf',
     'Multiply',
@@ -85,7 +86,6 @@ __all__ = [
     'Predicate',
     'PredicateOperator',
     'Program',
-    'Pullback',
     'QuadraticPosition',
     'Reach',
     'Region',
@@ -246,29 +246,30 @@ class Sum:
 
 @dataclass(frozen=True)
 class GroupSum:
-    """Sum ``operand`` through a relation: the dims ``direction`` consumes go, the dims it produces arrive, the dims it joins on stay.
+    """Sum ``operand`` through a relation: a join on ``join.joined``, then a group-by on ``join.grouped`` with a sum.
 
-    The join keys on the consumed columns and every joined column, and the
-    operand carries every dim consumed or joined on.
+    The operand carries every dim joined on. The result drops the dims joined
+    on and not grouped by, keeps the ones both joined on and grouped by, and
+    gains the ones grouped by and not joined on.
     """
 
     operand: Expression
-    direction: Direction
+    join: Join
 
 
 @dataclass(frozen=True)
-class Pullback:
-    """Read ``operand`` through a relation — the adjoint of :class:`GroupSum`.
+class Lookup:
+    """Read ``operand`` through a relation: the join of :class:`GroupSum` with no group-by.
 
-    The dims ``direction`` consumes go and the dims it produces arrive, one
-    value per coordinate because the read takes value columns at a key the
-    result fixes, which the loader checks. The join fans out, many
-    produced tuples sharing one consumed tuple — at each coordinate of the
-    joined columns, which the operand carries and the result keeps.
+    The grouped columns hold the relation's whole key, which the loader
+    checks, so each row of the result meets one row of the relation and
+    reads one value. The join fans out where several key tuples share the
+    values joined on, at each coordinate of the columns both joined on and
+    grouped by.
     """
 
     operand: Expression
-    direction: Direction
+    join: Join
 
 
 @dataclass(frozen=True)
@@ -372,7 +373,7 @@ Expression = (
     | Divide
     | Sum
     | GroupSum
-    | Pullback
+    | Lookup
     | Translate
     | WindowSum
     | Cases
@@ -391,7 +392,7 @@ def fan_in(expression: Expression) -> FanIn:
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Pullback, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Lookup, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -407,7 +408,7 @@ def children(expression: Expression) -> tuple[Expression, ...]:
         return (expression.numerator, expression.divisor)
     if isinstance(expression, Power):
         return (expression.base, expression.exponent)
-    if isinstance(expression, (Sum, GroupSum, Pullback, Translate, WindowSum)):
+    if isinstance(expression, (Sum, GroupSum, Lookup, Translate, WindowSum)):
         return (expression.operand,)
     if isinstance(expression, Cases):
         return tuple(region.value for region in expression.regions)
@@ -461,59 +462,84 @@ class RelationDeclaration:
 
 
 @dataclass(frozen=True)
-class Direction:
-    """One relation as one call reads it — which columns are consumed, which produced, which joined on.
+class Join:
+    """One relation as one call joins it: the columns joined on, and the columns grouped by.
 
     The declaration fixes no direction; the call does, and this is the one it
     named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
-    ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
-    ``relation``, which binds every role to its dimension and names the key.
-    ``joined`` is the key roles the call did not name (every role, for a bare
-    relation): the join keys on them, and a value role left unnamed is not
-    read.
+    ``joined`` and ``grouped`` are *roles* — column names of ``relation``,
+    which binds every role to its dimension and names the key. ``joined`` is
+    every column the join matches the operand on: the ``over=`` columns, then
+    every key column the call did not name. ``grouped`` is every column of the
+    relation the result keeps: the ``into=`` columns, then the same unnamed
+    key columns. A column in neither is not read, so a relation may gain a
+    value column without changing what a call means.
+
+    A column both joined on and grouped by stays in the frame. One joined on
+    and not grouped by is :attr:`dropped`, and one grouped by and not joined
+    on is :attr:`added`, so the frame after the call is the operand's dims,
+    less the dims joined on, plus the dims grouped by.
     """
 
     name: str
     relation: RelationDeclaration
-    consumed: tuple[str, ...]
-    produced: tuple[str, ...]
     joined: tuple[str, ...]
+    grouped: tuple[str, ...]
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
         return self.relation.dim(role)
 
     @property
-    def consumed_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.consumed)
+    def dropped(self) -> tuple[str, ...]:
+        """The roles joined on and not grouped by: what the call sums away or looks up."""
+        return tuple(role for role in self.joined if role not in self.grouped)
 
     @property
-    def produced_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.produced)
+    def added(self) -> tuple[str, ...]:
+        """The roles grouped by and not joined on: what the call brings into the frame."""
+        return tuple(role for role in self.grouped if role not in self.joined)
+
+    @property
+    def kept(self) -> tuple[str, ...]:
+        """The roles both joined on and grouped by: the key columns the call did not name."""
+        return tuple(role for role in self.joined if role in self.grouped)
 
     @property
     def joined_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.joined)
 
+    @property
+    def grouped_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.grouped)
+
+    @property
+    def dropped_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.dropped)
+
+    @property
+    def added_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.added)
+
 
 @dataclass(frozen=True)
 class Partition:
-    """One relation as a partition steps along it — the key column stepped along, the group columns, and the key columns joined on.
+    """One relation as a partition steps along it — the key column stepped along, the columns partitioned by, and the key columns joined on.
 
     ``name`` is the relation's, as :attr:`Program.relations` keys it.
-    ``along``, ``group`` and ``joined`` are *roles* — column names of
+    ``along``, ``grouped`` and ``joined`` are *roles* — column names of
     ``relation``, which binds every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
-    the frame keeps it. ``group`` is the value columns ``within=`` named,
-    read at the row's key. ``joined`` is the other key columns, whose
-    dimensions the frame carries. Nothing is consumed and nothing is
-    produced: the frame does not change.
+    the frame keeps it. ``grouped`` is the value columns ``within=`` named,
+    read at the row's key: the partition's group. ``joined`` is the other key
+    columns, whose dimensions the frame carries. No column is dropped and
+    none is added: the frame does not change.
     """
 
     name: str
     relation: RelationDeclaration
     along: str
-    group: tuple[str, ...]
+    grouped: tuple[str, ...]
     joined: tuple[str, ...]
 
     def dim(self, role: str) -> str:

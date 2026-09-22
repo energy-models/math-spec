@@ -112,8 +112,8 @@ $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{li
 ```yaml
 description: >-
   A call that names its ends — `sum(array, by=relation, over=a, into=b)`
-  consumes column `a` and lands on column `b`, and the other key column is
-  joined on, so each zone's total is taken per period.
+  joins on column `a` and groups by column `b`, and the other key column is
+  joined on and kept, so each zone's total is taken per period.
 
 dimensions:
   generator: { dtype: str }
@@ -148,8 +148,8 @@ $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathr
 ```yaml
 description: >-
   A call with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
-  consumes both key columns at once and lands on the product of both value
-  columns in one join.
+  joins on both key columns at once and groups by both value columns in one
+  join.
 
 dimensions:
   generator: { dtype: str }
@@ -184,7 +184,7 @@ $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e)
 
 ```yaml
 description: >-
-  The adjoint of the membership reduction — `at(array, by=relation, over=a, into=b)` reads one
+  The same join with no group-by — `at(array, by=relation, over=a, into=b)` reads one
   coarse value once per fine label pointing at it.
 
 dimensions:

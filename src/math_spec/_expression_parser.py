@@ -23,7 +23,7 @@ from math_spec.operators import EDGE_WRAP
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Direction, Partition, Predicate
+    from math_spec.program import Join, Partition, Predicate
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -132,13 +132,13 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class DirectionNode:
-    """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
+class JoinNode:
+    """A resolved ``by=`` on ``sum`` or ``at``: the relation, as the :class:`Join` the call names."""
 
-    direction: Direction
+    join: Join
 
     def __str__(self) -> str:
-        return self.direction.name
+        return self.join.name
 
 
 @dataclass(frozen=True)
@@ -283,7 +283,7 @@ ArithmeticNode = (
     | ParameterNode
     | DualNode
     | DimensionNode
-    | DirectionNode
+    | JoinNode
     | PartitionNode
     | EdgeNode
     | KeywordNode
@@ -338,7 +338,7 @@ def operand(node: ArithmeticNode) -> str:
 #: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
-KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
+KwargNode = DimensionNode | JoinNode | PartitionNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one

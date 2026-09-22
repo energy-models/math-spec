@@ -229,7 +229,7 @@ def _subject_of(node: TypedPredicate) -> Subject:
         case DimensionPosition(name=name, partition=partition):
             if partition is None:
                 return Subject('rank', name)
-            return Subject('rank', name, partition.name, partition.group)
+            return Subject('rank', name, partition.name, partition.grouped)
         case RelationDefined(name=name) | RelationComparison(name=name):
             return Subject('relation', name)
         case RelationPairComparison(name=name, other=other):

@@ -23,10 +23,10 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
-    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
+    JoinNode,
     KwargNode,
     NumberNode,
     ParameterNode,
@@ -43,7 +43,7 @@ from math_spec.operators import BUILTINS
 from math_spec.program import (
     DimensionComparison,
     DimensionPosition,
-    Direction,
+    Join,
     Mask,
     ParameterComparison,
     ParameterDefined,
@@ -137,7 +137,7 @@ def _dims_call(node: FunctionCallNode, schema: Spec, context: str) -> frozenset[
 
 
 def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``sum`` reduces a dim away, or reads a relation: the consumed dim goes, the produced dims arrive, the joined stay."""
+    """``sum`` reduces a dim away, or joins a relation and groups: the dims joined on go, the dims grouped by arrive."""
     by = node.kwargs.get('by')
     if by is None and 'over' not in node.kwargs:
         if not inner:
@@ -148,41 +148,41 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
             )
         return frozenset()
     if by is None:
-        consumed = node.kwargs['over']
-        assert isinstance(consumed, DimensionNode)
-        if consumed.name not in inner:
+        summed = node.kwargs['over']
+        assert isinstance(summed, DimensionNode)
+        if summed.name not in inner:
             raise DimensionError(
-                _not_carried(context, f'sum(over={consumed.name})', inner, 'drop the sum, or fix the dim')
+                _not_carried(context, f'sum(over={summed.name})', inner, 'drop the sum, or fix the dim')
             )
-        return inner - {consumed.name}
+        return inner - {summed.name}
 
-    assert isinstance(by, DirectionNode), 'resolution reads sum(by=) in a direction'
-    direction = by.direction
-    if missing := sorted(set(direction.consumed_dims) - inner):
+    assert isinstance(by, JoinNode), 'resolution reads sum(by=) as a join'
+    join = by.join
+    if missing := sorted(set(join.dropped_dims) - inner):
         raise DimensionError(
             _not_carried(
                 context,
-                f'sum(by={direction.name}) consumes {missing}, the dims it reads from,',
+                f'sum(by={join.name}) joins on {missing} to sum it away,',
                 inner,
                 'drop the sum, or fix the dim',
             )
         )
-    return _read_dims(f'sum(by={direction.name})', direction, inner, context)
+    return _join_dims(f'sum(by={join.name})', join, inner, context)
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``at`` is the adjoint of ``sum(by=)``: it consumes the dims a sum produces and produces the ones it consumes."""
+    """``at`` is the join of ``sum(by=)`` with no group-by: it joins on the dims a sum groups by and groups by the ones a sum joins on."""
     by = node.kwargs['by']
-    assert isinstance(by, DirectionNode), 'resolution reads at(by=) in a direction'
-    direction = by.direction
-    if absent := sorted(set(direction.consumed_dims) - inner):
+    assert isinstance(by, JoinNode), 'resolution reads at(by=) as a join'
+    join = by.join
+    if absent := sorted(set(join.dropped_dims) - inner):
         raise DimensionError(
-            f'{context}: at(by={direction.name}) reads through '
+            f'{context}: at(by={join.name}) joins on '
             f'{absent}, which the expression does not carry (dims '
-            f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
-            f'sum is the direction that produces them.'
+            f'{sorted(inner)}). A lookup joins the operand on the columns it reads at — '
+            f'sum is the call that groups by them.'
         )
-    return _read_dims(f'at(by={direction.name})', direction, inner, context)
+    return _join_dims(f'at(by={join.name})', join, inner, context)
 
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
@@ -208,48 +208,48 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     return inner
 
 
-def _read_dims(call: str, direction: Direction, inner: frozenset[str], context: str) -> frozenset[str]:
-    """The dims after a relation is read in *direction*: the consumed go, the produced arrive, the joined stay.
+def _join_dims(call: str, join: Join, inner: frozenset[str], context: str) -> frozenset[str]:
+    """The dims after *join*: the operand's, less the dims joined on, plus the dims grouped by.
 
-    The dims a call lands on are its own to bring, so the operand does not
-    already carry one. Where it does, the call would tie the operand's axis to
-    the one it produces rather than adding it, and it reads the same either
+    A column grouped by and not joined on brings its dim, so the operand does
+    not already carry it. Where it does, the join would match the operand on
+    that column instead of grouping by it, and the call reads the same either
     way. A relation into its own dimension is not that case: there the dim
-    landed on is the dim just consumed, so every factor is read at the
-    coordinate the sum runs over, and nothing is tied.
+    grouped by is the dim just joined on and summed away, so every factor is
+    read at the coordinate the sum runs over, and nothing is matched twice.
     """
-    consumed, produced = set(direction.consumed_dims), set(direction.produced_dims)
-    if clash := sorted((produced & inner) - consumed):
+    added, dropped = set(join.added_dims), set(join.dropped_dims)
+    if clash := sorted((added & inner) - dropped):
         raise DimensionError(
-            f'{context}: {call} lands on {clash}, which the expression already carries.\n'
-            f'A call brings the dims it lands on, so that reading it tells you what it '
-            f'adds. Move the factor carrying {clash} outside the operator, or read to a column '
-            f'over another dimension.'
+            f'{context}: {call} groups by {clash}, which the expression already carries.\n'
+            f'A join on a column the operand carries matches it rather than grouping by it, so a '
+            f'call brings the dims it groups by. Move the factor carrying {clash} outside the operator, '
+            f'or group by a column over another dimension.'
         )
-    _check_joined(call, direction, inner, context)
-    return (inner - consumed) | produced
+    _check_joined(call, join, inner, context)
+    return (inner - set(join.joined_dims)) | set(join.grouped_dims)
 
 
-def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], context: str) -> None:
-    """The columns a call joins on are read at their dimensions, so the operand carries every one, each once.
+def _check_joined(call: str, use: Join | Partition, inner: frozenset[str], context: str) -> None:
+    """The columns a call joins on are matched at their dimensions, so the operand carries every one, each once.
 
-    A joined dimension the call also consumes is the same ambiguity as two
-    joined columns over one dimension: the operand's one coordinate would
-    have to be read as both. A partition consumes nothing.
+    Two joined columns over one dimension would match the operand's one
+    coordinate twice: the ``over=`` column and an unnamed key column, or two
+    unnamed key columns. A partition joins on the key columns it does not
+    step along.
     """
     dims = use.joined_dims
     if missing := sorted(set(dims) - inner):
         raise DimensionError(
             f'{context}: {call} joins on {missing} (columns {[r for r in use.joined if use.dim(r) in missing]} '
-            f"of '{use.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
-            f'read between two of its columns and joined at the others — index the operand by them, or '
-            f'read it between different columns.'
+            f"of '{use.name}'), which the expression does not carry (dims {sorted(inner)}). A join matches "
+            f'the operand on every key column the call does not name — index the operand by them, or '
+            f'name them in the call.'
         )
-    consumed = use.consumed_dims if isinstance(use, Direction) else ()
-    if twice := sorted({d for d in dims if dims.count(d) > 1 or d in consumed}):
+    if twice := sorted({d for d in dims if dims.count(d) > 1}):
         raise DimensionError(
             f"{context}: {call} joins '{use.name}' on {twice} through more than one column, and the operand "
-            f'carries each dimension once. Read between different columns, or use a relation whose joined '
+            f'carries each dimension once. Join on distinct dimensions, or use a relation whose key '
             f'columns are over distinct dimensions.'
         )
 
@@ -431,7 +431,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         )
     by = node.kwargs.get('by')
     groups = (
-        frozenset(by.partition.dim(v) for v in by.partition.group) if isinstance(by, PartitionNode) else frozenset()
+        frozenset(by.partition.dim(v) for v in by.partition.grouped) if isinstance(by, PartitionNode) else frozenset()
     )
     if stray := sorted(frozenset(declared.dims) - inner - groups):
         raise DimensionError(

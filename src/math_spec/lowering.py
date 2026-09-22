@@ -22,10 +22,10 @@ from math_spec._expression_parser import (
     CasesNode,
     DefinitionNode,
     DimensionNode,
-    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
+    JoinNode,
     KwargNode,
     NumberNode,
     ParameterNode,
@@ -261,17 +261,17 @@ class _Lowering:
         if by_node is None and 'over' not in node.kwargs:
             return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
         if by_node is None:
-            consumed = node.kwargs['over']
-            assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
-            return program.Sum(operand, (consumed.name,))
-        assert isinstance(by_node, DirectionNode), 'resolution reads sum(by=) in a direction'
-        return program.GroupSum(operand, direction=by_node.direction)
+            summed = node.kwargs['over']
+            assert isinstance(summed, DimensionNode), 'resolution refuses a over= that is not a dimension'
+            return program.Sum(operand, (summed.name,))
+        assert isinstance(by_node, JoinNode), 'resolution reads sum(by=) as a join'
+        return program.GroupSum(operand, join=by_node.join)
 
     def at(self, node: FunctionCallNode) -> program.Expression:
-        """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
+        """``at(x, by=relation)`` — the join of :meth:`sum`'s ``by=`` form with no group-by."""
         by_node = node.kwargs['by']
-        assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
-        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction)
+        assert isinstance(by_node, JoinNode), 'resolution reads at(by=) as a join'
+        return program.Lookup(self.expr(node.args[0]), join=by_node.join)
 
     def sum_back(self, node: FunctionCallNode) -> program.Expression:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.

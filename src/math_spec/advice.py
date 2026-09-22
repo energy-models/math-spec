@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
-from math_spec.program import GroupSum, Pullback, walk
+from math_spec.program import GroupSum, Lookup, walk
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -50,7 +50,7 @@ def _never_an_axis(program: Program) -> list[Advice]:
     reached: set[str] = set()
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         reached.update(declaration.dims)
-    reached |= _produced_axes(program)
+    reached |= _grouped_axes(program)
     reached |= {dim for lk in program.relations.values() for dim in lk.dims}
 
     return [
@@ -66,14 +66,14 @@ def _never_an_axis(program: Program) -> list[Advice]:
     ]
 
 
-def _produced_axes(program: Program) -> set[str]:
+def _grouped_axes(program: Program) -> set[str]:
     """The axes the expressions create beyond what any declaration indexes.
 
-    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine
-    dimension: either way, the dims the direction produces.
+    ``sum(by=)`` groups onto its target and ``at()`` spreads onto its fine
+    dimension: either way, the dims the join groups by and did not join on.
     """
     axes: set[str] = set()
     for node in walk(*program.roots):
-        if isinstance(node, GroupSum | Pullback):
-            axes.update(node.direction.produced_dims)
+        if isinstance(node, GroupSum | Lookup):
+            axes.update(node.join.added_dims)
     return axes

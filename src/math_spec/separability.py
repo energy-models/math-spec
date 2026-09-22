@@ -12,8 +12,8 @@ from math_spec.program import (
     Cases,
     DimensionPosition,
     GroupSum,
+    Lookup,
     Mask,
-    Pullback,
     Reach,
     Separability,
     Sum,
@@ -107,16 +107,16 @@ def separabilities(program: Program) -> dict[str, Separability]:
                             f'sums over {dimension} — a rolling sum_back(window=n) windows, a total over the horizon does not',
                         )
             elif isinstance(node, GroupSum):
-                for dimension in node.direction.consumed_dims:
+                for dimension in node.join.dropped_dims:
                     report(
                         'coupled',
                         dimension,
                         label,
-                        f'groups {dimension} into {", ".join(node.direction.produced_dims)} — window that dimension instead, or cut only at the group edges',
+                        f'groups {dimension} into {", ".join(node.join.added_dims)} — window that dimension instead, or cut only at the group edges',
                     )
-            elif isinstance(node, Pullback):
-                for dimension in node.direction.consumed_dims:
-                    waits_on(dimension, label, node.direction.name, 'coordinate')
+            elif isinstance(node, Lookup):
+                for dimension in node.join.dropped_dims:
+                    waits_on(dimension, label, node.join.name, 'coordinate')
             elif isinstance(node, (Translate, WindowSum)):
                 dimension = node.along
                 if node.wrap:
