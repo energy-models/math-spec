@@ -84,8 +84,8 @@ _SEGMENTS = {
 def expand_sets(schema: Spec) -> Spec:
     """*schema* with every ``sos:`` block written out as binaries and the rows that link them.
 
-    The record of what an expanded curve derived rides along, because a model
-    whose curves are already written out is the one this is usually asked of.
+    The curves an expansion wrote out ride along, because a model whose
+    curves are already written out is the one this is usually asked of.
     """
     from math_spec.model import Spec as Model
 

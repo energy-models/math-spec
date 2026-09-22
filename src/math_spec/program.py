@@ -51,7 +51,6 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'CountComparison',
-    'Derivation',
     'DimensionComparison',
     'DimensionDeclaration',
     'DimensionDtype',
@@ -63,13 +62,10 @@ __all__ = [
     'ExpressionComparison',
     'ExpressionDeclaration',
     'FanIn',
-    'FirstOf',
     'Footprint',
     'GroupSum',
     'Holds',
-    'LastOf',
     'Mask',
-    'MaskOf',
     'Multiply',
     'Negate',
     'Not',
@@ -544,49 +540,13 @@ class DimensionDeclaration:
 
 
 @dataclass(frozen=True)
-class MaskOf:
-    """A ``bool`` parameter true wherever *values* has a row.
-
-    The mask a ``points:`` naming one of the block's own breakpoints derives:
-    the curve runs as far as its values do. ``values`` is the name the file
-    wrote, so a refusal about the mask can say it.
-    """
-
-    block: str
-    values: str
-
-
-@dataclass(frozen=True)
-class FirstOf:
-    """A ``bool`` parameter marking, per curve, the first breakpoint *mask* admits."""
-
-    block: str
-    mask: str
-
-
-@dataclass(frozen=True)
-class LastOf:
-    """Its sibling for the last breakpoint."""
-
-    block: str
-    mask: str
-
-
-#: How an emitted parameter is filled — closed, so a consumer binding data
-#: dispatches on it and a kind added later is a type error at that match.
-#: Each names the ``piecewise:`` block whose expansion emitted the parameter.
-Derivation = MaskOf | FirstOf | LastOf
-
-
-@dataclass(frozen=True)
 class PiecewiseDeclaration:
     """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
 
-    The expansion lowered the links into constraints and emitted the
-    parameters it needs — each of those says how it is filled, on its own
-    :attr:`ParameterDeclaration.derivation`. What the block assumes of its
-    numbers is an :data:`Assumption` like any other, under
-    :attr:`Program.assumptions`; what is left here is the curve.
+    The expansion lowered the links into constraints over the file's own
+    parameters, and emitted none. What the block assumes of its numbers is an
+    :data:`Assumption` like any other, under :attr:`Program.assumptions`; what
+    is left here is the curve.
 
     Attributes:
         over: The breakpoint dimension.
@@ -651,11 +611,6 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
-    #: How this parameter is filled where a ``piecewise:`` expansion emitted
-    #: it, or ``None`` for one the file declares. Who supplies the data
-    #: follows: the caller binds a declared parameter, and an emitted one is
-    #: built from the block's own breakpoints the way its derivation says.
-    derivation: Derivation | None = None
 
 
 @dataclass(frozen=True)

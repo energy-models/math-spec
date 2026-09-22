@@ -17,13 +17,7 @@ from math_spec import CURVATURES
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
 from math_spec.lowering import lower_program, to_program
 from math_spec.piecewise import expand_piecewise
-from math_spec.program import (
-    FirstOf,
-    Holds,
-    LastOf,
-    MaskOf,
-    assumption_message,
-)
+from math_spec.program import Holds, assumption_message
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
@@ -398,33 +392,29 @@ def test_every_published_curvature_is_one_a_method_can_ask_for():
     )
 
 
-def test_an_emitted_parameter_says_how_it_is_filled():
-    """Who binds a parameter, and from what, is the program's to say rather than a suffix a consumer re-spells.
-
-    An ``lp`` block masked by one of its own values-parameters emits three
-    ``bool`` parameters the caller never supplies; each carries the
-    derivation that fills it, and every parameter the file declared carries
-    none.
-    """
+def test_a_masked_lp_curve_sits_its_rows_on_predicates_rather_than_on_parameters():
+    """An ``lp`` block masked by one of its own values parameters emitted three ``bool``
+    parameters — the mask, and the first and last breakpoint of each curve — that the
+    caller never supplied and a derivation in private state filled. The ``where``
+    language writes each of them, so the rows carry the predicate and the program
+    declares the file's parameters and no other."""
     program = lower_program(expand_piecewise(schema_of(LP_MASKED)))
+    rows = {name: program.constraints[f'cost_curve_{name}'].where for name in ('chord', 'domain_lo', 'domain_hi')}
 
-    assert {n: p.derivation for n, p in program.parameters.items() if p.derivation is not None} == {
-        'cost_curve_points': MaskOf('cost_curve', 'bp_x'),
-        'cost_curve_starts': FirstOf('cost_curve', 'cost_curve_points'),
-        'cost_curve_ends': LastOf('cost_curve', 'cost_curve_points'),
-    }, 'the mask derived from bp_x and the two edge flags it carries, and nothing else'
-    assert {n for n, p in program.parameters.items() if p.derivation is None} == {'bp_x', 'bp_y', 'load'}, (
-        "every declared parameter is the caller's to bind"
-    )
+    assert set(program.parameters) == {'bp_x', 'bp_y', 'load'}, 'every parameter is one the file declared'
+    assert {name: row.names_read for name, row in rows.items() if row is not None} == {
+        'chord': frozenset({'bp_x'}),
+        'domain_lo': frozenset({'bp_x'}),
+        'domain_hi': frozenset({'bp_x'}),
+    }, 'every masked row reads the mask the file named, and nothing the expansion invented'
 
 
-def test_a_file_supplied_mask_derives_nothing():
-    """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check still names it."""
+def test_a_file_supplied_mask_is_what_the_contiguity_condition_reads():
+    """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check names it."""
     program = to_program(
         override(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'})
     )
 
-    assert program.parameters['reach'].derivation is None, 'the file declared it, so the caller binds it'
     contiguous = program.assumptions['cost_curve_contiguous']
     assert contiguous.predicate.names_read == frozenset({'reach'}), (
         "the mask is still one the data has to make contiguous, and the condition reads the file's own name"

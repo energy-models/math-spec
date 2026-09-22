@@ -158,7 +158,9 @@ piecewise:
 ```
 
 The bounded link decides the shape, as it does under `convex` above. The two
-domain rows hold the pinned link inside the breakpoint range.
+domain rows hold the pinned link inside the breakpoint range: under `points:`,
+each sits where the mask holds and does not one breakpoint outward, which is
+the first and the last breakpoint of each curve.
 
 `links:` is a list, so the number of expressions a block ties is written in the
 file. Where that number is data, write the formulation out
@@ -251,13 +253,10 @@ spec.expand('piecewise')  # only the curves
   curve.
 - **A model with nothing to write out is the model that comes back.** So is a
   second call with the same kinds.
-- **The same data binds a model and its expansion.** A set emits no parameter,
-  and every parameter a curve emits it derives
-  ([`derivation`](../reading.md#nodes-and-masks)).
-- **A model that derived parameters prints rather than round-trips.** A derived
-  parameter is filled from the block it came from, which a file cannot state,
-  so `to_yaml()` on such an expansion is refused and
-  [`typeset()`](../typeset.md) is what reads it.
+- **The same data binds a model and its expansion.** Neither a set nor a curve
+  emits a parameter. A curve under `points:` sits its rows on `where:`
+  predicates over the mask the file named, and the expansion is a file like any
+  other: `to_yaml()` writes it, and loading it back changes nothing.
 - **`to_program()` writes the curves out and leaves the sets.** A program
   carries a set, because a consumer with the concept takes one; a consumer
   without it refuses the model and names `spec.expand('sos')`.

@@ -96,8 +96,8 @@ refuses the model and names `spec.expand('sos')`; what that emits is on the
 [piecewise page](language/piecewise.md#what-a-set-is-written-out-as).
 
 `program.piecewise` keeps the curve: its breakpoint dimension, its method and
-its values parameters. `ParameterDeclaration.derivation` says how a parameter
-is filled, and `None` means the engine binds it from its data.
+its values parameters. Every parameter the program declares is one the file
+declared, and the engine binds each from its data.
 
 ## What the data has to satisfy
 

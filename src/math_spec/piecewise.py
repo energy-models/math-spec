@@ -13,15 +13,15 @@ constraint.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from math_spec._expression_parser import ComparisonNode
 from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
-from math_spec.model import Curvature, ExpandedPiecewise, PiecewiseBlock, Spec, undeclared_dimension
-from math_spec.program import Derivation, FirstOf, LastOf, MaskOf, PiecewiseDeclaration
+from math_spec.model import Curvature, PiecewiseBlock, Spec, undeclared_dimension
+from math_spec.program import PiecewiseDeclaration
 from math_spec.resolution import Namespace, resolve_expression
 from math_spec.sos import Emitted, emit
 
@@ -60,9 +60,8 @@ def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     return 'convex' if sign == '>=' else 'concave'
 
 
-def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
+def declaration_of(pw: PiecewiseBlock) -> PiecewiseDeclaration:
     """The curve of one expanded block, as a program carries it."""
-    pw = expanded.block
     return PiecewiseDeclaration(
         over=pw.over,
         method=pw.method,
@@ -132,7 +131,7 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
         )
     if mask is not None:
         assumed[f'{block}_contiguous'] = Assumed(
-            f'count({mask} AND NOT shift({mask}, along={d}, offset=1), over={d}) == 1',
+            f'count({_edge(d, mask, "first")}, over={d}) == 1',
             None,
             f"piecewise '{block}': points: '{mask}' must mark a consecutive run of at least one breakpoint per "
             f'curve — the chord row joins a breakpoint to the one before it, and the domain rows sit on the '
@@ -160,6 +159,17 @@ def _neighbours(over: str, mask: str | None) -> str:
     if mask is None:
         return f'position({over}) > 0'
     return f'{mask} AND shift({mask}, along={over}, offset=1)'
+
+
+def _edge(over: str, mask: str | None, end: Literal['first', 'last']) -> str:
+    """The first or last breakpoint of each curve: where the mask holds and does not one step outward.
+
+    The vacated edge of a ``shift`` in a ``where`` is false, which is what
+    makes the head and the tail of the axis their own edge.
+    """
+    if mask is None:
+        return f'position({over}) == {0 if end == "first" else -1}'
+    return f'{mask} AND NOT shift({mask}, along={over}, offset={1 if end == "first" else -1})'
 
 
 def _interior(over: str, mask: str | None) -> str:
@@ -199,33 +209,15 @@ def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature)
     return Assumed(bend.format('<=' if curvature == 'convex' else '>='), interior, description)
 
 
-def derivations_of(block: str, expanded: ExpandedPiecewise) -> dict[str, Derivation]:
-    """How each parameter *block*'s expansion emitted is filled, by name.
-
-    Everything emitted hangs off the mask, so a block masking nothing emits
-    nothing for the caller to be told about.
-    """
-    if (mask := expanded.points) is None:
-        return {}
-    derivations: dict[str, Derivation] = {}
-    if (values := _nominated(expanded.block)) is not None:
-        derivations[mask] = MaskOf(block, values)
-    if expanded.starts is not None:
-        derivations[expanded.starts] = FirstOf(block, mask)
-    if expanded.ends is not None:
-        derivations[expanded.ends] = LastOf(block, mask)
-    return derivations
-
-
 class _Block:
     """One ``piecewise:`` block being expanded into the raw model it writes.
 
     Every name the expansion may write is spelled once here, so the emitters
     and the collision check read the same table — ``set`` is the one a method
-    that states a set writes through :func:`math_spec.sos.emit`. ``points`` is
-    the derived mask, written only where ``nominated`` names the values
-    parameter it is derived from; ``mask`` is whichever parameter masks the
-    weights, or ``None`` for a whole curve.
+    that states a set writes through :func:`math_spec.sos.emit`. ``mask`` is
+    the parameter masking the weights, or ``None`` for a whole curve: the
+    ``bool`` the file named, or one of the block's own values parameters,
+    which as a bare name in a ``where`` is true wherever it has a row.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -237,37 +229,25 @@ class _Block:
         self.raw = raw
         self.name = name
         self.pw = pw
-        self.nominated = _nominated(pw)
         self.lam = f'{name}_lam'
-        self.starts = f'{name}_starts'
-        self.ends = f'{name}_ends'
-        self.points = f'{name}_points'
         self.convexity = f'{name}_convexity'
         self.set = Emitted.of(name, 2)
         self.chord = f'{name}_chord'
         self.domain_lo = f'{name}_domain_lo'
         self.domain_hi = f'{name}_domain_hi'
         self.links = tuple(f'{name}_link{i}' for i in range(len(pw.links)))
-        self.mask = self.points if self.nominated is not None else pw.points
+        self.mask = pw.points
         self.ns = Namespace(schema)
         self.context = f"piecewise '{name}'"
         self.frame = self._validated_frame()
-        self.record: dict[str, object] = {'block': self._section('piecewise')[name], 'points': self.mask}
 
-    def expand(self) -> dict[str, object]:
-        """Write the block's declarations, and return the record ``expanded_piecewise`` keeps for it."""
-        if self.nominated is not None:
-            self._parameter(
-                self.points,
-                list(self.schema.parameters[self.nominated].dims),
-                f"where '{self.nominated}' has a row, and so where the curve runs",
-            )
+    def expand(self) -> None:
+        """Write the block's declarations into the raw model."""
         if self.pw.method == 'lp':
             self._segment_lines()
         else:
             self._weights()
         self._assumptions()
-        return self.record
 
     def _assumptions(self) -> None:
         """What the method assumes of the numbers, written into the model the expansion returns.
@@ -290,14 +270,6 @@ class _Block:
         section = self.raw.setdefault(name, {})
         assert isinstance(section, dict), f'{name}: is a mapping in a validated model'
         return section
-
-    def _mask_dims(self, mask: str) -> list[str]:
-        """The dims of *mask*, the parameter masking the weights: the nominated values parameter's where it is derived from one."""
-        return list(self.schema.parameters[self.nominated if self.nominated is not None else mask].dims)
-
-    def _parameter(self, name: str, dims: list[str], description: str) -> None:
-        """A ``bool`` parameter the expansion derives."""
-        self._section('parameters')[name] = {'dims': dims, 'dtype': 'bool', 'description': description}
 
     def _weight(self, name: str, **fields: object) -> None:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
@@ -362,35 +334,28 @@ class _Block:
         The chord sits at the later breakpoint, so the first has none and its
         ``where:`` and ``edge=0`` travel together — without the exclusion the
         vacated position is a spurious line through the origin; under a mask the
-        first breakpoint is the curve's own, which is what ``_starts`` names. The
-        row is multiplied through by the run rather than dividing, which keeps its
-        sense only because the breakpoints are strictly monotone. The domain rows
-        are ``linopy``'s ``_add_lp`` rows under its names; under ``points:`` they
-        sit on the derived ``_starts``/``_ends`` flags, which is why the mask has to
-        be a prefix.
+        first breakpoint is the curve's own. The row is multiplied through by the
+        run rather than dividing, which keeps its sense only because the
+        breakpoints are strictly monotone. The domain rows are ``linopy``'s
+        ``_add_lp`` rows under its names, each sitting on the edge of the curve
+        the mask marks, which is why the mask has to be one run.
         """
         x_link, y_link = self.pw.curve
         d = self.pw.over
-        mask = self.mask
         run = f'({x_link.values} - shift({x_link.values}, along={d}, offset=1, edge=0))'
         rise = f'({y_link.values} - shift({y_link.values}, along={d}, offset=1, edge=0))'
-        interior = f'{mask} AND NOT {self.starts}' if mask else f'position({d}) != 0'
         self._constraint(
             self.chord,
             [*self.frame, d],
             f'({y_link.expression}) * {run} {y_link.sign} '
             f'{rise} * (({x_link.expression}) - {x_link.values}) + {y_link.values} * {run}',
-            interior,
+            _neighbours(d, self.mask),
         )
-        edges = ((self.domain_lo, '>=', self.starts), (self.domain_hi, '<=', self.ends))
-        axis = ((self.domain_lo, '>=', f'position({d}) == 0'), (self.domain_hi, '<=', f'position({d}) == -1'))
-        for cname, sense, at in edges if mask else axis:
-            if mask:
-                self.record['starts' if sense == '>=' else 'ends'] = at
-                self._parameter(
-                    at, self._mask_dims(mask), f'the {"first" if sense == ">=" else "last"} breakpoint of each curve'
-                )
-            self._constraint(cname, [*self.frame, d], f'({x_link.expression}) {sense} {x_link.values}', at)
+        edges = ((self.domain_lo, '>=', 'first'), (self.domain_hi, '<=', 'last'))
+        for cname, sense, end in edges:
+            self._constraint(
+                cname, [*self.frame, d], f'({x_link.expression}) {sense} {x_link.values}', _edge(d, self.mask, end)
+            )
 
     # -- checks ------------------------------------------------------------
 
@@ -403,7 +368,6 @@ class _Block:
         """
         return (
             ('variable', (self.lam, self.set.seg)),
-            ('parameter', (self.starts, self.ends, *((self.points,) if self.nominated is not None else ()))),
             (
                 'constraint',
                 (
@@ -498,7 +462,7 @@ class _Block:
     def _points_fit(self, frame: list[str]) -> None:
         """A ``points:`` naming a parameter of its own is a bool mask along the breakpoint dim, inside the frame."""
         pw, ctx = self.pw, self.context
-        if pw.points is None or self.nominated is not None:
+        if pw.points is None or _nominated(pw) is not None:
             return
         if pw.points not in self.schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
@@ -523,7 +487,6 @@ class _Block:
         """No name the block writes is one the file already declares."""
         declared = {
             'variable': self.schema.variables,
-            'parameter': self.schema.parameters,
             'constraint': self.schema.constraints,
             'sos': self.schema.sos,
             'assumption': self.schema.assumptions,
@@ -572,11 +535,12 @@ def expand_piecewise(schema: Spec) -> Spec:
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
-    records = {name: _Block(schema, raw, name, pw).expand() for name, pw in schema.piecewise.items()}
+    for name, pw in schema.piecewise.items():
+        _Block(schema, raw, name, pw).expand()
     raw['piecewise'].clear()
     for name, pw in schema.piecewise.items():
         if pw.method == 'adjacency':
             emit(raw, name)
     expanded = Spec.model_validate(raw)
-    expanded._expanded_piecewise = {name: ExpandedPiecewise.model_validate(record) for name, record in records.items()}
+    expanded._expanded_piecewise = dict(schema.piecewise)
     return expanded
