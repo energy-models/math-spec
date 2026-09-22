@@ -67,12 +67,12 @@ from math_spec.operators import (
 )
 from math_spec.program import (
     And,
-    ArithmeticComparison,
     BooleanLiteral,
     CountComparison,
     DimensionComparison,
     DimensionPosition,
     Direction,
+    ExpressionComparison,
     Mask,
     Not,
     Or,
@@ -1000,7 +1000,9 @@ class _Resolver:
             return None
         return _Plain(name, node.op, value, quoted)
 
-    def _expression_comparison(self, node: UnresolvedComparisonNode) -> ArithmeticComparison | UnresolvedComparisonNode:
+    def _expression_comparison(
+        self, node: UnresolvedComparisonNode
+    ) -> ExpressionComparison[ArithmeticNode] | UnresolvedComparisonNode:
         """``expression <op> expression``: each side expanded, typed and held to what a mask may read.
 
         A side is read as an expression is — macros and named expressions
@@ -1056,7 +1058,7 @@ class _Resolver:
                 f'the comparison.'
             )
             return node
-        return ArithmeticComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
+        return ExpressionComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
         self, call: FunctionCallNode, node: UnresolvedComparisonNode

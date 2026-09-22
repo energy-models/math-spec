@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from math_spec._expression_parser import NumberNode, ParameterNode, UnaryOperatorNode
 from math_spec.program import (
     And,
-    ArithmeticComparison,
     BooleanLiteral,
     CountComparison,
     DimensionComparison,
@@ -47,6 +46,7 @@ from math_spec.program import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
+    from math_spec._expression_parser import ArithmeticNode
     from math_spec.model import DeclaredDtype
     from math_spec.program import Predicate, PredicateOperator
 
@@ -223,12 +223,12 @@ def _undecided(mask: Predicate) -> str | None:
     comparison of expressions falls before the numbers arrive.
     """
     for atom in Mask(mask).atoms:
-        if isinstance(atom, ArithmeticComparison | ExpressionComparison):
+        if isinstance(atom, ExpressionComparison):
             return _expression_rewrite(atom)
     return None
 
 
-def _expression_rewrite(node: ArithmeticComparison | ExpressionComparison) -> str:
+def _expression_rewrite(node: ExpressionComparison[ArithmeticNode]) -> str:
     """Why a comparison of expressions is not decided, and what to write instead.
 
     A parameter against a literal is decided, and the same test with its sides
@@ -237,16 +237,15 @@ def _expression_rewrite(node: ArithmeticComparison | ExpressionComparison) -> st
     other resolves to a :class:`~math_spec.program.ParameterComparison` and
     never reaches here, and a quoted label cannot stand on the left at all.
     """
-    if isinstance(node, ArithmeticComparison):
-        left, right = node.left, node.right
-        number = isinstance(left, NumberNode) or (
-            isinstance(left, UnaryOperatorNode) and isinstance(left.operand, NumberNode)
+    left, right = node.left, node.right
+    number = isinstance(left, NumberNode) or (
+        isinstance(left, UnaryOperatorNode) and isinstance(left.operand, NumberNode)
+    )
+    if number and isinstance(right, ParameterNode):
+        return (
+            f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
+            f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {left}'
         )
-        if number and isinstance(right, ParameterNode):
-            return (
-                f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
-                f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {left}'
-            )
     return (
         'it compares expressions, whose values only the data decides — compare one parameter against a '
         'literal, or precompute the test as a boolean parameter and test that'
@@ -261,7 +260,7 @@ def _observe(
     ``position()`` converts the dimension to an integer, so an ordering over a
     rank is an ordering of integers and every comparator is admitted there.
     """
-    if isinstance(node, ArithmeticComparison | ExpressionComparison):
+    if isinstance(node, ExpressionComparison):
         raise Undecidable(_expression_rewrite(node))
     if isinstance(node, CountComparison):
         msg = (
@@ -318,7 +317,7 @@ def _subject_of(node: TypedPredicate) -> Subject:
             return Subject('relation', name)
         case RelationPairComparison(name=name, other=other):
             return Subject('relation_pair', name, other)
-        case ArithmeticComparison() | ExpressionComparison():
+        case ExpressionComparison():
             return Subject('expression', 'a comparison of expressions')
         case CountComparison():
             return Subject('expression', 'a count of the coordinates a predicate admits')
@@ -517,7 +516,7 @@ def _atom(node: TypedPredicate, cell: dict[Subject, Cell], grid: _Grid) -> bool:
             return bool(value)
         case RelationPairComparison(op=op):
             return bool(value) if op == '==' else not value
-        case ArithmeticComparison() | ExpressionComparison():
+        case ExpressionComparison():
             msg = 'a comparison of expressions is refused as undecidable before any cell is read'
             raise AssertionError(msg)
         case CountComparison() | TranslatedPredicate() | PulledBackPredicate():
