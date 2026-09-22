@@ -64,13 +64,18 @@ from math_spec import to_spec, to_program
 spec = to_spec('curve.yaml')
 sorted(spec.constraints)  # ['target']
 
-program = to_program(spec)
+program = to_program(spec.expand('piecewise'))
 sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
 sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
-on a `Program`, it returns the same object unchanged.
+on a `Program`, it returns the same object unchanged. It lowers the model as it
+arrived and writes nothing out: a model still carrying a `piecewise:` block is
+refused, and the refusal names `spec.expand('piecewise')`, which keeps every
+`sos:` block, and `spec.expand()`, which writes the sets out too. Which one is
+the caller's to say, because a consumer with the concept of a set takes one
+whole and a consumer without it does not.
 
 | you are                                                                      | take      | because                                  |
 | ---------------------------------------------------------------------------- | --------- | ---------------------------------------- |

@@ -15,7 +15,7 @@ import pytest
 
 from math_spec.errors import SchemaError
 from math_spec.lowering import to_program
-from tests.fixtures import SMALL_MODEL, override, schema_of
+from tests.fixtures import SMALL_MODEL, expanded, override, schema_of
 
 #: A set over a bounded member, which is the smallest model `expand('sos')` acts on.
 PICKED = override(
@@ -105,7 +105,7 @@ def test_a_set_emits_no_parameter_so_the_same_sources_bind_both():
 def test_the_adjacency_method_is_the_sos2_curve_with_its_set_written_out():
     """The one spelling of the binaries, so the two methods cannot drift apart."""
     sos2 = to_program(schema_of(CURVE).expand())
-    adjacency = to_program(schema_of(override(CURVE, **{'piecewise.cost_curve.method': 'adjacency'})))
+    adjacency = to_program(expanded(override(CURVE, **{'piecewise.cost_curve.method': 'adjacency'}), 'piecewise'))
 
     assert sos2.variables == adjacency.variables
     assert sos2.constraints == adjacency.constraints

@@ -260,6 +260,7 @@ a model before and after, as whole files.
   emits a parameter. A curve under `points:` sits its rows on `where:`
   predicates over the mask the file named, and the expansion is a file like any
   other: `to_yaml()` writes it, and loading it back changes nothing.
-- **`to_program()` writes the curves out and leaves the sets.** A program
-  carries a set, because a consumer with the concept takes one; a consumer
-  without it refuses the model and names `spec.expand('sos')`.
+- **`to_program()` writes nothing out.** A model still carrying a curve is
+  refused, naming `spec.expand('piecewise')`. A program carries a set, because
+  a consumer with the concept takes one; a consumer without it refuses the
+  model and names `spec.expand()`.
