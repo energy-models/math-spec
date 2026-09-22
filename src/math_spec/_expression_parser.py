@@ -23,7 +23,7 @@ from math_spec.operators import EDGE_WRAP
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Join, Partition, Predicate
+    from math_spec.program import JoinColumns, Partition, Predicate
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -133,12 +133,12 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class JoinNode:
-    """A resolved ``by=`` on ``sum`` or ``at``: the relation, as the :class:`Join` the call names."""
+    """A resolved ``by=`` on ``sum`` or ``at``: the relation, as the :class:`JoinColumns` the call names."""
 
-    join: Join
+    columns: JoinColumns
 
     def __str__(self) -> str:
-        return self.join.name
+        return self.columns.name
 
 
 @dataclass(frozen=True)

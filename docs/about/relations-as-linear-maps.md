@@ -131,8 +131,8 @@ $`x`$ over generators and $`y`$ over buses,
 \langle M x, y \rangle = \sum_{b} y_b \sum_{g} \mathbf{1}_R(g, b)\, x_g = \sum_{g} x_g \sum_{b} \mathbf{1}_R(g, b)\, y_b = \langle x, M^{\mathsf{T}} y \rangle,
 ```
 
-which is why the program's `Lookup` is the same `Join` as its `GroupSum`, read
-without the group-by. A bare relation has the same matrix without the
+which is why the program lowers `at` to a `Join` node and `sum(by=)` to the
+same `Join` under a `Sum`. A bare relation has the same matrix without the
 functional claim. A column of $`M`$ may hold several ones, so the sum fans out
 and no group is one row. That is why `at` through a bare relation is refused.
 

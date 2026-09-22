@@ -252,9 +252,9 @@ class _Lowering:
     def sum(self, node: FunctionCallNode) -> program.Expression:
         """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
 
-        Two program nodes under one surface verb: reducing a dim away and reducing it
-        *into* another are different relational shapes, so ``by=`` decides which
-        before anything else is read.
+        One node either way: a ``sum(by=)`` is a :class:`~math_spec.program.Sum`
+        over a :class:`~math_spec.program.Join`, its ``over`` the dims the join
+        drops, so ``by=`` decides only what the sum stands over.
         """
         by_node = node.kwargs.get('by')
         operand = self.expr(node.args[0])
@@ -265,13 +265,14 @@ class _Lowering:
             assert isinstance(summed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (summed.name,))
         assert isinstance(by_node, JoinNode), 'resolution reads sum(by=) as a join'
-        return program.GroupSum(operand, join=by_node.join)
+        columns = by_node.columns
+        return program.Sum(program.Join(operand, columns), columns.dropped_dims)
 
     def at(self, node: FunctionCallNode) -> program.Expression:
-        """``at(x, by=relation)`` — the join of :meth:`sum`'s ``by=`` form with no group-by."""
+        """``at(x, by=relation)`` — the :class:`~math_spec.program.Join` of :meth:`sum`'s ``by=`` form, with no sum over it."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, JoinNode), 'resolution reads at(by=) as a join'
-        return program.Lookup(self.expr(node.args[0]), join=by_node.join)
+        return program.Join(self.expr(node.args[0]), by_node.columns)
 
     def sum_back(self, node: FunctionCallNode) -> program.Expression:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.

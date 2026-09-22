@@ -68,7 +68,7 @@ from math_spec.program import (
     BooleanLiteral,
     DimensionComparison,
     DimensionPosition,
-    Join,
+    JoinColumns,
     Mask,
     Not,
     Or,
@@ -223,7 +223,7 @@ class Resolved:
         objective: The objective's expression, ``None`` where the file
             declares none.
         relations: Each relation's columns and key, as declared — the one
-            copy, which every :class:`~math_spec.program.Join` and
+            copy, which every :class:`~math_spec.program.JoinColumns` and
             :class:`~math_spec.program.Partition` in the trees holds.
     """
 
@@ -617,8 +617,8 @@ class _Resolver:
             return value if partition is None else PartitionNode(partition)
         if not ({'over', 'into'} <= set(named)):
             return value  # the call shape refused it already, with the wording that names the rewrite
-        join = self._join(name, operator, named['over'], named['into'])
-        return value if join is None else JoinNode(join)
+        columns = self._join(name, operator, named['over'], named['into'])
+        return value if columns is None else JoinNode(columns)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -637,7 +637,7 @@ class _Resolver:
         operator: str,
         from_roles: tuple[str, ...],
         into_roles: tuple[str, ...],
-    ) -> Join | None:
+    ) -> JoinColumns | None:
         """How ``sum`` or ``at`` joins relation *name*, between the columns the call named.
 
         Both ends arrive written: the call shape refuses a call that leaves
@@ -680,7 +680,7 @@ class _Resolver:
             )
             return None
         kept = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
-        join = Join(name, shape, (*from_roles, *kept), (*into_roles, *kept))
+        join = JoinColumns(name, shape, (*from_roles, *kept), (*into_roles, *kept))
         one_row_per_group = set(shape.key) <= set(join.grouped)
         if not forward and not one_row_per_group:
             self.errors.append(

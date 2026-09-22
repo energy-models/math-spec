@@ -62,11 +62,10 @@ __all__ = [
     'FanIn',
     'FirstOf',
     'Footprint',
-    'GroupSum',
     'Increasing',
     'Join',
+    'JoinColumns',
     'LastOf',
-    'Lookup',
     'Mask',
     'MaskOf',
     'Multiply',
@@ -238,38 +237,32 @@ class Divide:
 
 @dataclass(frozen=True)
 class Sum:
-    """Sum ``operand`` over the named dims, removing them from the result."""
+    """Sum ``operand`` over the named dims, removing them from the result.
+
+    ``sum(x, by=relation, over=a, into=b)`` lowers to a ``Sum`` over a
+    :class:`Join`, ``over`` naming the dims the join drops: the group-by is
+    this node, and the join is its operand.
+    """
 
     operand: Expression
     over: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class GroupSum:
-    """Sum ``operand`` through a relation: a join on ``join.joined``, then a group-by on ``join.grouped`` with a sum.
+class Join:
+    """Join ``operand`` to a relation on the columns ``columns`` joins on, and carry the columns it groups by.
 
-    The operand carries every dim joined on. The result drops the dims joined
-    on and not grouped by, keeps the ones both joined on and grouped by, and
-    gains the ones grouped by and not joined on.
+    The operand carries every dim joined on. The result keeps every dim the
+    operand carries and gains the dims grouped by and not joined on; the dims
+    joined on and not grouped by leave only under a :class:`Sum` over them.
+    ``at(x, by=relation, over=a, into=b)`` lowers to a bare ``Join``: the
+    grouped columns hold the relation's whole key, which the loader checks, so
+    each row of the result meets one row of the relation and reads one value.
+    The join fans out where several key tuples share the values joined on.
     """
 
     operand: Expression
-    join: Join
-
-
-@dataclass(frozen=True)
-class Lookup:
-    """Read ``operand`` through a relation: the join of :class:`GroupSum` with no group-by.
-
-    The grouped columns hold the relation's whole key, which the loader
-    checks, so each row of the result meets one row of the relation and
-    reads one value. The join fans out where several key tuples share the
-    values joined on, at each coordinate of the columns both joined on and
-    grouped by.
-    """
-
-    operand: Expression
-    join: Join
+    columns: JoinColumns
 
 
 @dataclass(frozen=True)
@@ -372,8 +365,7 @@ Expression = (
     | Power
     | Divide
     | Sum
-    | GroupSum
-    | Lookup
+    | Join
     | Translate
     | WindowSum
     | Cases
@@ -386,13 +378,13 @@ def fan_in(expression: Expression) -> FanIn:
     For the absence rules, both classes other than ``'one-to-one'`` sum
     several input slots into an output row.
     """
-    if isinstance(expression, (Sum, GroupSum)):
+    if isinstance(expression, Sum):
         return 'many-to-one'
     if isinstance(expression, WindowSum):
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Lookup, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Join, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -408,7 +400,7 @@ def children(expression: Expression) -> tuple[Expression, ...]:
         return (expression.numerator, expression.divisor)
     if isinstance(expression, Power):
         return (expression.base, expression.exponent)
-    if isinstance(expression, (Sum, GroupSum, Lookup, Translate, WindowSum)):
+    if isinstance(expression, (Sum, Join, Translate, WindowSum)):
         return (expression.operand,)
     if isinstance(expression, Cases):
         return tuple(region.value for region in expression.regions)
@@ -462,7 +454,7 @@ class RelationDeclaration:
 
 
 @dataclass(frozen=True)
-class Join:
+class JoinColumns:
     """One relation as one call joins it: the columns joined on, and the columns grouped by.
 
     The declaration fixes no direction; the call does, and this is the one it
