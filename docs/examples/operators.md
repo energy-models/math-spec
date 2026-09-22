@@ -76,7 +76,7 @@ $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in
 ```yaml
 description: >-
   The membership reduction — `sum(array, by=relation, over=a, into=b)` lands the result on the
-  column the relation is walked to, which is what makes topology data rather than
+  column the relation is read to, which is what makes topology data rather than
   structure.
 
 dimensions:
@@ -111,7 +111,7 @@ $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{li
 
 ```yaml
 description: >-
-  A walk that names its ends — `sum(array, by=relation, over=a, into=b)`
+  A call that names its ends — `sum(array, by=relation, over=a, into=b)`
   consumes column `a` and lands on column `b`, and the other key column is
   joined on, so each zone's total is taken per period.
 
@@ -147,7 +147,7 @@ $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathr
 
 ```yaml
 description: >-
-  A walk with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  A call with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
   consumes both key columns at once and lands on the product of both value
   columns in one join.
 

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
-from math_spec.program import Mask, RelationPairComparisonNode
+from math_spec.program import Mask, RelationPairComparison
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 from tests.fixtures import override, schema_of
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 #: `fixtures.DISPATCH_MODEL` plus buses: a dim rule is mostly about an
 #: expression carrying a dim its frame does not, which needs three dims to
 #: state. `snap_bus` is over `snapshot` so it can partition the axis the
-#: translations walk; `spinup` and `horizon` are the named amount that obeys
-#: the position rules and the one that spans the axis walked; `bus_lead` is
+#: translations step along; `spinup` and `horizon` are the named amount that
+#: obeys the position rules and the one that spans that axis; `bus_lead` is
 #: over a dim `p` does not carry, so it is readable only through a `by=`.
 BASE = {
     'dimensions': {
@@ -111,12 +111,12 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_zone, over=generator, into=zone)',
             {'snapshot', 'zone'},
-            id='a-two-key-relation-consumes-the-key-it-walks-and-keeps-the-other',
+            id='a-two-key-relation-consumes-the-key-it-names-and-keeps-the-other',
         ),
         pytest.param(
             'sum(p, by=gen_zone, over=snapshot, into=zone)',
             {'generator', 'zone'},
-            id='the-same-table-walked-along-its-other-key',
+            id='the-same-table-read-along-its-other-key',
         ),
         pytest.param(
             'at(zone_load, by=gen_zone, into=generator, over=zone)',
@@ -166,7 +166,7 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_bz, into=bus, over=generator)',
             {'snapshot', 'bus'},
-            id='a-value-column-not-walked-is-not-read',
+            id='a-value-column-not-named-is-not-read',
         ),
         pytest.param(
             'sum(p, by=gen_bz, over=generator, into=bus)',
@@ -197,6 +197,41 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
     return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
 
 
+@pytest.mark.parametrize(
+    ('expr', 'expected'),
+    [
+        pytest.param(
+            'sum(p, by=connection, over=generator, into=bus)',
+            {'snapshot', 'bus'},
+            id='a-sum-through-a-bare-relation-lands-on-a-key-column',
+        ),
+        pytest.param(
+            'sum(load, by=connection, over=bus, into=generator)',
+            {'snapshot', 'generator'},
+            id='and-the-same-table-summed-the-other-way',
+        ),
+    ],
+)
+def test_a_bare_relation_is_summed_between_its_key_columns(expr, expected):
+    """A bare relation holds no value column, so the column a sum lands on is a key column."""
+    assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == expected
+
+
+def test_a_read_carries_the_whole_key_and_what_the_operand_brings_beside_it():
+    """A read lands on the key however the call splits it, and a dim the operand carries and the read does not consume rides along.
+
+    `gen_bz` is keyed by `generator` alone, so the key is produced whole; the
+    operand's `snapshot` is neither consumed nor part of the key, and the
+    result keeps it.
+    """
+    assert _dims('at(zone_load, by=gen_bz, over=zone, into=generator)') == {'generator', 'snapshot'}
+
+
+def test_a_sum_consumes_a_key_column_and_a_value_column_together():
+    """A sum's consumed end is not one kind of column: it needs one key column, and may name a value column beside it."""
+    assert _dims('sum(p * load, by=gen_bz, over=[generator, bus], into=zone)') == {'snapshot', 'zone'}
+
+
 def test_a_dual_carries_the_constraints_own_frame():
     """`dual(c)` is a row dual at every coordinate of the constraint's declared `dims`."""
     s = _schema()
@@ -225,7 +260,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         ),
         pytest.param(
             'sum(load, by=gen_bus, over=generator, into=bus)',
-            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it walks from",
+            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it reads from",
             id='sum-requires-the-grouped-dim',
         ),
         pytest.param(
@@ -240,8 +275,8 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         ),
         pytest.param(
             "shift(p, along=snapshot, offset=horizon, edge='wrap')",
-            r'varies along the axis it walks is a permutation rather than a lag',
-            id='a-named-offset-does-not-span-the-axis-it-walks',
+            r'varies over the axis it steps along is a permutation rather than a lag',
+            id='a-named-offset-does-not-span-the-axis-it-steps-along',
         ),
         pytest.param(
             'sum_back(p, along=snapshot, window=cost)',
@@ -288,6 +323,35 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
 def test_an_ill_dimensioned_expression_is_rejected(expr, match):
     with pytest.raises(DimensionError, match=match):
         _dims(expr)
+
+
+@pytest.mark.parametrize(
+    ('expr', 'diag'),
+    [
+        pytest.param(
+            'sum(p, by=diag, over=k, into=z)',
+            {'key': {'k': 'generator', 'j': 'generator', 'z': 'zone'}},
+            id='a-sum-consuming-a-column-over-the-dimension-it-joins-on',
+        ),
+        pytest.param(
+            'at(load, by=diag, over=rep, into=generator)',
+            {'key': ['snapshot', 'generator'], 'values': {'rep': 'snapshot'}},
+            id='a-read-consuming-a-column-over-the-dimension-it-joins-on',
+        ),
+    ],
+)
+def test_a_joined_column_is_not_also_consumed(expr, diag):
+    """The operand carries one coordinate per dimension, so a column consumed and a column joined on cannot share one.
+
+    The `at` case passed: the check asked whether a joined dimension was
+    *produced*, which the landing check already refuses, and not whether it
+    was consumed. `at(load, by=diag, over=rep, into=generator)` then read
+    `rep` at the operand's snapshot and joined on the key's snapshot at the
+    same coordinate, and landed on `[bus, generator]` with the joined
+    dimension gone.
+    """
+    with pytest.raises(DimensionError, match=r"joins 'diag' on \[.*\] through more than one column"):
+        _dims_with(expr, **{'relations.diag': diag})
 
 
 def test_an_outer_product_is_legal_and_carries_both_dim_sets():
@@ -504,6 +568,6 @@ def test_names_read_takes_both_sides_of_a_relation_pair():
     BASE has one relation per dimension, so the pair is built directly rather than
     resolved from a predicate string.
     """
-    where = RelationPairComparisonNode('from_bus', 'bus', 'to_bus', 'bus', '!=', ('line',))
+    where = RelationPairComparison('from_bus', 'bus', 'to_bus', 'bus', '!=', ('line',))
 
     assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a relation pair names both maps it compares'

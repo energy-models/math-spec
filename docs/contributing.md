@@ -99,14 +99,24 @@ changes.
 The same construct passes through three layers, and each names it in full. The
 suffix says which layer:
 
-| Layer                           | Suffix               | Example                                   |
-| ------------------------------- | -------------------- | ----------------------------------------- |
-| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`         |
-| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
-| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
+| Layer                           | Suffix               | Example                                    |
+| ------------------------------- | -------------------- | ------------------------------------------ |
+| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`          |
+| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `UnresolvedComparisonNode` |
+| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`          |
 
-A node names the coordinate map rather than the operator: the translation node
-is `Translate`, and the operator is `shift`. Nothing is abbreviated.
+A node names the operation, not the verb a file writes. One verb can lower to
+two nodes, so the file's spelling cannot decide the name.
+
+| File verb          | Node        | What the node names            |
+| ------------------ | ----------- | ------------------------------ |
+| `sum(over=)`       | `Sum`       | dims removed from the result   |
+| `sum(by=)`         | `GroupSum`  | a sum through a relation       |
+| `at(by=)`          | `Pullback`  | a read through a relation      |
+| `shift(along=)`    | `Translate` | a re-index along one dimension |
+| `sum_back(along=)` | `WindowSum` | a sum over a trailing window   |
+
+Nothing is abbreviated.
 
 ## Adding an operator
 

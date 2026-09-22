@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A walk that names its ends — `sum(array, by=relation, over=a, into=b)`
+  A call that names its ends — `sum(array, by=relation, over=a, into=b)`
   consumes column `a` and lands on column `b`, and the other key column is
   joined on, so each zone's total is taken per period.
 

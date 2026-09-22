@@ -12,17 +12,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, get_args
+from typing import TYPE_CHECKING, Literal, assert_never, cast, get_args
 
 import pyparsing as pp
 
 from math_spec._sealed import Sealed
 from math_spec.errors import SchemaError
+from math_spec.operators import EDGE_WRAP
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Walk, WhereNode
+    from math_spec.program import Direction, Partition, Predicate
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -52,12 +53,19 @@ REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 class NumberNode:
     value: float
 
+    def __str__(self) -> str:
+        """A whole number without its fraction, which is how a file writes one and how it parses back."""
+        return str(int(self.value)) if self.value.is_integer() else str(self.value)
+
 
 @dataclass(frozen=True)
 class NameNode:
     """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node."""
 
     name: str
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass(frozen=True)
@@ -66,12 +74,18 @@ class VariableNode:
 
     name: str
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @dataclass(frozen=True)
 class ParameterNode:
     """A resolved reference to a declared parameter."""
 
     name: str
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass(frozen=True)
@@ -86,6 +100,9 @@ class DualNode:
 
     constraint: str
 
+    def __str__(self) -> str:
+        return f'dual({self.constraint})'
+
 
 @dataclass(frozen=True)
 class DimensionNode:
@@ -97,6 +114,9 @@ class DimensionNode:
 
     name: str
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @dataclass(frozen=True)
 class NameListNode:
@@ -107,31 +127,28 @@ class NameListNode:
 
     names: tuple[str, ...]
 
-    @property
-    def shown(self) -> str:
-        """The kwarg value as the author wrote it, for an error message."""
+    def __str__(self) -> str:
         return shown(self.names)
 
 
 @dataclass(frozen=True)
-class RelationNode:
-    """A resolved ``by=`` — the relation, and the walk the call takes through it.
+class DirectionNode:
+    """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
 
-    ``dimensions`` is the fine side — what ``sum`` consumes and ``at``
-    produces — and ``into`` the coarse dims, which ``sum`` produces and ``at``
-    consumes. The roles joined on are the operand's to carry, and the operator
-    passes them through.
-    """
+    direction: Direction
 
-    name: str
-    dimensions: tuple[str, ...]
-    into: tuple[str, ...]
-    walk: Walk
+    def __str__(self) -> str:
+        return self.direction.name
 
-    @property
-    def shown(self) -> str:
-        """The kwarg value as the author wrote it, for an error message."""
-        return self.name
+
+@dataclass(frozen=True)
+class PartitionNode:
+    """A resolved ``by=`` on ``shift`` or ``sum_back``: the relation, as the :class:`Partition` the call steps inside."""
+
+    partition: Partition
+
+    def __str__(self) -> str:
+        return self.partition.name
 
 
 @dataclass(frozen=True)
@@ -143,10 +160,16 @@ class KeywordNode:
 
     value: str
 
+    def __str__(self) -> str:
+        return f"'{self.value}'"
+
 
 @dataclass(frozen=True)
 class EdgeNode:
     """The resolved ``edge='wrap'``; a number in the same position stays a :class:`NumberNode`."""
+
+    def __str__(self) -> str:
+        return f"'{EDGE_WRAP}'"
 
 
 @dataclass(frozen=True)
@@ -154,12 +177,18 @@ class UnaryOperatorNode:
     op: UnaryOperator
     operand: ArithmeticNode
 
+    def __str__(self) -> str:
+        return f'{self.op}{operand(self.operand)}'
+
 
 @dataclass(frozen=True)
 class BinaryOperatorNode:
     op: BinaryOperator
     left: ArithmeticNode
     right: ArithmeticNode
+
+    def __str__(self) -> str:
+        return f'{operand(self.left)} {self.op} {operand(self.right)}'
 
 
 @dataclass(frozen=True)
@@ -177,6 +206,10 @@ class FunctionCallNode:
     def __post_init__(self) -> None:
         object.__setattr__(self, 'kwargs', Sealed(self.kwargs))
 
+    def __str__(self) -> str:
+        passed = [*(str(arg) for arg in self.args), *(f'{key}={value}' for key, value in self.kwargs.items())]
+        return f'{self.name}({", ".join(passed)})'
+
 
 @dataclass(frozen=True)
 class CaseArm:
@@ -189,7 +222,7 @@ class CaseArm:
     """
 
     label: str
-    when: WhereNode | None
+    when: Predicate | None
     value: ArithmeticNode
 
 
@@ -220,6 +253,10 @@ class CasesNode:
     name: str
     arms: tuple[CaseArm, ...]
 
+    def __str__(self) -> str:
+        """The name the file wrote, which is all an expression ever said: ``cases:`` is YAML and not syntax."""
+        return self.name
+
 
 @dataclass(frozen=True)
 class DefinitionNode:
@@ -233,6 +270,10 @@ class DefinitionNode:
     name: str
     body: ArithmeticNode
 
+    def __str__(self) -> str:
+        """The name the file wrote, rather than the body inlined under it."""
+        return self.name
+
 
 ArithmeticNode = (
     NumberNode
@@ -242,7 +283,8 @@ ArithmeticNode = (
     | ParameterNode
     | DualNode
     | DimensionNode
-    | RelationNode
+    | DirectionNode
+    | PartitionNode
     | EdgeNode
     | KeywordNode
     | UnaryOperatorNode
@@ -259,9 +301,13 @@ class ComparisonNode:
     left: ArithmeticNode
     right: ArithmeticNode
 
+    def __str__(self) -> str:
+        """Both sides bare: a comparison is not an :data:`ArithmeticNode`, so nothing can take one as an operand."""
+        return f'{self.left} {self.op} {self.right}'
+
 
 #: A whole spec-side expression tree — parse output and the resolved tree alike.
-#: Named apart from :data:`math_spec.program.ExpressionNode`, the lowered
+#: Named apart from :data:`math_spec.program.Expression`, the lowered
 #: vocabulary a consumer reads.
 ParsedNode = ArithmeticNode | ComparisonNode
 
@@ -271,13 +317,28 @@ def shown(names: tuple[str, ...]) -> str:
     return names[0] if len(names) == 1 else f'[{", ".join(names)}]'
 
 
+def operand(node: ArithmeticNode) -> str:
+    """One operand of an operator, bracketed where reading the text back would regroup the tree.
+
+    Whoever writes a node into a larger text — an operator, a line of a dumped
+    sum — asks this rather than restating when brackets are needed.
+
+    A leaf, a call and a named expression are self-delimiting, and an operator
+    node is not. The brackets go on every operator operand rather than only the
+    ones precedence would regroup, because a node prints without knowing its
+    parent: ``a + (b * c)`` keeps the tree where ``a + b * c`` would rely on the
+    reader knowing which binds tighter.
+    """
+    return f'({node})' if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode)) else str(node)
+
+
 # Node groups
 
 #: A resolved reference the language admits only as an operator kwarg *value*:
 #: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
-KwargNode = DimensionNode | RelationNode | EdgeNode
+KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
@@ -351,8 +412,12 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
 # ---------------------------------------------------------------------------
 
 
-def _build_grammar() -> pp.ParserElement:
-    """``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would match the prefix of ``inflow``."""
+def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
+    """The arithmetic grammar, and the expression grammar that puts one comparison over it.
+
+    ``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would
+    match the prefix of ``inflow``.
+    """
     arith = pp.Forward()
 
     inf_literal = (pp.Keyword('.inf') | pp.Keyword('inf')).set_parse_action(lambda: NumberNode(float('inf')))
@@ -388,9 +453,10 @@ def _build_grammar() -> pp.ParserElement:
     arith <<= add_sub
 
     comparator = pp.one_of(list(get_args(ComparisonOperator)))
-    return (arith + pp.Optional(comparator + arith)).set_parse_action(
+    expression = (arith + pp.Optional(comparator + arith)).set_parse_action(
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
+    return arith, expression
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
@@ -410,20 +476,23 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
     return FunctionCallNode(name=name, args=tuple(args), kwargs=kwargs)
 
 
-def _make_left_assoc(tokens: pp.ParseResults) -> Any:
+def _make_left_assoc(tokens: pp.ParseResults) -> ArithmeticNode:
+    result: ArithmeticNode
     result, *rest = tokens
     for op, right in zip(rest[::2], rest[1::2], strict=True):
         result = BinaryOperatorNode(op, result, right)
     return result
 
 
-def _make_power(tokens: pp.ParseResults) -> Any:
+def _make_power(tokens: pp.ParseResults) -> ArithmeticNode:
     """A base and at most one exponent — right-associative, since the exponent is itself a ``unary``."""
-    items = list(tokens)
+    items: list[ArithmeticNode] = list(tokens)
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
 
-_GRAMMAR = _build_grammar()
+#: The arithmetic half on its own, for the where grammar to put a predicate's
+#: comparator over: one grammar for what a side may say, wherever it stands.
+ARITHMETIC, _GRAMMAR = _build_grammar()
 
 
 #: How deep a tree the language admits. Every pass over an expression recurses,
@@ -457,20 +526,22 @@ def _too_deep(what: str, text: str, found: int | None, rewrite: str) -> str:
     return f'The {what} {measured}, past the {MAX_DEPTH} levels the language admits: {shown!r}\n{rewrite}'
 
 
-def parse_text(
+def parse_text[T](
     grammar: pp.ParserElement,
     text: str,
     what: str,
     rewrite: Callable[[str, int], str | None],
-    child_of: Callable[[Any], tuple[Any, ...]],
+    child_of: Callable[[T], tuple[T, ...]],
     deep_rewrite: str,
-) -> Any:
+) -> T:
     """Parse the whole of *text* with *grammar*, or raise :class:`SchemaError` naming *what* failed to parse.
 
     *rewrite* is asked for the predictable mistake at the failure position; its
     sentence, if any, precedes the grammar's own complaint. A tree nesting past
     :data:`MAX_DEPTH`, measured through *child_of*, is refused with
-    *deep_rewrite* — and so is one the parser itself ran out of stack on.
+    *deep_rewrite* — and so is one the parser itself ran out of stack on. The
+    node comes back as the type *child_of* walks, which is the grammar's word
+    for what it builds.
     """
     try:
         result = grammar.parse_string(text, parse_all=True)
@@ -480,7 +551,7 @@ def parse_text(
         raise SchemaError(msg) from e
     except RecursionError:
         raise SchemaError(_too_deep(what, text, None, deep_rewrite)) from None
-    node = result[0]
+    node = cast('T', result[0])
     found = depth(node, child_of)
     if found > MAX_DEPTH:
         raise SchemaError(_too_deep(what, text, found, deep_rewrite))
@@ -534,4 +605,4 @@ def parse_expression(text: str) -> ParsedNode:
             lone ``=``, ``^`` for power — is named with its rewrite before the
             grammar's own complaint.
     """
-    return cast('ParsedNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE))
+    return parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE)

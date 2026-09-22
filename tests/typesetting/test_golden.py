@@ -18,7 +18,7 @@ import pytest
 from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.piecewise import expand_piecewise
-from math_spec.program import WhereNode
+from math_spec.program import Predicate
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
@@ -132,24 +132,27 @@ def _rendered_trees() -> Iterator[object]:
     yield from resolved.expressions.values()
 
 
-#: What resolution never hands the walk: the three nodes it types away, and the
-#: three an expression only carries before names are resolved. The walk raises on
-#: each rather than rendering it, so a fixture reaching one would be a bug in
-#: resolution rather than a case worth committing output for.
+#: What resolution never hands the walk: the four nodes a where carries before
+#: its sides are read, and the three an expression only carries before names
+#: are resolved. The walk raises on each rather than rendering it, so a fixture
+#: reaching one would be a bug in resolution rather than a case worth
+#: committing output for.
 UNRESOLVED = {
     'UnresolvedNameNode',
     'UnresolvedComparisonNode',
-    'UnresolvedPositionNode',
+    'ColumnNode',
+    'QuotedNode',
     'NameNode',
     'NameListNode',
     'KeywordNode',
 }
 
 #: A dataclass the walk steps *through* rather than renders: an arm has no
-#: branch of its own — its ``when`` and ``value`` do. Not a member of any node
-#: union, so it is subtracted from what the tree walk finds rather than added
-#: to what the vocabulary declares.
-CARRIERS = {'CaseArm'}
+#: branch of its own — its ``when`` and ``value`` do — and a direction and the
+#: relation it reads are the facts a node carries rather than nodes. None is a
+#: member of any node union, so they are subtracted from what the tree walk
+#: finds rather than added to what the vocabulary declares.
+CARRIERS = {'CaseArm', 'Direction', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
@@ -161,7 +164,7 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     `coverage` installed, and its failure names the construct rather than a line.
     """
     kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)} - CARRIERS
-    declared = {node.__name__ for node in (*get_args(WhereNode), *get_args(ArithmeticNode), ComparisonNode)}
+    declared = {node.__name__ for node in (*get_args(Predicate), *get_args(ArithmeticNode), ComparisonNode)}
     assert kinds == declared - UNRESOLVED, (
         f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
         f'{sorted(declared - UNRESOLVED - kinds)}. Every node the walk renders needs a case here, '

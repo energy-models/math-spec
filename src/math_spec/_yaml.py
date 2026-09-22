@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -64,7 +64,7 @@ def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
     two merge keys are two merges, which PyYAML accumulates.
     """
     if isinstance(node, yaml.MappingNode):
-        seen: dict[Any, int] = {}
+        seen: dict[str, int] = {}
         pairs: list[tuple[yaml.Node, yaml.Node]] = node.value
         for key_node, value_node in pairs:
             line = key_node.start_mark.line + 1
@@ -89,12 +89,12 @@ def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
             _check_duplicate_keys(item, origin)
 
 
-def read_yaml(path: Path | str) -> dict[str, Any]:
+def read_yaml(path: Path | str) -> dict[str, object]:
     """Read *path* off disk and parse it, in YAML 1.2's reading of scalars."""
     return parse_yaml(Path(path).read_text(encoding='utf-8'), str(path))
 
 
-def read_model(model: str | Path) -> dict[str, Any]:
+def read_model(model: str | Path) -> dict[str, object]:
     """A model from a file or from its text — a newline decides which a ``str`` is.
 
     A :class:`~pathlib.Path` names a file, and so does a ``str`` with no
@@ -117,7 +117,7 @@ def read_model(model: str | Path) -> dict[str, Any]:
     return parse_yaml(model, 'YAML text')
 
 
-def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
+def parse_yaml(text: str, origin: str = '<string>') -> dict[str, object]:
     """Parse YAML *text* as a mapping of sections.
 
     Args:
