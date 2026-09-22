@@ -38,7 +38,7 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.piecewise import Where, assumptions_of
+from math_spec.piecewise import CurveMask, assumptions_of
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
@@ -182,7 +182,7 @@ def validate_expressions(schema: Spec) -> Resolved:
 
     expanded_piecewise = {
         name: mask_of(
-            resolve_where_text(Where(pw, ns, f"piecewise '{name}'").exists, ns, f"piecewise '{name}'", errors)
+            resolve_where_text(CurveMask(pw, ns, f"piecewise '{name}'").exists, ns, f"piecewise '{name}'", errors)
         )
         for name, pw in schema._expanded_piecewise.items()
     }

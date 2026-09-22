@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
 
-class Where:
+class CurveMask:
     """A block's ``where:``, as each shape of row the expansion writes reads it.
 
     Resolved once, to answer the one question the expansion asks of it: whether
@@ -198,7 +198,7 @@ def assumptions_of(name: str, block: PiecewiseBlock, ns: Namespace) -> dict[str,
     condition only where it holds.
     """
     d = block.along
-    where = Where(block, ns, f"piecewise '{name}'")
+    where = CurveMask(block, ns, f"piecewise '{name}'")
     mask = where.text if where.ragged else None
     values = [link.values for link in block.links]
     assumed = {
@@ -265,7 +265,7 @@ def _neighbour(parameter: str, along: str, offset: int) -> str:
     return f'shift({parameter}, along={along}, offset={offset}, edge=0)'
 
 
-def _bends(name: str, block: PiecewiseBlock, where: Where, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
+def _bends(name: str, block: PiecewiseBlock, where: CurveMask, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
     """The curve bends the way *curvature* says, as a comparison of the two slopes at each breakpoint.
 
     The slopes are compared as a cross-product rather than as two quotients,
@@ -302,7 +302,7 @@ class _Expansion:
     Every name the expansion may write is spelled once here, so the emitters
     and the collision check read the same table — ``sos`` holds the names a
     method that states a set writes through :func:`math_spec.sos.emit`. The
-    block's ``where:`` reaches every row through :class:`Where`.
+    block's ``where:`` reaches every row through :class:`CurveMask`.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -323,7 +323,7 @@ class _Expansion:
         self.link_rows = tuple(f'{name}_link{i}' for i in range(len(block.links)))
         self.ns = Namespace(schema)
         self.context = f"piecewise '{name}'"
-        self.where = Where(block, self.ns, self.context)
+        self.where = CurveMask(block, self.ns, self.context)
         self._expression_dims: dict[int, frozenset[str]] = {}
         self.frame = self._validated_frame()
 
