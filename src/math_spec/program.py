@@ -10,9 +10,8 @@ every declaration a file makes and no data at all;
 nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
-node's structure does not show are :func:`children` and :func:`fan_in`; the
-questions over the walk are :func:`walk_regions`, :func:`walk` and the filters
-beside them. A
+node's structure does not show is :func:`children`; the questions over the walk
+are :func:`walk_regions`, :func:`walk` and the filters beside them. A
 resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
 one: ``docs/reference/reading.md``.
@@ -58,7 +57,6 @@ __all__ = [
     'Expression',
     'ExpressionComparison',
     'ExpressionDeclaration',
-    'FanIn',
     'Footprint',
     'GroupSum',
     'Mask',
@@ -104,11 +102,8 @@ __all__ = [
     'assumption_message',
     'carries_variable',
     'children',
-    'divisor_parameters',
-    'fan_in',
     'is_quadratic',
     'parameters_of',
-    'quotients',
     'variables_of',
     'walk',
     'walk_regions',
@@ -118,10 +113,7 @@ __all__ = [
 
 ConstraintSense = ComparisonOperator
 
-#: How a shape operator's output rows relate to its input slots, answered by
-#: :func:`fan_in` for every node.
-FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
-ObjectiveSense = _model.ObjectiveSense
+ObjectiveSense = Literal['minimize', 'maximize']
 
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
@@ -181,9 +173,8 @@ class Dual:
 
     Stands only under an :class:`ExpressionDeclaration` the math never reads:
     the loader refuses ``dual()`` anywhere a solver ingests. One value per
-    coordinate of the named constraint's own ``dims`` frame, which is what
-    :func:`fan_in` answers ``one-to-one`` for — the leaf reshapes nothing,
-    like a parameter.
+    coordinate of the named constraint's own ``dims`` frame: the leaf reshapes
+    nothing, like a parameter.
     """
 
     constraint: str
@@ -390,28 +381,6 @@ Expression = (
     | WindowSum
     | Cases
 )
-
-
-def fan_in(expression: Expression | Named) -> FanIn:
-    """How *expression*'s output rows relate to its input slots.
-
-    For the absence rules, both classes other than ``'one-to-one'`` sum
-    several input slots into an output row. A :class:`Named` answers as its
-    body does, so a :attr:`~math_spec.model.Spec.resolved` tree is asked as a
-    program's is.
-    """
-    if isinstance(expression, Named):
-        return fan_in(expression.body)
-    if isinstance(expression, (Sum, GroupSum)):
-        return 'many-to-one'
-    if isinstance(expression, WindowSum):
-        return 'one-to-many'
-    if isinstance(
-        expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Pullback, Translate, Cases),
-    ):
-        return 'one-to-one'
-    assert_never(expression)
 
 
 def children(expression: Expression) -> tuple[Expression, ...]:
@@ -1004,22 +973,6 @@ def parameters_of(*expressions: Expression) -> frozenset[str]:
 def variables_of(*expressions: Expression) -> frozenset[str]:
     """Every variable named anywhere under *expressions*."""
     return frozenset(node.name for node in walk(*expressions) if isinstance(node, Variable))
-
-
-def quotients(*expressions: Expression) -> tuple[Divide, ...]:
-    """Every division under *expressions*, each kept whole.
-
-    The divisor and the numerator answer different questions and one consumer
-    needs them paired: a divisor is judged against the rows the declaration
-    builds *narrowed by the variables in its own numerator*, which the flat
-    :func:`divisor_parameters` cannot say.
-    """
-    return tuple(node for node in walk(*expressions) if isinstance(node, Divide))
-
-
-def divisor_parameters(*expressions: Expression) -> frozenset[str]:
-    """Every parameter named anywhere in a divisor under *expressions*."""
-    return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
 
 # ---------------------------------------------------------------------------
