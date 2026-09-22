@@ -144,7 +144,7 @@ $ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^
   upright("reserve") & italic("reserve") & >= 0 \
   upright("headroom") & italic("headroom") & >= 0 & upright("where ") upright("budget") upright(" is defined") \
   upright("weight") & 0 <= italic("weight")_(t,g) & <= 1 & forall t in cal(T), g in cal(G) \
-  upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) \
+  upright("adjacent") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) \
   upright("fuel") & italic("fuel")_(t,g) & >= 0 & forall t in cal(T), g in cal(G) \
   upright("heat") & italic("heat")_(t,g) & >= 0 & forall t in cal(T), g in cal(G) \
   upright("op_cost") & italic("op_cost")_(t,g) & >= 0 & forall t in cal(T), g in cal(G) \

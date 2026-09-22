@@ -159,7 +159,7 @@
 \text{reserve} && \mathit{reserve} & \ge 0 \\
 \text{headroom} && \mathit{headroom} & \ge 0 && \text{where } \mathrm{budget} \text{ is defined} \\
 \text{weight} && 0 \le \mathit{weight}_{t,g} & \le 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T} \\
+\text{adjacent} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T} \\
 \text{fuel} && \mathit{fuel}_{t,g} & \ge 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{heat} && \mathit{heat}_{t,g} & \ge 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{op\_cost} && \mathit{op\_cost}_{t,g} & \ge 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\

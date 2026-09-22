@@ -840,12 +840,12 @@ class Walk:
         variable it is a property of, rather than among the constraints, where
         it would read as a row a solver holds.
         """
-        sets = {block.variable: block for block in self.schema.sos.values()}
+        sets = {block.variable: (key, block) for key, block in self.schema.sos.items()}
         lines = []
         for name, block in self.schema.variables.items():
             lines.append(self._variable(name))
             if name in sets:
-                lines.append(self._sos(name, sets[name], self._context(frame=block.dims)))
+                lines.append(self._sos(name, *sets[name], self._context(frame=block.dims)))
         return lines
 
     def _variable(self, name: str) -> Line:
@@ -874,12 +874,12 @@ class Walk:
                 right = f'{right}, {symbol} {self._op("in")} {self._op("integers")}'
         return Line(label=name, left=left, right=right, condition=condition)
 
-    def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
+    def _sos(self, name: str, key: str, block: SosBlock, ctx: _Context) -> Line:
         """The variable's family along the set's dim, as one member of the SOS set, quantified over the other dims."""
         dims = self.schema.variables[name].dims
         family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(dims)))
         return Line(
-            label=f'{name} sos',
+            label=key,
             left=self.format.subscript(family, [self._membership(block.over)]),
             right=f'{self._op("in")} {self._op("sos_set")}{block.type}',
             condition=self._quantifier([d for d in dims if d != block.over], ''),

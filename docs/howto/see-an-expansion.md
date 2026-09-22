@@ -73,7 +73,7 @@ holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
         0 \le p_{g} \le 10 \qquad \forall\, g \in \mathcal{G}
         ```
 
-        **`p sos`**
+        **`pick`**
 
         ```math
         \left( p_{g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}1
@@ -303,7 +303,7 @@ writes out in two steps. Compare the tabs from left to right:
         0 \le \mathit{curve\_lam}_{b} \le 1 \qquad \forall\, b \in \mathcal{B}
         ```
 
-        **`curve_lam sos`**
+        **`curve`**
 
         ```math
         \left( \mathit{curve\_lam}_{b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2
