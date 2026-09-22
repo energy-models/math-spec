@@ -46,7 +46,7 @@ from math_spec.program import (
     DimensionComparison,
     DimensionPosition,
     ExpressionComparison,
-    Join,
+    JoinColumns,
     Mask,
     ParameterComparison,
     ParameterDefined,
@@ -161,7 +161,7 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
         return inner - {summed.name}
 
     assert isinstance(by, JoinNode), 'resolution reads sum(by=) as a join'
-    join = by.join
+    join = by.columns
     if missing := sorted(set(join.dropped_dims) - inner):
         raise DimensionError(
             _not_carried(
@@ -178,7 +178,7 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
     """``at`` is the join of ``sum(by=)`` with no group-by: it joins on the dims a sum groups by and groups by the ones a sum joins on."""
     by = node.kwargs['by']
     assert isinstance(by, JoinNode), 'resolution reads at(by=) as a join'
-    join = by.join
+    join = by.columns
     if absent := sorted(set(join.dropped_dims) - inner):
         raise DimensionError(
             f'{context}: at(by={join.name}) joins on '
@@ -212,7 +212,7 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     return inner
 
 
-def _join_dims(call: str, join: Join, inner: frozenset[str], context: str) -> frozenset[str]:
+def _join_dims(call: str, join: JoinColumns, inner: frozenset[str], context: str) -> frozenset[str]:
     """The dims after *join*: the operand's, less the dims joined on, plus the dims grouped by.
 
     A column grouped by and not joined on brings its dim, so the operand does
@@ -234,7 +234,7 @@ def _join_dims(call: str, join: Join, inner: frozenset[str], context: str) -> fr
     return (inner - set(join.joined_dims)) | set(join.grouped_dims)
 
 
-def _check_joined(call: str, use: Join | Partition, inner: frozenset[str], context: str) -> None:
+def _check_joined(call: str, use: JoinColumns | Partition, inner: frozenset[str], context: str) -> None:
     """The columns a call joins on are matched at their dimensions, so the operand carries every one, each once.
 
     Two joined columns over one dimension would match the operand's one

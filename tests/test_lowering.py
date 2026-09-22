@@ -36,10 +36,9 @@ from math_spec.program import (
     Expression,
     ExpressionComparison,
     Footprint,
-    GroupSum,
     Holds,
     Join,
-    Lookup,
+    JoinColumns,
     Mask,
     Multiply,
     Negate,
@@ -91,7 +90,7 @@ TINY = {
 #: `lk` as `sum` joins it: joined on the key, grouped by the value, no key column left unnamed.
 LK = RelationDeclaration((('g', 'g'), ('h', 'h')), ('g',))
 LK2 = RelationDeclaration((('g', 'g'), ('z', 'z')), ('g',))
-LK_JOIN = Join('lk', LK, ('g',), ('h',))
+LK_JOIN = JoinColumns('lk', LK, ('g',), ('h',))
 AT_BUS = RelationDeclaration((('g', 'g'), ('bus', 'bus')), ('g',))
 
 #: `fixtures.SMALL_MODEL` plus a second relation and a per-entity
@@ -427,7 +426,7 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     )
     mask = program.constraints['w'].where
     assert mask is not None and isinstance(mask.root, ExpressionComparison)
-    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Lookup)
+    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Join)
     assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
         'the relation a pullback and a partition read through is data the consumer binds too'
     )
@@ -560,13 +559,13 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-sums-away-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk, over=g, into=h)',
-            GroupSum(Variable('p'), join=LK_JOIN),
-            id='a-grouped-sum-names-the-dim-it-joins-on-and-the-one-it-groups-by',
+            Sum(Join(Variable('p'), LK_JOIN), ('g',)),
+            id='a-grouped-sum-is-a-sum-over-a-join-of-the-dim-the-join-drops',
         ),
         pytest.param(
             'at(r, by=lk, over=h, into=g)',
-            Lookup(Variable('r'), join=Join('lk', LK, ('h',), ('g',))),
-            id='a-lookup-joins-the-same-table-the-other-way',
+            Join(Variable('r'), JoinColumns('lk', LK, ('h',), ('g',))),
+            id='an-at-is-the-same-join-the-other-way-with-no-sum-over-it',
         ),
         pytest.param(
             "shift(p, along=g, offset=1, edge='wrap')",
@@ -694,29 +693,30 @@ def test_a_relation_lowers_with_the_join_each_call_names():
     declared = RelationDeclaration(columns, ('generator', 'snapshot'))
     assert program.relations == {'zone_of': declared}, 'the relation sits once in the program, under its name'
     zonal = program.constraints['zonal'].lhs
-    assert zonal == GroupSum(
-        Variable('p'), join=Join('zone_of', declared, ('generator', 'snapshot'), ('zone', 'snapshot'))
-    ), (
-        'a grouped sum joins on the over= column and the unnamed key column, and groups by the into= column and that key column'
+    columns = JoinColumns('zone_of', declared, ('generator', 'snapshot'), ('zone', 'snapshot'))
+    assert zonal == Sum(Join(Variable('p'), columns), ('generator',)), (
+        'a grouped sum is a sum over a join: the join names the over= column and the unnamed key column as joined on, '
+        'the into= column and that key column as grouped by, and the sum stands over the dim the join drops'
     )
-    assert isinstance(zonal, GroupSum)
-    assert (zonal.join.dropped_dims, zonal.join.added_dims, zonal.join.kept) == (
+    assert isinstance(zonal, Sum) and isinstance(zonal.operand, Join)
+    assert (zonal.operand.columns.dropped_dims, zonal.operand.columns.added_dims, zonal.operand.columns.kept) == (
         ('generator',),
         ('zone',),
         ('snapshot',),
     ), 'the dims a consumer reads are read off the join: dropped, added, and the key columns kept'
-    assert zonal.join.relation is program.relations['zone_of'], (
+    assert zonal.operand.columns.relation is program.relations['zone_of'], (
         'the join holds the one declaration the program holds, not an equal copy built again'
     )
-    assert program.constraints['history'].lhs == GroupSum(
-        Variable('p'), join=Join('zone_of', declared, ('snapshot', 'generator'), ('zone', 'generator'))
+    assert program.constraints['history'].lhs == Sum(
+        Join(Variable('p'), JoinColumns('zone_of', declared, ('snapshot', 'generator'), ('zone', 'generator'))),
+        ('snapshot',),
     ), 'the same table joined on its other key column'
     priced = program.constraints['priced'].rhs
-    assert priced == Lookup(
-        Parameter('price'), join=Join('zone_of', declared, ('zone', 'snapshot'), ('generator', 'snapshot'))
-    ), 'and the lookup joins on the value column and groups by the key column'
-    assert isinstance(priced, Lookup)
-    assert (priced.join.dropped_dims, priced.join.added_dims, priced.join.kept) == (
+    assert priced == Join(
+        Parameter('price'), JoinColumns('zone_of', declared, ('zone', 'snapshot'), ('generator', 'snapshot'))
+    ), 'and an at is the bare join, on the value column, grouped by the key column'
+    assert isinstance(priced, Join)
+    assert (priced.columns.dropped_dims, priced.columns.added_dims, priced.columns.kept) == (
         ('zone',),
         ('generator',),
         ('snapshot',),
@@ -739,13 +739,13 @@ def test_a_binary_variable_lowers_to_a_binary_domain():
     assert program.variables['dispatch'].domain == 'binary'
 
 
-def test_a_divisor_under_a_lookup_is_still_named():
+def test_a_divisor_under_a_join_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
     component_of = RelationDeclaration((('flow', 'flow'), ('component', 'component')), ('flow',))
-    looked_up = Lookup(quotient, join=Join('component_of', component_of, ('component',), ('flow',)))
+    looked_up = Join(quotient, JoinColumns('component_of', component_of, ('component',), ('flow',)))
 
-    assert divisor_parameters(looked_up) == frozenset({'rate'}), 'the walk descends through `Lookup`'
+    assert divisor_parameters(looked_up) == frozenset({'rate'}), 'the walk descends through `Join`'
     assert divisor_parameters(Sum(looked_up, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
@@ -818,8 +818,8 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), join=Join('at_bus', AT_BUS, ('g',), ('bus',))): 'many-to-one',
-    Lookup(Variable('p'), join=Join('at_bus', AT_BUS, ('bus',), ('g',))): 'one-to-one',
+    Sum(Join(Variable('p'), JoinColumns('at_bus', AT_BUS, ('g',), ('bus',))), ('g',)): 'many-to-one',
+    Join(Variable('p'), JoinColumns('at_bus', AT_BUS, ('bus',), ('g',))): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',

@@ -47,7 +47,7 @@ from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
-    Join,
+    JoinColumns,
     Not,
     Or,
     Partition,
@@ -554,7 +554,7 @@ _ZONE_OF = RelationDeclaration((('u', 'unit'), ('zone', 'zone')), ('u',))
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
         pytest.param(
-            JoinNode(Join('zone_of', _ZONE_OF, ('u',), ('zone',))),
+            JoinNode(JoinColumns('zone_of', _ZONE_OF, ('u',), ('zone',))),
             'zone_of',
             id='a-relation-as-a-call-joins-it',
         ),

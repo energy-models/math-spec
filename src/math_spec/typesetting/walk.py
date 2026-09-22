@@ -43,7 +43,7 @@ from math_spec.program import (
     DimensionComparison,
     DimensionPosition,
     ExpressionComparison,
-    Join,
+    JoinColumns,
     Mask,
     Not,
     Or,
@@ -465,7 +465,7 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, JoinNode)
             outer = ctx
-            join = by.join
+            join = by.columns
             at = {r: outer.subscript(join.dim(r)) for r in join.grouped}
             for read in join.dropped:
                 ctx = ctx.looked_up(join.dim(read), self._relation_read(join.name, at, read))
@@ -473,7 +473,7 @@ class Walk:
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, JoinNode)
-            join = by.join
+            join = by.columns
             dummies: dict[str, str] = {}
             inner = ctx
             for d in join.dropped_dims:
@@ -496,7 +496,7 @@ class Walk:
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
-    def _grouping(self, join: Join, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
+    def _grouping(self, join: JoinColumns, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
         """The conditions a grouped sum's domain carries for one join: what it fixes of the row it joins on.
 
         A join fixes its relation's key either way, so each value column it

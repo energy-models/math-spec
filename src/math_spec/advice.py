@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
-from math_spec.program import GroupSum, Lookup, walk
+from math_spec.program import Join, walk
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -74,6 +74,6 @@ def _grouped_axes(program: Program) -> set[str]:
     """
     axes: set[str] = set()
     for node in walk(*program.roots):
-        if isinstance(node, GroupSum | Lookup):
-            axes.update(node.join.added_dims)
+        if isinstance(node, Join):
+            axes.update(node.columns.added_dims)
     return axes
