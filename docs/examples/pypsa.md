@@ -1153,6 +1153,76 @@ def build():
 </details>
 <!-- reference:rung_11_ac_dc_meshed:end -->
 
+### Rung 13 — transmission losses
+
+`n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})`: a line
+dissipates a loss its flow buys along a fan of `K` tangents to the quadratic
+loss curve, half charged at either end of the line. The loss variable, its cap
+and the tangent rows exist only where `transmission_losses` is on; the tangent
+slopes and offsets are data prep, one per `segment`. A plain run leaves the flag
+off and supplies no segments, so the loss is absent and reads as zero in the
+balance, and the model collapses to the lossless one.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Line-loss`](#variable-domains) | done | absent, and zero in the balance, where lossless |
+| [`Line-fix-s-*`, `Line-ext-s-*`](#line-fix-s-lower) | done | the loss counted against the rating |
+| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss at either end |
+| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep |
+| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
+| [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1) | split | |
+| `Line-loss_secants-*` | out | the secant mode solves for its segment count |
+
+<!-- reference:rung_13_losses:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_13_losses.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 13: transmission losses in tangent form — a loss per line."""
+
+from __future__ import annotations
+
+import spine
+
+OPTIMIZE = {'transmission_losses': {'mode': 'tangents', 'segments': 2}}
+
+
+def build():
+    """The spine plus a 110 kV triangle of lines, one of them extendable — ohms a real line has, so the loss stays a few percent of the flow."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b', 'c'], v_nom=110)
+    n.add('Generator', 'hydro13', bus='a', p_nom=80, marginal_cost=10)
+    n.add('Generator', 'diesel13', bus='b', p_nom=80, marginal_cost=50)
+    n.add('Line', 'ab13', bus0='a', bus1='b', carrier='AC', x=30, r=6, s_nom=60)
+    n.add('Line', 'bc13', bus0='b', bus1='c', carrier='AC', x=60, r=9.7, s_nom=60)
+    n.add(
+        'Line',
+        'ca13',
+        bus0='c',
+        bus1='a',
+        carrier='AC',
+        x=45,
+        r=6,
+        s_nom=40,
+        s_nom_extendable=True,
+        s_nom_max=90,
+        capital_cost=4,
+    )
+    n.add('Load', 'town13', bus='c', p_set=[35, 55, 15, 45])
+    return n
+```
+
+</details>
+<!-- reference:rung_13_losses:end -->
+
 ### Rung 14 — two-stage stochastic
 
 Two futures and a risk preference: `n.set_scenarios(...)` with
@@ -1568,12 +1638,6 @@ def build():
 </details>
 <!-- reference:rung_18_transformer:end -->
 
-### Not on a rung
-
-| PyPSA                          | status | note                                 |
-| ------------------------------ | ------ | ------------------------------------ |
-| [`{c}-loss*`](pypsa_losses.md) | done   | rung 13, a file of its own; tangent form |
-
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -1616,7 +1680,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
 | $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a fixed phase shift |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
-| $`\mathcal{B}`$ | index $`b`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
+| $`\mathcal{B}`$ | index $`b`$ — `segment` — the tangents a line's loss curve is approximated by — PyPSA's `transmission_losses` count; none in a lossless run |
+| $`\mathcal{I}`$ | index $`i`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 | $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
 | $`\mathcal{I}`$ | index $`i`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I}`$ — energy carriers, what a growth limit is set per |
 
@@ -1752,6 +1817,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{s}^{\mathrm{nom,set}}`$ | `Line_s_nom_set` over $`\mathcal{K}`$ — a given nominal apparent power for an extendable line; one without a value has no row here |
 | $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
 | $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
+| $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` count read as a flag, its tangents the `segment` axis; false with no segments is a lossless run |
+| $`\overline{\ell}`$ | `Line_loss_max` over $`\mathcal{T} \times \mathcal{K}`$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
+| $`\mathrm{a}`$ | `Line_loss_slope` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a tangent to the loss curve at its segment's flow — `2 * r_pu_eff * p_k`, data prep |
+| $`\mathrm{b}`$ | `Line_loss_offset` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — where that tangent meets the loss axis — `loss_k - slope_k * p_k`, negative, data prep |
 | $`\sigma^{\mathrm{nom}}`$ | `Transformer_s_nom` over $`\mathcal{M}`$ — nominal apparent power |
 | $`\mathrm{ext}^{\sigma}`$ | `Transformer_s_nom_extendable` over $`\mathcal{M}`$ — whether the nominal apparent power is a decision |
 | $`\overline{\sigma}`$ | `Transformer_s_max_pu` over $`\mathcal{T} \times \mathcal{M}`$ — most flow either way, per unit of nominal apparent power |
@@ -1762,26 +1831,26 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\sigma^{\mathrm{set}}`$ | `Transformer_s_set` over $`\mathcal{T} \times \mathcal{M}`$ — a given flow schedule; a transformer without one has no row here |
 | $`\mathrm{x}^{\sigma}`$ | `Transformer_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's effective series reactance, `x` times its tap ratio, signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle basis, data prep; a transformer in no cycle has no row |
 | $`\vartheta`$ | `Transformer_phase_shift_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's fixed phase shift in radians, signed by its orientation in the cycle — a constant added to the cycle sum, data prep; a transformer with no shift or in no cycle has no row. PyPSA also admits an optimisable phase shift, a later rung this file does not carry |
-| $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{B}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
-| $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{B}`$ — which way the row binds — `<=`, `>=` or `==` |
-| $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{B}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
+| $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{I}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
+| $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{I}`$ — which way the row binds — `<=`, `>=` or `==` |
+| $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
 | $`\mathrm{last}`$ | `snapshot_is_last` over $`\mathcal{T}`$ — one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level |
-| $`\mathrm{a}`$ | `Generator_primary_energy_weight` over $`\mathcal{B} \times \mathcal{G}`$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
-| $`\mathrm{a}^{h}`$ | `StorageUnit_primary_energy_weight` over $`\mathcal{B} \times \mathcal{S}`$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
-| $`\mathrm{a}^{e}`$ | `Store_primary_energy_weight` over $`\mathcal{B} \times \mathcal{V}`$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
-| $`\mathrm{b}`$ | `Generator_operational_limit_weight` over $`\mathcal{B} \times \mathcal{G}`$ — one where the generator is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{b}^{h}`$ | `StorageUnit_operational_limit_weight` over $`\mathcal{B} \times \mathcal{S}`$ — one where the storage unit is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{b}^{e}`$ | `Store_operational_limit_weight` over $`\mathcal{B} \times \mathcal{V}`$ — one where the store is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{len}`$ | `Line_volume_weight` over $`\mathcal{B} \times \mathcal{K}`$ — the line's length where its carrier is in the row's set — data prep; a line outside it has no row |
-| $`\mathrm{len}^{f}`$ | `Link_volume_weight` over $`\mathcal{B} \times \mathcal{L}`$ — the link's length where its carrier is in the row's set — data prep; a link outside it has no row |
-| $`\mathrm{cc}`$ | `Line_expansion_cost_weight` over $`\mathcal{B} \times \mathcal{K}`$ — the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row |
-| $`\mathrm{cc}^{f}`$ | `Link_expansion_cost_weight` over $`\mathcal{B} \times \mathcal{L}`$ — the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row |
-| $`\mathrm{m}`$ | `Generator_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{G}`$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{f}`$ | `Link_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{L}`$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{l}`$ | `Line_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{K}`$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{h}`$ | `StorageUnit_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{S}`$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{e}`$ | `Store_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{V}`$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{z}`$ | `Process_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{J}`$ — one where the process is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{a}`$ | `Generator_primary_energy_weight` over $`\mathcal{I} \times \mathcal{G}`$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
+| $`\mathrm{a}^{h}`$ | `StorageUnit_primary_energy_weight` over $`\mathcal{I} \times \mathcal{S}`$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
+| $`\mathrm{a}^{e}`$ | `Store_primary_energy_weight` over $`\mathcal{I} \times \mathcal{V}`$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
+| $`\mathrm{b}`$ | `Generator_operational_limit_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's set — data prep; one outside it has no row |
+| $`\mathrm{b}^{h}`$ | `StorageUnit_operational_limit_weight` over $`\mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's set — data prep; one outside it has no row |
+| $`\mathrm{b}^{e}`$ | `Store_operational_limit_weight` over $`\mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's set — data prep; one outside it has no row |
+| $`\mathrm{len}`$ | `Line_volume_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's length where its carrier is in the row's set — data prep; a line outside it has no row |
+| $`\mathrm{len}^{f}`$ | `Link_volume_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's length where its carrier is in the row's set — data prep; a link outside it has no row |
+| $`\mathrm{cc}`$ | `Line_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row |
+| $`\mathrm{cc}^{f}`$ | `Link_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row |
+| $`\mathrm{m}`$ | `Generator_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{m}^{f}`$ | `Link_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{L}`$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{m}^{l}`$ | `Line_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{K}`$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{m}^{h}`$ | `StorageUnit_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{m}^{e}`$ | `Store_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{m}^{z}`$ | `Process_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{J}`$ — one where the process is in the row's carrier-and-bus set — data prep; one outside it has no row |
 
 #### Variables
 
@@ -1801,6 +1870,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{up}`$ | `Generator_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
 | $`\mathit{dn}`$ | `Generator_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
+| $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the tangents; absent, and zero in the balance, where the network is lossless |
 | $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
 | $`S`$ | `Line_s_nom_ext` over $`\mathcal{K}`$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -1828,11 +1898,11 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
 | $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed transfer wraps from the horizon's end, and where it is not the energy still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
-| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{B}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
-| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{B}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
-| $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\mathcal{B}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
-| $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{B}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
-| $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{B}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
+| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
+| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{I}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\mathcal{I}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
+| $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
+| $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
@@ -2779,14 +2849,14 @@ Generator_shut_down_p_nom_variable_upper:
 
 ```yaml
 Line_fix_s_lower:
-  description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
+  description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating, the loss counted against it"
   dims: [scenario, snapshot, line]
   where: not Line_s_nom_extendable AND Line_active
-  expression: Line_s >= -Line_s_max_pu * Line_s_nom
+  expression: Line_s - Line_loss >= -Line_s_max_pu * Line_s_nom
 ```
 
 ```math
-s_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} - \ell_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-fix-s-upper`
@@ -2795,14 +2865,14 @@ s_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k}
 
 ```yaml
 Line_fix_s_upper:
-  description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
+  description: "`Line-fix-s-upper` — a fixed line carries at most its rating, the loss included"
   dims: [scenario, snapshot, line]
   where: not Line_s_nom_extendable AND Line_active
-  expression: Line_s <= Line_s_max_pu * Line_s_nom
+  expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom
 ```
 
 ```math
-s_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s-lower`
@@ -2811,14 +2881,14 @@ s_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} 
 
 ```yaml
 Line_ext_s_lower:
-  description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
+  description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build, the loss counted against it"
   dims: [scenario, snapshot, line]
   where: Line_s_nom_extendable AND Line_active
-  expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
+  expression: Line_s - Line_loss >= -Line_s_max_pu * Line_s_nom_ext
 ```
 
 ```math
-s_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} - \ell_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s-upper`
@@ -2827,14 +2897,14 @@ s_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \i
 
 ```yaml
 Line_ext_s_upper:
-  description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
+  description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build, the loss included"
   dims: [scenario, snapshot, line]
   where: Line_s_nom_extendable AND Line_active
-  expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
+  expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom_ext
 ```
 
 ```math
-s_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s_nom-lower`
@@ -2899,6 +2969,57 @@ Line_s_set:
 
 ```math
 s_{\xi,t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined} \wedge \mathrm{on}^{s}_{t,k}
+```
+
+### `Line-loss_upper`
+
+`Line_loss_upper`
+
+```yaml
+Line_loss_upper:
+  description: "`Line-loss_upper` — a line dissipates at most the loss at its rating"
+  dims: [scenario, snapshot, line]
+  where: transmission_losses AND Line_active
+  expression: Line_loss <= Line_loss_max
+```
+
+```math
+\ell_{\xi,t,k} \le \overline{\ell}_{t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
+```
+
+### `Line-loss_tangents-{k}-1`
+
+`Line_loss_tangents_forward`
+
+```yaml
+Line_loss_tangents_forward:
+  description: >-
+    `Line-loss_tangents-{k}-1` — the loss sits above every tangent to its
+    curve for flow one way; PyPSA names one row per segment `k`, this block
+    states them all over the segment dimension
+  dims: [scenario, snapshot, line, segment]
+  where: transmission_losses AND Line_active
+  expression: Line_loss + Line_loss_slope * Line_s >= Line_loss_offset
+```
+
+```math
+\ell_{\xi,t,k} + \mathrm{a}_{t,k,b} \cdot s_{\xi,t,k} \ge \mathrm{b}_{t,k,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
+```
+
+### `Line-loss_tangents-{k}--1`
+
+`Line_loss_tangents_reverse`
+
+```yaml
+Line_loss_tangents_reverse:
+  description: "`Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending on the flow's magnitude"
+  dims: [scenario, snapshot, line, segment]
+  where: transmission_losses AND Line_active
+  expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset
+```
+
+```math
+\ell_{\xi,t,k} - \mathrm{a}_{t,k,b} \cdot s_{\xi,t,k} \ge \mathrm{b}_{t,k,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Transformer-fix-s-lower`
@@ -3580,7 +3701,7 @@ GlobalConstraint_primary_energy_ub:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,b} \le \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{primary\_energy}_{\xi,i} \le \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `primary_energy`
@@ -3596,7 +3717,7 @@ GlobalConstraint_primary_energy_lb:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,b} \ge \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{primary\_energy}_{\xi,i} \ge \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `primary_energy`
@@ -3612,7 +3733,7 @@ GlobalConstraint_primary_energy_eq:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,b} = \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{primary\_energy}_{\xi,i} = \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `operational_limit`
@@ -3628,7 +3749,7 @@ GlobalConstraint_operational_limit_ub:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,b} \le \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{operational\_limit}_{\xi,i} \le \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `operational_limit`
@@ -3644,7 +3765,7 @@ GlobalConstraint_operational_limit_lb:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,b} \ge \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{operational\_limit}_{\xi,i} \ge \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `operational_limit`
@@ -3660,7 +3781,7 @@ GlobalConstraint_operational_limit_eq:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,b} = \mathrm{K}_{b} \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{operational\_limit}_{\xi,i} = \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -3676,7 +3797,7 @@ GlobalConstraint_transmission_volume_expansion_limit_ub:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{b} \le \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{transmission\_volume\_expansion}_{i} \le \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -3692,7 +3813,7 @@ GlobalConstraint_transmission_volume_expansion_limit_lb:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{b} \ge \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{transmission\_volume\_expansion}_{i} \ge \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -3708,7 +3829,7 @@ GlobalConstraint_transmission_volume_expansion_limit_eq:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{b} = \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{transmission\_volume\_expansion}_{i} = \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -3724,7 +3845,7 @@ GlobalConstraint_transmission_expansion_cost_limit_ub:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{b} \le \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{transmission\_expansion\_cost}_{i} \le \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -3740,7 +3861,7 @@ GlobalConstraint_transmission_expansion_cost_limit_lb:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{b} \ge \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{transmission\_expansion\_cost}_{i} \ge \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -3756,7 +3877,7 @@ GlobalConstraint_transmission_expansion_cost_limit_eq:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{b} = \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{transmission\_expansion\_cost}_{i} = \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -3772,7 +3893,7 @@ GlobalConstraint_tech_capacity_expansion_limit_ub:
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{b} \le \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}
+\mathit{tech\_capacity\_expansion}_{i} \le \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -3788,7 +3909,7 @@ GlobalConstraint_tech_capacity_expansion_limit_lb:
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{b} \ge \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}
+\mathit{tech\_capacity\_expansion}_{i} \ge \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -3804,7 +3925,7 @@ GlobalConstraint_tech_capacity_expansion_limit_eq:
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{b} = \mathrm{K}_{b} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}
+\mathit{tech\_capacity\_expansion}_{i} = \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `Bus-nodal_balance`
@@ -3818,7 +3939,8 @@ Bus_nodal_balance:
     stores included, less what the links take away, plus what arrives over
     them after losses and any delay at every port they deliver to, each
     process port drawing or delivering at its own rate and each passive branch
-    carrying its flow, meets the load there.
+    carrying its flow, meets the load there, less half of every incident
+    line's loss — PyPSA dissipates a branch's loss half at either end.
     A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
   dims: [scenario, snapshot, bus]
@@ -3831,13 +3953,15 @@ Bus_nodal_balance:
     + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
     - sum(Line_s, by=Line_bus0, over=line, into=bus)
     + sum(Line_s, by=Line_bus1, over=line, into=bus)
+    - 0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus)
+    - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
     - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
     + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
     == sum(Load_p_set, by=Load_bus, over=load, into=bus)
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
 ```
 
 ### `Carrier-growth_limit`
@@ -4127,7 +4251,7 @@ primary_energy:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B}
+\mathit{primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `operational_limit`
@@ -4145,7 +4269,7 @@ operational_limit:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) \qquad \forall\, \xi \in \Xi,\ b \in \mathcal{B}
+\mathit{operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `transmission_volume_expansion`
@@ -4159,7 +4283,7 @@ transmission_volume_expansion:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{b} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{b,l} \qquad \forall\, b \in \mathcal{B}
+\mathit{transmission\_volume\_expansion}_{i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{i,l} \qquad \forall\, i \in \mathcal{I}
 ```
 
 ### `transmission_expansion_cost`
@@ -4173,7 +4297,7 @@ transmission_expansion_cost:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{b} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{b,l} \qquad \forall\, b \in \mathcal{B}
+\mathit{transmission\_expansion\_cost}_{i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{i,l} \qquad \forall\, i \in \mathcal{I}
 ```
 
 ### `tech_capacity_expansion`
@@ -4191,7 +4315,7 @@ tech_capacity_expansion:
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{b} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{m}^{z}_{b,j} \qquad \forall\, b \in \mathcal{B}
+\mathit{tech\_capacity\_expansion}_{i} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{i,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{i,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{i,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{i,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{i,v} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{m}^{z}_{i,j} \qquad \forall\, i \in \mathcal{I}
 ```
 
 ### `scenario_opex`
@@ -4303,6 +4427,12 @@ u_{\xi,t,g} \ge 0, u_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \
 
 ```math
 s_{\xi,t,k} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{on}^{s}_{t,k}
+```
+
+**`Line_loss`**
+
+```math
+\ell_{\xi,t,k} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 **`Transformer_s`**

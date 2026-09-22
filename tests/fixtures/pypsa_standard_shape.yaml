@@ -422,6 +422,17 @@ parameters:
   Line_expansion_cost_weight:
     - global_constraint
     - line
+  Line_loss_max:
+    - snapshot
+    - line
+  Line_loss_offset:
+    - snapshot
+    - line
+    - segment
+  Line_loss_slope:
+    - snapshot
+    - line
+    - segment
   Line_s_max_pu:
     - snapshot
     - line
@@ -673,6 +684,7 @@ parameters:
     - snapshot
   snapshot_weightings_stores:
     - snapshot
+  transmission_losses: []
 relations:
   - Generator_bus
   - Line_bus0

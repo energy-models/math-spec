@@ -49,6 +49,9 @@ dimensions:
     description: passive branches between two buses, their flow set by impedance and tap ratio, with a fixed phase shift
   cycle:
     description: independent cycles of the passive network graph — the cycle basis, data prep
+  segment:
+    description: the tangents a line's loss curve is approximated by — PyPSA's `transmission_losses` count; none in a lossless run
+    dtype: int
   global_constraint:
     description: PyPSA's `GlobalConstraint` rows, one label per declared limit
   period:
@@ -498,6 +501,22 @@ parameters:
       the line's series impedance, signed by its orientation in the cycle —
       the cycle basis, data prep; a line in no cycle has no row
     dims: [line, cycle]
+  transmission_losses:
+    description: >-
+      whether the network dissipates transmission losses — PyPSA's
+      `transmission_losses` count read as a flag, its tangents the `segment`
+      axis; false with no segments is a lossless run
+    dims: []
+    dtype: bool
+  Line_loss_max:
+    description: the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep
+    dims: [snapshot, line]
+  Line_loss_slope:
+    description: the slope of a tangent to the loss curve at its segment's flow — `2 * r_pu_eff * p_k`, data prep
+    dims: [snapshot, line, segment]
+  Line_loss_offset:
+    description: where that tangent meets the loss axis — `loss_k - slope_k * p_k`, negative, data prep
+    dims: [snapshot, line, segment]
   Transformer_s_nom:
     description: nominal apparent power
     dims: [transformer]
@@ -767,6 +786,16 @@ variables:
       positive value withdraws there and injects at `Line_bus1`, lossless
     dims: [scenario, snapshot, line]
     where: Line_active
+  Line_loss:
+    description: >-
+      `Line-loss` — what a line dissipates carrying its flow, pushed down by the
+      cost and held up by the tangents; absent, and zero in the balance, where
+      the network is lossless
+    dims: [scenario, snapshot, line]
+    where: transmission_losses AND Line_active
+    absence: zero
+    bounds:
+      lower: 0
   Transformer_s:
     description: >-
       `Transformer-s` — PyPSA's `p0`, the flow measured at the
@@ -1332,25 +1361,25 @@ constraints:
     where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0 AND Generator_active
     expression: Generator_shut_down <= Generator_n_mod
   Line_fix_s_lower:
-    description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
+    description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating, the loss counted against it"
     dims: [scenario, snapshot, line]
     where: not Line_s_nom_extendable AND Line_active
-    expression: Line_s >= -Line_s_max_pu * Line_s_nom
+    expression: Line_s - Line_loss >= -Line_s_max_pu * Line_s_nom
   Line_fix_s_upper:
-    description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
+    description: "`Line-fix-s-upper` — a fixed line carries at most its rating, the loss included"
     dims: [scenario, snapshot, line]
     where: not Line_s_nom_extendable AND Line_active
-    expression: Line_s <= Line_s_max_pu * Line_s_nom
+    expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom
   Line_ext_s_lower:
-    description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
+    description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build, the loss counted against it"
     dims: [scenario, snapshot, line]
     where: Line_s_nom_extendable AND Line_active
-    expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
+    expression: Line_s - Line_loss >= -Line_s_max_pu * Line_s_nom_ext
   Line_ext_s_upper:
-    description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
+    description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build, the loss included"
     dims: [scenario, snapshot, line]
     where: Line_s_nom_extendable AND Line_active
-    expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
+    expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom_ext
   Line_ext_s_nom_lower:
     description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
     dims: [line]
@@ -1371,6 +1400,24 @@ constraints:
     dims: [scenario, snapshot, line]
     where: Line_s_set AND Line_active
     expression: Line_s == Line_s_set
+  Line_loss_upper:
+    description: "`Line-loss_upper` — a line dissipates at most the loss at its rating"
+    dims: [scenario, snapshot, line]
+    where: transmission_losses AND Line_active
+    expression: Line_loss <= Line_loss_max
+  Line_loss_tangents_forward:
+    description: >-
+      `Line-loss_tangents-{k}-1` — the loss sits above every tangent to its
+      curve for flow one way; PyPSA names one row per segment `k`, this block
+      states them all over the segment dimension
+    dims: [scenario, snapshot, line, segment]
+    where: transmission_losses AND Line_active
+    expression: Line_loss + Line_loss_slope * Line_s >= Line_loss_offset
+  Line_loss_tangents_reverse:
+    description: "`Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending on the flow's magnitude"
+    dims: [scenario, snapshot, line, segment]
+    where: transmission_losses AND Line_active
+    expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset
   Transformer_fix_s_lower:
     description: "`Transformer-fix-s-lower` — a fixed transformer carries at least the negative of its rating"
     dims: [scenario, snapshot, transformer]
@@ -1689,7 +1736,8 @@ constraints:
       stores included, less what the links take away, plus what arrives over
       them after losses and any delay at every port they deliver to, each
       process port drawing or delivering at its own rate and each passive branch
-      carrying its flow, meets the load there.
+      carrying its flow, meets the load there, less half of every incident
+      line's loss — PyPSA dissipates a branch's loss half at either end.
       A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     dims: [scenario, snapshot, bus]
@@ -1702,6 +1750,8 @@ constraints:
       + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
       - sum(Line_s, by=Line_bus0, over=line, into=bus)
       + sum(Line_s, by=Line_bus1, over=line, into=bus)
+      - 0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus)
+      - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
       - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
       + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
       == sum(Load_p_set, by=Load_bus, over=load, into=bus)
