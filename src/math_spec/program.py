@@ -43,16 +43,14 @@ __all__ = [
     'Add',
     'And',
     'ArithmeticComparison',
-    'AtLeastTwo',
+    'Assumption',
     'BooleanLiteral',
     'Cases',
-    'Check',
     'Connective',
     'Constant',
     'ConstraintDeclaration',
     'ConstraintSense',
-    'Contiguous',
-    'Curved',
+    'CountComparison',
     'Derivation',
     'DimensionComparison',
     'DimensionDeclaration',
@@ -68,7 +66,7 @@ __all__ = [
     'FirstOf',
     'Footprint',
     'GroupSum',
-    'Increasing',
+    'Holds',
     'LastOf',
     'Mask',
     'MaskOf',
@@ -101,6 +99,7 @@ __all__ = [
     'SosDeclaration',
     'Sum',
     'Translate',
+    'TranslatedPredicate',
     'TypedPredicate',
     'Variable',
     'VariableAbsence',
@@ -108,8 +107,8 @@ __all__ = [
     'VariableDefined',
     'VariableDomain',
     'WindowSum',
+    'assumption_message',
     'carries_variable',
-    'check_message',
     'children',
     'divisor_parameters',
     'fan_in',
@@ -580,112 +579,70 @@ Derivation = MaskOf | FirstOf | LastOf
 
 
 @dataclass(frozen=True)
-class Increasing:
-    """*parameter* is strictly increasing along *along* within each curve — the x-axis a method sorts by."""
-
-    parameter: str
-    along: str
-
-
-@dataclass(frozen=True)
-class Curved:
-    """*y* over *x* bends, along *along*, the way *curvature* says.
-
-    That is the shape the method is exact for. ``either`` is the hull's
-    weaker condition: any single bend, so only a mixed curve fails it.
-    """
-
-    x: str
-    y: str
-    along: str
-    curvature: _model.Curvature
-
-
-@dataclass(frozen=True)
-class AtLeastTwo:
-    """Each curve has at least two breakpoints — every position along *along*, or those *mask* admits."""
-
-    along: str
-    mask: str | None
-
-
-@dataclass(frozen=True)
-class Contiguous:
-    """*mask* admits one consecutive run of at least one breakpoint per curve."""
-
-    mask: str
-    #: The breakpoint parameter the mask was derived from, where it was — the
-    #: name the file wrote, and the one a refusal names.
-    values: str | None
-
-
-#: What a ``piecewise:`` block assumes of the numbers it is bound to. The data
-#: decides whether each holds, so the language names the condition with its
-#: subjects and its sentence (:func:`check_message`), and the consumer holding
-#: the numbers checks. Closed, like :data:`Derivation`.
-Check = Increasing | Curved | AtLeastTwo | Contiguous
-
-
-@dataclass(frozen=True)
 class PiecewiseDeclaration:
     """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
 
     The expansion lowered the links into constraints and emitted the
     parameters it needs — each of those says how it is filled, on its own
-    :attr:`ParameterDeclaration.derivation`. What is left here is the curve
-    and what the block assumes of it.
+    :attr:`ParameterDeclaration.derivation`. What the block assumes of its
+    numbers is an :data:`Assumption` like any other, under
+    :attr:`Program.assumptions`; what is left here is the curve.
 
     Attributes:
         along: The dimension each curve runs along.
         method: How the weights are restricted.
         breakpoints: The links' values parameters, in link order.
-        checks: What the block assumes of the numbers, each carrying its own
-            subjects, for the consumer holding them to check.
         where: Which coordinates have a curve, ``None`` where every one does.
-            The checks are asked only there, so a coordinate the block leaves
-            without a curve is not held to breakpoints it carries no rows for.
+            What the block assumes is asked only there, so a coordinate the
+            block leaves without a curve is not held to breakpoints it carries
+            no rows for.
     """
 
     along: str
     method: _model.PiecewiseMethod
     breakpoints: tuple[str, ...]
-    checks: tuple[Check, ...]
     where: Mask | None = None
 
 
-def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:
-    """The sentence a consumer raises when the data bound to *block* fails *check*.
+@dataclass(frozen=True)
+class Holds:
+    """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
+
+    ``predicate`` is true at every coordinate of its frame — the product of
+    every dim the two masks name — that ``where`` admits, a missing row
+    reading as false as it does in any mask. Nothing here is decidable at
+    load: both sides are the data's, which is why the consumer binding it
+    checks.
+    """
+
+    predicate: Mask
+    where: Mask | None = None
+    #: What the file wrote under ``description:``, or the sentence a
+    #: ``piecewise:`` method implies. The refusal trails it: the names alone
+    #: say which columns are wrong, and not why the rule is there.
+    description: str | None = None
+
+
+#: One fact about the data a consumer has to check before it solves — the
+#: file's own, and every one a ``piecewise:`` method implies, which the
+#: expansion writes into ``assumptions:`` and a load derives for a block still
+#: declared. The data decides whether each holds, so the language states the
+#: condition and the consumer holding the numbers checks.
+Assumption = Holds
+
+
+def assumption_message(name: str, assumption: Assumption) -> str:
+    """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
-    a consumer appends what it saw.
+    a consumer appends the coordinates it saw. Where the file wrote a
+    ``description:``, or a ``piecewise:`` method implied one, it trails the
+    sentence: the names say which columns are wrong, and the description says
+    why the rule is there.
     """
-    ctx = f"piecewise '{block}'"
-    match check:
-        case Increasing(parameter, over):
-            return (
-                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
-            )
-        case Curved(x, y, over, curvature):
-            shape = 'a single bend' if curvature == 'either' else f'a {curvature} curve'
-            return (
-                f"{ctx}: method: {pw.method} is exact only for {shape}, and '{y}' over '{x}' along "
-                f"'{over}' is not one, so the answer is wrong rather than loose. Use method: adjacency "
-                f'or sos2, which take a curve of any shape.'
-            )
-        case AtLeastTwo():
-            return (
-                f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
-                f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
-                f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
-            )
-        case Contiguous(mask, values):
-            return (
-                f"{ctx}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
-                f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
-                f"the domain rows sit on the curve's own first and last."
-            )
-        case _:
-            assert_never(check)
+    read = ', '.join(f"'{n}'" for n in sorted(assumption.predicate.names_read))
+    sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+    return f'{sentence} — {assumption.description}' if assumption.description else sentence
 
 
 @dataclass(frozen=True)
@@ -741,16 +698,11 @@ class SosDeclaration:
     dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
     (:attr:`Program.variables`).
-
-    ``big_m`` caps the linking coefficient a consumer without the concept
-    reformulates with, and is ``None`` where the variable's own upper bound is
-    the only cap.
     """
 
     variable: str
     along: str
     sos_type: Literal[1, 2]
-    big_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -935,6 +887,12 @@ class Program:
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
     piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
+    #: What the data has to satisfy for the answer to mean anything, by the
+    #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
+    #: what each ``piecewise:`` block's method assumes of its breakpoints. The
+    #: language decides none of it, so the consumer binding the data checks
+    #: each and refuses with :func:`assumption_message`.
+    assumptions: Mapping[str, Assumption] = Sealed({})
     #: Declared ``expressions:``, lowered, each saying whether the math reads
     #: it. None builds a row of its own — one the math reads is inlined where
     #: it is read — but all are lowered with the program, so a file whose
@@ -1247,6 +1205,41 @@ class RelationDefined:
 
 
 @dataclass(frozen=True)
+class CountComparison:
+    """How many coordinates *predicate* admits along *over*, against a literal — ``count(points, over=bp) >= 2``.
+
+    The count is one number per coordinate of ``dims``, which is every dim
+    *predicate* reads minus *over*, so a claim about each curve is written
+    without saying "each curve". A predicate a leaf reads arrives as a
+    :class:`Mask`, where a connective's operand is a bare :data:`Predicate`:
+    a walk recurses through the second and stops at the first.
+    """
+
+    predicate: Mask
+    over: str
+    op: PredicateOperator
+    value: float
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TranslatedPredicate:
+    """*operand* read at a neighbouring coordinate — ``shift(points, along=bp, offset=1)``.
+
+    False where the translation vacates, and there is no ``edge=`` to state.
+    The arithmetic translation needs one because no number is neutral and
+    inventing one changes the answer; false is what a missing row already
+    means in a mask, so the predicate form has the value the language already
+    gives it.
+    """
+
+    operand: Mask
+    along: str
+    offset: int
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Not:
     operand: Predicate
 
@@ -1281,6 +1274,8 @@ Predicate = (
     | RelationComparison
     | RelationPairComparison
     | RelationDefined
+    | CountComparison
+    | TranslatedPredicate
     | Not
     | And
     | Or
@@ -1300,6 +1295,8 @@ TypedPredicate = (
     | RelationComparison
     | RelationPairComparison
     | RelationDefined
+    | CountComparison
+    | TranslatedPredicate
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
@@ -1360,6 +1357,8 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
             | ArithmeticComparison()
             | ParameterDefined()
             | VariableDefined()
+            | CountComparison()
+            | TranslatedPredicate()
         ):
             return frozenset(atom.dims)
         case DimensionComparison():
@@ -1393,6 +1392,10 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
         case ArithmeticComparison():
             msg = 'a resolved mask is asked what it reads; lowering rebuilds it first, and the program mask answers.'
             raise AssertionError(msg)
+        case CountComparison():
+            return atom.predicate.names_read
+        case TranslatedPredicate():
+            return atom.operand.names_read
         case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:
@@ -1404,12 +1407,15 @@ def _names_under(*expressions: Expression) -> frozenset[str]:
 
     :func:`parameters_of` alone misses the data an operator reads beside its
     operand: the relation a grouping or a pullback reads through, the one a
-    translation or a window is partitioned by, and the parameter a named
-    offset or width is read from.
+    translation or a window is partitioned by, the parameter a named offset or
+    width is read from, and whatever decides which region of a cased value
+    applies.
     """
     names: set[str] = set(parameters_of(*expressions))
     for node in walk(*expressions):
-        if isinstance(node, (GroupSum, Pullback)):
+        if isinstance(node, Cases):
+            names.update(*(region.when.names_read for region in node.regions))
+        elif isinstance(node, (GroupSum, Pullback)):
             names.add(node.direction.name)
         elif isinstance(node, (Translate, WindowSum)):
             if node.partition is not None:

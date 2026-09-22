@@ -19,6 +19,37 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.111](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.110...v0.0.0-alpha.111) (2026-09-22)
+
+
+### Features
+
+* **language:** a model declares what it assumes of its data ([#589](https://github.com/energy-models/math-spec/issues/589)) ([e1454cf](https://github.com/energy-models/math-spec/commit/e1454cf6fac8ef1b05b80532fcc0fe6a8a4e5372))
+* **language:** a model writes its formulations out on request, and states what each assumes of its data ([#602](https://github.com/energy-models/math-spec/issues/602)) ([1e00c23](https://github.com/energy-models/math-spec/commit/1e00c23e227489d14790d85de5337b8edd584b10))
+* **language:** a where counts the coordinates a predicate admits ([#592](https://github.com/energy-models/math-spec/issues/592)) ([5cc55d3](https://github.com/energy-models/math-spec/commit/5cc55d3c145a9139672029aa257ed4935da0d79f))
+* **language:** a where may compare arithmetic over parameters ([#566](https://github.com/energy-models/math-spec/issues/566)) ([e9793bd](https://github.com/energy-models/math-spec/commit/e9793bde6e903b5783e517aeeaa1e29150d0c37c))
+
+## [0.0.0-alpha.110](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.109...v0.0.0-alpha.110) (2026-09-21)
+
+
+### Documentation
+
+* **language:** the relations page states what decides a sum from a read ([#597](https://github.com/energy-models/math-spec/issues/597)) ([3f6b632](https://github.com/energy-models/math-spec/commit/3f6b6325ee6a89dbaec55482a6f0e126cadb664c))
+
+## [0.0.0-alpha.109](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.108...v0.0.0-alpha.109) (2026-09-21)
+
+
+### Bug Fixes
+
+* **language:** a read that lands outside the key is refused ([#598](https://github.com/energy-models/math-spec/issues/598)) ([ce6359c](https://github.com/energy-models/math-spec/commit/ce6359cd7a5fbc66738cd746f704ab96a77f3d36))
+
+## [0.0.0-alpha.108](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.107...v0.0.0-alpha.108) (2026-09-20)
+
+
+### Refactoring
+
+* **program:** a program names its nodes by the naming rule and its groups as the file does ([#585](https://github.com/energy-models/math-spec/issues/585)) ([3848821](https://github.com/energy-models/math-spec/commit/38488217d8f1fc23990c9bb4d933ccec1b1e0a42))
+
 ## [0.0.0-alpha.107](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.106...v0.0.0-alpha.107) (2026-09-20)
 
 

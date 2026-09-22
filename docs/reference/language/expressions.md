@@ -75,7 +75,8 @@ Position decides which kinds of name are legal:
 A bare word in the value of a keyword argument is a name to resolve, which is
 why `wrap` is quoted. A keyword's key is never a name.
 
-Constraints sit outside the flat namespace, so a model may name a constraint
+Constraints and assumptions sit outside the flat namespace, because no
+expression names either, so a model may name a constraint or an assumption
 after a variable. The objective has no name at all.
 
 ## How dimensions combine
@@ -114,30 +115,35 @@ A `where:` is a boolean mask, and true means "this coordinate exists".
 where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
 atom       ::= NAME | NAME COMPARATOR value | expression COMPARATOR expression
-            |  POSITION COMPARATOR INTEGER | "True" | "False"
+            |  POSITION COMPARATOR INTEGER | COUNT COMPARATOR INTEGER | TRANSLATED
+            |  "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
 value      ::= NUMBER | QUOTED | NAME_OR_STRING
 expression ::= the arithmetic grammar above, with no variable and no dual in it
 POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME "," "within" "=" COLUMNS ] ")"
+COUNT      ::= "count" "(" where_expr "," "over" "=" NAME ")"
+TRANSLATED ::= "shift" "(" where_expr "," "along" "=" NAME "," "offset" "=" INTEGER ")"
 COLUMNS    ::= NAME | "[" NAME { "," NAME } "]"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Written as                              | Names a…                   | Meaning                                                                                                                                                                             |
-| --------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                           | parameter                  | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite                                    |
-| `name` (bare)                           | variable                   | The variable exists at this coordinate                                                                                                                                              |
-| `name` (bare)                           | relation                   | A row exists, read at the relation's key. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                                      |
-| `name` (bare)                           | dimension                  | A load error. It would be true everywhere                                                                                                                                           |
-| `name OP value`                         | parameter                  | Element-wise, and a null compares false                                                                                                                                             |
-| `name OP value`                         | dimension                  | A filter on the frame's own coordinate column                                                                                                                                       |
-| `name OP value`, `name.col OP value`    | relation                   | A filter on a value column, read at the relation's key. Name the column where the key determines several                                                                            |
-| `name OP name`, `name.a OP name.b`      | two relation columns       | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                |
-| `expression OP expression`              | arithmetic over parameters | Coordinate by coordinate, over every dimension either side carries ([arithmetic in a comparison](#arithmetic-in-a-comparison)). A side with no value at a coordinate compares false |
-| `position(name) OP i`                   | dimension                  | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                         |
-| `position(name, by=relation, within=c)` | dimension                  | The same, counted within each group the relation makes                                                                                                                              |
-| `AND` `OR` `NOT`                        | —                          | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                       |
-| `True` / `False`                        | —                          | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either                   |
+| Written as                                | Names a…                   | Meaning                                                                                                                                                                             |
+| ----------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                             | parameter                  | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite                                    |
+| `name` (bare)                             | variable                   | The variable exists at this coordinate                                                                                                                                              |
+| `name` (bare)                             | relation                   | A row exists, read at the relation's key. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                                      |
+| `name` (bare)                             | dimension                  | A load error. It would be true everywhere                                                                                                                                           |
+| `name OP value`                           | parameter                  | Element-wise, and a null compares false                                                                                                                                             |
+| `name OP value`                           | dimension                  | A filter on the frame's own coordinate column                                                                                                                                       |
+| `name OP value`, `name.col OP value`      | relation                   | A filter on a value column, read at the relation's key. Name the column where the key determines several                                                                            |
+| `name OP name`, `name.a OP name.b`        | two relation columns       | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                |
+| `expression OP expression`                | arithmetic over parameters | Coordinate by coordinate, over every dimension either side carries ([arithmetic in a comparison](#arithmetic-in-a-comparison)). A side with no value at a coordinate compares false |
+| `position(name) OP i`                     | dimension                  | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                         |
+| `position(name, by=relation, within=c)`   | dimension                  | The same, counted within each group the relation makes                                                                                                                              |
+| `count(where_expr, over=name) OP i`       | a predicate                | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
+| `shift(where_expr, along=name, offset=i)` | a predicate                | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
+| `AND` `OR` `NOT`                          | —                          | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                       |
+| `True` / `False`                          | —                          | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either                   |
 
 The dimensions of the mask must not exceed the frame it sits in. A bare name
 that is not declared is a load error.
@@ -146,6 +152,65 @@ that is not declared is a load error.
 
     A bare parameter name is true wherever the table has a row, and a row
     holding `0.0` is a row. Where you mean non-zero, write `where: "inflow != 0"`.
+
+### Counting what a predicate admits
+
+`count(<where_expr>, over=<dimension>)` is how many coordinates along that
+dimension the predicate is true at. It is the one place a predicate is read as
+a number, and it is compared against a whole number:
+
+```yaml
+dimensions:
+  bp: { dtype: int }
+  generator: { dtype: str }
+parameters:
+  bp_x: { dims: [generator, bp] }
+  points: { dims: [generator, bp], dtype: bool }
+variables:
+  p:
+    dims: [generator]
+    where: "count(points, over=bp) >= 2"
+    bounds: { lower: 0 }
+constraints:
+  cap:
+    dims: [generator]
+    expression: p <= 1
+objective:
+  sense: minimize
+  expression: sum(p, over=generator)
+```
+
+$$\lvert \{ b \in \mathcal{B} \thinspace : \thinspace \mathrm{points}_{g,b} \} \rvert \ge 2 \qquad \forall\thinspace g \in \mathcal{G}$$
+
+The dimension counted over is **removed**, as a `sum(over=)` removes it, so
+what is left is one number per remaining coordinate — one per generator above.
+The count therefore states a fact about each group without naming the group.
+Counting along a dimension the predicate does not read is a load error.
+
+The comparison takes a whole number on the right. A count is a number of
+coordinates, so a fraction and a parameter are both load errors, and so is a
+comparison a count can never fail or never meet: `>= 0`, `< 0`, or any
+negative number.
+
+### Reading a predicate at the previous coordinate
+
+`shift(<where_expr>, along=<dimension>, offset=<integer>)` reads the predicate
+`offset` coordinates back. It is **false** where the translation vacates, and
+it takes no `edge=`: the arithmetic `shift` needs one because no number is
+neutral, and false is what a missing row already means in a mask.
+
+The two together name the start of a run — a coordinate the mask admits whose
+neighbour before it the mask does not:
+
+```yaml
+where: "count(points AND NOT shift(points, along=bp, offset=1), over=bp) == 1"
+```
+
+That reads: the marked breakpoints are one consecutive run.
+
+A negative `offset` reads forwards. `by=`, `within=` and `edge='wrap'` are not
+in this form; where you need a grouped or cyclic translation, compare the
+arithmetic one instead.
 
 ### The right-hand side of a comparison
 
@@ -203,13 +268,16 @@ A case `when:` may not compare expressions. The loader proves the cases of a
 [`cases:` block](named.md#the-rules-that-keep-the-cases-apart) apart at load,
 by trying every value the masks name. A comparison of expressions names no
 value, because only the data decides whether `c > 2 * k` holds, so the loader
-refuses the block:
+refuses the case, whether or not the block has a second one:
 
-> `Named expression 'e'`: cases `wide` and `narrow` cannot be told apart before
-> the data arrives: it compares expressions, whose values only the data decides
-> — compare one parameter against a literal, or precompute the test as a boolean
-> parameter and test that. Two cases claiming one coordinate would give it two
-> values, so this is refused the way a proven overlap is.
+> `Named expression 'e'`: case `wide` cannot be told apart before the data
+> arrives: it compares expressions, whose values only the data decides — compare
+> one parameter against a literal, or precompute the test as a boolean parameter
+> and test that. The `otherwise` is its negation, and only the data says where
+> that falls, so this is refused the way a proven overlap is.
+
+A comparison with a number on both sides, such as `2 < 1`, is refused
+everywhere: it is decided before any data arrives, and a `where` tests data.
 
 A variable's `where` and a constraint's `where` are not held to this, because
 neither is proved apart from anything.

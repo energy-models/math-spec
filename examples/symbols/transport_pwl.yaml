@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # The sidecar symbol table for `examples/ports/transport_pwl.yaml`. The
-# adjacency method expands to two families — the convex-combination weights and
+# adjacency method writes out two families — the convex-combination weights and
 # the binary that says which segment is live — and names both after the block,
 # which no equation can carry. Lambda and delta are what the piecewise-linear
 # literature calls them.

@@ -109,12 +109,8 @@ The same least-cost dispatch as `piecewise.yaml`, with a cost curve that is not 
 |---|---|
 | $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{T} \times \mathcal{G}`$ — dispatched power |
 | $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ — operating cost, piecewise-linear in dispatch |
-| $`\lambda`$ | `cost_curve_lam` over $`\mathcal{T} \times \mathcal{G} \times \mathcal{B}`$ — convex-combination weight on a breakpoint |
-| $`z`$ | `cost_curve_seg` over $`\mathcal{T} \times \mathcal{G} \times \mathcal{B}`$ |
 
 Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
-
-$`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
 #### Objective
 
@@ -130,34 +126,10 @@ $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`
 \sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
-**`cost_curve_convexity`**
+**`cost_curve`**
 
 ```math
-\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-**`cost_curve_link0`**
-
-```math
-\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-**`cost_curve_link1`**
-
-```math
-\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-**`cost_curve_pick`**
-
-```math
-\sum_{b \in \mathcal{B}} z_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
-
-**`cost_curve_adjacency`**
-
-```math
-\lambda_{t,g,b} \le z_{t,g,b} + z_{t,g,b \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### Variable domains
@@ -174,15 +146,11 @@ $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`
 \mathit{op\_cost}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-**`cost_curve_lam`**
+#### Assumptions
+
+**`cost_curve_complete`**
 
 ```math
-0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
-```
-
-**`cost_curve_seg`**
-
-```math
-z_{t,g,b} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 <!-- gallery:end -->

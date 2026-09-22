@@ -19,6 +19,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int } # the breakpoints every curve below runs through
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -43,6 +44,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [generator, bp] } # the x-axis of every curve below, and what a derived mask is read from
+  bp_y: { dims: [generator, bp] }
+  bp_heat: { dims: [generator, bp] }
+  bp_run: { dims: [generator, bp], dtype: bool } # how far each curve runs, so a block has a mask to print
 
 variables:
   p: # both bounds, and a where with all three connectives
@@ -77,12 +82,61 @@ variables:
   weight: # the family a sos runs along
     dims: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
+  fuel: # a curve's second axis
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  heat: # its third, so one curve ties three expressions
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  op_cost: # bounded by a curve rather than pinned to it
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  warm: # a gate not every unit has, so the curve it gates is ungated where it does not exist
+    dims: [snapshot, generator]
+    domain: binary
+    where: "is_flexible"
 
 sos:
   adjacent: # at most two adjacent members nonzero, one set per snapshot
     variable: weight
     along: generator
     type: 2
+
+piecewise:
+  fuel_curve: # three expressions on one curve, gated by a binary every unit has
+    along: bp
+    links:
+      - [p, bp_x]
+      - [fuel, bp_y]
+      - [heat, bp_heat]
+    activity: on
+  cost_curve: # a bounded link, which prints as the side of the curve it is on, and a gate only some units have
+    along: bp
+    method: sos2
+    points: bp_run
+    activity: warm
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y, ">="]
+  hull_curve: # the convex method, whose weights range over the hull the breakpoints span rather than the curve
+    along: bp
+    method: convex
+    links:
+      - [p, bp_x]
+      - [fuel, bp_heat]
+  lp_curve: # the lp method masked by one of its own breakpoints: every condition that method puts on data
+    along: bp
+    method: lp
+    points: bp_x
+    links:
+      - [p, bp_x]
+      - [fuel, bp_y, ">="]
+  ramp_curve: # the same method bounded the other way over a whole axis, so the shape is concave and nothing masks it
+    along: bp
+    method: lp
+    links:
+      - [p, bp_x]
+      - [heat, bp_heat, "<="]
 
 expressions:
   spend_cap: cost * 2 # a data-only entry, so a where may compare it
@@ -241,10 +295,39 @@ constraints:
     dims: []
     where: "sum(p_max, over=generator) >= budget"
     expression: sum(p) <= budget
+  counted: # a count of the coordinates a predicate admits, which reduces one dim away
+    dims: [bus]
+    where: "count(tech_cap > 0, over=technology) >= 2"
+    expression: theta <= budget
+  counted_here: # the same count along a dim the frame carries, so the set takes a primed dummy
+    dims: [bus, technology]
+    where: "count(tech_cap > 0, over=technology) >= 2"
+    expression: theta <= tech_cap
+  run_start: # a predicate read one coordinate back, which is false where the translation vacates
+    dims: [snapshot, bus]
+    where: "load AND NOT shift(load, along=snapshot, offset=1)"
+    expression: slack <= load
   capped: # an expressions: entry on a side, read by the name the file gave it
     dims: [snapshot, generator]
     where: "spend_cap > 0 OR NOT is_flexible"
     expression: p <= p_max
+
+assumptions: # what the data has to satisfy for the answer to mean anything
+  bounds_do_not_cross: "p_min <= p_max" # two parameters, which is arithmetic like any other
+  efficiency_is_a_fraction: "eta > 0 AND eta <= 1" # a connective, so the line has no relation to align on
+  lead_times_are_short: "lead <= 3" # one parameter against a literal
+  zones_agree: "zone_of == area_of" # two maps into one set, compared row by row
+  budget_covers_the_peak: "sum(p_max, over=generator) >= budget" # a reduction on a side, leaving nothing to quantify
+  ramps_are_gentle: # a translation inside arithmetic, and a position keeping the vacated row out
+    holds: "load - shift(load, along=snapshot, offset=1, edge=0) <= budget"
+    where: "position(snapshot) > 0"
+  flexible_units_have_headroom: # a bare bool parameter as the where
+    holds: "p_min < p_max"
+    where: "is_flexible"
+    description: a unit that cannot be turned down needs somewhere to go
+  northern_demand_is_real: # a relation comparison as the where, over a frame two dims wide
+    holds: "load >= 0"
+    where: "zone_of == 'north'"
 
 objective: # a sense, a product of two variables, a power over two parameters, a power of one of those, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize

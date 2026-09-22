@@ -28,6 +28,7 @@ from math_spec.program import (
     BooleanLiteral,
     Cases,
     Constant,
+    CountComparison,
     DimensionComparison,
     DimensionDeclaration,
     Direction,
@@ -37,6 +38,7 @@ from math_spec.program import (
     ExpressionComparison,
     Footprint,
     GroupSum,
+    Holds,
     Mask,
     Multiply,
     Negate,
@@ -55,6 +57,7 @@ from math_spec.program import (
     Translate,
     Variable,
     WindowSum,
+    assumption_message,
     children,
     divisor_parameters,
     fan_in,
@@ -427,6 +430,116 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Pullback)
     assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
         'the relation a pullback and a partition read through is data the consumer binds too'
+    )
+
+
+def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
+    """A comparison of expressions inside a count is rebuilt too, so a program mask is program vocabulary throughout."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{'constraints.w': {'dims': ['g'], 'where': 'count(c <= 0.5 * k, over=g) >= 2', 'expression': 'p <= c'}},
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, CountComparison)
+    assert mask.root.predicate.root == ExpressionComparison(
+        Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
+    ), 'the counted predicate is rebuilt, not handed through with the resolved comparison still in it'
+    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer binds'
+
+
+def test_a_translated_predicate_keeps_what_it_reads_in_reach():
+    """A walk that asks a mask what it names has to see through the translation, or the column is silently dropped."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'flag AND NOT shift(flag, along=g, offset=1)',
+                    'expression': 'p <= c',
+                }
+            },
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None
+    assert mask.names_read == frozenset({'flag'}), 'the translated half reads the same column as the plain one'
+    assert sorted(mask.dims) == ['g']
+
+
+def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
+    """One mapping holds every fact about the data, so a consumer binding it has one loop and one refusal.
+
+    The file's entries come first, in the order it wrote them; each
+    ``piecewise:`` block's conditions follow under the name a refusal quotes.
+    """
+    program = to_program(EXAMPLES / 'piecewise_lp.yaml')
+    derived = [name for name in program.assumptions if name.startswith('cost_curve_')]
+
+    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+        'a method states its conditions in the language the file writes, so one kind stands in the mapping'
+    )
+    assert derived == [
+        'cost_curve_complete',
+        'cost_curve_increasing',
+        'cost_curve_curvature',
+        'cost_curve_breakpoints',
+    ], 'an lp curve over a whole axis assumes four things of its breakpoints, completeness first'
+
+
+def test_an_assumption_lowers_both_of_its_masks():
+    """The predicate and the ``where`` are rebuilt on program expressions, as every other mask is."""
+    program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}}))
+    assumption = program.assumptions['sound']
+
+    assert assumption == Holds(
+        Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
+        Mask(ParameterDefined('flag', ('g',))),
+    ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
+    assert assumption_message('sound', assumption) == (
+        "assumption 'sound' does not hold for the data bound to 'c', 'k'"
+    ), 'the refusal names what the consumer bound, so it can say which column is wrong'
+
+
+def test_an_assumption_refuses_in_the_words_the_file_wrote():
+    """``description:`` reached no consumer: the block held it and neither the program nor the sentence did.
+
+    The names alone say which columns are wrong. What the author wrote says
+    why the rule is there, which is what the reader of a refusal needs, so
+    the sentence quotes it where the file wrote one.
+    """
+    reason = 'a shape with no room between its bounds cannot be cut'
+    program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= k', 'description': reason}}))
+    assumption = program.assumptions['sound']
+
+    assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
+    assert assumption_message('sound', assumption) == (
+        f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
+    ), 'the sentence trails what the author wrote'
+
+
+def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
+    """`names_read` promised every parameter and relation the sides read, and dropped the
+    `when:` of a cased entry: the walk descends a `Cases` by its values alone."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'expressions.e': {
+                    'dims': ['g'],
+                    'cases': {'linked': {'when': 'flag AND lk2', 'expression': 'c'}},
+                    'otherwise': 'k',
+                },
+                'variables.p.where': 'e > 0',
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.names_read == frozenset({'c', 'k', 'flag', 'lk2'}), (
+        'the flag and the relation decide which region applies, so the consumer binds them too'
     )
 
 

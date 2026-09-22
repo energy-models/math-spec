@@ -49,7 +49,9 @@ from math_spec._where_parser import (
     ColumnNode,
     QuotedNode,
     UnresolvedComparisonNode,
+    UnresolvedCountNode,
     UnresolvedNameNode,
+    UnresolvedPredicateCallNode,
     UnresolvedWhereNode,
     parse_where,
 )
@@ -69,6 +71,7 @@ from math_spec.program import (
     And,
     ArithmeticComparison,
     BooleanLiteral,
+    CountComparison,
     DimensionComparison,
     DimensionPosition,
     Direction,
@@ -84,6 +87,7 @@ from math_spec.program import (
     RelationDeclaration,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     TypedPredicate,
     VariableDefined,
 )
@@ -188,6 +192,19 @@ class ResolvedConstraint(NamedTuple):
     where: Mask | None
 
 
+class ResolvedAssumption(NamedTuple):
+    """One assumption's typed halves: the predicate it states, and the mask it is checked under.
+
+    ``description`` is the sentence a refusal quotes where one was written or
+    a method implied one, and ``None`` where the name is the whole of what a
+    reader is told.
+    """
+
+    holds: Mask
+    where: Mask | None
+    description: str | None = None
+
+
 @dataclass(frozen=True)
 class Resolved:
     """Every expression and where string of one schema, typed once at load.
@@ -207,13 +224,19 @@ class Resolved:
             stood, so a walk over one sees the whole chain.
         variables: Each variable's ``where``.
         constraints: Each constraint's comparison and ``where``.
-        piecewise: Each expanded block's own ``where`` — which coordinates
-            have a curve — keyed as ``expanded_piecewise`` is.
         objective: The objective's expression, ``None`` where the file
             declares none.
         relations: Each relation's columns and key, as declared — the one
             copy, which every :class:`~math_spec.program.Direction` and
             :class:`~math_spec.program.Partition` in the trees holds.
+        assumptions: Each ``assumptions:`` entry's predicate and the mask it
+            is checked under.
+        piecewise: Each ``piecewise:`` block's link expressions, in link order.
+        expanded_piecewise: Each written-out block's own ``where`` — which
+            coordinates have a curve — keyed as
+            :attr:`~math_spec.model.Spec._expanded_piecewise` is. A block is
+            in one of the two mappings, never both: writing it out is what
+            moves it.
     """
 
     expressions: dict[str, CasesNode | DefinitionNode]
@@ -221,21 +244,25 @@ class Resolved:
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
     relations: dict[str, RelationDeclaration]
-    piecewise: dict[str, Mask | None]
+    assumptions: dict[str, ResolvedAssumption]
+    piecewise: dict[str, tuple[ArithmeticNode, ...]]
+    expanded_piecewise: dict[str, Mask | None]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:
-        """The named expressions the math reads: every entry the objective or a constraint reaches, transitively.
+        """The named expressions the math reads: every entry the objective, a constraint or a curve reaches, transitively.
 
-        Read off those two positions alone: a bound and a ``where`` name no
-        entry, and a piecewise link's expression reaches here through the
-        constraints its expansion emitted. The rest of the ``expressions:``
-        section is read back after a solve and never fed to one
-        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`).
+        Read off those three positions alone: a bound and a ``where`` name no
+        entry. The rest of the ``expressions:`` section is read back after a
+        solve and never fed to one
+        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`). A curve
+        counts because it states rows, so the answer does not move when the
+        curve is written out (:meth:`~math_spec.model.Spec.expand`).
         """
         roots: list[ParsedNode] = [constraint.expression for constraint in self.constraints.values()]
         if self.objective is not None:
             roots.append(self.objective)
+        roots.extend(link for links in self.piecewise.values() for link in links)
         return frozenset(node.name for node in nodes(*roots) if isinstance(node, CasesNode | DefinitionNode))
 
 
@@ -600,7 +627,9 @@ class _Resolver:
         changing what this call means. ``at`` needs the read single-valued
         and ``sum`` needs it not: a sum that lands on the key has one term
         per coordinate and adds up nothing, which is a read, so it is
-        refused toward ``at``.
+        refused toward ``at``. A read lands on key columns and nothing else,
+        because a column outside the key is one no coordinate of the read
+        fixes.
         """
         ns, context = self.ns, self.context
         shape = ns.relations[name]
@@ -625,6 +654,13 @@ class _Resolver:
                     f'between columns over distinct dimensions.'
                 )
                 return None
+        if not forward and (outside := [r for r in into_roles if r not in shape.key]):
+            self.errors.append(
+                f"{context}: {call}: into={list(into_roles)} names {outside}, which the key of '{name}' does not "
+                f'hold. A read lands on the key it reads at, {list(shape.key)}, and a column outside that key '
+                f'arrives as a dimension the read never fixes. Land on the key, or sum toward {outside}.'
+            )
+            return None
         joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
         single_valued = set(shape.key) <= {*into_roles, *joined}
         direction = Direction(name, shape, from_roles, into_roles, joined)
@@ -733,6 +769,10 @@ class _Resolver:
             return self._where_name(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
+        if isinstance(node, UnresolvedPredicateCallNode):
+            return self._predicate_call(node)
+        if isinstance(node, UnresolvedCountNode):
+            return self._count(node)
         if isinstance(node, Not):
             return Not(self._child(node.operand))
         if isinstance(node, And):
@@ -782,6 +822,104 @@ class _Resolver:
                 else:
                     return VariableDefined(node.name, ns.leaf_dims[node.name])
         return node
+
+    def _predicate_call(self, node: UnresolvedPredicateCallNode) -> Predicate | UnresolvedWhereNode:
+        """``shift(<predicate>, along=, offset=)`` — the one operator that reads a predicate and answers one.
+
+        ``count`` answers a number, so it stands on a comparison's side and
+        :meth:`_count` reads it there. Anything else naming a predicate is
+        refused here rather than resolved into arithmetic it cannot be.
+
+        An operand that failed to resolve is handed straight back: resolution
+        collects problems rather than raising, and asking an unresolved
+        predicate for its dims asserts instead of refusing.
+        """
+        context, found = self.context, len(self.errors)
+        if node.name == 'count':
+            self.errors.append(
+                f'{context}: count() answers a number, and a where is a predicate. Compare it: '
+                f'count(<predicate>, over=<dimension>) <op> <integer>.'
+            )
+            return node
+        if node.name != 'shift':
+            self.errors.append(
+                f"{context}: '{node.name}()' does not read a predicate. `shift` reads one and answers one, "
+                f'`count` reads one and answers a number, and every other operator reads arithmetic. '
+                f'Compare the predicate, or name a parameter carrying it.'
+            )
+            return node
+        operand = self._child(node.operand)
+        if len(self.errors) > found:
+            return node
+        if (refusal := _kwargs_error(context, 'shift', node.kwargs, required=('along', 'offset'))) is not None:
+            self.errors.append(refusal)
+            return node
+        along = node.kwargs['along']
+        offset = _literal(node.kwargs['offset'])
+        if not isinstance(along, NameNode) or self.ns.kind(along.name) != 'dimension':
+            self.errors.append(
+                f'{context}: shift(<predicate>, along=) names the dimension the predicate is read back along. '
+                f'Name a declared dimension.'
+            )
+            return node
+        if offset is None or not offset.value.is_integer():
+            self.errors.append(
+                f'{context}: shift(<predicate>, offset=) counts whole coordinates back along '
+                f"'{along.name}'. Write an integer."
+            )
+            return node
+        mask = Mask(operand)
+        if along.name not in mask.dims:
+            self.errors.append(
+                f"{context}: shift(<predicate>, along='{along.name}') reads the predicate back along a dimension "
+                f'it does not carry — it reads {_listed(sorted(mask.dims))}. Translate it along one of those.'
+            )
+            return node
+        return TranslatedPredicate(mask, along.name, int(offset.value), tuple(sorted(mask.dims)))
+
+    def _count(self, node: UnresolvedCountNode) -> Predicate | UnresolvedWhereNode:
+        """``count(<predicate>, over=<dim>) <op> <integer>`` — how many coordinates the predicate admits.
+
+        The reduction leaves every dim but ``over``, so the count is one
+        number per remaining coordinate and a claim about each group needs no
+        word for the group.
+        """
+        context, found = self.context, len(self.errors)
+        operand = self._child(node.call.operand)
+        if len(self.errors) > found:
+            return node
+        if (refusal := _kwargs_error(context, 'count', node.call.kwargs, required=('over',))) is not None:
+            self.errors.append(refusal)
+            return node
+        over = node.call.kwargs['over']
+        if not isinstance(over, NameNode) or self.ns.kind(over.name) != 'dimension':
+            self.errors.append(
+                f'{context}: count(<predicate>, over=) names the dimension the coordinates are counted along. '
+                f'Name a declared dimension.'
+            )
+            return node
+        value = _literal(node.value)
+        if value is None or not value.value.is_integer():
+            self.errors.append(
+                f'{context}: a count is a whole number of coordinates, so it is compared against one. '
+                f'Write count(…, over={over.name}) {node.op} <integer>.'
+            )
+            return node
+        if (decided := _decided_count(node.op, value.value)) is not None:
+            self.errors.append(
+                f'{context}: count(…, over={over.name}) {node.op} {value} holds at {decided} coordinate, because '
+                f'a count is never negative. Delete the comparison, or write the bound it means.'
+            )
+            return node
+        mask = Mask(operand)
+        if over.name not in mask.dims:
+            self.errors.append(
+                f"{context}: count(<predicate>, over='{over.name}') counts along a dimension the predicate does "
+                f'not carry — it reads {_listed(sorted(mask.dims))}. Count along one of those.'
+            )
+            return node
+        dims = tuple(sorted(mask.dims - {over.name}))
+        return CountComparison(mask, over.name, node.op, value.value, dims)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> Predicate | UnresolvedWhereNode:
         """``side <op> side``, read for what each side is.
@@ -838,6 +976,12 @@ class _Resolver:
             if isinstance(side, ColumnNode | QuotedNode):
                 self.errors.append(_not_arithmetic(context, side))
                 continue
+            if any(isinstance(n, FunctionCallNode) and n.name == 'count' for n in nodes(side)):
+                self.errors.append(
+                    f'{context}: count() stands on the left of its comparison, and reads a predicate rather than '
+                    f'arithmetic. Write count(<predicate>, over=<dimension>) <op> <integer>.'
+                )
+                continue
             try:
                 expanded = expand(side, ns.schema, context)
             except ValueError as e:
@@ -867,6 +1011,13 @@ class _Resolver:
         if len(self.errors) > found:
             return node
         left, right = sides
+        if all(_is_number(side) for side in sides):
+            self.errors.append(
+                f"{context}: '{node.left} {node.op} {node.right}' compares two numbers, so it is decided before any "
+                f'data arrives and admits every row or none. Name the parameter one side stands for, or drop '
+                f'the comparison.'
+            )
+            return node
         return ArithmeticComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
@@ -1144,6 +1295,55 @@ def _position_shape(call: FunctionCallNode) -> tuple[str, str | None, tuple[str,
     return call.args[0].name, by.name if by is not None else None, into
 
 
+def _kwargs_error(
+    context: str, name: str, kwargs: Mapping[str, ArithmeticNode], required: tuple[str, ...]
+) -> str | None:
+    """Why *kwargs* is not what *name* takes over a predicate, or ``None`` where it is.
+
+    A predicate-reading call takes exactly the keywords named here. The
+    arithmetic forms of these operators take more — an ``edge=``, a ``by=`` —
+    and each is refused rather than ignored, since a predicate answers the
+    vacated coordinate itself and a grouped form has nobody asking for it yet.
+    """
+    missing = [key for key in required if key not in kwargs]
+    if missing:
+        return f'{context}: {name}(<predicate>) needs {_listed([f"{key}=" for key in missing])}.'
+    if extra := sorted(set(kwargs) - set(required)):
+        edge = ' A predicate is false where a translation vacates, so there is no edge to state.'
+        return (
+            f'{context}: {name}(<predicate>) does not take {_listed([f"{key}=" for key in extra])}. '
+            f'It takes {_listed([f"{key}=" for key in required])}, and nothing else.'
+            f'{edge if "edge" in extra else ""}'
+        )
+    return None
+
+
+def _decided_count(op: str, value: float) -> str | None:
+    """Whether comparing a count with *op* against *value* is settled by the count never being negative.
+
+    Returns ``'every'`` where the comparison always holds, ``'no'`` where it
+    never does, and ``None`` where the data decides.
+    """
+    if value < 0:
+        return 'every' if op in ('>', '>=', '!=') else 'no'
+    if value == 0 and op in ('>=', '<'):
+        return 'every' if op == '>=' else 'no'
+    return None
+
+
+def _listed(items: list[str]) -> str:
+    """``'a'``, ``'a' and 'b'``, ``'a', 'b' and 'c'`` — one rule, so every message reads the same."""
+    quoted = [f"'{item}'" for item in items]
+    if len(quoted) <= 1:
+        return quoted[0] if quoted else 'nothing'
+    return f'{", ".join(quoted[:-1])} and {quoted[-1]}'
+
+
+def _is_number(side: ArithmeticNode) -> bool:
+    """Whether *side* is arithmetic over literals alone — a value the language can fold, and a where may not test."""
+    return all(isinstance(n, NumberNode | UnaryOperatorNode | BinaryOperatorNode) for n in nodes(side))
+
+
 def _literal(value: ArithmeticNode) -> NumberNode | None:
     """The number a literal names, its sign folded in — ``None`` where *value* is not one.
 
@@ -1183,9 +1383,9 @@ def _declared_rhs_error(context: str, node: _Plain, value: str, kind: str) -> st
     if kind == 'relation':
         return (
             f'{context}: {comparison} compares {node.name!r} against relation {value!r}, and a '
-            f'relation is structure rather than data — every other comparison tests a name '
-            f'against a literal. A relation on the right-hand side is the one exception, and '
-            f'only where the left-hand side is a relation sharing its dimension and its target.'
+            f'relation is structure rather than data — a where tests values: a name against a literal, '
+            f'or arithmetic over parameters. A relation stands on the right-hand side only against a '
+            f'relation on the left sharing its dimension and its target.'
         )
     return (
         f'{context}: {comparison} compares against dimension {value!r}, which the RHS reads '

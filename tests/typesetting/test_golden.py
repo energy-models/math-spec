@@ -17,7 +17,6 @@ import pytest
 
 from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
-from math_spec.piecewise import expand_piecewise
 from math_spec.program import Predicate
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
@@ -119,8 +118,13 @@ def _nodes(tree: object) -> Iterator[object]:
 
 
 def _rendered_trees() -> Iterator[object]:
-    """Every resolved tree the walk is handed for the golden model."""
-    resolved = expand_piecewise(to_spec(golden.MODEL)).resolved
+    """Every resolved tree the walk is handed for the golden model.
+
+    The model as the file declares it, because that is what the walk prints: a
+    curve's links are trees of its own, and the rows it stands for are not
+    printed at all.
+    """
+    resolved = to_spec(golden.MODEL).resolved
     yield resolved.objective
     for expression, mask in resolved.constraints.values():
         yield expression
@@ -129,7 +133,13 @@ def _rendered_trees() -> Iterator[object]:
     for mask in resolved.variables.values():
         if mask is not None:
             yield mask.root
+    for holds, where, _ in resolved.assumptions.values():
+        yield holds.root
+        if where is not None:
+            yield where.root
     yield from resolved.expressions.values()
+    for links in resolved.piecewise.values():
+        yield from links
 
 
 #: What resolution never hands the walk: the four nodes a where carries before
@@ -150,11 +160,12 @@ UNRESOLVED = {
 }
 
 #: A dataclass the walk steps *through* rather than renders: an arm has no
-#: branch of its own — its ``when`` and ``value`` do — and a direction and the
-#: relation it reads are the facts a node carries rather than nodes. None is a
-#: member of any node union, so they are subtracted from what the tree walk
-#: finds rather than added to what the vocabulary declares.
-CARRIERS = {'CaseArm', 'Direction', 'Partition', 'RelationDeclaration'}
+#: branch of its own — its ``when`` and ``value`` do — a direction and the
+#: relation it reads are the facts a node carries rather than nodes, and a
+#: ``Mask`` is the wrapper a leaf carries a predicate in. None is a member of
+#: any node union, so they are subtracted from what the tree walk finds rather
+#: than added to what the vocabulary declares.
+CARRIERS = {'CaseArm', 'Direction', 'Mask', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
@@ -203,6 +214,7 @@ UNREACHABLE = {
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
     'raise AssertionError(msg)',
     'assert_never(node)',
+    'assert_never(check)',
     'if block is None:',
     'return []',
 }
@@ -228,8 +240,9 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
         'to_latex(model)\n'
         'to_latex(model, inline_expressions=True)\n'
         'spec = to_spec(model)\n'
-        'for name in (*spec.expressions, *spec.constraints, *spec.variables):\n'
+        'for name in (*spec.expressions, *spec.constraints, *spec.assumptions, *spec.piecewise, *spec.variables):\n'
         "    typeset_declaration(model, name, 'latex')\n"
+        'to_latex(spec.expand())\n'
     )
     subprocess.run(
         [
