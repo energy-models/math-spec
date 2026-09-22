@@ -262,7 +262,7 @@ coordinate, so the relation supplies the arity the second link otherwise would.
 | the block      | declares `dims:`, because the links no longer say what the frame is                                                                                          |
 | _over_         | names a column over one of the frame's own dimensions, and needs `by:` beside it                                                                             |
 | _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                                                                                      |
-| `where:`       | reads a values parameter of a link that reads no relation, because raggedness is the curve's                                                                  |
+| `where:`       | reads a values parameter of a link that reads no relation, because raggedness is the curve's                                                                 |
 | `method:`      | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from   |
 | `where:`       | reaches a link that only gains a dimension. A walk is refused, because it replaces the frame dimension the mask tests — mask the link's own variable instead |
 
