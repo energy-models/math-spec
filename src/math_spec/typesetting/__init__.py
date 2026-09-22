@@ -151,7 +151,7 @@ def typeset(
 
     blocks = [format_.note(format_.escape(schema.description))] if schema.description else []
     if legend:
-        blocks += [format_.glossary(group.title, group.entries) for group in walk.glossaries(noticed)]
+        blocks += [format_.section(title, format_.glossary(entries)) for title, entries in walk.glossaries(noticed)]
         blocks += [format_.note(text) for text in walk.convention_notes()]
         blocks += [format_.note(text) for text in walk.translation_notes(noticed)]
         blocks += [format_.note(text) for text in walk.position_notes(noticed)]
@@ -194,7 +194,7 @@ def typeset_declaration(
     Raises:
         ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
-        SchemaError: *name* is declared as none of the four, or as two — a
+        SchemaError: *name* is declared as none of the five, or as two — a
             constraint may share a variable's name; or a symbol table entry
             names nothing in the model.
     """

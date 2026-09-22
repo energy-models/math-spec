@@ -58,7 +58,7 @@ from math_spec.program import (
     TranslatedPredicate,
     VariableDefined,
 )
-from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
+from math_spec.typesetting.format import Entry, Line, OperatorName
 
 if TYPE_CHECKING:
     import datetime
@@ -1018,7 +1018,7 @@ class Walk:
 
     # -- legend ------------------------------------------------------------
 
-    def glossaries(self, noticed: Noticed) -> list[Glossary]:
+    def glossaries(self, noticed: Noticed) -> list[tuple[str, list[Entry]]]:
         fmt = self.format
         sets = [
             self._entry(
@@ -1041,13 +1041,8 @@ class Walk:
             for e, block in self.schema.expressions.items()
             if e in self._defined()
         ]
-        groups = (
-            Glossary('Sets', sets),
-            Glossary('Parameters', parameters),
-            Glossary('Variables', variables),
-            Glossary('Definitions', definitions),
-        )
-        return [group for group in groups if group.entries]
+        groups = (('Sets', sets), ('Parameters', parameters), ('Variables', variables), ('Definitions', definitions))
+        return [(title, entries) for title, entries in groups if entries]
 
     def _entry(self, symbol: str, what: str, description: str | None) -> Entry:
         meaning = f'{what} {self.format.dash} {self.format.escape(description)}' if description else what
