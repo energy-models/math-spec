@@ -113,7 +113,7 @@ piecewise:
   cost_curve: # a bounded link, which prints as the side of the curve it is on, and a gate only some units have
     along: bp
     method: sos2
-    points: bp_run
+    where: bp_run
     activity: warm
     links:
       - [p, bp_x]
@@ -127,7 +127,7 @@ piecewise:
   lp_curve: # the lp method masked by one of its own breakpoints: every condition that method puts on data
     along: bp
     method: lp
-    points: bp_x
+    where: bp_x
     links:
       - [p, bp_x]
       - [fuel, bp_y, ">="]

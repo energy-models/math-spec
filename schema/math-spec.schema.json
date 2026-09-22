@@ -384,7 +384,7 @@
     },
     "PiecewiseBlock": {
       "additionalProperties": false,
-      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``along`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\nThe block builds one curve per coordinate of the **frame**. ``dims:``\ndeclares it; where the file writes none it is inferred as the union of the\nlink expressions' dims. Three keys say something different about those\ncoordinates: ``where:`` which of them have a curve, ``points:`` how far each\ncurve runs along ``along``, and ``activity:`` whether a curve that exists is\nswitched on.\n\nA link naming ``by:`` sits on a refinement of the frame, so the number of\nexpressions one curve ties is data. Such a block declares its ``dims:``,\nbecause the frame can no longer be told from the links.",
+      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``along`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\nThe block builds one curve per coordinate of the **frame**. ``dims:``\ndeclares it; where the file writes none it is inferred as the union of the\nlink expressions' dims. Two keys say something different about those\ncoordinates: ``where:`` which of them have a curve, and how far each runs\nalong ``along`` where it reads that dim too; ``activity:`` whether a curve\nthat exists is switched on.\n\nA link naming ``by:`` sits on a refinement of the frame, so the number of\nexpressions one curve ties is data. Such a block declares its ``dims:``,\nbecause the frame can no longer be told from the links.",
       "properties": {
         "activity": {
           "anyOf": [
@@ -446,18 +446,6 @@
           ],
           "title": "Method",
           "type": "string"
-        },
-        "points": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Points"
         },
         "where": {
           "anyOf": [

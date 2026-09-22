@@ -12,7 +12,7 @@ variables:
 piecewise:
   curve:
     along: bp
-    points: x_bp
+    where: x_bp
     links:
       - [x, x_bp]
       - [y, y_bp]

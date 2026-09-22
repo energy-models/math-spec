@@ -51,10 +51,9 @@ piecewise:
 | `along`    | required. The dimension each curve runs along                                            |                     |
 | `links`    | required. Two or more links                                                              |                     |
 | `dims`     | the curve's frame ([below](#dims))                                                       | inferred            |
-| `where`    | which coordinates have a curve at all ([below](#where))                                  | default `null`      |
+| `where`    | which coordinates have a curve, and how far each runs ([below](#where))                  | default `null`      |
 | `method`   | `adjacency`, `sos2`, `convex` or `lp`: how the weights are restricted ([below](#method)) | default `adjacency` |
 | `activity` | a binary variable that gates the curve ([below](#activity))                              | default `null`      |
-| `points`   | how far each curve runs, where the curves are not all the same length ([below](#points)) | default `null`      |
 
 A block states plain variables and constraints: one weight per breakpoint in
 `[0, 1]`, one row making the weights sum to 1, and one row per link tying its
@@ -78,7 +77,7 @@ binds the numbers runs them.
 
     The missing row reads as a breakpoint at the origin. Every block states
     `<block>_complete` for this, whatever its `method:`, so the table is
-    refused when the data binds and the refusal names `points:` as the way to
+    refused when the data binds and the refusal names `where:` as the way to
     say how far a curve runs.
 
 ### `dims`
@@ -133,10 +132,40 @@ are not read there either: a generator with no curve needs no row in `bp_x` or
 curve. A gated coordinate has a curve that the solver may switch off, and its
 rows are built either way.
 
-The mask may not carry the breakpoint dimension. It says which coordinates have
-a curve, and [`points:`](#points) says how far each curve runs along that axis.
-A mask carrying a dimension that no link expression carries is refused as well,
-because a mask cannot add coordinates.
+A mask carrying a dimension that no link expression carries is refused,
+because a mask cannot add coordinates. The breakpoint dimension is the one
+exception, and reading it is how a block says how far each curve runs.
+
+#### Curves of unequal length
+
+A curve with fewer breakpoints than the dimension holds says so with a `where:`
+that reads the breakpoint dimension. Name one of the block's own values
+parameters, and the curve is as long as that parameter has rows:
+
+```yaml
+piecewise:
+  cost_curve:
+    along: bp
+    where: bp_x # this curve runs as far as its own breakpoints do
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y]
+```
+
+The other links are still read against the parameter you named, so a row missing
+from `bp_y` is refused. Where the length is its own data, name a boolean
+parameter over the frame and the breakpoint dimension instead. Either composes
+with a mask over the frame: `has_curve AND bp_x` says which generators have a
+curve and how far each one runs.
+
+The marked breakpoints must be consecutive. They need not start at the head of
+the axis. A gap is refused when the data binds, and a coordinate the mask
+leaves with no breakpoint has no curve.
+
+The rows a block writes over its frame alone, such as the one making the
+weights sum to 1, cannot read the breakpoint dimension. There the mask reads as
+`count(where, over=bp) > 0`: a curve exists where it admits at least one
+breakpoint.
 
 ### `activity`
 
@@ -156,29 +185,6 @@ variables:
 Where the gate does not exist, the curve is ungated. To pin the curve off
 there instead, put `absence: zero` on the gate. To build no curve there at all,
 use [`where:`](#where).
-
-### `points`
-
-A curve with fewer breakpoints than the dimension holds says so with `points:`.
-Name one of the block's own values parameters, and the curve is as long as that
-parameter has rows:
-
-```yaml
-piecewise:
-  cost_curve:
-    along: bp
-    points: bp_x # this curve runs as far as its own breakpoints do
-    links:
-      - [p, bp_x]
-      - [op_cost, bp_y]
-```
-
-The other links are still read against the parameter you named, so a row missing
-from `bp_y` is refused. Where the length is its own data, name a boolean
-parameter instead.
-
-The marked breakpoints must be consecutive. They need not start at the head of
-the axis. A gap, or a curve with no points, is refused when the data binds.
 
 ### A link that refines the curve
 
@@ -256,7 +262,7 @@ coordinate, so the relation supplies the arity the second link otherwise would.
 | the block      | declares `dims:`, because the links no longer say what the frame is                                                                                          |
 | _over_         | names a column over one of the frame's own dimensions, and needs `by:` beside it                                                                             |
 | _values_       | follows the **link's** frame: `bp_power` is per flow, not per generator                                                                                      |
-| `points:`      | names a values parameter of a link that reads no relation, because raggedness is the curve's                                                                 |
+| `where:`       | reads a values parameter of a link that reads no relation, because raggedness is the curve's                                                                  |
 | `method:`      | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from   |
 | `where:`       | reaches a link that only gains a dimension. A walk is refused, because it replaces the frame dimension the mask tests — mask the link's own variable instead |
 
@@ -329,9 +335,10 @@ piecewise:
 ```
 
 The bounded link decides the shape, as it does under `convex` above. The two
-domain rows hold the pinned link inside the breakpoint range: under `points:`,
-each sits where the mask holds and does not one breakpoint outward, which is
-the first and the last breakpoint of each curve.
+domain rows hold the pinned link inside the breakpoint range: under a `where:`
+that reads the breakpoint dimension, each sits where the mask holds and does
+not one breakpoint outward, which is the first and the last breakpoint of each
+curve.
 
 ## `sos`
 
@@ -424,8 +431,8 @@ a model before and after, as whole files.
 - **A model with nothing to write out is the model that comes back.** So is a
   second call with the same kinds.
 - **The same data binds a model and its expansion.** Neither a set nor a curve
-  emits a parameter. A curve under `points:` sits its rows on `where:`
-  predicates over the mask the file named, and the expansion is a file like any
+  emits a parameter. A curve of unequal lengths sits its rows on `where:`
+  predicates over the mask the file wrote, and the expansion is a file like any
   other: `to_yaml()` writes it, and loading it back changes nothing.
 - **`to_program()` writes nothing out.** A model still carrying a curve is
   refused, naming `spec.expand('piecewise')`. A program carries a set, because

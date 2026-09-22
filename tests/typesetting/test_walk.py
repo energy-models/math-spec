@@ -973,9 +973,9 @@ _CURVE = {
             id='a-bounded-link-states-one-side-of-the-curve',
         ),
         pytest.param(
-            {'piecewise.curve.points': 'reaches'},
+            {'piecewise.curve.where': 'reaches'},
             r'\mathrm{pwl}_{b \in \mathcal{B} \,:\, \mathrm{reaches}_{b}}',
-            id='points-narrows-the-breakpoints-to-the-ones-it-admits',
+            id='a-ragged-where-narrows-the-breakpoints-to-the-ones-it-admits',
         ),
         pytest.param(
             {'piecewise.curve.activity': 'on'},

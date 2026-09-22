@@ -38,13 +38,14 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.piecewise import assumptions_of
+from math_spec.piecewise import assumptions_of, exists_where
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
     Resolved,
     ResolvedAssumption,
     ResolvedConstraint,
+    ResolvedPiecewise,
     mask_of,
     names_in,
     resolve_expression,
@@ -175,13 +176,15 @@ def validate_expressions(schema: Spec) -> Resolved:
             assumptions[aname] = assumption
 
     for block, pw in schema.piecewise.items():
-        for aname, assumed in assumptions_of(block, pw).items():
+        for aname, assumed in assumptions_of(block, pw, ns).items():
             entry = AssumptionBlock(holds=assumed.holds, where=assumed.where, description=assumed.description)
             if (assumption := _assumption(aname, entry, ns, errors)) is not None:
                 assumptions[aname] = assumption
 
     expanded_piecewise = {
-        name: mask_of(resolve_where_text(pw.where, ns, f"piecewise '{name}'", errors))
+        name: mask_of(
+            resolve_where_text(exists_where(pw, ns, f"piecewise '{name}'"), ns, f"piecewise '{name}'", errors)
+        )
         for name, pw in schema._expanded_piecewise.items()
     }
 
@@ -191,8 +194,9 @@ def validate_expressions(schema: Spec) -> Resolved:
             _check_expression(link.expression, ns, f"piecewise '{pname}' link {i}", errors, comparison=False, ceiling=1)
             for i, link in enumerate(pdef.links)
         ]
+        where = mask_of(resolve_where_text(pdef.where, ns, f"piecewise '{pname}' where", errors))
         if all(link is not None for link in links):
-            piecewise[pname] = tuple(link for link in links if link is not None)
+            piecewise[pname] = ResolvedPiecewise(tuple(link for link in links if link is not None), where)
 
     if errors:
         raise SchemaError(_once(errors))

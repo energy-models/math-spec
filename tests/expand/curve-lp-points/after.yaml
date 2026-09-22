@@ -34,7 +34,7 @@ assumptions:
       piecewise 'curve': every breakpoint the curve runs through needs a row in
       'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
       curve, so it sits the curve on the origin. Bind the rows, or narrow
-      points: 'x_bp' to where the curve runs.
+      where: 'x_bp' to where the curve runs.
   curve_increasing:
     where: x_bp AND shift(x_bp, along=bp, offset=1)
     holds: shift(x_bp, along=bp, offset=1, edge=0) < x_bp
@@ -63,6 +63,6 @@ assumptions:
   curve_contiguous:
     holds: count(x_bp AND NOT shift(x_bp, along=bp, offset=1), over=bp) == 1
     description: >-
-      piecewise 'curve': points: 'x_bp' must mark a consecutive run of at least
+      piecewise 'curve': where: 'x_bp' must mark a consecutive run of at least
       one breakpoint per curve — the chord row joins a breakpoint to the one
       before it, and the domain rows sit on the curve's own first and last.

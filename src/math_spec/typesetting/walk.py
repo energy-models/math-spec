@@ -917,10 +917,11 @@ class Walk:
         which side.
         """
         block = self.schema.piecewise[name]
-        links = self.schema.resolved.piecewise[name]
+        links, where = self.schema.resolved.piecewise[name]
         frame = self._curve_frame(name, block, links)
         ctx = self._context([*frame, block.along])
-        locus = self._locus(block, ctx)
+        ragged = where is not None and block.along in where.dims
+        locus = self._locus(block, where if ragged else None, ctx)
         bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
         if bounded is None:
             left = self._tuple([self._expression(node, ctx) for node in links])
@@ -930,9 +931,10 @@ class Walk:
             left = self._expression(links[bounded], ctx)
             sign = self._op(_PREDICATES[block.links[bounded].sign])
             right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
-        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, ''))
+        condition = '' if ragged else self._condition(ctx, where)
+        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, condition))
 
-    def _locus(self, block: PiecewiseBlock, ctx: _Context) -> str:
+    def _locus(self, block: PiecewiseBlock, admitted: Mask | None, ctx: _Context) -> str:
         """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
 
         A gate multiplies it, which is what gating a curve does — the weights
@@ -940,7 +942,7 @@ class Walk:
         curve where it is 1.
         """
         operator = self._op('hull' if block.method == 'convex' else 'curve')
-        through = self.format.subscript(operator, [self._breakpoints(block, ctx)])
+        through = self.format.subscript(operator, [self._breakpoints(block, admitted, ctx)])
         values = self.format.joined(
             [
                 ctx.indexed(self.symbols.name[link.values], list(self.schema.parameters[link.values].dims))
@@ -952,18 +954,16 @@ class Walk:
         gate = self._gate(block, ctx)
         return f'{gate} {self._op("cdot")} {locus}' if gate else locus
 
-    def _breakpoints(self, block: PiecewiseBlock, ctx: _Context) -> str:
-        """Which breakpoints the curve runs through: every one of the dimension, or the ones ``points:`` admits.
+    def _breakpoints(self, block: PiecewiseBlock, admitted: Mask | None, ctx: _Context) -> str:
+        """Which breakpoints the curve runs through: every one of the dimension, or the ones a ragged ``where:`` admits.
 
-        A ``points:`` naming a boolean parameter reads as the flag it is, and
-        one naming a values parameter as the rows that parameter has, which is
-        the same reading a ``where`` gives either of them.
+        A ``where:`` over the frame alone prints on the quantifier instead,
+        because it says which curves exist rather than how far each runs.
         """
         over = self._membership(block.along)
-        if block.points is None:
+        if admitted is None:
             return over
-        admitted = ParameterDefined(block.points, tuple(self.schema.parameters[block.points].dims))
-        return f'{over} {self._op("such_that")} {self._predicate(admitted, ctx)}'
+        return f'{over} {self._op("such_that")} {self._predicate(admitted.root, ctx)}'
 
     def _gate(self, block: PiecewiseBlock, ctx: _Context) -> str:
         """The factor an ``activity:`` puts on the locus, or ``''`` where the block has none.

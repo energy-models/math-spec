@@ -138,8 +138,10 @@ def _rendered_trees() -> Iterator[object]:
         if where is not None:
             yield where.root
     yield from resolved.expressions.values()
-    for links in resolved.piecewise.values():
+    for links, where in resolved.piecewise.values():
         yield from links
+        if where is not None:
+            yield where.root
 
 
 #: What resolution never hands the walk: the four nodes a where carries before

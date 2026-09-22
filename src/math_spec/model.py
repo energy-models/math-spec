@@ -687,10 +687,10 @@ class PiecewiseBlock(_StrictBlock):
 
     The block builds one curve per coordinate of the **frame**. ``dims:``
     declares it; where the file writes none it is inferred as the union of the
-    link expressions' dims. Three keys say something different about those
-    coordinates: ``where:`` which of them have a curve, ``points:`` how far each
-    curve runs along ``along``, and ``activity:`` whether a curve that exists is
-    switched on.
+    link expressions' dims. Two keys say something different about those
+    coordinates: ``where:`` which of them have a curve, and how far each runs
+    along ``along`` where it reads that dim too; ``activity:`` whether a curve
+    that exists is switched on.
 
     A link naming ``by:`` sits on a refinement of the frame, so the number of
     expressions one curve ties is data. Such a block declares its ``dims:``,
@@ -704,14 +704,14 @@ class PiecewiseBlock(_StrictBlock):
     links: list[PiecewiseLink]
     #: The curve's frame — one curve per coordinate of it. Inferred from the links where absent.
     dims: list[str] | None = None
-    #: Which coordinates of the frame have a curve at all — none builds one everywhere.
+    #: Which coordinates have a curve — none builds one everywhere. Over the
+    #: frame it says which curves exist; reading ``along`` too, it says which
+    #: breakpoints each runs through, for curves of unequal length.
     where: str | None = None
     #: Which of :data:`PIECEWISE_METHODS` restricts the weights.
     method: PiecewiseMethod = 'adjacency'
     #: What the weights sum to — 1 where absent, or a binary that pins the formulation to 0 when it is 0.
     activity: str | None = None
-    #: A boolean parameter saying how far each curve runs, for curves of unequal length.
-    points: str | None = None
     description: str | None = None
 
     @property

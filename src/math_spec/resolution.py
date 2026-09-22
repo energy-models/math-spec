@@ -205,6 +205,13 @@ class ResolvedAssumption(NamedTuple):
     description: str | None = None
 
 
+class ResolvedPiecewise(NamedTuple):
+    """One declared block's typed halves: its link expressions in link order, and the mask it builds curves under."""
+
+    links: tuple[ArithmeticNode, ...]
+    where: Mask | None
+
+
 @dataclass(frozen=True)
 class Resolved:
     """Every expression and where string of one schema, typed once at load.
@@ -231,9 +238,10 @@ class Resolved:
             :class:`~math_spec.program.Partition` in the trees holds.
         assumptions: Each ``assumptions:`` entry's predicate and the mask it
             is checked under.
-        piecewise: Each ``piecewise:`` block's link expressions, in link order.
-        expanded_piecewise: Each written-out block's own ``where`` — which
-            coordinates have a curve — keyed as
+        piecewise: Each ``piecewise:`` block's link expressions and its own
+            ``where``, as written.
+        expanded_piecewise: Each written-out block's mask over its frame —
+            which coordinates have a curve — keyed as
             :attr:`~math_spec.model.Spec._expanded_piecewise` is. A block is
             in one of the two mappings, never both: writing it out is what
             moves it.
@@ -245,7 +253,7 @@ class Resolved:
     objective: ArithmeticNode | None
     relations: dict[str, RelationDeclaration]
     assumptions: dict[str, ResolvedAssumption]
-    piecewise: dict[str, tuple[ArithmeticNode, ...]]
+    piecewise: dict[str, ResolvedPiecewise]
     expanded_piecewise: dict[str, Mask | None]
 
     @cached_property
@@ -262,7 +270,7 @@ class Resolved:
         roots: list[ParsedNode] = [constraint.expression for constraint in self.constraints.values()]
         if self.objective is not None:
             roots.append(self.objective)
-        roots.extend(link for links in self.piecewise.values() for link in links)
+        roots.extend(link for block in self.piecewise.values() for link in block.links)
         return frozenset(node.name for node in nodes(*roots) if isinstance(node, CasesNode | DefinitionNode))
 
 

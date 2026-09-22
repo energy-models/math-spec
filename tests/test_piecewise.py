@@ -70,7 +70,7 @@ LP = override(
     },
 )
 #: The ``lp`` curve masked by one of its own values-parameters, so every check a block can carry is on it.
-LP_MASKED = override(LP, **{'piecewise.cost_curve.points': 'bp_x'})
+LP_MASKED = override(LP, **{'piecewise.cost_curve.where': 'bp_x'})
 #: Two dims in the frame, so the emitted ``dims`` has an order to get wrong.
 TWO_DIM = override(
     raw_of(NONCONVEX_YAML),
@@ -202,12 +202,6 @@ def test_any_affine_expression_is_a_legal_link(link):
             {'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'nope']]},
             "undeclared parameter 'nope'",
             id='undeclared-parameter',
-        ),
-        pytest.param(
-            NONCONVEX_YAML,
-            {'parameters.reach': {'dims': ['bp']}, 'piecewise.cost_curve.points': 'reach'},
-            "points parameter 'reach' is float, and a mask is a bool parameter",
-            id='points-that-are-not-a-mask',
         ),
         pytest.param(
             LP,
@@ -400,11 +394,11 @@ def test_a_masked_lp_curve_sits_its_rows_on_predicates_rather_than_on_parameters
 
 
 def test_a_file_supplied_mask_is_what_the_contiguity_condition_reads():
-    """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check names it."""
+    """A ``where:`` naming a parameter the file declared is bound like any other, and the mask check names it."""
     program = to_program(
         expanded(
             override(
-                LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'}
+                LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.where': 'reach'}
             ),
             'piecewise',
         )
@@ -436,7 +430,7 @@ def test_a_gap_is_explained_by_the_rows_the_method_writes(method, reason):
         NONCONVEX_YAML,
         **{
             'piecewise.cost_curve.method': method,
-            'piecewise.cost_curve.points': 'bp_x',
+            'piecewise.cost_curve.where': 'bp_x',
             'piecewise.cost_curve.links': links,
         },
     )
@@ -546,10 +540,13 @@ def test_the_adjacency_row_inherits_the_mask_rather_than_restating_it():
     assert expanded.constraints['cost_curve_adjacency'].where is None
 
 
-def test_a_where_and_a_points_both_reach_the_weights():
-    """Two masks, one row: which coordinates have a curve, and how far each curve runs."""
-    schema = schema_of(MASKED, **{'piecewise.cost_curve.points': 'bp_x'})
-    assert expand_piecewise(schema).variables['cost_curve_lam'].where == '(has_curve) AND (bp_x)'
+def test_a_ragged_where_reaches_the_weights_as_written_and_the_frame_rows_as_a_count():
+    """One mask says which coordinates have a curve and how far each runs; a row over the frame alone cannot read it."""
+    expanded = expand_piecewise(schema_of(MASKED, **{'piecewise.cost_curve.where': 'has_curve AND bp_x'}))
+
+    assert expanded.variables['cost_curve_lam'].where == 'has_curve AND bp_x'
+    assert expanded.constraints['cost_curve_convexity'].where == 'count(has_curve AND bp_x, over=bp) > 0'
+    assert expanded.constraints['cost_curve_link0'].where == 'count(has_curve AND bp_x, over=bp) > 0'
 
 
 def test_a_where_joins_both_gate_rows():
@@ -567,23 +564,27 @@ def test_a_where_joins_both_gate_rows():
     assert expanded.constraints['cost_curve_convexity_ungated'].where == '(has_curve) AND (NOT u)'
 
 
-def test_a_disjunction_in_a_where_is_grouped_where_it_is_joined():
-    """Unparenthesised, `a OR b AND points` binds the AND to `b` alone and the curve is built off its mask."""
+def test_a_ragged_where_is_grouped_where_an_edge_row_shifts_it():
+    """Unparenthesised, `a OR b AND shift(…)` binds the AND to `b` alone and the edge is read off half the mask."""
     schema = schema_of(
         MASKED,
         **{
             'parameters.also_curved': {'dims': ['generator'], 'dtype': 'bool'},
-            'piecewise.cost_curve.where': 'has_curve OR also_curved',
-            'piecewise.cost_curve.points': 'bp_x',
+            'piecewise.cost_curve.where': 'has_curve OR also_curved AND bp_x',
+            'piecewise.cost_curve.method': 'lp',
+            'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']],
         },
     )
-    assert expand_piecewise(schema).variables['cost_curve_lam'].where == ('(has_curve OR also_curved) AND (bp_x)')
+    expanded = expand_piecewise(schema)
+
+    assert expanded.constraints['cost_curve_domain_lo'].where == (
+        '(has_curve OR also_curved AND bp_x) AND NOT shift(has_curve OR also_curved AND bp_x, along=bp, offset=1)'
+    )
 
 
 @pytest.mark.parametrize(
     ('patch', 'match'),
     [
-        pytest.param({'piecewise.cost_curve.where': 'bp_x > 0'}, 'points:', id='the-breakpoint-dim'),
         pytest.param(
             {
                 'dimensions.region': {'dtype': 'str'},
@@ -810,20 +811,28 @@ def test_one_unrefined_link_is_still_a_bound_rather_than_a_curve():
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.links': [['p', 'bp_x']]})
 
 
-def test_points_naming_a_refined_links_values_is_refused():
-    """`bp_power` is per flow and the weights are per generator, so the derived mask cannot reach them.
+def test_a_where_naming_a_refined_links_values_is_refused():
+    """`bp_rate` is per carrier and the weights are per converter, so a mask reading it cannot reach them.
 
-    Left to the emitted declarations the refusal names `coupling_lam`, a
-    variable the file never wrote.
+    Left to the emitted declarations the refusal names `op_lam`, a variable
+    the file never wrote.
     """
-    with pytest.raises(LanguageError, match='Raggedness is a property of the curve'):
-        schema_of(REFINED, **{'piecewise.coupling.points': 'bp_power'})
+    with pytest.raises(LanguageError, match='cannot add coordinates'):
+        schema_of(SPLIT, **{'piecewise.op.where': 'bp_rate'})
 
 
-def test_points_still_nominates_an_unrefined_links_values():
-    """The curve's own frame is where raggedness lives, and an unrefined link's values sit on it."""
-    expanded = expand_piecewise(schema_of(REFINED, **{'piecewise.coupling.points': 'bp_fuel'}))
-    assert expanded.variables['coupling_lam'].where == 'bp_fuel', 'the weights run as far as the nominated values do'
+def test_a_split_block_is_ragged_on_the_curves_own_frame():
+    """Raggedness is the curve's, so a split link's row reads it as the count of breakpoints its curve has."""
+    expanded = expand_piecewise(
+        schema_of(
+            SPLIT, **{'parameters.reach': {'dims': ['converter', 'bp'], 'dtype': 'bool'}, 'piecewise.op.where': 'reach'}
+        )
+    )
+
+    assert expanded.variables['op_lam'].where == 'reach', 'the weights run as far as the mask says'
+    assert expanded.constraints['op_link0'].where == 'count(reach, over=bp) > 0', (
+        'the split row is over the frame and carrier, which cannot read a mask along the breakpoints'
+    )
 
 
 #: Why `convex` and `lp` refuse a refinement. The two reasons are not one, so

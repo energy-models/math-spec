@@ -13,9 +13,10 @@ constraint.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from math_spec._expression_parser import ComparisonNode
+from math_spec._expression_parser import NAME, ComparisonNode
 from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
@@ -29,9 +30,46 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
 
-def _nominated(pw: PiecewiseBlock) -> str | None:
-    """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
-    return pw.points if pw.points in {link.values for link in pw.links} else None
+def ragged(pw: PiecewiseBlock, ns: Namespace, context: str) -> bool:
+    """Whether the block's ``where:`` reads the breakpoint dim, and so says how far each curve runs.
+
+    A ``where:`` over the frame alone says which coordinates have a curve; one
+    that also reads ``along`` marks the breakpoints each curve runs through.
+    The two are one predicate to the file, and this is the one question the
+    expansion asks of it: a row over the frame alone cannot read the second
+    kind, and the edge predicates shift only that kind.
+
+    Raises:
+        PiecewiseExpansionError: The where names something the model does not
+            declare, or is not a predicate.
+    """
+    if pw.where is None:
+        return False
+    errors: list[str] = []
+    resolved = resolve_where_text(pw.where, ns, f'{context} where', errors)
+    if errors:
+        raise PiecewiseExpansionError('\n'.join(errors))
+    mask = mask_of(resolved)
+    return mask is not None and pw.along in mask.dims
+
+
+def exists_where(pw: PiecewiseBlock, ns: Namespace, context: str) -> str | None:
+    """The predicate over the frame alone that says a coordinate has a curve — ``None`` where every one does.
+
+    A ragged ``where:`` reads the breakpoint dim, which a row over the frame
+    cannot: there a curve exists where it admits at least one breakpoint.
+
+    Raises:
+        PiecewiseExpansionError: As :func:`ragged`.
+    """
+    if not ragged(pw, ns, context):
+        return pw.where
+    return f'count({pw.where}, over={pw.along}) > 0'
+
+
+def _atom(text: str) -> str:
+    """*text* as one operand of a connective: a bare name as it is, anything else parenthesised."""
+    return text if re.fullmatch(NAME, text) else f'({text})'
 
 
 def _all_of(*clauses: str | None) -> str | None:
@@ -109,7 +147,7 @@ class Assumed(NamedTuple):
     description: str
 
 
-def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
+def assumptions_of(block: str, pw: PiecewiseBlock, ns: Namespace) -> dict[str, Assumed]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
     Every curve assumes its breakpoints are there: a missing parameter row is
@@ -117,15 +155,18 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
     the origin rather than shortening it. A curve has an x-axis only where two
     links tie it, so the increasing condition — and the shape it is checked
     with — exist only there; ``lp`` alone needs a segment to state a line for;
-    a mask must be one run.
+    a ragged ``where:`` must mark one run.
 
     Read off the block rather than off an expansion, so a model states what it
     assumes whether or not its curves have been written out. Each condition is
     a where string over the parameters the file declared: the expansion writes
     them into ``assumptions:``, and a model that still declares the block
-    derives the same text at load.
+    derives the same text at load. A ``where:`` over the frame alone is not
+    written into them: a program carries it on the declaration, and asks each
+    condition only where it holds.
     """
-    d, mask = pw.along, pw.points
+    d, where = pw.along, pw.where
+    mask = where if ragged(pw, ns, f"piecewise '{block}'") else None
     assumed: dict[str, Assumed] = {}
     assumed[f'{block}_complete'] = Assumed(
         ' AND '.join(dict.fromkeys(link.values for link in pw.links)),
@@ -134,9 +175,9 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
         f'{_quoted(link.values for link in pw.links)} — a missing row is read as a zero rather than as a '
         f'shorter curve, so it sits the curve on the origin. '
         + (
-            f"Bind the rows, or narrow points: '{mask}' to where the curve runs."
+            f'Bind the rows, or narrow where: {mask!r} to where the curve runs.'
             if mask is not None
-            else 'Bind the rows, or declare points: to say how far the curve runs.'
+            else 'Bind the rows, or declare where: to say how far the curve runs.'
         ),
     )
     curvature = _curvature_required(pw)
@@ -147,7 +188,7 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
             _neighbours(d, mask),
             f"piecewise '{block}': method: {pw.method} requires strictly increasing breakpoints in '{x}' along '{d}'",
         )
-        assumed[f'{block}_curvature'] = _bends(block, pw, x, y, curvature)
+        assumed[f'{block}_curvature'] = _bends(block, pw, mask, x, y, curvature)
     if pw.method == 'lp':
         assumed[f'{block}_breakpoints'] = Assumed(
             f'count({mask or pw.curve[0].values}, over={d}) >= 2',
@@ -160,13 +201,13 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
         assumed[f'{block}_contiguous'] = Assumed(
             f'count({_edge(d, mask, "first")}, over={d}) == 1',
             None,
-            f"piecewise '{block}': points: '{mask}' must mark a consecutive run of at least one breakpoint per "
+            f"piecewise '{block}': where: {mask!r} must mark a consecutive run of at least one breakpoint per "
             f'curve — {_GAP[pw.method]}.',
         )
     return assumed
 
 
-#: Why a gap in ``points:`` breaks each method, in the rows that method writes.
+#: Why a gap in a ragged ``where:`` breaks each method, in the rows that method writes.
 _GAP: dict[PiecewiseMethod, str] = {
     'adjacency': 'the weights are nonzero only on two neighbouring breakpoints, and a gap leaves no neighbour across it',
     'sos2': 'the weights are nonzero only on two neighbouring breakpoints, and a gap leaves no neighbour across it',
@@ -194,7 +235,7 @@ def _neighbours(over: str, mask: str | None) -> str:
     """Where a breakpoint and the one before it are both there: the rows a claim about a segment is true of."""
     if mask is None:
         return f'position({over}) > 0'
-    return f'{mask} AND shift({mask}, along={over}, offset=1)'
+    return f'{_atom(mask)} AND shift({mask}, along={over}, offset=1)'
 
 
 def _edge(over: str, mask: str | None, end: Literal['first', 'last']) -> str:
@@ -205,17 +246,17 @@ def _edge(over: str, mask: str | None, end: Literal['first', 'last']) -> str:
     """
     if mask is None:
         return f'position({over}) == {0 if end == "first" else -1}'
-    return f'{mask} AND NOT shift({mask}, along={over}, offset={1 if end == "first" else -1})'
+    return f'{_atom(mask)} AND NOT shift({mask}, along={over}, offset={1 if end == "first" else -1})'
 
 
 def _interior(over: str, mask: str | None) -> str:
     """Where a breakpoint has one on either side: the rows a claim about a bend is true of."""
     if mask is None:
         return f'position({over}) > 0 AND position({over}) != -1'
-    return f'{mask} AND shift({mask}, along={over}, offset=1) AND shift({mask}, along={over}, offset=-1)'
+    return f'{_atom(mask)} AND shift({mask}, along={over}, offset=1) AND shift({mask}, along={over}, offset=-1)'
 
 
-def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature) -> Assumed:
+def _bends(block: str, pw: PiecewiseBlock, mask: str | None, x: str, y: str, curvature: Curvature) -> Assumed:
     """The curve bends the way *curvature* says, as a comparison of the two slopes at each breakpoint.
 
     The slopes are compared as a cross-product rather than as two quotients,
@@ -224,7 +265,7 @@ def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature)
     whole axis rather than about a breakpoint: it counts the bends that go the
     wrong way and asks that one of the two directions has none.
     """
-    d, mask = pw.along, pw.points
+    d = pw.along
     rise, run = f'({y} - {_back(y, d, 1)})', f'({x} - {_back(x, d, 1)})'
     next_rise, next_run = f'({_back(y, d, -1)} - {y})', f'({_back(x, d, -1)} - {x})'
     bend = f'{rise} * {next_run} {{}} {next_rise} * {run}'
@@ -250,12 +291,14 @@ class _Block:
 
     Every name the expansion may write is spelled once here, so the emitters
     and the collision check read the same table — ``set`` is the one a method
-    that states a set writes through :func:`math_spec.sos.emit`. ``mask`` is
-    the parameter masking the weights, or ``None`` for a whole curve: the
-    ``bool`` the file named, or one of the block's own values parameters,
-    which as a bare name in a ``where`` is true wherever it has a row.
-    The block's own ``where`` is a second mask, over the frame rather than
-    the breakpoint dim, and every row the expansion writes holds under both.
+    that states a set writes through :func:`math_spec.sos.emit`.
+
+    The block's ``where:`` reaches every row it writes, in one of two shapes.
+    A row over the frame and the breakpoint dim takes it as written; where it
+    is ragged — reads the breakpoint dim — the rows that sit on a curve's
+    edges shift it (``mask``), and otherwise it is conjoined onto their
+    position tests (``frame_mask``). A row over the frame alone takes
+    ``exists``: the where itself, or the count of breakpoints it admits.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -274,11 +317,14 @@ class _Block:
         self.domain_lo = f'{name}_domain_lo'
         self.domain_hi = f'{name}_domain_hi'
         self.links = tuple(f'{name}_link{i}' for i in range(len(pw.links)))
-        self.mask = pw.points
         self.ns = Namespace(schema)
         self._expression_dims: dict[int, frozenset[str]] = {}
         self.context = f"piecewise '{name}'"
         self.frame = self._validated_frame()
+        self.ragged = ragged(pw, self.ns, self.context)
+        self.mask = pw.where if self.ragged else None
+        self.frame_mask = None if self.ragged else pw.where
+        self.exists = exists_where(pw, self.ns, self.context)
 
     def expand(self) -> None:
         """Write the block's declarations into the raw model."""
@@ -296,7 +342,7 @@ class _Block:
         as something a consumer has to know to ask for.
         """
         section = self._section('assumptions')
-        for name, assumed in assumptions_of(self.name, self.pw).items():
+        for name, assumed in assumptions_of(self.name, self.pw, self.ns).items():
             entry: dict[str, object] = {'holds': assumed.holds, 'description': assumed.description}
             if assumed.where is not None:
                 entry['where'] = assumed.where
@@ -312,7 +358,7 @@ class _Block:
 
     def _weight(self, name: str, **fields: object) -> None:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
-        where = _all_of(self.pw.where, self.mask)
+        where = self.pw.where
         self._section('variables')[name] = {
             'dims': [*self.frame, self.pw.along],
             **({'where': where} if where else {}),
@@ -340,14 +386,14 @@ class _Block:
                 self.convexity + suffix,
                 list(self.frame),
                 f'sum({self.lam}, over={d}) == {rhs}',
-                _all_of(self.pw.where, where),
+                _all_of(self.exists, where),
             )
         for i, (cname, link) in enumerate(zip(self.links, self.pw.links, strict=True)):
             self._constraint(
                 cname,
                 self._link_frame(i, link, list(self.frame)),
                 f'({link.expression}) {link.sign} sum({self._weights_read(link)} * {link.values}, over={d})',
-                self.pw.where,
+                self.exists,
             )
         if self.pw.method in ('sos2', 'adjacency'):
             self._section('sos')[self.name] = {'variable': self.lam, 'along': d, 'type': 2}
@@ -397,8 +443,8 @@ class _Block:
         ``_add_lp`` rows under its names, each sitting on the edge of the curve
         the mask marks, which is why the mask has to be one run. Every row here
         is written from the link expressions and the breakpoint values, none of
-        which the block masks, so the block's own ``where`` is conjoined onto
-        each rather than inherited as the weight rows inherit it.
+        which the block masks, so a ``where`` over the frame alone is conjoined
+        onto each rather than inherited as the weight rows inherit it.
         """
         x_link, y_link = self.pw.curve
         d = self.pw.along
@@ -409,7 +455,7 @@ class _Block:
             [*self.frame, d],
             f'({y_link.expression}) * {run} {y_link.sign} '
             f'{rise} * (({x_link.expression}) - {x_link.values}) + {y_link.values} * {run}',
-            _all_of(self.pw.where, _neighbours(d, self.mask)),
+            _all_of(self.frame_mask, _neighbours(d, self.mask)),
         )
         edges = ((self.domain_lo, '>=', 'first'), (self.domain_hi, '<=', 'last'))
         for cname, sense, end in edges:
@@ -417,7 +463,7 @@ class _Block:
                 cname,
                 [*self.frame, d],
                 f'({x_link.expression}) {sense} {x_link.values}',
-                _all_of(self.pw.where, _edge(d, self.mask, end)),
+                _all_of(self.frame_mask, _edge(d, self.mask, end)),
             )
 
     # -- checks ------------------------------------------------------------
@@ -445,7 +491,7 @@ class _Block:
                 ),
             ),
             ('sos', (self.name,)),
-            ('assumption', tuple(assumptions_of(self.name, self.pw))),
+            ('assumption', tuple(assumptions_of(self.name, self.pw, self.ns))),
         )
 
     def _validated_frame(self) -> tuple[str, ...]:
@@ -468,7 +514,6 @@ class _Block:
         self._widen(frame, self._activity_dims())
         self._links_fit(frame)
         self._values_fit(frame)
-        self._points_fit(frame)
         self._where_fits(frame)
         self._nothing_collides()
         return tuple(frame)
@@ -672,45 +717,13 @@ class _Block:
                     f"it, or drop it from '{link.values}'."
                 )
 
-    def _points_fit(self, frame: list[str]) -> None:
-        """A ``points:`` naming a parameter of its own is a bool mask along the breakpoint dim, inside the frame."""
-        pw, ctx = self.pw, self.context
-        if pw.points is None:
-            return
-        for i, link in enumerate(pw.links):
-            if link.values == pw.points and link.refined:
-                raise PiecewiseExpansionError(
-                    f"{ctx}: points names '{pw.points}', which is link {i}'s values parameter and sits on that "
-                    f"link's own frame rather than the curve's. Raggedness is a property of the curve — name "
-                    f'the values parameter of a link that reads no relation, or declare a bool mask over '
-                    f'{list(self.pw.dims or ())} and the breakpoint dim.'
-                )
-        if _nominated(pw) is not None:
-            return
-        if pw.points not in self.schema.parameters:
-            raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
-        if (dtype := self.schema.parameters[pw.points].dtype) != 'bool':
-            raise PiecewiseExpansionError(
-                f"{ctx}: points parameter '{pw.points}' is {dtype}, and a mask is a bool parameter — one "
-                f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
-            )
-        mask = self.schema.parameters[pw.points].dims
-        if pw.along not in mask:
-            raise PiecewiseExpansionError(
-                f"{ctx}: points parameter '{pw.points}' must carry dim '{pw.along}' — "
-                f'it says how far each curve runs along it (has {mask})'
-            )
-        if stray := [d for d in mask if d != pw.along and d not in frame]:
-            raise PiecewiseExpansionError(
-                f"{ctx}: points parameter '{pw.points}' carries {stray}, which the links do not — "
-                f"a mask says which of the block's own coordinates exist, and cannot add coordinates"
-            )
-
     def _where_fits(self, frame: list[str]) -> None:
-        """A block's ``where:`` tests the frame it builds curves over, and never the breakpoint dim.
+        """A block's ``where:`` tests the frame it builds curves over and the breakpoint dim, and nothing else.
 
         Read here rather than left to the emitted declarations, whose refusal
-        would name ``<block>_lam`` — a variable the author never wrote.
+        would name ``<block>_lam`` — a variable the author never wrote. A
+        refined link's values parameter carries the link's own frame, so a
+        where naming it is refused here too: raggedness is the curve's.
         """
         pw, ctx = self.pw, self.context
         if pw.where is None:
@@ -721,12 +734,7 @@ class _Block:
             raise PiecewiseExpansionError('\n'.join(errors))
         if (mask := mask_of(resolved)) is None:
             return
-        if pw.along in mask.dims:
-            raise PiecewiseExpansionError(
-                f"{ctx}: where {pw.where!r} tests '{pw.along}', the breakpoint dim. A where says which coordinates "
-                f'have a curve at all, and points: says how far each curve runs along it — move the test there.'
-            )
-        if stray := sorted(mask.dims - set(frame)):
+        if stray := sorted(mask.dims - set(frame) - {pw.along}):
             raise PiecewiseExpansionError(
                 f'{ctx}: where {pw.where!r} tests {stray}, which no link expression carries — a mask says '
                 f"which of the block's own coordinates have a curve, and cannot add coordinates. Declare a "
