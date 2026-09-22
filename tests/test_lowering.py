@@ -51,6 +51,7 @@ from math_spec.program import (
     Power,
     Program,
     Pullback,
+    PulledBackPredicate,
     Region,
     RelationDeclaration,
     Sum,
@@ -467,6 +468,30 @@ def test_a_translated_predicate_keeps_what_it_reads_in_reach():
     assert mask is not None
     assert mask.names_read == frozenset({'flag'}), 'the translated half reads the same column as the plain one'
     assert sorted(mask.dims) == ['g']
+
+
+def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_in_reach():
+    """The comparison under the read is rebuilt, and the relation is data the consumer binds as well as the operand."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'parameters.zcap': {'dims': ['z']},
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'at(zcap <= 0.5 * k, by=lk2, over=z, into=g)',
+                    'expression': 'p <= c',
+                },
+            },
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, PulledBackPredicate)
+    assert mask.root.operand.root == ExpressionComparison(
+        Parameter('zcap'), '<=', Multiply(Constant(0.5), Parameter('k')), ('z',)
+    ), 'the read predicate is rebuilt, not handed through with the resolved comparison still in it'
+    assert mask.names_read == frozenset({'zcap', 'k', 'lk2'})
+    assert sorted(mask.dims) == ['g'], 'z is read at lk2(g), so the mask is over g alone'
 
 
 def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():

@@ -84,6 +84,7 @@ __all__ = [
     'PredicateOperator',
     'Program',
     'Pullback',
+    'PulledBackPredicate',
     'QuadraticPosition',
     'Reach',
     'Region',
@@ -1190,6 +1191,21 @@ class TranslatedPredicate:
 
 
 @dataclass(frozen=True)
+class PulledBackPredicate:
+    """*operand* read through a relation — ``at(has_curve, by=converter_of, over=converter, into=flow)``.
+
+    True at a coordinate where the relation has a row and *operand* holds at
+    the coordinate that row reads. False where the relation has no row, which
+    is what a missing row already means in a mask. The dims ``direction``
+    consumes go and the dims it produces arrive, as :class:`Pullback`'s do.
+    """
+
+    operand: Mask
+    direction: Direction
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Not:
     operand: Predicate
 
@@ -1226,6 +1242,7 @@ Predicate = (
     | RelationDefined
     | CountComparison
     | TranslatedPredicate
+    | PulledBackPredicate
     | Not
     | And
     | Or
@@ -1247,6 +1264,7 @@ TypedPredicate = (
     | RelationDefined
     | CountComparison
     | TranslatedPredicate
+    | PulledBackPredicate
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
@@ -1309,6 +1327,7 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
             | VariableDefined()
             | CountComparison()
             | TranslatedPredicate()
+            | PulledBackPredicate()
         ):
             return frozenset(atom.dims)
         case DimensionComparison():
@@ -1346,6 +1365,8 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
             return atom.predicate.names_read
         case TranslatedPredicate():
             return atom.operand.names_read
+        case PulledBackPredicate():
+            return atom.operand.names_read | {atom.direction.name}
         case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:
