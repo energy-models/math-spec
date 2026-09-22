@@ -86,15 +86,26 @@ def declaration(text: str, section: str, name: str | None = None) -> str:
     return textwrap.dedent('\n'.join(lines[i:j])).rstrip()
 
 
-def _stands_for(name: str, description: str | None) -> str:
-    """The other side's name for a declaration — the backticked opening of its description."""
-    found = re.match(r'`([^`]+)`', description or '')
-    if found is None:
+def _names_for(name: str, description: str | None) -> list[str]:
+    """Every other-side name a declaration stands for: the backticked tokens before the ` — ` of its description.
+
+    One declaration answers to one PyPSA name as a rule; a block whose rows PyPSA
+    names differently by mode lists them all before the dash, the first canonical.
+    """
+    text = description or ''
+    head = text.split(' — ', 1)[0] if ' — ' in text else (re.match(r'`[^`]+`', text) or [''])[0]
+    names = re.findall(r'`([^`]+)`', head)
+    if not names:
         msg = (
             f'{name}: a declaration on a declared page opens its description with the name it stands for, in backticks'
         )
         raise ValueError(msg)
-    return found.group(1)
+    return names
+
+
+def _stands_for(name: str, description: str | None) -> str:
+    """The other side's canonical name for a declaration — the backticked opening of its description."""
+    return _names_for(name, description)[0]
 
 
 def declared_block(path: Path) -> str:

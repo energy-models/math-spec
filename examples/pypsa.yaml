@@ -1416,17 +1416,17 @@ constraints:
     expression: Line_loss <= Line_loss_max
   Line_loss_tangents_forward:
     description: >-
-      `Line-loss_tangents-{k}-1` — the loss sits above every cut to its curve
-      for flow one way; PyPSA names one row per tangent `k`, or the one row
-      `Line-loss_secants-pos` over its `secant` axis, this block states them
+      `Line-loss_tangents-{k}-1`, `Line-loss_secants-pos` — the loss sits above
+      every cut to its curve for flow one way; PyPSA names one row per tangent
+      `k`, or one row stacked over its `secant` axis, and this block states them
       all over the segment dimension
     dims: [scenario, snapshot, line, segment]
     where: transmission_losses AND Line_active
     expression: Line_loss + Line_loss_slope * Line_s >= Line_loss_offset
   Line_loss_tangents_reverse:
     description: >-
-      `Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending
-      on the flow's magnitude; `Line-loss_secants-neg` in the secant mode
+      `Line-loss_tangents-{k}--1`, `Line-loss_secants-neg` — the same fan
+      mirrored, the loss depending on the flow's magnitude
     dims: [scenario, snapshot, line, segment]
     where: transmission_losses AND Line_active
     expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset

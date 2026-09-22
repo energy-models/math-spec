@@ -1180,7 +1180,7 @@ balance, and the model collapses to the lossless one.
 | [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep, see X4 |
 | [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
 | [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1) | split | |
-| [`Line-loss_secants-pos`, `Line-loss_secants-neg`](#line-loss_tangents-k-1) | split | the same two blocks, secant slope and offset and the breakpoint loop as data prep; no reference records this mode yet |
+| [`Line-loss_secants-pos`, `Line-loss_secants-neg`](#line-loss_tangents-k-1) | done | the same two blocks in the secant mode; slope, offset and the breakpoint loop are data prep; rung 19 records it |
 
 <!-- reference:rung_13_losses:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
@@ -1231,6 +1231,59 @@ def build():
 
 </details>
 <!-- reference:rung_13_losses:end -->
+
+The same triangle solved in the secant mode records the identical loss rows,
+its cuts placed by PyPSA's tolerance loop rather than fixed per segment.
+
+<!-- reference:rung_19_losses_secants:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10840.926895402912`, 150 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_19_losses_secants.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 19: transmission losses in secant form — the same loss per line, its cuts placed by PyPSA's tolerance loop."""
+
+from __future__ import annotations
+
+import spine
+
+OPTIMIZE = {'transmission_losses': {'mode': 'secants', 'atol': 1, 'rtol': 0.1, 'max_segments': 20}}
+
+
+def build():
+    """Rung 13's 110 kV triangle, unchanged, so the two modes differ only in the cuts."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b', 'c'], v_nom=110)
+    n.add('Generator', 'hydro19', bus='a', p_nom=80, marginal_cost=10)
+    n.add('Generator', 'diesel19', bus='b', p_nom=80, marginal_cost=50)
+    n.add('Line', 'ab19', bus0='a', bus1='b', carrier='AC', x=30, r=6, s_nom=60)
+    n.add('Line', 'bc19', bus0='b', bus1='c', carrier='AC', x=60, r=9.7, s_nom=60)
+    n.add(
+        'Line',
+        'ca19',
+        bus0='c',
+        bus1='a',
+        carrier='AC',
+        x=45,
+        r=6,
+        s_nom=40,
+        s_nom_extendable=True,
+        s_nom_max=90,
+        capital_cost=4,
+    )
+    n.add('Load', 'town19', bus='c', p_set=[35, 55, 15, 45])
+    return n
+```
+
+</details>
+<!-- reference:rung_19_losses_secants:end -->
 
 ### Rung 14 — two-stage stochastic
 
@@ -3004,9 +3057,9 @@ Line_loss_upper:
 ```yaml
 Line_loss_tangents_forward:
   description: >-
-    `Line-loss_tangents-{k}-1` — the loss sits above every cut to its curve
-    for flow one way; PyPSA names one row per tangent `k`, or the one row
-    `Line-loss_secants-pos` over its `secant` axis, this block states them
+    `Line-loss_tangents-{k}-1`, `Line-loss_secants-pos` — the loss sits above
+    every cut to its curve for flow one way; PyPSA names one row per tangent
+    `k`, or one row stacked over its `secant` axis, and this block states them
     all over the segment dimension
   dims: [scenario, snapshot, line, segment]
   where: transmission_losses AND Line_active
@@ -3024,8 +3077,8 @@ Line_loss_tangents_forward:
 ```yaml
 Line_loss_tangents_reverse:
   description: >-
-    `Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending
-    on the flow's magnitude; `Line-loss_secants-neg` in the secant mode
+    `Line-loss_tangents-{k}--1`, `Line-loss_secants-neg` — the same fan
+    mirrored, the loss depending on the flow's magnitude
   dims: [scenario, snapshot, line, segment]
   where: transmission_losses AND Line_active
   expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset
