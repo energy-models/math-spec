@@ -405,6 +405,34 @@ def test_a_file_supplied_mask_is_what_the_contiguity_condition_reads():
     )
 
 
+@pytest.mark.parametrize(
+    ('method', 'reason'),
+    [
+        pytest.param('adjacency', 'nonzero only on two neighbouring breakpoints', id='adjacency'),
+        pytest.param('sos2', 'nonzero only on two neighbouring breakpoints', id='sos2'),
+        pytest.param('convex', 'a bend across a gap goes unchecked', id='convex'),
+        pytest.param('lp', 'the chord row joins a breakpoint to the one before it', id='lp'),
+    ],
+)
+def test_a_gap_is_explained_by_the_rows_the_method_writes(method, reason):
+    """Every method gave the ``lp`` reason, naming a chord row and domain rows that only ``lp`` writes."""
+    links = (
+        [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]
+        if method in {'convex', 'lp'}
+        else [['p', 'bp_x'], ['op_cost', 'bp_y']]
+    )
+    spec = schema_of(
+        NONCONVEX_YAML,
+        **{
+            'piecewise.cost_curve.method': method,
+            'piecewise.cost_curve.points': 'bp_x',
+            'piecewise.cost_curve.links': links,
+        },
+    )
+
+    assert reason in to_program(spec.expand()).assumptions['cost_curve_contiguous'].description
+
+
 def test_a_block_assumes_of_its_data_what_the_method_implies():
     """Every condition a curve puts on its data stands with the file's own, carrying its own subjects."""
     program = to_program(LP_MASKED)
