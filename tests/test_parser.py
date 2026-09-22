@@ -20,6 +20,7 @@ import math_spec.program as program_module
 from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
+    ColumnRefNode,
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
@@ -212,6 +213,38 @@ def test_a_list_of_names_is_a_kwarg_value():
     """`by=[a, b]` is one value, so the operator reads one grouping and not two."""
     node = parse_expression('sum(p, by=[a, b])')
     assert node.kwargs['by'] == NameListNode(('a', 'b'))
+
+
+@pytest.mark.parametrize(
+    ('text', 'columns'),
+    [
+        pytest.param('sum(p, over=zone_of.generator)', ('generator',), id='one-column'),
+        pytest.param('sum(p, by=slot_of.[bus, technology])', ('bus', 'technology'), id='several'),
+    ],
+)
+def test_a_dotted_name_is_a_relation_and_the_columns_a_call_names_on_it(text, columns):
+    """The dot is a kwarg value of its own, so the operator reads the relation and the columns together."""
+    node = parse_expression(text)
+    (value,) = node.kwargs.values()
+    assert isinstance(value, ColumnRefNode), 'a dotted kwarg value parses as a column reference'
+    assert value.columns == columns, 'the columns come back in the order the file names them'
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('sum(p, over=zone_of.)', id='no-column-after-the-dot'),
+        pytest.param('sum(p, over=.generator)', id='no-relation-before-it'),
+        pytest.param('sum(p, over=zone_of.[])', id='an-empty-column-list'),
+        pytest.param('sum(p, over=zone_of.[a,])', id='a-trailing-comma'),
+        pytest.param('p + zone_of.generator', id='a-term'),
+        pytest.param('zone_of.generator', id='the-whole-expression'),
+    ],
+)
+def test_a_dotted_name_the_grammar_cannot_read_is_refused_at_load(text):
+    """A dotted name is a kwarg value and nothing else, and the last two say so."""
+    with pytest.raises(SchemaError):
+        parse_expression(text)
 
 
 @pytest.mark.parametrize(
@@ -532,6 +565,10 @@ def test_a_parsed_tree_prints_to_text_that_parses_to_the_same_tree(text):
         pytest.param('-(p + q)', '-(p + q)', id='and-brackets-what-it-negates'),
         pytest.param('sum(p, over=t) >= 0', 'sum(p, over=t) >= 0', id='a-call-carries-its-kwargs'),
         pytest.param('sum(p, by=[a, b]) >= 0', 'sum(p, by=[a, b]) >= 0', id='a-list-kwarg-keeps-its-brackets'),
+        pytest.param('sum(p, over=r.c) >= 0', 'sum(p, over=r.c) >= 0', id='a-dotted-kwarg-keeps-its-dot'),
+        pytest.param(
+            'sum(p, by=r.[c, d]) >= 0', 'sum(p, by=r.[c, d]) >= 0', id='and-brackets-the-columns-where-there-are-two'
+        ),
         pytest.param("shift(p, along=t, edge='wrap') >= 0", "shift(p, along=t, edge='wrap') >= 0", id='a-keyword'),
         pytest.param('p >= q * r', 'p >= q * r', id='a-comparison-takes-its-sides-bare'),
         pytest.param('p >= 2', 'p >= 2', id='a-whole-number-keeps-no-fraction'),

@@ -132,6 +132,23 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
+class ColumnRefNode:
+    """A relation with the columns a call names on it — ``over=zone_of.generator``, ``by=ends.[bus0, bus1]``.
+
+    Unresolved: the relation name and the columns are the author's text, and
+    which of the two kinds of call this spells — a grouping, a read, a
+    partition — is the operator's business. A bare ``NAME`` with no dot is a
+    :class:`NameNode`; the dot is what names a column.
+    """
+
+    name: str
+    columns: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return f'{self.name}.{shown(self.columns)}'
+
+
+@dataclass(frozen=True)
 class DirectionNode:
     """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
 
@@ -279,6 +296,7 @@ ArithmeticNode = (
     NumberNode
     | NameNode
     | NameListNode
+    | ColumnRefNode
     | VariableNode
     | ParameterNode
     | DualNode
@@ -341,9 +359,10 @@ def operand(node: ArithmeticNode) -> str:
 KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
-#: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode
+#: knows, a relation's columns as the file names them, and the two kwarg-only
+#: literals its kwarg consumes. Meeting one downstream means the expression
+#: skipped :func:`~math_spec.resolution.expression_of`.
+UnresolvedNode = NameNode | NameListNode | ColumnRefNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
 LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
@@ -430,8 +449,14 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
-    pos_arg = arith
+    columns = pp.Group(name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')))
+    column_ref = (name + pp.Suppress('.') + columns).set_parse_action(
+        lambda t: ColumnRefNode(str(t[0]), tuple(str(x) for x in t[1]))
+    )
+    kwarg = (name + pp.Suppress('=') + (quoted | column_ref | name_list | arith)).set_parse_action(
+        lambda t: (t[0], t[1])
+    )
+    pos_arg = column_ref | arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
 

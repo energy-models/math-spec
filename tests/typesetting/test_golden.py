@@ -144,6 +144,7 @@ UNRESOLVED = {
     'QuotedNode',
     'NameNode',
     'NameListNode',
+    'ColumnRefNode',
     'KeywordNode',
 }
 
