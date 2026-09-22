@@ -259,9 +259,10 @@ def _written_out(name: str, printed: dict[str, str]) -> str:
     """The rows the formulation *name* states, as its expansion prints them.
 
     Everything an expansion writes is named after the block that stated it, so
-    the block's own name is what collects the lines back together.
+    the block's own name is what collects the lines back together. The set a
+    ``sos2`` curve keeps takes that name whole.
     """
-    rows = [math for label, math in printed.items() if label.startswith(f'{name}_')]
+    rows = [math for label, math in printed.items() if label == name or label.startswith(f'{name}_')]
     assert rows, f'{name} states rows and its expansion printed none of them'
     body = '\n\n'.join(rows)
     return f'Written out by `spec.expand()`:\n\n{body}'
@@ -288,25 +289,9 @@ def _table_shown(table: Path | None) -> str:
 def _row(declaration: Declaration, printed: dict[str, str]) -> str:
     """One construct: what it says, what it is for, and what it prints."""
     caption = f'{declaration.caption}\n\n' if declaration.caption else ''
-    math = '\n\n'.join(printed[label] for label in _labels(declaration, printed))
+    assert declaration.name in printed, f'{declaration.name} declares math and the walk printed none of it'
+    math = printed[declaration.name]
     return f'#### `{declaration.name}`\n\n{caption}```yaml\n{declaration.yaml}\n```\n\n{math}'
-
-
-def _labels(declaration: Declaration, printed: dict[str, str]) -> list[str]:
-    """Which printed equations belong to *declaration*.
-
-    One block does not print under its own name: a ``sos:`` block restricts a
-    variable, so its line sits with that variable. A declaration printing
-    nothing is an error rather than an empty row: it means the walk stopped
-    rendering something the file still declares.
-    """
-    if declaration.name in printed:
-        return [declaration.name]
-    variable = declaration.field('variable')
-    assert variable and f'{variable} sos' in printed, (
-        f'{declaration.name} declares math and the walk printed none of it'
-    )
-    return [f'{variable} sos']
 
 
 def rendered_page(page: str) -> str:
