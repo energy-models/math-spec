@@ -1073,6 +1073,8 @@ class Spec(_StrictBlock):
             *self._sos_shapes(),
             *self._sos_bounds(),
             *self._sos_emitted_names(),
+            *self._piecewise_shapes(),
+            *self._piecewise_emitted_names(),
         ]
         if errors:
             raise ValueError('\n'.join(errors))
@@ -1256,16 +1258,116 @@ class Spec(_StrictBlock):
                     if one in declared[kind]
                 )
 
+    def _piecewise_shapes(self) -> Iterator[str]:
+        """Every declaration a block names by key exists and has the shape the block needs.
+
+        The breakpoint dim, the frame ``dims:`` states, each link's values
+        parameter, the relation and columns a walk reads through, the
+        dimension a split spans, and the gate. What a link's expression and
+        the where carry is resolution's to say, and whether the pieces fit
+        together is the expansion's (:func:`math_spec.piecewise.check`).
+        """
+        for name, block in self.piecewise.items():
+            context = f"piecewise '{name}'"
+            if block.along not in self.dimensions:
+                yield undeclared_dimension('piecewise', name, block.along)
+            for d in block.dims or []:
+                if d not in self.dimensions:
+                    yield undeclared_dimension('piecewise', name, d)
+                elif d == block.along:
+                    yield (
+                        f"{context}: dims carries '{block.along}', the breakpoint dim. The frame is what the block "
+                        f'builds one curve per, and every curve runs along the breakpoints — drop it from dims:.'
+                    )
+            if block.dims is not None and len(set(block.dims)) != len(block.dims):
+                yield f'{context}: dims repeats a dimension: {block.dims}'
+            for i, link in enumerate(block.links):
+                yield from self._piecewise_link_shape(name, block, i, link)
+            if (activity := block.activity) is None:
+                continue
+            if activity not in self.variables:
+                yield (
+                    f"{context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "
+                    f'declare it, or drop activity: for weights that sum to 1.'
+                )
+            elif self.variables[activity].domain != 'binary':
+                yield f"{context}: activity variable '{activity}' must be binary"
+
+    def _piecewise_link_shape(self, name: str, block: PiecewiseBlock, i: int, link: PiecewiseLink) -> Iterator[str]:
+        """One link's values parameter, and the relation or dimension its refinement names, exist as the link needs them."""
+        context = f"piecewise '{name}'"
+        if link.values not in self.parameters:
+            yield f"{context}: link {i} values references undeclared parameter '{link.values}'"
+        elif block.along not in self.parameters[link.values].dims:
+            yield (
+                f"{context}: link {i} values parameter '{link.values}' must carry dim "
+                f"'{block.along}' (has {self.parameters[link.values].dims})"
+            )
+        if link.walks:
+            yield from self._piecewise_walk_shape(f'{context} link {i}', link)
+        elif link.refined:
+            assert link.into is not None
+            for d in [link.into] if isinstance(link.into, str) else link.into:
+                if d not in self.dimensions:
+                    yield undeclared_dimension('piecewise', name, d)
+                elif d == block.along:
+                    yield (
+                        f"{context} link {i}: into names '{d}', the breakpoint dim. A link spans the dimension its "
+                        f'ties are indexed by, and every tie runs along the breakpoints.'
+                    )
+
+    def _piecewise_walk_shape(self, context: str, link: PiecewiseLink) -> Iterator[str]:
+        """A walked link's relation is declared, its columns are the relation's, and no column is both consumed and produced."""
+        assert link.by is not None and link.over is not None and link.into is not None
+        if link.by not in self.relations:
+            yield (
+                f"{context}: by references undeclared relation '{link.by}'. A refined link reads the curve's "
+                f'weights through a declared relation — declare it, or drop by, over and into.'
+            )
+            return
+        roles = dict(self.relations[link.by].pairs)
+        sides: list[frozenset[str]] = []
+        for side, written in (('over', link.over), ('into', link.into)):
+            named = [written] if isinstance(written, str) else list(written)
+            if stray := [c for c in named if c not in roles]:
+                yield f"{context}: {side} names {stray}, which relation '{link.by}' has no column for (it has {sorted(roles)})"
+                return
+            sides.append(frozenset(roles[c] for c in named))
+        if shared := sorted(sides[0] & sides[1]):
+            yield (
+                f'{context}: over and into both reach {shared}, so the walk consumes and produces one dimension. '
+                f'Name different columns on each side.'
+            )
+
+    def _piecewise_emitted_names(self) -> Iterator[str]:
+        """No name a block's expansion writes is one the file already declares."""
+        from math_spec.piecewise import Names
+
+        declared: dict[str, Iterable[str]] = {
+            'variable': self.variables,
+            'constraint': self.constraints,
+            'sos': self.sos,
+            'assumption': self.assumptions,
+        }
+        for name, block in self.piecewise.items():
+            for kind, names in Names.of(name, len(block.links)).by_kind:
+                yield from (
+                    f"piecewise '{name}': emitted {kind} '{one}' collides with a declared {kind}"
+                    for one in names
+                    if one in declared[kind]
+                )
+
     @model_validator(mode='after')
     def _validate_expressions(self) -> Spec:
         """Every expression and where string — this file's own, and every one a curve emits.
 
-        A curve's expansion is a model in its own right, so validating it is
-        what holds the declarations it writes to the language; it runs first,
-        so a fault in a link is named against the link the file wrote.
+        This file's own come first, so a fault in a link is named against the
+        link the file wrote. A curve's expansion is then a model in its own
+        right, and validating it is what holds the declarations it writes to
+        the language.
         """
-        self.expand('piecewise')
         _ = self.resolved
+        self.expand('piecewise')
         return self
 
 

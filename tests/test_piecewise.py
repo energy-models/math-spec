@@ -14,9 +14,9 @@ from __future__ import annotations
 import pytest
 
 from math_spec import CURVATURES, to_spec
-from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
+from math_spec.errors import LanguageError, SchemaError
 from math_spec.lowering import lower_program, to_program
-from math_spec.piecewise import expand_piecewise
+from math_spec.piecewise import ASSUMED, CurveMask, assumptions_of, expand_piecewise
 from math_spec.program import Holds, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
@@ -88,7 +88,7 @@ TWO_DIM = override(
 
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
-    with pytest.raises(PiecewiseExpansionError, match="emitted sos 'cost_curve' collides"):
+    with pytest.raises(LanguageError, match="emitted sos 'cost_curve' collides"):
         schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'along': 'snapshot', 'type': 1}})
 
 
@@ -241,7 +241,7 @@ def test_a_malformed_block_is_refused(model, patch, match):
 )
 def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expression, message):
     """Lowering would catch these too, but naming ``cost_curve_link0`` — a declaration the user never wrote."""
-    with pytest.raises(PiecewiseExpansionError, match=message) as exc:
+    with pytest.raises(LanguageError, match=message) as exc:
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.links': [[link_expression, 'bp_x'], ['op_cost', 'bp_y']]})
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
 
@@ -255,7 +255,7 @@ def test_a_link_reading_a_nonlinear_entry_is_refused():
     declaration: the entry-declaration relocation for the other math positions
     is `TestValidateExpressions.test_a_nonlinear_entry_is_refused_where_the_math_reads_it`.
     """
-    with pytest.raises(PiecewiseExpansionError, match='the divisor contains variables') as exc:
+    with pytest.raises(LanguageError, match='the divisor contains variables') as exc:
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -274,7 +274,7 @@ def test_a_link_reading_a_degree_two_product_entry_is_refused():
     reads a named entry and rejects the product. A constraint and the objective
     accept degree 2, so they are not the refusing site here.
     """
-    with pytest.raises(PiecewiseExpansionError, match='which is degree 2') as exc:
+    with pytest.raises(LanguageError, match='which is degree 2') as exc:
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -301,7 +301,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
     a dual carries no variable — and hand lowering a leaf no piecewise
     expansion can build.
     """
-    with pytest.raises(PiecewiseExpansionError, match='a dual exists only after a solve'):
+    with pytest.raises(LanguageError, match='a dual exists only after a solve'):
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -321,7 +321,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
 )
 def test_a_gate_that_is_not_a_variable_is_refused(activity, match):
     """Only a variable has a declaration to say what its absence means, and the block needs that answer."""
-    with pytest.raises(PiecewiseExpansionError, match=match):
+    with pytest.raises(LanguageError, match=match):
         expand_piecewise(schema_of(GATED, **{'piecewise.cost_curve.activity': activity}))
 
 
@@ -1114,3 +1114,19 @@ def test_the_two_restricted_methods_take_exactly_two_links_for_their_own_reasons
                 'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>='], ['heat', 'bp_z']],
             },
         )
+
+
+@pytest.mark.parametrize('method', ['adjacency', 'sos2', 'convex', 'lp'])
+def test_every_assumption_a_block_may_derive_is_a_name_it_reserves(method):
+    """The collision check reserves the assumption names at load, before the mask that decides which are written is typed."""
+    links = (
+        [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]
+        if method in {'convex', 'lp'}
+        else [['p', 'bp_x'], ['op_cost', 'bp_y']]
+    )
+    spec = schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.method': method, 'piecewise.cost_curve.links': links})
+    block = spec.piecewise['cost_curve']
+    ragged = CurveMask(block, spec.resolved.piecewise['cost_curve'].where)
+
+    derived = set(assumptions_of('cost_curve', block, ragged))
+    assert derived <= {f'cost_curve_{what}' for what in ASSUMED}, 'a condition the block derives under no reserved name'
