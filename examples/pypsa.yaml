@@ -50,7 +50,10 @@ dimensions:
   cycle:
     description: independent cycles of the passive network graph — the cycle basis, data prep
   segment:
-    description: the tangents a line's loss curve is approximated by — PyPSA's `transmission_losses` count; none in a lossless run
+    description: >-
+      the cuts a line's loss curve is held above — PyPSA's tangents, as many as
+      its `segments` count, or its secants, as many as its tolerance loop
+      places; none in a lossless run
     dtype: int
   global_constraint:
     description: PyPSA's `GlobalConstraint` rows, one label per declared limit
@@ -504,18 +507,24 @@ parameters:
   transmission_losses:
     description: >-
       whether the network dissipates transmission losses — PyPSA's
-      `transmission_losses` count read as a flag, its tangents the `segment`
-      axis; false with no segments is a lossless run
+      `transmission_losses` read as a flag; its mode, tangents or secants,
+      only decides how data prep fills the `segment` axis, the rows are the
+      same; false with no segments is a lossless run
     dims: []
     dtype: bool
   Line_loss_max:
     description: the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep
     dims: [snapshot, line]
   Line_loss_slope:
-    description: the slope of a tangent to the loss curve at its segment's flow — `2 * r_pu_eff * p_k`, data prep
+    description: >-
+      the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k`
+      at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between
+      consecutive breakpoints, data prep
     dims: [snapshot, line, segment]
   Line_loss_offset:
-    description: where that tangent meets the loss axis — `loss_k - slope_k * p_k`, negative, data prep
+    description: >-
+      where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`,
+      a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep
     dims: [snapshot, line, segment]
   Transformer_s_nom:
     description: nominal apparent power
@@ -789,7 +798,7 @@ variables:
   Line_loss:
     description: >-
       `Line-loss` — what a line dissipates carrying its flow, pushed down by the
-      cost and held up by the tangents; absent, and zero in the balance, where
+      cost and held up by the cuts; absent, and zero in the balance, where
       the network is lossless
     dims: [scenario, snapshot, line]
     where: transmission_losses AND Line_active
@@ -1407,14 +1416,17 @@ constraints:
     expression: Line_loss <= Line_loss_max
   Line_loss_tangents_forward:
     description: >-
-      `Line-loss_tangents-{k}-1` — the loss sits above every tangent to its
-      curve for flow one way; PyPSA names one row per segment `k`, this block
-      states them all over the segment dimension
+      `Line-loss_tangents-{k}-1` — the loss sits above every cut to its curve
+      for flow one way; PyPSA names one row per tangent `k`, or the one row
+      `Line-loss_secants-pos` over its `secant` axis, this block states them
+      all over the segment dimension
     dims: [scenario, snapshot, line, segment]
     where: transmission_losses AND Line_active
     expression: Line_loss + Line_loss_slope * Line_s >= Line_loss_offset
   Line_loss_tangents_reverse:
-    description: "`Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending on the flow's magnitude"
+    description: >-
+      `Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending
+      on the flow's magnitude; `Line-loss_secants-neg` in the secant mode
     dims: [scenario, snapshot, line, segment]
     where: transmission_losses AND Line_active
     expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset

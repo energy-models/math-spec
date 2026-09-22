@@ -1155,11 +1155,20 @@ def build():
 
 ### Rung 13 — transmission losses
 
-`n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})`: a line
-dissipates a loss its flow buys along a fan of `K` tangents to the quadratic
-loss curve, half charged at either end of the line. The loss variable, its cap
-and the tangent rows exist only where `transmission_losses` is on; the tangent
-slopes and offsets are data prep, one per `segment`. A plain run leaves the flag
+`n.optimize(transmission_losses=...)`: a line dissipates a loss its flow buys,
+held above a fan of cuts to the quadratic loss curve `r_pu_eff * p**2`, half
+charged at either end of the line. PyPSA has two modes, and both build the same
+rows `loss + slope * flow >= offset` and `loss - slope * flow >= offset`, one
+pair per cut: `{'mode': 'tangents', 'segments': K}` takes `K` tangents at
+`p_k = k / K` of the rating, slope `2 r p_k`; `True`, or
+`{'mode': 'secants', 'atol': 1, 'rtol': 0.1, 'max_segments': 20}`, takes the
+secants between consecutive breakpoints `p_k, p_k+1`, slope `r (p_k + p_k+1)`
+and offset `-r p_k p_k+1`, the breakpoints placed from `p_0 = 0` by a step
+`max(k / (k - 1), 1 + 2 (rtol + sqrt(rtol + rtol**2)))` until the rating is
+covered (`constraints.py:2545`). The mode therefore only decides how data prep
+fills `Line_loss_slope` and `Line_loss_offset` over the `segment` axis, and the
+breakpoint loop is data prep with them. The loss variable, its cap and the cut
+rows exist only where `transmission_losses` is on. A plain run leaves the flag
 off and supplies no segments, so the loss is absent and reads as zero in the
 balance, and the model collapses to the lossless one.
 
@@ -1168,10 +1177,10 @@ balance, and the model collapses to the lossless one.
 | [`Line-loss`](#variable-domains) | done | absent, and zero in the balance, where lossless |
 | [`Line-fix-s-*`, `Line-ext-s-*`](#line-fix-s-lower) | done | the loss counted against the rating |
 | [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss at either end |
-| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep |
+| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep, see X4 |
 | [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
 | [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1) | split | |
-| `Line-loss_secants-*` | out | the secant mode solves for its segment count |
+| [`Line-loss_secants-pos`, `Line-loss_secants-neg`](#line-loss_tangents-k-1) | split | the same two blocks, secant slope and offset and the breakpoint loop as data prep; no reference records this mode yet |
 
 <!-- reference:rung_13_losses:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
@@ -1651,7 +1660,8 @@ data prep, or harness — is one open question. Line numbers are pinned pypsa
 | `ValueError`, `constraints.py:1557`          | load on a bus with nothing attached               | row not built, unserved | X2   |
 | `ValueError`, `optimize.py:436`              | no component carries a cost                       | feasibility problem     | X3   |
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
-| `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
+| `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` | X4   |
+| `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
 
 Duals and solutions are read back by the harness on the lpspec side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
@@ -1680,7 +1690,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
 | $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a fixed phase shift |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
-| $`\mathcal{B}`$ | index $`b`$ — `segment` — the tangents a line's loss curve is approximated by — PyPSA's `transmission_losses` count; none in a lossless run |
+| $`\mathcal{B}`$ | index $`b`$ — `segment` — the cuts a line's loss curve is held above — PyPSA's tangents, as many as its `segments` count, or its secants, as many as its tolerance loop places; none in a lossless run |
 | $`\mathcal{I}`$ | index $`i`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 | $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
 | $`\mathcal{I}`$ | index $`i`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I}`$ — energy carriers, what a growth limit is set per |
@@ -1817,10 +1827,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{s}^{\mathrm{nom,set}}`$ | `Line_s_nom_set` over $`\mathcal{K}`$ — a given nominal apparent power for an extendable line; one without a value has no row here |
 | $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
 | $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
-| $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` count read as a flag, its tangents the `segment` axis; false with no segments is a lossless run |
+| $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` read as a flag; its mode, tangents or secants, only decides how data prep fills the `segment` axis, the rows are the same; false with no segments is a lossless run |
 | $`\overline{\ell}`$ | `Line_loss_max` over $`\mathcal{T} \times \mathcal{K}`$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
-| $`\mathrm{a}`$ | `Line_loss_slope` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a tangent to the loss curve at its segment's flow — `2 * r_pu_eff * p_k`, data prep |
-| $`\mathrm{b}`$ | `Line_loss_offset` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — where that tangent meets the loss axis — `loss_k - slope_k * p_k`, negative, data prep |
+| $`\mathrm{a}`$ | `Line_loss_slope` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k` at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between consecutive breakpoints, data prep |
+| $`\mathrm{b}`$ | `Line_loss_offset` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
 | $`\sigma^{\mathrm{nom}}`$ | `Transformer_s_nom` over $`\mathcal{M}`$ — nominal apparent power |
 | $`\mathrm{ext}^{\sigma}`$ | `Transformer_s_nom_extendable` over $`\mathcal{M}`$ — whether the nominal apparent power is a decision |
 | $`\overline{\sigma}`$ | `Transformer_s_max_pu` over $`\mathcal{T} \times \mathcal{M}`$ — most flow either way, per unit of nominal apparent power |
@@ -1870,7 +1880,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{up}`$ | `Generator_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
 | $`\mathit{dn}`$ | `Generator_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
-| $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the tangents; absent, and zero in the balance, where the network is lossless |
+| $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the cuts; absent, and zero in the balance, where the network is lossless |
 | $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
 | $`S`$ | `Line_s_nom_ext` over $`\mathcal{K}`$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -2994,9 +3004,10 @@ Line_loss_upper:
 ```yaml
 Line_loss_tangents_forward:
   description: >-
-    `Line-loss_tangents-{k}-1` — the loss sits above every tangent to its
-    curve for flow one way; PyPSA names one row per segment `k`, this block
-    states them all over the segment dimension
+    `Line-loss_tangents-{k}-1` — the loss sits above every cut to its curve
+    for flow one way; PyPSA names one row per tangent `k`, or the one row
+    `Line-loss_secants-pos` over its `secant` axis, this block states them
+    all over the segment dimension
   dims: [scenario, snapshot, line, segment]
   where: transmission_losses AND Line_active
   expression: Line_loss + Line_loss_slope * Line_s >= Line_loss_offset
@@ -3012,7 +3023,9 @@ Line_loss_tangents_forward:
 
 ```yaml
 Line_loss_tangents_reverse:
-  description: "`Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending on the flow's magnitude"
+  description: >-
+    `Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending
+    on the flow's magnitude; `Line-loss_secants-neg` in the secant mode
   dims: [scenario, snapshot, line, segment]
   where: transmission_losses AND Line_active
   expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset
