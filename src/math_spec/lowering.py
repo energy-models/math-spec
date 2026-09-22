@@ -35,7 +35,7 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import declaration_of, derivations_of
+from math_spec.piecewise import declaration_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -102,14 +102,8 @@ def lower_program(expanded: Spec) -> program.Program:
     """
     assert not expanded.piecewise, "a curve states rows, and lowering reads them: pass spec.expand('piecewise')"
     resolved = expanded.resolved
-    derivations = {
-        name: how
-        for block, ex in expanded._expanded_piecewise.items()
-        for name, how in derivations_of(block, ex).items()
-    }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
-        for name, pdef in expanded.parameters.items()
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
     }
 
     variables = {}
@@ -170,7 +164,7 @@ def lower_program(expanded: Spec) -> program.Program:
         dimensions=dimensions,
         relations=resolved.relations,
         sos=sos,
-        piecewise={name: declaration_of(ex) for name, ex in expanded._expanded_piecewise.items()},
+        piecewise={name: declaration_of(pw) for name, pw in expanded._expanded_piecewise.items()},
         assumptions=_assumptions(expanded),
         expressions=expressions,
     )

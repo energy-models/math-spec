@@ -173,10 +173,10 @@ set never states a curve.
 
 ## Two things to know
 
-**An expansion that derived parameters does not round-trip to YAML.** A curve
-under a `points:` mask emits parameters filled from its own breakpoints. No
-file can state those, so `to_yaml()` on that expansion is refused and names
-`typeset()` instead.
+**An expansion is a file like any other.** A curve emits variables,
+constraints and assumptions over the parameters the file declared, and no
+parameter of its own, so `to_yaml()` writes every expansion and the same data
+binds it.
 
 **A method states what it assumes of the data.** Every curve states that its
 breakpoints are there, because a missing parameter row reads as a zero rather

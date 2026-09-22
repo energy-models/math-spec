@@ -27,8 +27,8 @@ costs to add.
   rather than being one. `piecewise:` and `sos:` are the two. It costs as much as
   a primitive to build, but composes as freely as a macro. A formulation emits
   variables and constraints, states what it assumes of the data as ordinary
-  assumptions, and any parameter it emits it derives — so the same
-  data binds a model and its expansion, and
+  assumptions, and emits no parameter — so the same data binds a model and its
+  expansion, and
   [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
   needs no source a reader has to supply.
 
