@@ -468,7 +468,7 @@ representative:
 
 #### `zonal`
 
-a grouping through a two-key map, consuming one key: the condition reads the other, and the row keeps it
+a grouping through a two-key map, summing one key away: the condition reads the other, and the row keeps it
 
 ```yaml
 zonal:
@@ -482,7 +482,7 @@ zonal:
 
 #### `zonal_history`
 
-the same table consuming its other key
+the same table summing its other key away
 
 ```yaml
 zonal_history:

@@ -212,7 +212,7 @@ def test_the_lookahead_is_the_widest_reach_of_any_block():
     assert verdict.ahead == 5, 'one window must see past its last row as far as any block reads'
 
 
-def test_a_grouping_that_consumes_the_axis_couples_it():
+def test_a_grouping_that_sums_the_axis_away_couples_it():
     program = ms.to_program(
         {
             **BASE,
@@ -220,7 +220,7 @@ def test_a_grouping_that_consumes_the_axis_couples_it():
         }
     )
     verdict = program.separability['u']
-    assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'
+    assert not verdict.windowable, 'the grouping sums u away, so a window of u is a different sum'
 
 
 def test_every_declared_axis_has_a_verdict_and_nothing_else_does():
@@ -247,7 +247,7 @@ def test_a_reduction_over_several_axes_couples_every_one_of_them():
     so the verdict for each of them has to say so — a walk that read only the
     first would call the rest windowable."""
     program = ms.to_program({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}})
-    assert not program.separability['h'].windowable, 'the reduction consumes h'
+    assert not program.separability['h'].windowable, 'the reduction sums h away'
     assert not program.separability['u'].windowable, 'and u, in the same node'
 
 

@@ -148,7 +148,7 @@ UNRESOLVED = {
 }
 
 #: A dataclass the walk steps *through* rather than renders: an arm has no
-#: branch of its own — its ``when`` and ``value`` do — and a direction and the
+#: branch of its own — its ``when`` and ``value`` do — and a join and the
 #: relation it reads are the facts a node carries rather than nodes. None is a
 #: member of any node union, so they are subtracted from what the tree walk
 #: finds rather than added to what the vocabulary declares.

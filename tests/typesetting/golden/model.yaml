@@ -169,10 +169,10 @@ constraints:
   representative: # a map into its own dimension, read both ways: the frame is unchanged and the index is primed
     dims: [snapshot]
     expression: sum(spill, by=rep_of, over=snapshot, into=rep) <= at(spill, by=rep_of, over=rep, into=snapshot)
-  zonal: # a grouping through a two-key map, consuming one key: the condition reads the other, and the row keeps it
+  zonal: # a grouping through a two-key map, summing one key away: the condition reads the other, and the row keeps it
     dims: [snapshot, zone]
     expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
-  zonal_history: # the same table consuming its other key
+  zonal_history: # the same table summing its other key away
     dims: [generator, zone]
     expression: sum(p, by=gen_zone, over=snapshot, into=zone) <= zone_cap
   zonal_membership: # the same table read between its two key columns: no value column is read, so the domain asks only that the row is there

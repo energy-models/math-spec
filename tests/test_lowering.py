@@ -596,10 +596,10 @@ def test_a_divisor_under_a_lookup_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
     component_of = RelationDeclaration((('flow', 'flow'), ('component', 'component')), ('flow',))
-    pulled = Lookup(quotient, join=Join('component_of', component_of, ('component',), ('flow',)))
+    looked_up = Lookup(quotient, join=Join('component_of', component_of, ('component',), ('flow',)))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Lookup`'
-    assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
+    assert divisor_parameters(looked_up) == frozenset({'rate'}), 'the walk descends through `Lookup`'
+    assert divisor_parameters(Sum(looked_up, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
 def test_a_divisor_under_a_power_is_still_named():

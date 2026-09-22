@@ -75,7 +75,7 @@ $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in
 
 ```yaml
 description: >-
-  The membership reduction — `sum(array, by=relation, over=a, into=b)` lands the result on the
+  The membership reduction — `sum(array, by=relation, over=a, into=b)` groups the result by the
   column the relation is read to, which is what makes topology data rather than
   structure.
 

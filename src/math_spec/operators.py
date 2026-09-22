@@ -92,7 +92,7 @@ class Builtin:
 #: The closed operator set. ``by=`` is the one keyword that addresses a relation,
 #: and a relation carries its own dimensions, so no sibling kwarg restates them.
 #: On ``shift`` and ``sum_back`` it partitions the axis the operator steps along: it
-#: says which rows are neighbours, not which group a term lands in, and
+#: says which rows are neighbours, not which group a term is added to, and
 #: ``within=`` names the value columns the group is made of, on every call
 #: that names a ``by=``.
 BUILTINS: dict[str, Builtin] = {

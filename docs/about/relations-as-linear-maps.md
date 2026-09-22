@@ -25,7 +25,7 @@ constraints:
   zonal:
     dims: [snapshot, zone]
     expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
-  pulled:
+  looked_up:
     dims: [snapshot, generator]
     where: gen_zone
     expression: p <= at(zone_cap, by=gen_zone, over=zone, into=generator)
@@ -177,7 +177,7 @@ consumer builds is not the matrix.
 - **Off the domain there is no value.** $`\mathrm{zone\_cap} \circ f`$ is
   undefined where $`f`$ is, so `at` is absent there and [absence
   spreads](../reference/language/absence.md#how-absence-travels) to the row.
-  `where: gen_zone` on `pulled` writes the domain of $`f`$ on the page, so a
+  `where: gen_zone` on `looked_up` writes the domain of $`f`$ on the page, so a
   reader sees which rows exist without opening the data.
 
 ## Partitions and tests

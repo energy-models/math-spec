@@ -863,7 +863,7 @@ class Separability:
             is pointwise; a ``shift`` of ``-2`` is ``2``.
         coupled: Each declaration that ties the axis together, to what ties it
             and the one modelling change that would not: a sum over the axis
-            in a constraint, a grouping that consumes it, a wrapped
+            in a constraint, a grouping that sums it away, a wrapped
             translation, a set. No window satisfies these, and no rewrite here
             would keep the model's meaning, so the remedy is named rather than
             applied.
