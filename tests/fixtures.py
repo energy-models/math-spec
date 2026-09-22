@@ -11,10 +11,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from math_spec._yaml import parse_yaml, read_yaml
+from math_spec.errors import LanguageError
+from math_spec.expansion import parse_and_expand
+from math_spec.resolution import Namespace, mask_of, resolve_expression, resolve_where_text
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from math_spec import Spec
+    from math_spec._expression_parser import ParsedNode
+    from math_spec.program import Mask
 
 EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
 
@@ -84,3 +89,22 @@ def raw_of(source: str | Path | dict[str, Any]) -> dict[str, Any]:
     if isinstance(source, dict):
         return source
     return read_yaml(source) if isinstance(source, Path) else parse_yaml(source)
+
+
+def expression_of(text: str, ns: Namespace, context: str) -> ParsedNode:
+    """Parse, expand and resolve one expression, raising every problem at once rather than collecting."""
+    errors: list[str] = []
+    resolved = resolve_expression(parse_and_expand(text, ns.schema, context), ns, context, errors)
+    if errors:
+        raise LanguageError('\n'.join(errors))
+    assert resolved is not None
+    return resolved
+
+
+def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> Mask | None:
+    """Parse and resolve one where string into the mask a declaration carries, raising every problem at once."""
+    errors: list[str] = []
+    resolved = resolve_where_text(text, ns, context, errors, self_variable)
+    if errors:
+        raise LanguageError('\n'.join(errors))
+    return mask_of(resolved)

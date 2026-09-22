@@ -15,14 +15,14 @@ import pytest
 from math_spec import LanguageError
 from math_spec._expression_parser import NameNode
 from math_spec.degree import calls_dual, carries_variable, check_binary, check_expression
-from math_spec.resolution import Namespace, expression_of
-from tests.fixtures import SMALL_MODEL, schema_of
+from math_spec.resolution import Namespace
+from tests.fixtures import SMALL_MODEL, expression_of, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)
 
 
 def _ast(text: str):
-    return expression_of(text, SCHEMA, Namespace.of(SCHEMA), 'test')
+    return expression_of(text, Namespace(SCHEMA), 'test')
 
 
 @pytest.mark.parametrize(
@@ -107,13 +107,13 @@ def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(conte
 
 
 def test_carries_variable_refuses_an_unresolved_name():
-    with pytest.raises(AssertionError, match=r'resolution\.expression_of'):
+    with pytest.raises(AssertionError, match=r'resolution\.resolve_expression'):
         carries_variable(NameNode('p'))
 
 
 def _dual_ast(text: str):
     schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
-    return expression_of(text, schema, Namespace.of(schema), 'test')
+    return expression_of(text, Namespace(schema), 'test')
 
 
 def test_a_dual_carries_no_variable():
@@ -154,5 +154,5 @@ def test_calls_dual_finds_a_dual_inside_a_cased_arm():
             },
         },
     )
-    ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
+    ast = expression_of('dcase', Namespace(schema), 'test')
     assert calls_dual(ast) is True

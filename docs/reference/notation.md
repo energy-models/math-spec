@@ -118,6 +118,7 @@ parameters:
 
 | Symbol | Meaning |
 |---|---|
+| $`\mathrm{spend}^{\mathrm{cap}}`$ | `spend_cap` over $`\mathcal{G}`$ |
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
 | $`\mathit{marginal\_price}`$ | `marginal_price` over $`\mathcal{T} \times \mathcal{B}`$ |
@@ -701,7 +702,79 @@ never:
 \mathit{slack}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T} \,:\, \bot
 ```
 
+#### `margin`
+
+a mask comparing two expressions, which prints as the arithmetic it is
+
+```yaml
+margin:
+  dims: [snapshot, generator]
+  where: "p_max - p_min > cost / 2"
+  expression: p <= p_max
+```
+
+```math
+p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} - \mathrm{p}^{\mathrm{min}}_{g} > \frac{\mathrm{cost}_{g}}{2}
+```
+
+#### `ramped`
+
+a translation under a comparison names its edge, a pullback reads through a relation, and the position keeps the vacated row out
+
+```yaml
+ramped:
+  dims: [snapshot, bus]
+  where: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of, over=zone, into=bus) AND position(snapshot) > 0"
+  expression: slack <= load
+```
+
+```math
+\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \wedge \mathrm{pos}(t) > 0
+```
+
+#### `covered`
+
+a reduction on a side of a scalar mask, so nothing is left to quantify
+
+```yaml
+covered:
+  dims: []
+  where: "sum(p_max, over=generator) >= budget"
+  expression: sum(p) <= budget
+```
+
+```math
+\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget} \qquad \text{where } \sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget}
+```
+
+#### `capped`
+
+an expressions: entry on a side, read by the name the file gave it
+
+```yaml
+capped:
+  dims: [snapshot, generator]
+  where: "spend_cap > 0 OR NOT is_flexible"
+  expression: p <= p_max
+```
+
+```math
+p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g}
+```
+
 ### Definitions
+
+#### `spend_cap`
+
+a data-only entry, so a where may compare it
+
+```yaml
+spend_cap: cost * 2
+```
+
+```math
+\mathrm{spend}^{\mathrm{cap}}_{g} = \mathrm{cost}_{g} \cdot 2 \qquad \forall\, g \in \mathcal{G}
+```
 
 #### `spend`
 
