@@ -916,6 +916,22 @@ def test_an_assumption_is_a_declaration_a_line_may_be_asked_for():
     )
 
 
+def test_a_condition_a_method_states_is_a_line_that_may_be_asked_for_before_it_is_written_out():
+    """The document prints a curve's conditions from an unexpanded model, so the reader may ask for one by name.
+
+    They are looked up where the document reads them. Looking in the file's
+    own ``assumptions:`` instead finds nothing until ``expand()`` writes them
+    there, and the page shows a line no caller can reach.
+    """
+    curve = to_spec(EXAMPLES / 'piecewise_lp.yaml')
+    line = typeset_declaration(curve, 'cost_curve_increasing', 'latex')
+
+    assert 'is defined' not in line, 'the increasing condition is a comparison, not a definedness test'
+    assert line == typeset_declaration(curve.expand('piecewise'), 'cost_curve_increasing', 'latex'), (
+        'and it prints the same line whether or not the curve has been written out'
+    )
+
+
 #: One curve, varied per case: two links pinned to it, over one breakpoint dim.
 _CURVE = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'bp': {'dtype': 'int'}},

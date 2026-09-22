@@ -430,11 +430,12 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
 
     assert program.piecewise['cost_curve'].breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
     assert list(program.assumptions) == [
+        'cost_curve_complete',
         'cost_curve_increasing',
         'cost_curve_curvature',
         'cost_curve_breakpoints',
         'cost_curve_contiguous',
-    ], 'an lp curve with a mask assumes all four, each named after the block that implies it'
+    ], 'an lp curve with a mask assumes all five, each named after the block that implies it'
     assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
         'a method states its conditions in the same language the file does, so a consumer has one kind to read'
     )
@@ -443,7 +444,10 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
     )
 
     plain = to_program(raw_of(NONCONVEX_YAML))
-    assert plain.assumptions == {}, 'adjacency over a whole curve is exact for any shape, and masks nothing'
+    assert list(plain.assumptions) == ['cost_curve_complete'], (
+        'adjacency is exact for a curve of any shape, so it states nothing about the shape — but every '
+        'curve states that its breakpoints are there, whatever the method'
+    )
 
 
 def test_a_curves_conditions_cannot_collide_with_a_written_assumption():

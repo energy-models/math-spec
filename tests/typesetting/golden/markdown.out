@@ -560,10 +560,28 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 \mathrm{load}_{t,b} \ge 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'}
 ```
 
+**`fuel_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_y}_{g,a} \text{ is defined} \wedge \mathrm{bp\_heat}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
+```
+
+**`cost_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_y}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a}
+```
+
 **`cost_curve_contiguous`**
 
 ```math
 \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_run}_{g,a} \wedge \neg \mathrm{bp\_run}_{g,a - 1} \} \rvert = 1 \qquad \forall\, g \in \mathcal{G}
+```
+
+**`hull_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_heat}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
 ```
 
 **`hull_curve_increasing`**
@@ -576,6 +594,12 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 
 ```math
 \lvert \{ a \in \mathcal{A} \,:\, \left( \mathrm{bp\_heat}_{g,a} - \mathrm{bp\_heat}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) > \left( \mathrm{bp\_heat}_{g,a \boxplus_{0} 1} - \mathrm{bp\_heat}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) \wedge \mathrm{pos}(a) > 0 \wedge \mathrm{pos}(a) \neq \lvert \mathcal{A} \rvert - 1 \} \rvert = 0 \vee \lvert \{ a \in \mathcal{A} \,:\, \left( \mathrm{bp\_heat}_{g,a} - \mathrm{bp\_heat}_{g,a \boxminus_{0} 1} \right) \cdot \left( \mathrm{bp\_x}_{g,a \boxplus_{0} 1} - \mathrm{bp\_x}_{g,a} \right) < \left( \mathrm{bp\_heat}_{g,a \boxplus_{0} 1} - \mathrm{bp\_heat}_{g,a} \right) \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) \wedge \mathrm{pos}(a) > 0 \wedge \mathrm{pos}(a) \neq \lvert \mathcal{A} \rvert - 1 \} \rvert = 0 \qquad \forall\, g \in \mathcal{G}
+```
+
+**`lp_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_y}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined}
 ```
 
 **`lp_curve_increasing`**
@@ -600,6 +624,12 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 
 ```math
 \lvert \{ a \in \mathcal{A} \,:\, \mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \neg \left( \mathrm{bp\_x}_{g,a - 1} \text{ is defined} \right) \} \rvert = 1 \qquad \forall\, g \in \mathcal{G}
+```
+
+**`ramp_curve_complete`**
+
+```math
+\mathrm{bp\_x}_{g,a} \text{ is defined} \wedge \mathrm{bp\_heat}_{g,a} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ a \in \mathcal{A}
 ```
 
 **`ramp_curve_increasing`**

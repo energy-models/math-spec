@@ -79,9 +79,12 @@ class Assumed(NamedTuple):
 def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
-    A curve has an x-axis only where two links tie it, so the increasing
-    condition — and the shape it is checked with — exist only there; ``lp``
-    alone needs a segment to state a line for; a mask must be one run.
+    Every curve assumes its breakpoints are there: a missing parameter row is
+    not absence, it is a zero, so an undeclared breakpoint sits the curve on
+    the origin rather than shortening it. A curve has an x-axis only where two
+    links tie it, so the increasing condition — and the shape it is checked
+    with — exist only there; ``lp`` alone needs a segment to state a line for;
+    a mask must be one run.
 
     Read off the block rather than off an expansion, so a model states what it
     assumes whether or not its curves have been written out. Each condition is
@@ -91,6 +94,18 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
     """
     d, mask = pw.over, pw.points
     assumed: dict[str, Assumed] = {}
+    assumed[f'{block}_complete'] = Assumed(
+        ' AND '.join(dict.fromkeys(link.values for link in pw.links)),
+        mask,
+        f"piecewise '{block}': every breakpoint the curve runs through needs a row in "
+        f'{_quoted(link.values for link in pw.links)} — a missing row is read as a zero rather than as a '
+        f'shorter curve, so it sits the curve on the origin. '
+        + (
+            f"Bind the rows, or narrow points: '{mask}' to where the curve runs."
+            if mask is not None
+            else 'Bind the rows, or declare points: to say how far the curve runs.'
+        ),
+    )
     curvature = _curvature_required(pw)
     if curvature is not None:
         x, y = (link.values for link in pw.curve)
@@ -117,6 +132,11 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
             f"curve's own first and last.",
         )
     return assumed
+
+
+def _quoted(names: Iterable[str]) -> str:
+    """Parameter names as a refusal lists them, in link order and without repeats."""
+    return ', '.join(f"'{name}'" for name in dict.fromkeys(names))
 
 
 def _back(parameter: str, over: str, offset: int) -> str:

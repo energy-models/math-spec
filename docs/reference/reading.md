@@ -108,7 +108,7 @@ refusal quotes. The engine, which has the numbers, runs each one and raises
 ```python
 from math_spec.program import Holds, assumption_message
 
-sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_curvature', 'curve_increasing']
+sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_complete', 'curve_curvature', 'curve_increasing']
 isinstance(program.assumptions['curve_increasing'], Holds)  # True
 message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
 message  # "assumption 'curve_increasing' does not hold for the data bound to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"

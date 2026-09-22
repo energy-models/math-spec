@@ -481,9 +481,12 @@ def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
     assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
         'a method states its conditions in the language the file writes, so one kind stands in the mapping'
     )
-    assert derived == ['cost_curve_increasing', 'cost_curve_curvature', 'cost_curve_breakpoints'], (
-        'an lp curve over a whole axis assumes three things of its breakpoints'
-    )
+    assert derived == [
+        'cost_curve_complete',
+        'cost_curve_increasing',
+        'cost_curve_curvature',
+        'cost_curve_breakpoints',
+    ], 'an lp curve over a whole axis assumes four things of its breakpoints, completeness first'
 
 
 def test_an_assumption_lowers_both_of_its_masks():

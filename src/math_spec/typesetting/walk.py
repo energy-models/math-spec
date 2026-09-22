@@ -801,13 +801,16 @@ class Walk:
         """The one line *name* prints as: a named expression, a constraint, an assumption, a curve, or a variable's domain.
 
         *name* is one of the five; :func:`~math_spec.typesetting.typeset_declaration`
-        refuses the rest, and a name declared as two of them.
+        refuses the rest, and a name declared as two of them. An assumption is
+        looked up where the document prints it from, so a condition a curve's
+        method states is a line a reader can ask for before the curve is
+        written out.
         """
         if name in self.schema.expressions:
             return self.definition(name)
         if name in self.schema.constraints:
             return self._constraint(name)
-        if name in self.schema.assumptions:
+        if name in self.schema.resolved.assumptions:
             return self._assumption(name)
         if name in self.schema.piecewise:
             return self._piecewise(name)

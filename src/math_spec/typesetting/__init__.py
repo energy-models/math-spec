@@ -203,7 +203,7 @@ def typeset_declaration(
     kinds = {
         'named expression': schema.expressions,
         'constraint': schema.constraints,
-        'assumption': schema.assumptions,
+        'assumption': schema.resolved.assumptions,
         'curve': schema.piecewise,
         'variable': schema.variables,
     }

@@ -178,12 +178,14 @@ under a `points:` mask emits parameters filled from its own breakpoints. No
 file can state those, so `to_yaml()` on that expansion is refused and names
 `typeset()` instead.
 
-**A method states what it assumes of the data.** A `method: lp` or
-`method: convex` curve is exact only for breakpoints of the right shape. The
-expansion writes those conditions into
+**A method states what it assumes of the data.** Every curve states that its
+breakpoints are there, because a missing parameter row reads as a zero rather
+than as a shorter curve. A `method: lp` or `method: convex` curve states more:
+it is exact only for breakpoints of the right shape. The expansion writes
+those conditions into
 [`assumptions:`](../reference/language/assumptions.md) beside the rows. The
-`method: sos2` curve above assumes nothing, because it takes a curve of any
-shape.
+`method: sos2` curve above states nothing about the shape, because it takes a
+curve of any shape.
 
 What `expand()` accepts, and what each `method:` emits, is under
 [piecewise curves and SOS](../reference/language/piecewise.md#writing-a-formulation-out).

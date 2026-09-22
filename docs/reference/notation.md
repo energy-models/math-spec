@@ -1152,6 +1152,10 @@ Written out by `spec.expand()`:
 \delta_{p,m,b} \in \{0, 1\} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
 ```
 
+```math
+\mathrm{x}_{b} \text{ is defined} \wedge \mathrm{y}_{b} \text{ is defined} \qquad \forall\, b \in \mathcal{B}
+```
+
 #### `cost_curve`
 
 **`method: sos2`** — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
@@ -1202,6 +1206,10 @@ Written out by `spec.expand()`:
 \left( \lambda_{t,g,b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+```math
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
 #### `cost_curve`
 
 **`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
@@ -1246,6 +1254,10 @@ Written out by `spec.expand()`:
 
 ```math
 0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 
 ```math
@@ -1295,6 +1307,10 @@ Written out by `spec.expand()`:
 
 ```math
 \mathit{dispatch}_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
+```
+
+```math
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 
 ```math

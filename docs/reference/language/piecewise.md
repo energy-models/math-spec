@@ -72,8 +72,10 @@ binds the numbers runs them.
 
 !!! warning "A values parameter short of a row does not build a shorter curve"
 
-    The missing row reads as a breakpoint at the origin, and the table is
-    refused when the data binds. To say how far a curve runs, use `points:`.
+    The missing row reads as a breakpoint at the origin. Every block states
+    `<block>_complete` for this, whatever its `method:`, so the table is
+    refused when the data binds and the refusal names `points:` as the way to
+    say how far a curve runs.
 
 ### `activity`
 
