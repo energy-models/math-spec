@@ -10,6 +10,7 @@ import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from math_spec import Spec
 from math_spec._yaml import parse_yaml, read_yaml
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
@@ -17,7 +18,6 @@ from math_spec.resolution import Namespace, mask_of, resolve_expression, resolve
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from math_spec import Spec
     from math_spec._expression_parser import ParsedNode
     from math_spec.program import Mask
 
@@ -82,6 +82,12 @@ def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Spec:
     """
     raw = raw_of(source)
     return to_spec(override(raw, **patch) if patch else raw)
+
+
+def expanded(source: str | Path | dict[str, Any] | Spec, *kinds: Any, **patch: Any) -> Spec:
+    """:func:`schema_of` with its formulations written out — what ``to_program`` takes from a model with a curve."""
+    schema = source if isinstance(source, Spec) else schema_of(source, **patch)
+    return schema.expand(*kinds)
 
 
 def raw_of(source: str | Path | dict[str, Any]) -> dict[str, Any]:

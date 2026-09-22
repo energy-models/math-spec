@@ -1,0 +1,19 @@
+dimensions:
+  bp: { dtype: int }
+
+parameters:
+  x_bp: { dims: [bp] }
+  y_bp: { dims: [bp] }
+
+variables:
+  x: { dims: [], bounds: { lower: 0 } }
+  y: { dims: [], bounds: { lower: 0 } }
+  running: { dims: [], domain: binary }
+
+piecewise:
+  curve:
+    along: bp
+    activity: running
+    links:
+      - [x, x_bp]
+      - [y, y_bp]

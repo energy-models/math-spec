@@ -181,8 +181,8 @@ def validate_expressions(schema: Spec) -> Resolved:
                 assumptions[aname] = assumption
 
     expanded_piecewise = {
-        name: mask_of(resolve_where_text(ex.block.where, ns, f"piecewise '{name}'", errors))
-        for name, ex in schema._expanded_piecewise.items()
+        name: mask_of(resolve_where_text(pw.where, ns, f"piecewise '{name}'", errors))
+        for name, pw in schema._expanded_piecewise.items()
     }
 
     piecewise = {}

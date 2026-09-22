@@ -1,0 +1,17 @@
+dimensions:
+  bp: { dtype: int }
+
+parameters:
+  x_bp: { dims: [bp] }
+  y_bp: { dims: [bp] }
+
+variables:
+  x: { dims: [], bounds: { lower: 0 } }
+  y: { dims: [], bounds: { lower: 0 } }
+
+piecewise:
+  curve:
+    along: bp
+    links:
+      - [x, x_bp]
+      - [y, y_bp]

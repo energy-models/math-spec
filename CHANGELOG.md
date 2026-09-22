@@ -19,6 +19,41 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.116](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.115...v0.0.0-alpha.116) (2026-09-22)
+
+
+### Features
+
+* **lowering:** a program is lowered from the model as it arrived, and a curve left as written is refused ([#618](https://github.com/energy-models/math-spec/issues/618)) ([b15c78a](https://github.com/energy-models/math-spec/commit/b15c78a4b8ef3614f46f3ea67c55080b71054716))
+
+## [0.0.0-alpha.115](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.114...v0.0.0-alpha.115) (2026-09-22)
+
+
+### Bug Fixes
+
+* **typeset:** a set prints under the name its sos: block declares ([#615](https://github.com/energy-models/math-spec/issues/615)) ([f2c91e8](https://github.com/energy-models/math-spec/commit/f2c91e80f8de9df641ebe32ae6ac7c2982e75e5b))
+
+## [0.0.0-alpha.114](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.113...v0.0.0-alpha.114) (2026-09-22)
+
+
+### Documentation
+
+* **expand:** every formulation expands to a hand-written file the suite compares whole ([#611](https://github.com/energy-models/math-spec/issues/611)) ([d7069b2](https://github.com/energy-models/math-spec/commit/d7069b2fcf3ce2ab9d44ffefed4e2e4e18865cd7))
+
+## [0.0.0-alpha.113](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.112...v0.0.0-alpha.113) (2026-09-22)
+
+
+### Bug Fixes
+
+* **language:** a gap in points: is explained by the rows its method writes ([#612](https://github.com/energy-models/math-spec/issues/612)) ([e903272](https://github.com/energy-models/math-spec/commit/e903272606f6741050b319477ea85db76c6f0540))
+
+## [0.0.0-alpha.112](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.111...v0.0.0-alpha.112) (2026-09-22)
+
+
+### Bug Fixes
+
+* **language:** an expanded curve declares only the parameters the file declared ([#609](https://github.com/energy-models/math-spec/issues/609)) ([423468e](https://github.com/energy-models/math-spec/commit/423468e2033e870343546a5c42994f6265efa362))
+
 ## [0.0.0-alpha.111](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.110...v0.0.0-alpha.111) (2026-09-22)
 
 

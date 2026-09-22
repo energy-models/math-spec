@@ -35,7 +35,8 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.piecewise import declaration_of, derivations_of
+from math_spec.errors import LanguageError
+from math_spec.piecewise import declaration_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -63,9 +64,9 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program)
 
     Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
     model, or a program already. Idempotent, so a caller that does not know
-    which it holds can call this and be sure.
-
-    Not memoised; :meth:`~math_spec.model.Spec.expand` is.
+    which it holds can call this and be sure. The model is lowered as it
+    arrived: nothing is written out here, so a ``piecewise:`` block still in
+    it is refused, naming :meth:`~math_spec.model.Spec.expand`.
 
     Args:
         spec: What to read the declarations from.
@@ -77,11 +78,22 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program)
     Raises:
         SchemaError: The file is not a valid model.
         LanguageError: A construct outside the language, named with its
-            rewrite.
+            rewrite, or a ``piecewise:`` block left as written.
     """
     if isinstance(spec, program.Program):
         return spec
-    return lower_program(to_spec(spec).expand('piecewise'))
+    return lower_program(to_spec(spec))
+
+
+def curve_left_as_written_message(blocks: list[str]) -> str:
+    """The refusal for a model lowered with its ``piecewise:`` blocks still to be written out."""
+    named = ', '.join(f"'{block}'" for block in blocks)
+    return (
+        f'piecewise: {named} states rows rather than being one, and a program holds the rows. Pass '
+        f"spec.expand('piecewise'), which writes each block out as the variables and constraints it states "
+        f'and keeps every sos: block for a consumer that takes a set — or spec.expand(), which writes the '
+        f'sets out as binaries and linking rows too.'
+    )
 
 
 def lower_program(expanded: Spec) -> program.Program:
@@ -90,7 +102,9 @@ def lower_program(expanded: Spec) -> program.Program:
     A ``domain: binary`` variable lowers with fixed 0/1 bounds. A ``sos:``
     block lowers as itself — a program carries a set, and
     :meth:`~math_spec.model.Spec.expand` is what states one as binaries
-    instead.
+    instead. A ``piecewise:`` block does not lower at all: it states rows, and
+    :meth:`~math_spec.model.Spec.expand` is what writes them, so a model still
+    carrying one is refused rather than written out on the caller's behalf.
 
     Args:
         expanded: A model with no ``piecewise:`` block left, which
@@ -98,18 +112,13 @@ def lower_program(expanded: Spec) -> program.Program:
 
     Raises:
         LanguageError: A construct outside the language, named with its
-            rewrite.
+            rewrite, or a ``piecewise:`` block left as written.
     """
-    assert not expanded.piecewise, "a curve states rows, and lowering reads them: pass spec.expand('piecewise')"
+    if expanded.piecewise:
+        raise LanguageError(curve_left_as_written_message(sorted(expanded.piecewise)))
     resolved = expanded.resolved
-    derivations = {
-        name: how
-        for block, ex in expanded._expanded_piecewise.items()
-        for name, how in derivations_of(block, ex).items()
-    }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
-        for name, pdef in expanded.parameters.items()
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
     }
 
     variables = {}
@@ -163,8 +172,8 @@ def lower_program(expanded: Spec) -> program.Program:
             _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
         )
     piecewise = {
-        name: declaration_of(ex, _Lowering(expanded, f"piecewise '{name}'").mask(resolved.expanded_piecewise[name]))
-        for name, ex in expanded._expanded_piecewise.items()
+        name: declaration_of(pw, _Lowering(expanded, f"piecewise '{name}'").mask(resolved.expanded_piecewise[name]))
+        for name, pw in expanded._expanded_piecewise.items()
     }
 
     return program.Program(

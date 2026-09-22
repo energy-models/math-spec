@@ -6,186 +6,440 @@ SPDX-License-Identifier: CC-BY-4.0
 # See what a curve or a set expands to
 
 A [`piecewise:`](../reference/language/piecewise.md) block and a `sos:` block
-each stand for plain variables and constraints. Read those rows to review a
+each stand for plain variables and constraints. Write them out to review a
 formulation, to teach one, or to hand the model to an engine that has no
 concept of a set.
 
-The model below states one of each. A `piecewise:` block ties two variables to
-a curve through the breakpoints. A `sos:` block says that at most one member of
-a family is nonzero.
-
-```yaml
-description: one plant whose fuel use follows a curve, and whose output picks one mode
-
-dimensions:
-  snapshot: { dtype: int }
-  bp: { dtype: int }
-  mode: { dtype: int }
-
-parameters:
-  demand: { dims: [snapshot] }
-  bp_out: { dims: [bp] }
-  bp_fuel: { dims: [bp] }
-
-variables:
-  output:
-    dims: [snapshot]
-    bounds: { lower: 0, upper: 100 }
-  fuel:
-    dims: [snapshot]
-    bounds: { lower: 0 }
-  level:
-    dims: [snapshot, mode]
-    bounds: { lower: 0, upper: 1 }
-
-piecewise:
-  fuel_curve:
-    along: bp
-    method: sos2
-    links:
-      - [output, bp_out]
-      - [fuel, bp_fuel]
-
-sos:
-  mode_pick:
-    variable: level
-    along: mode
-    type: 1
-
-constraints:
-  meet:
-    dims: [snapshot]
-    expression: output >= demand
-
-objective:
-  sense: minimize
-  expression: sum(fuel, over=snapshot)
-```
-
 ## 1. Write the formulation out
 
-`expand()` returns the same math with its formulations stated as rows. The
-command line prints the result instead of returning it.
+`expand()` returns the same math with its formulations stated as plain
+declarations. `to_yaml()` prints the result as a file.
 
 === "Python"
 
     ```python
     from math_spec import to_spec
 
-    spec = to_spec('plant.yaml')
-    written_out = spec.expand()
+    spec = to_spec('before.yaml')
+    print(spec.expand().to_yaml())
     ```
 
 === "Command line"
 
     ```bash
-    python -m math_spec markdown plant.yaml --expand
+    python -m math_spec markdown before.yaml --expand
     ```
 
-## 2. Read the names it added
+The command line prints the expansion as math rather than as YAML. Pass
+`'piecewise'` or `'sos'` to write out one kind and keep the other.
 
-The expansion declares what the two blocks stood for, and the blocks
-themselves are gone:
+## 2. Read a set
 
-```python
-sorted(spec.variables)  # ['fuel', 'level', 'output']
-sorted(written_out.variables)
-# ['fuel', 'fuel_curve_lam', 'fuel_curve_seg', 'level', 'mode_pick_seg', 'output']
+The `sos:` block below says that at most one `p` is nonzero. Its expansion
+adds one binary per member, a row that picks at most one binary, and a row that
+holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
+`p`.
 
-sorted(written_out.constraints)
-# ['fuel_curve_adjacency', 'fuel_curve_convexity', 'fuel_curve_link0',
-#  'fuel_curve_link1', 'fuel_curve_pick', 'meet', 'mode_pick_nonzero',
-#  'mode_pick_pick']
+<!-- prettier-ignore-start -->
+<!-- expansion:set:begin -->
 
-written_out.piecewise  # {}
-written_out.sos  # {}
-```
+=== "Before"
 
-Every emitted name starts with the block that emitted it, so `fuel_curve_lam`
-is the curve's weights and `mode_pick_seg` is the set's binaries. A file that
-already declares one of these names is refused, which keeps the two apart.
+    === "YAML"
 
-## 3. Read the rows as math
+        ```yaml
+        dimensions:
+          g: { dtype: str }
 
-Both readings print from the same file. The first states the construct, the
-second states the rows it stands for.
+        variables:
+          p:
+            dims: [g]
+            bounds: { lower: 0, upper: 10 }
 
-=== "As the file states it"
+        sos:
+          pick:
+            variable: p
+            along: g
+            type: 1
+        ```
 
-    The curve is one line, and the set is a membership beside the variable it
-    runs along:
+    === "Math"
 
-    ```math
-    \left( \mathit{output}_{t},\ \mathit{fuel}_{t} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{bp\_out}_{b},\ \mathrm{bp\_fuel}_{b}) \qquad \forall\, t \in \mathcal{T}
-    ```
+        _Variable domains_
 
-    ```math
-    \left( \mathit{level}_{t,m} \right)_{m \in \mathcal{M}} \in \mathrm{SOS}1 \qquad \forall\, t \in \mathcal{T}
-    ```
+        **`p`**
 
-=== "As the rows it states"
+        ```math
+        0 \le p_{g} \le 10 \qquad \forall\, g \in \mathcal{G}
+        ```
 
-    The curve becomes weights on the breakpoints, one link row per tied
-    variable, and the binaries that keep the weights adjacent:
+        **`pick`**
 
-    ```math
-    \mathit{output}_{t} = \sum_{b \in \mathcal{B}} \mathit{fuel}^{\mathrm{curve,lam}}_{t,b} \cdot \mathrm{bp\_out}_{b} \qquad \forall\, t \in \mathcal{T}
-    ```
+        ```math
+        \left( p_{g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}1
+        ```
 
-    ```math
-    \mathit{fuel}^{\mathrm{curve,lam}}_{t,b} \le \mathit{fuel}^{\mathrm{curve,seg}}_{t,b} + \mathit{fuel}^{\mathrm{curve,seg}}_{t,b \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
-    ```
+=== "`expand()`"
 
-    The set becomes one binary per member, a row that picks at most one, and a
-    row that holds an unpicked member at zero:
+    === "YAML"
 
-    ```math
-    \sum_{m \in \mathcal{M}} \mathit{mode\_pick\_seg}_{t,m} \le 1 \qquad \forall\, t \in \mathcal{T}
-    ```
+        ```yaml
+        dimensions:
+          g: { dtype: str }
 
-    ```math
-    \mathit{level}_{t,m} \le \mathit{mode\_pick\_seg}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}
-    ```
+        variables:
+          p:
+            dims: [g]
+            bounds: { lower: 0, upper: 10 }
+          pick_seg:
+            dims: [g]
+            domain: binary
+            description: a binary per member, 1 where that member may be nonzero
 
-Name the symbols as a paper would with a symbol table, which spells an emitted
-name as readily as a declared one. [Print a model as math](print.md) has the
-commands for a document that compiles.
+        constraints:
+          pick_pick:
+            dims: []
+            expression: sum(pick_seg, over=g) <= 1
+          pick_nonzero:
+            dims: [g]
+            expression: p <= 10.0 * (pick_seg)
+        ```
 
-## 4. Write out one kind at a time
+    === "Math"
 
-Pass a kind to keep the other construct. This is how to read a curve without
-the binaries underneath it:
+        _Subject to_
 
-```python
-spec.expand('piecewise')  # curves become weights; the sets stay
-spec.expand('sos')  # sets become binaries; the curves stay
-```
+        **`pick_pick`**
 
-A `method: sos2` curve states a set, so writing the curves out adds one:
+        ```math
+        \sum_{g \in \mathcal{G}} \mathit{pick\_seg}_{g} \le 1
+        ```
 
-```python
-sorted(spec.sos)  # ['mode_pick']
-sorted(spec.expand('piecewise').sos)  # ['fuel_curve', 'mode_pick']
-```
+        **`pick_nonzero`**
 
-`expand()` with no argument writes the curves out first for that reason, and a
-set never states a curve.
+        ```math
+        p_{g} \le 10 \cdot \mathit{pick\_seg}_{g} \qquad \forall\, g \in \mathcal{G}
+        ```
 
-## Two things to know
+        _Variable domains_
 
-**An expansion that derived parameters does not round-trip to YAML.** A curve
-under a `points:` mask emits parameters filled from its own breakpoints. No
-file can state those, so `to_yaml()` on that expansion is refused and names
-`typeset()` instead.
+        **`p`**
 
-**A method states what it assumes of the data.** Every curve states that its
-breakpoints are there, because a missing parameter row reads as a zero rather
-than as a shorter curve. A `method: lp` or `method: convex` curve states more:
-it is exact only for breakpoints of the right shape. The expansion writes
-those conditions into
-[`assumptions:`](../reference/language/assumptions.md) beside the rows. The
-`method: sos2` curve above states nothing about the shape, because it takes a
-curve of any shape.
+        ```math
+        0 \le p_{g} \le 10 \qquad \forall\, g \in \mathcal{G}
+        ```
 
-What `expand()` accepts, and what each `method:` emits, is under
+        **`pick_seg`**
+
+        ```math
+        \mathit{pick\_seg}_{g} \in \{0, 1\} \qquad \forall\, g \in \mathcal{G}
+        ```
+
+<!-- expansion:set:end -->
+<!-- prettier-ignore-end -->
+
+Every name the expansion adds starts with the name of the block, so `pick_seg`
+is the binary of the set `pick`.
+
+## 3. Read a curve
+
+The `piecewise:` block below ties `x` and `y` to a curve through the
+breakpoints in `x_bp` and `y_bp`. A `method: sos2` curve states a set, so it
+writes out in two steps. Compare the tabs from left to right:
+
+- **`expand('piecewise')` writes the curve out and leaves its set.** It adds a
+  weight per breakpoint and one link row per tied variable. An `sos:` block
+  over the weights keeps at most two neighbouring weights nonzero.
+- **`expand()` writes the set out too.** The `sos:` block becomes one binary
+  per segment and the rows that keep the two nonzero weights next to each
+  other.
+
+<!-- prettier-ignore-start -->
+<!-- expansion:curve:begin -->
+
+=== "Before"
+
+    === "YAML"
+
+        ```yaml
+        dimensions:
+          bp: { dtype: int }
+
+        parameters:
+          x_bp: { dims: [bp] }
+          y_bp: { dims: [bp] }
+
+        variables:
+          x: { dims: [], bounds: { lower: 0 } }
+          y: { dims: [], bounds: { lower: 0 } }
+
+        piecewise:
+          curve:
+            along: bp
+            method: sos2
+            links:
+              - [x, x_bp]
+              - [y, y_bp]
+        ```
+
+    === "Math"
+
+        _Subject to_
+
+        **`curve`**
+
+        ```math
+        \left( x,\ y \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}^{\mathrm{bp}}_{b},\ \mathrm{y}^{\mathrm{bp}}_{b})
+        ```
+
+        _Variable domains_
+
+        **`x`**
+
+        ```math
+        x \ge 0
+        ```
+
+        **`y`**
+
+        ```math
+        y \ge 0
+        ```
+
+        _Assumptions_
+
+        **`curve_complete`**
+
+        ```math
+        \mathrm{x}^{\mathrm{bp}}_{b} \text{ is defined} \wedge \mathrm{y}^{\mathrm{bp}}_{b} \text{ is defined} \qquad \forall\, b \in \mathcal{B}
+        ```
+
+=== "`expand('piecewise')`"
+
+    === "YAML"
+
+        ```yaml
+        dimensions:
+          bp: { dtype: int }
+
+        parameters:
+          x_bp: { dims: [bp] }
+          y_bp: { dims: [bp] }
+
+        variables:
+          x: { dims: [], bounds: { lower: 0 } }
+          y: { dims: [], bounds: { lower: 0 } }
+          curve_lam:
+            dims: [bp]
+            bounds: { lower: 0, upper: 1 }
+            description: convex-combination weight on a breakpoint
+
+        constraints:
+          curve_convexity:
+            dims: []
+            expression: sum(curve_lam, over=bp) == 1
+          curve_link0:
+            dims: []
+            expression: (x) == sum(curve_lam * x_bp, over=bp)
+          curve_link1:
+            dims: []
+            expression: (y) == sum(curve_lam * y_bp, over=bp)
+
+        sos:
+          curve:
+            variable: curve_lam
+            along: bp
+            type: 2
+
+        assumptions:
+          curve_complete:
+            holds: x_bp AND y_bp
+            description: >-
+              piecewise 'curve': every breakpoint the curve runs through needs a row in
+              'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
+              curve, so it sits the curve on the origin. Bind the rows, or declare
+              points: to say how far the curve runs.
+        ```
+
+    === "Math"
+
+        _Subject to_
+
+        **`curve_convexity`**
+
+        ```math
+        \sum_{b \in \mathcal{B}} \mathit{curve\_lam}_{b} = 1
+        ```
+
+        **`curve_link0`**
+
+        ```math
+        x = \sum_{b \in \mathcal{B}} \mathit{curve\_lam}_{b} \cdot \mathrm{x}^{\mathrm{bp}}_{b}
+        ```
+
+        **`curve_link1`**
+
+        ```math
+        y = \sum_{b \in \mathcal{B}} \mathit{curve\_lam}_{b} \cdot \mathrm{y}^{\mathrm{bp}}_{b}
+        ```
+
+        _Variable domains_
+
+        **`x`**
+
+        ```math
+        x \ge 0
+        ```
+
+        **`y`**
+
+        ```math
+        y \ge 0
+        ```
+
+        **`curve_lam`**
+
+        ```math
+        0 \le \mathit{curve\_lam}_{b} \le 1 \qquad \forall\, b \in \mathcal{B}
+        ```
+
+        **`curve`**
+
+        ```math
+        \left( \mathit{curve\_lam}_{b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2
+        ```
+
+        _Assumptions_
+
+        **`curve_complete`**
+
+        ```math
+        \mathrm{x}^{\mathrm{bp}}_{b} \text{ is defined} \wedge \mathrm{y}^{\mathrm{bp}}_{b} \text{ is defined} \qquad \forall\, b \in \mathcal{B}
+        ```
+
+=== "`expand()`"
+
+    === "YAML"
+
+        ```yaml
+        dimensions:
+          bp: { dtype: int }
+
+        parameters:
+          x_bp: { dims: [bp] }
+          y_bp: { dims: [bp] }
+
+        variables:
+          x: { dims: [], bounds: { lower: 0 } }
+          y: { dims: [], bounds: { lower: 0 } }
+          curve_lam:
+            dims: [bp]
+            bounds: { lower: 0, upper: 1 }
+            description: convex-combination weight on a breakpoint
+          curve_seg:
+            dims: [bp]
+            domain: binary
+            description: a binary per segment, 1 where the two members it spans may be nonzero
+
+        constraints:
+          curve_convexity:
+            dims: []
+            expression: sum(curve_lam, over=bp) == 1
+          curve_link0:
+            dims: []
+            expression: (x) == sum(curve_lam * x_bp, over=bp)
+          curve_link1:
+            dims: []
+            expression: (y) == sum(curve_lam * y_bp, over=bp)
+          curve_pick:
+            dims: []
+            expression: sum(curve_seg, over=bp) <= 1
+          curve_adjacency:
+            dims: [bp]
+            expression: curve_lam <= (curve_seg + shift(curve_seg, along=bp, offset=1, edge=0))
+
+        assumptions:
+          curve_complete:
+            holds: x_bp AND y_bp
+            description: >-
+              piecewise 'curve': every breakpoint the curve runs through needs a row in
+              'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
+              curve, so it sits the curve on the origin. Bind the rows, or declare
+              points: to say how far the curve runs.
+        ```
+
+    === "Math"
+
+        _Subject to_
+
+        **`curve_convexity`**
+
+        ```math
+        \sum_{b \in \mathcal{B}} \mathit{curve\_lam}_{b} = 1
+        ```
+
+        **`curve_link0`**
+
+        ```math
+        x = \sum_{b \in \mathcal{B}} \mathit{curve\_lam}_{b} \cdot \mathrm{x}^{\mathrm{bp}}_{b}
+        ```
+
+        **`curve_link1`**
+
+        ```math
+        y = \sum_{b \in \mathcal{B}} \mathit{curve\_lam}_{b} \cdot \mathrm{y}^{\mathrm{bp}}_{b}
+        ```
+
+        **`curve_pick`**
+
+        ```math
+        \sum_{b \in \mathcal{B}} \mathit{curve\_seg}_{b} \le 1
+        ```
+
+        **`curve_adjacency`**
+
+        ```math
+        \mathit{curve\_lam}_{b} \le \mathit{curve\_seg}_{b} + \mathit{curve\_seg}_{b \boxminus_{0} 1} \qquad \forall\, b \in \mathcal{B}
+        ```
+
+        _Variable domains_
+
+        **`x`**
+
+        ```math
+        x \ge 0
+        ```
+
+        **`y`**
+
+        ```math
+        y \ge 0
+        ```
+
+        **`curve_lam`**
+
+        ```math
+        0 \le \mathit{curve\_lam}_{b} \le 1 \qquad \forall\, b \in \mathcal{B}
+        ```
+
+        **`curve_seg`**
+
+        ```math
+        \mathit{curve\_seg}_{b} \in \{0, 1\} \qquad \forall\, b \in \mathcal{B}
+        ```
+
+        _Assumptions_
+
+        **`curve_complete`**
+
+        ```math
+        \mathrm{x}^{\mathrm{bp}}_{b} \text{ is defined} \wedge \mathrm{y}^{\mathrm{bp}}_{b} \text{ is defined} \qquad \forall\, b \in \mathcal{B}
+        ```
+
+<!-- expansion:curve:end -->
+<!-- prettier-ignore-end -->
+
+The [`assumptions:`](../reference/language/assumptions.md) rows state what
+the curve needs of its data. What
+`expand()` accepts, and what each `method:` emits, is under
 [piecewise curves and SOS](../reference/language/piecewise.md#writing-a-formulation-out).

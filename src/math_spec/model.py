@@ -30,7 +30,7 @@ from pydantic import (
 )
 
 from math_spec._expression_parser import NAME, ComparisonOperator
-from math_spec.errors import SchemaError, did_you_mean, schema_error
+from math_spec.errors import did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.sos import Emitted, coefficients
 
@@ -891,11 +891,10 @@ class Spec(_StrictBlock):
     #: that expands to itself is not stored: two of them compare by their
     #: private state, which a model holding itself cannot answer.
     _expansions: dict[tuple[Formulation, ...], Spec] = PrivateAttr(default_factory=dict)
-    #: What each ``piecewise:`` block of the model this one expanded became —
-    #: the block as written and the names its expansion chose. Empty on a model
-    #: that is not an expansion. Written by
-    #: :func:`~math_spec.piecewise.expand_piecewise`.
-    _expanded_piecewise: dict[str, ExpandedPiecewise] = PrivateAttr(default_factory=dict)
+    #: Each ``piecewise:`` block of the model this one expanded, as written,
+    #: which is what a program keeps of a curve. Empty on a model that is not
+    #: an expansion. Written by :func:`~math_spec.piecewise.expand_piecewise`.
+    _expanded_piecewise: dict[str, PiecewiseBlock] = PrivateAttr(default_factory=dict)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
@@ -982,31 +981,10 @@ class Spec(_StrictBlock):
         return self.model_dump()
 
     def to_yaml(self) -> str:
-        """The file a reviewer reads — including for a model that never had one.
-
-        Raises:
-            SchemaError: This model is an expansion that derived parameters
-                from a curve, which a file would declare as data nobody
-                supplies.
-        """
+        """The file a reviewer reads — including for a model that never had one."""
         import yaml
 
-        if derived := self._derived_parameters():
-            msg = (
-                f'this model is an expansion, and {derived} is derived from a piecewise: block rather than '
-                f'supplied. A file of it would declare data nobody has. Write the model it came from, or '
-                f'read this one with typeset().'
-            )
-            raise SchemaError(msg)
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
-
-    def _derived_parameters(self) -> list[str]:
-        """The parameters this model's own expansion emitted and derives, which no file can declare."""
-        from math_spec.piecewise import derivations_of
-
-        return sorted(
-            name for block, expanded in self._expanded_piecewise.items() for name in derivations_of(block, expanded)
-        )
 
     def expand(self, *kinds: Formulation) -> Spec:
         """This model with its formulations written out as plain variables and constraints.
@@ -1014,9 +992,9 @@ class Spec(_StrictBlock):
         A formulation states rows rather than being one — ``piecewise:`` states
         a curve, ``sos:`` states which members of a family may be nonzero — and
         expanding one writes those rows under names prefixed with the block's
-        own, then drops the block. The math is the same afterwards, and so are
-        the sources that bind it: a set emits no parameter, and every parameter
-        a curve emits it derives.
+        own, then drops the block. The math is the same afterwards, and so is
+        the data that binds it: neither a set nor a curve emits a parameter,
+        and a curve's rows sit on ``where`` predicates over the file's own.
 
         Args:
             kinds: Which formulations to write out — ``'piecewise'``,
@@ -1027,9 +1005,8 @@ class Spec(_StrictBlock):
 
         Returns:
             The model those blocks wrote out, or this one where it declares
-            none of them. An expanded curve's derived parameters ride with it
-            in process, so what reads the result is :func:`typeset`, not
-            :meth:`to_yaml`, which refuses on it.
+            none of them. It is a model like any other: :meth:`to_yaml` writes
+            it, and the file binds the same data as the one it came from.
 
         Raises:
             ValueError: *kinds* names something that is not a formulation.
@@ -1290,22 +1267,6 @@ class Spec(_StrictBlock):
         self.expand('piecewise')
         _ = self.resolved
         return self
-
-
-class ExpandedPiecewise(_StrictBlock):
-    """A ``piecewise:`` block after expansion: the block, and the parameters it emitted.
-
-    ``points`` is the mask the weights carry — the file's own parameter, or
-    the one derived from a values parameter; ``starts`` and ``ends`` are the
-    edge flags an ``lp`` block under a mask sits its domain rows on.
-    """
-
-    _label: ClassVar[str] = 'an expanded piecewise block'
-
-    block: PiecewiseBlock
-    points: str | None = None
-    starts: str | None = None
-    ends: str | None = None
 
 
 def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:

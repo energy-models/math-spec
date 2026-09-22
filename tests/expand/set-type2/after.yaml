@@ -1,0 +1,19 @@
+dimensions:
+  g: { dtype: str }
+
+variables:
+  p:
+    dims: [g]
+    bounds: { lower: 0, upper: 10 }
+  pick_seg:
+    dims: [g]
+    domain: binary
+    description: a binary per segment, 1 where the two members it spans may be nonzero
+
+constraints:
+  pick_pick:
+    dims: []
+    expression: sum(pick_seg, over=g) <= 1
+  pick_adjacency:
+    dims: [g]
+    expression: p <= 10.0 * (pick_seg + shift(pick_seg, along=g, offset=1, edge=0))

@@ -1,0 +1,52 @@
+dimensions:
+  bp: { dtype: int }
+
+parameters:
+  x_bp: { dims: [bp] }
+  y_bp: { dims: [bp] }
+
+variables:
+  x: { dims: [], bounds: { lower: 0 } }
+  y: { dims: [], bounds: { lower: 0 } }
+  curve_lam:
+    dims: [bp]
+    bounds: { lower: 0, upper: 1 }
+    description: convex-combination weight on a breakpoint
+
+constraints:
+  curve_convexity:
+    dims: []
+    expression: sum(curve_lam, over=bp) == 1
+  curve_link0:
+    dims: []
+    expression: (x) == sum(curve_lam * x_bp, over=bp)
+  curve_link1:
+    dims: []
+    expression: (y) >= sum(curve_lam * y_bp, over=bp)
+
+assumptions:
+  curve_complete:
+    holds: x_bp AND y_bp
+    description: >-
+      piecewise 'curve': every breakpoint the curve runs through needs a row in
+      'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
+      curve, so it sits the curve on the origin. Bind the rows, or declare
+      points: to say how far the curve runs.
+  curve_increasing:
+    where: position(bp) > 0
+    holds: shift(x_bp, along=bp, offset=1, edge=0) < x_bp
+    description: >-
+      piecewise 'curve': method: convex requires strictly increasing
+      breakpoints in 'x_bp' along 'bp'
+  curve_curvature:
+    where: position(bp) > 0 AND position(bp) != -1
+    holds: >-
+      (y_bp - shift(y_bp, along=bp, offset=1, edge=0))
+      * (shift(x_bp, along=bp, offset=-1, edge=0) - x_bp)
+      <= (shift(y_bp, along=bp, offset=-1, edge=0) - y_bp)
+      * (x_bp - shift(x_bp, along=bp, offset=1, edge=0))
+    description: >-
+      piecewise 'curve': method: convex is exact only for a convex curve, and
+      'y_bp' over 'x_bp' along 'bp' is not one, so the answer is wrong rather
+      than loose. Use method: adjacency or sos2, which take a curve of any
+      shape.

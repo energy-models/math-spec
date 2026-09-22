@@ -68,7 +68,7 @@ from math_spec.program import (
     where_children,
 )
 from math_spec.resolution import Namespace
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expression_of, override, schema_of, where_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, override, schema_of, where_of
 
 if TYPE_CHECKING:
     from math_spec._expression_parser import ArithmeticNode
@@ -475,7 +475,7 @@ def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
     The file's entries come first, in the order it wrote them; each
     ``piecewise:`` block's conditions follow under the name a refusal quotes.
     """
-    program = to_program(EXAMPLES / 'piecewise_lp.yaml')
+    program = to_program(expanded(EXAMPLES / 'piecewise_lp.yaml', 'piecewise'))
     derived = [name for name in program.assumptions if name.startswith('cost_curve_')]
 
     assert all(isinstance(a, Holds) for a in program.assumptions.values()), (

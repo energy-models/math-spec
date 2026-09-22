@@ -25,7 +25,7 @@ BASE = override(
 
 
 def _advice(**patch):
-    return unbounded_notes(to_program(schema_of(BASE, **patch)))
+    return unbounded_notes(to_program(schema_of(BASE, **patch).expand('piecewise')))
 
 
 def _notes(**patch) -> list[str]:
