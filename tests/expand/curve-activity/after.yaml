@@ -1,0 +1,45 @@
+dimensions:
+  bp: { dtype: int }
+
+parameters:
+  x_bp: { dims: [bp] }
+  y_bp: { dims: [bp] }
+
+variables:
+  x: { dims: [], bounds: { lower: 0 } }
+  y: { dims: [], bounds: { lower: 0 } }
+  running: { dims: [], domain: binary }
+  curve_lam:
+    dims: [bp]
+    bounds: { lower: 0, upper: 1 }
+    description: convex-combination weight on a breakpoint
+  curve_seg:
+    dims: [bp]
+    domain: binary
+    description: a binary per segment, 1 where the two members it spans may be nonzero
+
+constraints:
+  curve_convexity:
+    dims: []
+    expression: sum(curve_lam, over=bp) == (running)
+  curve_link0:
+    dims: []
+    expression: (x) == sum(curve_lam * x_bp, over=bp)
+  curve_link1:
+    dims: []
+    expression: (y) == sum(curve_lam * y_bp, over=bp)
+  curve_pick:
+    dims: []
+    expression: sum(curve_seg, over=bp) <= 1
+  curve_adjacency:
+    dims: [bp]
+    expression: curve_lam <= (curve_seg + shift(curve_seg, along=bp, offset=1, edge=0))
+
+assumptions:
+  curve_complete:
+    holds: x_bp AND y_bp
+    description: >-
+      piecewise 'curve': every breakpoint the curve runs through needs a row in
+      'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
+      curve, so it sits the curve on the origin. Bind the rows, or declare
+      points: to say how far the curve runs.

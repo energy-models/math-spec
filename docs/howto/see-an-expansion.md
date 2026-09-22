@@ -6,170 +6,108 @@ SPDX-License-Identifier: CC-BY-4.0
 # See what a curve or a set expands to
 
 A [`piecewise:`](../reference/language/piecewise.md) block and a `sos:` block
-each stand for plain variables and constraints. Read those rows to review a
+each stand for plain variables and constraints. Write them out to review a
 formulation, to teach one, or to hand the model to an engine that has no
 concept of a set.
 
-The model below states one of each. A `piecewise:` block ties two variables to
-a curve through the breakpoints. A `sos:` block says that at most one member of
-a family is nonzero.
-
-```yaml
-description: one plant whose fuel use follows a curve, and whose output picks one mode
-
-dimensions:
-  snapshot: { dtype: int }
-  bp: { dtype: int }
-  mode: { dtype: int }
-
-parameters:
-  demand: { dims: [snapshot] }
-  bp_out: { dims: [bp] }
-  bp_fuel: { dims: [bp] }
-
-variables:
-  output:
-    dims: [snapshot]
-    bounds: { lower: 0, upper: 100 }
-  fuel:
-    dims: [snapshot]
-    bounds: { lower: 0 }
-  level:
-    dims: [snapshot, mode]
-    bounds: { lower: 0, upper: 1 }
-
-piecewise:
-  fuel_curve:
-    over: bp
-    method: sos2
-    links:
-      - [output, bp_out]
-      - [fuel, bp_fuel]
-
-sos:
-  mode_pick:
-    variable: level
-    over: mode
-    type: 1
-
-constraints:
-  meet:
-    dims: [snapshot]
-    expression: output >= demand
-
-objective:
-  sense: minimize
-  expression: sum(fuel, over=snapshot)
-```
-
 ## 1. Write the formulation out
 
-`expand()` returns the same math with its formulations stated as rows. The
-command line prints the result instead of returning it.
+`expand()` returns the same math with its formulations stated as plain
+declarations. `to_yaml()` prints the result as a file.
 
 === "Python"
 
     ```python
     from math_spec import to_spec
 
-    spec = to_spec('plant.yaml')
-    written_out = spec.expand()
+    spec = to_spec('before.yaml')
+    print(spec.expand().to_yaml())
     ```
 
 === "Command line"
 
     ```bash
-    python -m math_spec markdown plant.yaml --expand
+    python -m math_spec markdown before.yaml --expand
     ```
 
-## 2. Read the names it added
+The command line prints the expansion as math rather than as YAML.
 
-The expansion declares what the two blocks stood for, and the blocks
-themselves are gone:
+## 2. Read a set
 
-```python
-sorted(spec.variables)  # ['fuel', 'level', 'output']
-sorted(written_out.variables)
-# ['fuel', 'fuel_curve_lam', 'fuel_curve_seg', 'level', 'mode_pick_seg', 'output']
+The `sos:` block below says that at most one `p` is nonzero. Its expansion
+adds one binary per member, a row that picks at most one binary, and a row that
+holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
+`p`.
 
-sorted(written_out.constraints)
-# ['fuel_curve_adjacency', 'fuel_curve_convexity', 'fuel_curve_link0',
-#  'fuel_curve_link1', 'fuel_curve_pick', 'meet', 'mode_pick_nonzero',
-#  'mode_pick_pick']
+=== "Before"
 
-written_out.piecewise  # {}
-written_out.sos  # {}
-```
-
-Every emitted name starts with the block that emitted it, so `fuel_curve_lam`
-is the curve's weights and `mode_pick_seg` is the set's binaries. A file that
-already declares one of these names is refused, which keeps the two apart.
-
-## 3. Read the rows as math
-
-Both readings print from the same file. The first states the construct, the
-second states the rows it stands for.
-
-=== "As the file states it"
-
-    The curve is one line, and the set is a membership beside the variable it
-    runs along:
-
-    ```math
-    \left( \mathit{output}_{t},\ \mathit{fuel}_{t} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{bp\_out}_{b},\ \mathrm{bp\_fuel}_{b}) \qquad \forall\, t \in \mathcal{T}
+    ```yaml
+    --8<-- "tests/expand/set-type1/before.yaml"
     ```
 
-    ```math
-    \left( \mathit{level}_{t,m} \right)_{m \in \mathcal{M}} \in \mathrm{SOS}1 \qquad \forall\, t \in \mathcal{T}
+=== "After `expand()`"
+
+    ```yaml
+    --8<-- "tests/expand/set-type1/after.yaml"
     ```
 
-=== "As the rows it states"
+Every name the expansion adds starts with the name of the block, so `pick_seg`
+is the binary of the set `pick`. A file that already declares one of these
+names is refused at load.
 
-    The curve becomes weights on the breakpoints, one link row per tied
-    variable, and the binaries that keep the weights adjacent:
+## 3. Read a curve
 
-    ```math
-    \mathit{output}_{t} = \sum_{b \in \mathcal{B}} \mathit{fuel}^{\mathrm{curve,lam}}_{t,b} \cdot \mathrm{bp\_out}_{b} \qquad \forall\, t \in \mathcal{T}
+The `piecewise:` block below ties `x` and `y` to a curve through the
+breakpoints in `x_bp` and `y_bp`. Its expansion adds a weight per breakpoint,
+one link row per tied variable, and the binaries that keep the two nonzero
+weights next to each other.
+
+=== "Before"
+
+    ```yaml
+    --8<-- "tests/expand/curve-sos2/before.yaml"
     ```
 
-    ```math
-    \mathit{fuel}^{\mathrm{curve,lam}}_{t,b} \le \mathit{fuel}^{\mathrm{curve,seg}}_{t,b} + \mathit{fuel}^{\mathrm{curve,seg}}_{t,b \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+=== "After `expand()`"
+
+    ```yaml
+    --8<-- "tests/expand/curve-sos2/after.yaml"
     ```
 
-    The set becomes one binary per member, a row that picks at most one, and a
-    row that holds an unpicked member at zero:
-
-    ```math
-    \sum_{m \in \mathcal{M}} \mathit{mode\_pick\_seg}_{t,m} \le 1 \qquad \forall\, t \in \mathcal{T}
-    ```
-
-    ```math
-    \mathit{level}_{t,m} \le \mathit{mode\_pick\_seg}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}
-    ```
-
-Name the symbols as a paper would with a symbol table, which spells an emitted
-name as readily as a declared one. [Print a model as math](print.md) has the
-commands for a document that compiles.
+The expansion also writes an
+[`assumptions:`](../reference/language/assumptions.md) row. A missing
+breakpoint row reads as a zero, not as a shorter curve, so the curve states
+that its breakpoints are there.
 
 ## 4. Write out one kind at a time
 
-Pass a kind to keep the other construct. This is how to read a curve without
-the binaries underneath it:
+Pass a kind to keep the other construct. A `method: sos2` curve states a set,
+so `expand('piecewise')` writes the curve out and leaves that set standing:
 
-```python
-spec.expand('piecewise')  # curves become weights; the sets stay
-spec.expand('sos')  # sets become binaries; the curves stay
-```
+=== "Before"
 
-A `method: sos2` curve states a set, so writing the curves out adds one:
+    ```yaml
+    --8<-- "tests/expand/curve-sos2-piecewise/before.yaml"
+    ```
 
-```python
-sorted(spec.sos)  # ['mode_pick']
-sorted(spec.expand('piecewise').sos)  # ['fuel_curve', 'mode_pick']
-```
+=== "After `expand('piecewise')`"
 
-`expand()` with no argument writes the curves out first for that reason, and a
-set never states a curve.
+    ```yaml
+    --8<-- "tests/expand/curve-sos2-piecewise/after.yaml"
+    ```
+
+`expand('sos')` writes the sets out and keeps the curves. `expand()` with no
+argument writes the curves out first, because a curve can state a set and a set
+never states a curve.
+
+## Every method, before and after
+
+The repository keeps one before and after pair for each `method:` and each
+`type:`, in
+[`tests/expand/`](https://github.com/energy-models/math-spec/tree/main/tests/expand).
+The test suite expands every `before.yaml` and compares the result to its
+`after.yaml` in full. This page shows those same files, so a pair here cannot
+differ from what `expand()` returns.
 
 ## Two things to know
 
@@ -178,12 +116,9 @@ constraints and assumptions over the parameters the file declared, and no
 parameter of its own, so `to_yaml()` writes every expansion and the same data
 binds it.
 
-**A method states what it assumes of the data.** Every curve states that its
-breakpoints are there, because a missing parameter row reads as a zero rather
-than as a shorter curve. A `method: lp` or `method: convex` curve states more:
-it is exact only for breakpoints of the right shape. The expansion writes
-those conditions into
-[`assumptions:`](../reference/language/assumptions.md) beside the rows. The
+**A method states what it assumes of the data.** A `method: lp` or
+`method: convex` curve is exact only for breakpoints of the right shape. The
+expansion writes those conditions into `assumptions:` beside the rows. The
 `method: sos2` curve above states nothing about the shape, because it takes a
 curve of any shape.
 

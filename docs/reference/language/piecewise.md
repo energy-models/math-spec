@@ -247,6 +247,9 @@ spec.expand('sos')  # only the sets
 spec.expand('piecewise')  # only the curves
 ```
 
+[See what a curve or a set expands to](../../howto/see-an-expansion.md) shows
+a model before and after, as whole files.
+
 - **The kinds are `'piecewise'` and `'sos'`, and no argument means both.** Any
   other string is refused, naming the two. Curves go first whatever order they
   are asked in, because a `method: sos2` curve states a set and no set states a

@@ -86,22 +86,6 @@ TWO_DIM = override(
 )
 
 
-def test_expansion_emits_the_lambda_declarations():
-    expanded = expand_piecewise(schema_of(NONCONVEX_YAML))
-
-    assert not expanded.piecewise, 'the block is spent once its declarations are emitted'
-    assert 'cost_curve_lam' in expanded.variables
-    assert expanded.variables['cost_curve_seg'].domain == 'binary'
-    assert set(expanded.constraints) >= {
-        'cost_curve_convexity',
-        'cost_curve_pick',
-        'cost_curve_adjacency',
-        'cost_curve_link0',
-        'cost_curve_link1',
-        'balance',
-    }, "the adjacency formulation's five rows, one link each, beside the constraint the file wrote"
-
-
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
     with pytest.raises(PiecewiseExpansionError, match="emitted sos 'cost_curve' collides"):
