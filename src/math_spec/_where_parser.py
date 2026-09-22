@@ -22,6 +22,7 @@ import pyparsing as pp
 
 from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, parse_text
 from math_spec._sealed import Sealed
+from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
@@ -136,6 +137,18 @@ _ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | Q
 # ---------------------------------------------------------------------------
 
 
+def _predicate_call(tokens: pp.ParseResults) -> UnresolvedPredicateCallNode:
+    """The call node, with a keyword given twice refused as the arithmetic grammar refuses it."""
+    name, operand, *pairs = tokens
+    kwargs: dict[str, ArithmeticNode] = {}
+    for key, value in pairs:
+        if key in kwargs:
+            msg = f'{name}({key}=) is given twice. A keyword names one value; drop one of them.'
+            raise SchemaError(msg)
+        kwargs[key] = value
+    return UnresolvedPredicateCallNode(name, operand, kwargs)
+
+
 def _build_where_grammar() -> pp.ParserElement:
     """Build the pyparsing grammar for where strings.
 
@@ -160,16 +173,18 @@ def _build_where_grammar() -> pp.ParserElement:
     kwarg = (name + pp.Suppress('=') + (quoted | ARITHMETIC)).set_parse_action(lambda t: (t[0], t[1]))
 
     def _call(head: pp.ParserElement) -> pp.ParserElement:
-        """``<head>(<predicate>[, <kwarg>…])`` — the one shape whose operand is a predicate."""
+        """``<head>(<predicate>[, <kwarg>…])`` — the one shape whose operand is a predicate.
+
+        ``count`` is spelled in the grammar rather than left to resolution, as
+        ``position`` is, because only the grammar can decide to read its
+        argument as a predicate. Every other predicate-taking call stands where
+        arithmetic cannot, so the comparison above it has already been tried
+        and the name is free.
+        """
         return (
             head + pp.Suppress('(') + where_expr + pp.ZeroOrMore(pp.Suppress(',') + kwarg) + pp.Suppress(')')
-            # pyrefly: ignore[implicit-any-lambda]
-        ).set_parse_action(lambda t: UnresolvedPredicateCallNode(t[0], t[1], dict(t[2:])))
+        ).set_parse_action(_predicate_call)
 
-    # `count` is spelled here rather than left to resolution, as `position` is,
-    # because only the grammar can decide to read its argument as a predicate.
-    # Every other predicate-taking call stands where arithmetic cannot, so the
-    # comparison above it has already been tried and the name is free.
     count_call = _call(pp.CaselessKeyword('count'))
     predicate_call = _call(name.copy())
 

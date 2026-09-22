@@ -216,7 +216,7 @@ def typeset_declaration(
         )
         raise SchemaError(msg)
     if len(found) > 1:
-        msg = f"'{name}' is both a {found[0]} and a {found[1]}, and one line prints one of them — rename one."
+        msg = f"'{name}' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."
         raise SchemaError(msg)
     return walk.format.equation(walk.line(name))
 

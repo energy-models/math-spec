@@ -75,7 +75,8 @@ Position decides which kinds of name are legal:
 A bare word in the value of a keyword argument is a name to resolve, which is
 why `wrap` is quoted. A keyword's key is never a name.
 
-Constraints sit outside the flat namespace, so a model may name a constraint
+Constraints and assumptions sit outside the flat namespace, because no
+expression names either, so a model may name a constraint or an assumption
 after a variable. The objective has no name at all.
 
 ## How dimensions combine
@@ -139,8 +140,8 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `expression OP expression`                | arithmetic over parameters | Coordinate by coordinate, over every dimension either side carries ([arithmetic in a comparison](#arithmetic-in-a-comparison)). A side with no value at a coordinate compares false |
 | `position(name) OP i`                     | dimension                  | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                         |
 | `position(name, by=relation, within=c)`   | dimension                  | The same, counted within each group the relation makes                                                                                                                              |
-| `count(where_expr, over=name) OP i`       | dimension                  | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
-| `shift(where_expr, along=name, offset=i)` | dimension                  | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
+| `count(where_expr, over=name) OP i`       | a predicate                | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
+| `shift(where_expr, along=name, offset=i)` | a predicate                | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
 | `AND` `OR` `NOT`                          | —                          | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                       |
 | `True` / `False`                          | —                          | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either                   |
 
@@ -187,7 +188,9 @@ The count therefore states a fact about each group without naming the group.
 Counting along a dimension the predicate does not read is a load error.
 
 The comparison takes a whole number on the right. A count is a number of
-coordinates, so a fraction and a parameter are both load errors.
+coordinates, so a fraction and a parameter are both load errors, and so is a
+comparison a count can never fail or never meet: `>= 0`, `< 0`, or any
+negative number.
 
 ### Reading a predicate at the previous coordinate
 
@@ -265,13 +268,16 @@ A case `when:` may not compare expressions. The loader proves the cases of a
 [`cases:` block](named.md#the-rules-that-keep-the-cases-apart) apart at load,
 by trying every value the masks name. A comparison of expressions names no
 value, because only the data decides whether `c > 2 * k` holds, so the loader
-refuses the block:
+refuses the case, whether or not the block has a second one:
 
-> `Named expression 'e'`: cases `wide` and `narrow` cannot be told apart before
-> the data arrives: it compares expressions, whose values only the data decides
-> — compare one parameter against a literal, or precompute the test as a boolean
-> parameter and test that. Two cases claiming one coordinate would give it two
-> values, so this is refused the way a proven overlap is.
+> `Named expression 'e'`: case `wide` cannot be told apart before the data
+> arrives: it compares expressions, whose values only the data decides — compare
+> one parameter against a literal, or precompute the test as a boolean parameter
+> and test that. The `otherwise` is its negation, and only the data says where
+> that falls, so this is refused the way a proven overlap is.
+
+A comparison with a number on both sides, such as `2 < 1`, is refused
+everywhere: it is decided before any data arrives, and a `where` tests data.
 
 A variable's `where` and a constraint's `where` are not held to this, because
 neither is proved apart from anything.

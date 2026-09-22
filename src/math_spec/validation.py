@@ -242,6 +242,9 @@ def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[s
     where = resolve_where_text(block.where, ns, f'{context}, where', errors)
     if isinstance(holds, BooleanLiteral):
         errors.append(_decided_assumption(context, block.holds, value=holds.value))
+    if isinstance(where, BooleanLiteral):
+        assert block.where is not None, 'a where the file did not write resolves to nothing'
+        errors.append(_decided_where(context, block.where, value=where.value))
     for mask, part in ((holds, 'assumes'), (where, 'is checked where')):
         if mask is None or isinstance(mask, BooleanLiteral):
             continue
@@ -268,6 +271,16 @@ def _decided_assumption(context: str, text: str, *, value: bool) -> str:
     return (
         f'{context}: the predicate {text!r} folds to false, so it holds on no data at all. '
         f'Delete it, or write the predicate the data can satisfy.'
+    )
+
+
+def _decided_where(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a ``where`` the connectives already decided, which narrows nothing or everything."""
+    if value:
+        return f'{context}: the where {text!r} folds to true, so it narrows nothing. Delete the where.'
+    return (
+        f'{context}: the where {text!r} folds to false, so the assumption is checked on no row. '
+        f'Delete the entry, or write the where the data can satisfy.'
     )
 
 

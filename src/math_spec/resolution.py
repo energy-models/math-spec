@@ -829,6 +829,12 @@ class _Resolver:
         predicate for its dims asserts instead of refusing.
         """
         context, found = self.context, len(self.errors)
+        if node.name == 'count':
+            self.errors.append(
+                f'{context}: count() answers a number, and a where is a predicate. Compare it: '
+                f'count(<predicate>, over=<dimension>) <op> <integer>.'
+            )
+            return node
         if node.name != 'shift':
             self.errors.append(
                 f"{context}: '{node.name}()' does not read a predicate. `shift` reads one and answers one, "
@@ -891,6 +897,12 @@ class _Resolver:
             self.errors.append(
                 f'{context}: a count is a whole number of coordinates, so it is compared against one. '
                 f'Write count(…, over={over.name}) {node.op} <integer>.'
+            )
+            return node
+        if (decided := _decided_count(node.op, value.value)) is not None:
+            self.errors.append(
+                f'{context}: count(…, over={over.name}) {node.op} {value} holds at {decided} coordinate, because '
+                f'a count is never negative. Delete the comparison, or write the bound it means.'
             )
             return node
         mask = Mask(operand)
@@ -958,6 +970,12 @@ class _Resolver:
             if isinstance(side, ColumnNode | QuotedNode):
                 self.errors.append(_not_arithmetic(context, side))
                 continue
+            if any(isinstance(n, FunctionCallNode) and n.name == 'count' for n in nodes(side)):
+                self.errors.append(
+                    f'{context}: count() stands on the left of its comparison, and reads a predicate rather than '
+                    f'arithmetic. Write count(<predicate>, over=<dimension>) <op> <integer>.'
+                )
+                continue
             try:
                 expanded = expand(side, ns.schema, context)
             except ValueError as e:
@@ -987,6 +1005,13 @@ class _Resolver:
         if len(self.errors) > found:
             return node
         left, right = sides
+        if all(_is_number(side) for side in sides):
+            self.errors.append(
+                f"{context}: '{node.left} {node.op} {node.right}' compares two numbers, so it is decided before any "
+                f'data arrives and admits every row or none. Name the parameter one side stands for, or drop '
+                f'the comparison.'
+            )
+            return node
         return ArithmeticComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
@@ -1278,11 +1303,25 @@ def _kwargs_error(
     if missing:
         return f'{context}: {name}(<predicate>) needs {_listed([f"{key}=" for key in missing])}.'
     if extra := sorted(set(kwargs) - set(required)):
+        edge = ' A predicate is false where a translation vacates, so there is no edge to state.'
         return (
             f'{context}: {name}(<predicate>) does not take {_listed([f"{key}=" for key in extra])}. '
-            f'It takes {_listed([f"{key}=" for key in required])}, and nothing else: a predicate is false '
-            f'where a translation vacates, so there is no edge to state.'
+            f'It takes {_listed([f"{key}=" for key in required])}, and nothing else.'
+            f'{edge if "edge" in extra else ""}'
         )
+    return None
+
+
+def _decided_count(op: str, value: float) -> str | None:
+    """Whether comparing a count with *op* against *value* is settled by the count never being negative.
+
+    Returns ``'every'`` where the comparison always holds, ``'no'`` where it
+    never does, and ``None`` where the data decides.
+    """
+    if value < 0:
+        return 'every' if op in ('>', '>=', '!=') else 'no'
+    if value == 0 and op in ('>=', '<'):
+        return 'every' if op == '>=' else 'no'
     return None
 
 
@@ -1292,6 +1331,11 @@ def _listed(items: list[str]) -> str:
     if len(quoted) <= 1:
         return quoted[0] if quoted else 'nothing'
     return f'{", ".join(quoted[:-1])} and {quoted[-1]}'
+
+
+def _is_number(side: ArithmeticNode) -> bool:
+    """Whether *side* is arithmetic over literals alone — a value the language can fold, and a where may not test."""
+    return all(isinstance(n, NumberNode | UnaryOperatorNode | BinaryOperatorNode) for n in nodes(side))
 
 
 def _literal(value: ArithmeticNode) -> NumberNode | None:
@@ -1333,9 +1377,9 @@ def _declared_rhs_error(context: str, node: _Plain, value: str, kind: str) -> st
     if kind == 'relation':
         return (
             f'{context}: {comparison} compares {node.name!r} against relation {value!r}, and a '
-            f'relation is structure rather than data — every other comparison tests a name '
-            f'against a literal. A relation on the right-hand side is the one exception, and '
-            f'only where the left-hand side is a relation sharing its dimension and its target.'
+            f'relation is structure rather than data — a where tests values: a name against a literal, '
+            f'or arithmetic over parameters. A relation stands on the right-hand side only against a '
+            f'relation on the left sharing its dimension and its target.'
         )
     return (
         f'{context}: {comparison} compares against dimension {value!r}, which the RHS reads '
