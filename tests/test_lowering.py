@@ -493,7 +493,7 @@ def test_an_assumption_lowers_both_of_its_masks():
     assert assumption == Holds(
         Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
         Mask(ParameterDefined('flag', ('g',))),
-    )
+    ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
     assert assumption_message('sound', assumption) == (
         "assumption 'sound' does not hold for the data bound to 'c', 'k'"
     ), 'the refusal names what the consumer bound, so it can say which column is wrong'
@@ -513,6 +513,29 @@ def test_an_assumption_refuses_in_the_words_the_file_wrote():
     assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
     assert assumption_message('sound', assumption) == (
         f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
+    ), 'the sentence trails what the author wrote'
+
+
+def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
+    """`names_read` promised every parameter and relation the sides read, and dropped the
+    `when:` of a cased entry: the walk descends a `Cases` by its values alone."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'expressions.e': {
+                    'dims': ['g'],
+                    'cases': {'linked': {'when': 'flag AND lk2', 'expression': 'c'}},
+                    'otherwise': 'k',
+                },
+                'variables.p.where': 'e > 0',
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.names_read == frozenset({'c', 'k', 'flag', 'lk2'}), (
+        'the flag and the relation decide which region applies, so the consumer binds them too'
     )
 
 

@@ -75,7 +75,8 @@ Position decides which kinds of name are legal:
 A bare word in the value of a keyword argument is a name to resolve, which is
 why `wrap` is quoted. A keyword's key is never a name.
 
-Constraints sit outside the flat namespace, so a model may name a constraint
+Constraints and assumptions sit outside the flat namespace, because no
+expression names either, so a model may name a constraint or an assumption
 after a variable. The objective has no name at all.
 
 ## How dimensions combine
@@ -265,13 +266,16 @@ A case `when:` may not compare expressions. The loader proves the cases of a
 [`cases:` block](named.md#the-rules-that-keep-the-cases-apart) apart at load,
 by trying every value the masks name. A comparison of expressions names no
 value, because only the data decides whether `c > 2 * k` holds, so the loader
-refuses the block:
+refuses the case, whether or not the block has a second one:
 
-> `Named expression 'e'`: cases `wide` and `narrow` cannot be told apart before
-> the data arrives: it compares expressions, whose values only the data decides
-> — compare one parameter against a literal, or precompute the test as a boolean
-> parameter and test that. Two cases claiming one coordinate would give it two
-> values, so this is refused the way a proven overlap is.
+> `Named expression 'e'`: case `wide` cannot be told apart before the data
+> arrives: it compares expressions, whose values only the data decides — compare
+> one parameter against a literal, or precompute the test as a boolean parameter
+> and test that. The `otherwise` is its negation, and only the data says where
+> that falls, so this is refused the way a proven overlap is.
+
+A comparison with a number on both sides, such as `2 < 1`, is refused
+everywhere: it is decided before any data arrives, and a `where` tests data.
 
 A variable's `where` and a constraint's `where` are not held to this, because
 neither is proved apart from anything.

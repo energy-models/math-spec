@@ -101,9 +101,9 @@ A line on its own has no _Definitions_ section beside it, so the plain named
 expressions it uses are substituted. A cased expression prints by symbol, and a
 second call with its name prints its block.
 
-A name that is none of the four kinds is refused with the near miss. A name that
-is both a constraint and a variable is refused too, because one line can print
-only one of them.
+A name that is none of the four kinds is refused with the near miss. A name
+declared as two of them, such as a constraint and a variable, is refused too,
+because one line can print only one of them.
 
 ## Symbol tables
 

@@ -977,6 +977,13 @@ class _Resolver:
         if len(self.errors) > found:
             return node
         left, right = sides
+        if all(_is_number(side) for side in sides):
+            self.errors.append(
+                f"{context}: '{node.left} {node.op} {node.right}' compares two numbers, so it is decided before any "
+                f'data arrives and admits every row or none. Name the parameter one side stands for, or drop '
+                f'the comparison.'
+            )
+            return node
         return ArithmeticComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
@@ -1284,6 +1291,11 @@ def _listed(items: list[str]) -> str:
     return f'{", ".join(quoted[:-1])} and {quoted[-1]}'
 
 
+def _is_number(side: ArithmeticNode) -> bool:
+    """Whether *side* is arithmetic over literals alone — a value the language can fold, and a where may not test."""
+    return all(isinstance(n, NumberNode | UnaryOperatorNode | BinaryOperatorNode) for n in nodes(side))
+
+
 def _literal(value: ArithmeticNode) -> NumberNode | None:
     """The number a literal names, its sign folded in — ``None`` where *value* is not one.
 
@@ -1323,9 +1335,9 @@ def _declared_rhs_error(context: str, node: _Plain, value: str, kind: str) -> st
     if kind == 'relation':
         return (
             f'{context}: {comparison} compares {node.name!r} against relation {value!r}, and a '
-            f'relation is structure rather than data — every other comparison tests a name '
-            f'against a literal. A relation on the right-hand side is the one exception, and '
-            f'only where the left-hand side is a relation sharing its dimension and its target.'
+            f'relation is structure rather than data — a where tests values: a name against a literal, '
+            f'or arithmetic over parameters. A relation stands on the right-hand side only against a '
+            f'relation on the left sharing its dimension and its target.'
         )
     return (
         f'{context}: {comparison} compares against dimension {value!r}, which the RHS reads '

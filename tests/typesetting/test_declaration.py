@@ -143,7 +143,7 @@ def test_a_name_declared_as_none_of_the_four_is_refused(name: str, match: str):
 def test_a_name_shared_by_a_constraint_and_a_variable_is_refused_rather_than_guessed():
     """Constraints sit outside the flat namespace, so the model admits the pair; one line prints one of them."""
     model = override(PLAIN, **{'constraints.p': {'dims': ['snapshot', 'generator'], 'expression': 'p <= 1'}})
-    with pytest.raises(SchemaError, match="'p' is both a constraint and a variable"):
+    with pytest.raises(SchemaError, match="'p' is declared twice, as constraint and as variable"):
         typeset_declaration(model, 'p', 'latex')
 
 

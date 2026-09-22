@@ -623,7 +623,7 @@ class TestAWhereSideIsReadInResolution:
         spec = _schema(
             constraints={'t': {'dims': [], 'where': 'sum(c, over=g) >= k', 'expression': 'sum(p, over=g) <= k'}}
         )
-        assert list(spec.constraints) == ['t']
+        assert list(spec.constraints) == ['t'], 'a scalar constraint whose where reduces the frame it lacks loads'
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -683,6 +683,16 @@ class TestAWhereSideIsReadInResolution:
                 ("Unknown operator 'position'",),
                 id='a-position-inside-arithmetic',
             ),
+            pytest.param(
+                {'variables.p.where': '2 < 1 AND c > 0'},
+                ("'2 < 1' compares two numbers", 'decided before any data arrives'),
+                id='two-numbers',
+            ),
+            pytest.param(
+                {'variables.p.where': '-(1 + 1) * 3 >= 0'},
+                ('compares two numbers',),
+                id='arithmetic-over-numbers-alone',
+            ),
         ],
     )
     def test_a_bad_comparison_of_expressions_is_refused_at_load(self, patch, fragments):
@@ -706,6 +716,17 @@ class TestAWhereSideIsReadInResolution:
         )
         assert 'cannot be told apart before the data arrives: it compares expressions' in message
         assert 'precompute the test as a boolean parameter' in message
+
+    def test_a_lone_case_comparing_expressions_is_refused_too(self):
+        """One case has no pair to be proved apart from, and it loaded: the pairwise
+        check never observed it. The rule is on the case, not on the pair — the
+        `otherwise` is its negation, and only the data decides where that falls."""
+        message = _refusal(
+            expressions={
+                'e': {'dims': ['g'], 'cases': {'wide': {'when': 'c > 2 * k', 'expression': 'c'}}, 'otherwise': 0}
+            }
+        )
+        assert "case 'wide' cannot be told apart before the data arrives: it compares expressions" in message
 
 
 class TestAPredicateIsAnOperand:
@@ -1387,6 +1408,21 @@ class TestAssumptions:
                 id='a-variable-in-the-where',
             ),
             pytest.param(
+                {'holds': 'c > 0', 'where': 'false'},
+                ('folds to false', 'checked on no row'),
+                id='a-where-that-is-always-false',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'p AND false'},
+                ('folds to false', 'checked on no row'),
+                id='a-where-that-hides-a-variable-behind-a-fold',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'flag OR true'},
+                ('folds to true', 'narrows nothing'),
+                id='a-where-that-is-always-true',
+            ),
+            pytest.param(
                 'c > tag',
                 ("'tag' is declared dtype: str, and an expression is arithmetic",),
                 id='a-label-parameter-on-a-side',
@@ -1418,7 +1454,9 @@ class TestAssumptions:
     def test_an_entry_round_trips_as_the_form_it_was_written_in(self):
         """A bare string stays one, and a mapping keeps only the keys it carried."""
         spec = _schema(assumptions={'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}})
-        assert spec.to_dict()['assumptions'] == {'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}}
+        assert spec.to_dict()['assumptions'] == {'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}}, (
+            'neither form gains a key the file did not write'
+        )
 
     def test_a_variable_free_comparison_is_pointed_at_assumptions_rather_than_at_data_prep(self):
         """The refusal named nowhere to put the fact until this section existed."""

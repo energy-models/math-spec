@@ -201,7 +201,8 @@ class TestWillNotDecide:
         the general refusal for a comparison of expressions — which told the
         author to compare one parameter against a literal.
         """
-        [refusal] = refusals(schema, {'big': '2 < capacity', 'small': '2 >= capacity'})
+        [refusal, other] = refusals(schema, {'big': '2 < capacity', 'small': '2 >= capacity'})
+        assert "case 'big'" in refusal and "case 'small'" in other, 'each case is refused on its own, not as a pair'
         assert 'the literal is on the left' in refusal
         assert 'capacity > 2.0' not in refusal, 'the rewrite quotes the number as the file wrote it'
         assert 'capacity > 2' in refusal, 'the rewrite is the same test written the other way round'
@@ -220,7 +221,7 @@ class TestWillNotDecide:
 
     def test_a_comparison_of_real_expressions_keeps_the_general_refusal(self, schema: Spec):
         """Only the plain shape is named; anything else is still the data's to decide."""
-        [refusal] = refusals(schema, {'over': 'capacity > soc_initial', 'under': 'capacity <= soc_initial'})
+        [refusal, _] = refusals(schema, {'over': 'capacity > soc_initial', 'under': 'capacity <= soc_initial'})
         assert 'it compares expressions, whose values only the data decides' in refusal
 
     def test_a_pair_with_more_regions_than_the_budget(self):
