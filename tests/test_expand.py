@@ -12,16 +12,19 @@ are about the verb rather than about either formulation — those are in
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 import pytest
 
 from math_spec import piecewise
 from math_spec.errors import SchemaError
 from math_spec.lowering import to_program
-from math_spec.model import Spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
 from tests.test_sos import CURVE
 from tools.render_tex import models
+
+if TYPE_CHECKING:
+    from math_spec.model import Spec
 
 #: The curve masked by one of its own values parameters, so its expansion
 #: derives the parameters a file cannot declare.
