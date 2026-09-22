@@ -4,7 +4,7 @@
 
 description: >-
   The membership reduction — `sum(array, by=relation, over=a, into=b)` lands the result on the
-  column the relation is walked to, which is what makes topology data rather than
+  column the relation is read to, which is what makes topology data rather than
   structure.
 
 dimensions:

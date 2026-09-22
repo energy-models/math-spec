@@ -51,10 +51,10 @@ relations:
   zone_of: { key: bus, values: zone }
   area_of: { key: bus, values: zone } # a second map into the same set, to compare against
   season_of: { key: snapshot, values: season }
-  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call consumes one and joins on the other
   rep_of: { key: snapshot, values: { rep: snapshot } } # a map into its own dimension: the representative snapshot
-  connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, walked only by sum with both ends named
-  gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, walked to both at once
+  connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, read only by sum with both ends named
+  gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, read to both at once
 
 parameters:
   p_max: { dims: [generator] }
@@ -131,7 +131,7 @@ $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`
 
 $`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
 
-$`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
+$`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` steps along, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
 $`\mathrm{pos}_{\mathrm{relation}(t)}(t)`$ counts within the group a relation puts $`t`$ in: the subscript names the map, $`\mathcal{T}_{\mathrm{relation}(t)}`$ is the group it lands in, and that group has a first position of its own.
 
@@ -382,7 +382,7 @@ pullback:
 
 #### `grouped_once`
 
-one table walked to two value columns: the domain carries a condition per column
+one table read to two value columns: the domain carries a condition per column
 
 ```yaml
 grouped_once:
@@ -454,7 +454,7 @@ p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ g \in \math
 
 #### `representative`
 
-a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+a map into its own dimension, read both ways: the frame is unchanged and the index is primed
 
 ```yaml
 representative:
@@ -468,7 +468,7 @@ representative:
 
 #### `zonal`
 
-a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+a grouping through a two-key map, consuming one key: the condition reads the other, and the row keeps it
 
 ```yaml
 zonal:
@@ -482,7 +482,7 @@ zonal:
 
 #### `zonal_history`
 
-the same table walked along its other key
+the same table consuming its other key
 
 ```yaml
 zonal_history:
@@ -496,7 +496,7 @@ zonal_history:
 
 #### `zonal_membership`
 
-the same table walked between its two key columns: no value column is read, so the domain asks only that the row is there
+the same table read between its two key columns: no value column is read, so the domain asks only that the row is there
 
 ```yaml
 zonal_membership:

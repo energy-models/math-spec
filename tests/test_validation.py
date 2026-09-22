@@ -15,7 +15,7 @@ import pytest
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.lowering import to_program
-from math_spec.program import DimensionPositionNode
+from math_spec.program import DimensionPosition
 from math_spec.resolution import Namespace, where_of
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
@@ -176,7 +176,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = varied(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).named_expressions['lcoe'].in_math is False, (
+        assert to_program(model).expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
@@ -525,7 +525,7 @@ class TestPositionResolves:
         resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
         assert resolved is not None
         node = resolved.root
-        assert isinstance(node, DimensionPositionNode)
+        assert isinstance(node, DimensionPosition)
         assert node.name == 'snapshot'
         assert node.position == position
         assert (node.partition.name if node.partition is not None else None) == by
@@ -535,7 +535,10 @@ class TestPositionResolves:
         [
             ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
             ('position(nope) == 0', ["'nope' is not declared"]),
-            ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a relation']),
+            (
+                'position(snapshot, by=load) == 0',
+                ['position(by=load) does not name a relation', "Declare it under 'relations:'"],
+            ),
             (
                 'position(snapshot, by=starts_at, within=snapshot) == 0',
                 ["no key column over 'snapshot'", "its key is ['period']"],
@@ -548,6 +551,51 @@ class TestPositionResolves:
             where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
+
+
+class TestAWhereSideIsReadInResolution:
+    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be."""
+
+    @pytest.mark.parametrize(
+        ('where', 'fragments'),
+        [
+            pytest.param(
+                'c > 2 * k', ('a side here is arithmetic, which is not in the language',), id='arithmetic-on-a-side'
+            ),
+            pytest.param('2 < c', ('a side here is arithmetic',), id='a-literal-on-the-left'),
+            pytest.param('sum(c, over=g) >= k', ('a side here is arithmetic',), id='a-reduction-on-a-side'),
+            pytest.param(
+                'position(g) == 1.5',
+                ('compared against an integer index', 'position(g) == <integer>'),
+                id='a-position-against-a-fraction',
+            ),
+            pytest.param('position(g) == c', ('compared against an integer index',), id='a-position-against-a-name'),
+            pytest.param(
+                'position(g, h) == 0',
+                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                id='a-position-with-two-dimensions',
+            ),
+            pytest.param(
+                'position(g, edge=1) == 0',
+                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                id='a-position-with-a-kwarg-it-lacks',
+            ),
+            pytest.param(
+                'position(g, by=[lk, lk2]) == 0',
+                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                id='a-position-by-a-list',
+            ),
+        ],
+    )
+    def test_a_side_the_language_does_not_admit_is_refused(self, where, fragments):
+        message = _refusal(**{'variables.p.where': where})
+        for fragment in fragments:
+            assert fragment in message
+
+    def test_a_signed_literal_and_inf_are_numbers_on_a_side(self):
+        """`-1` and `inf` are the expression grammar's literals, so a where reads them as it reads any number."""
+        spec = _schema(**{'variables.p.where': 'c > -1 AND c < inf'})
+        assert spec.variables['p'].where == 'c > -1 AND c < inf'
 
 
 class TestRulesDecidedWithoutData:
@@ -787,17 +835,42 @@ class TestRulesDecidedWithoutData:
                     'relations.rel': {'key': ['g', 'h']},
                     'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
                 },
-                ("at reads one value per coordinate, and 'rel' is not single-valued",),
+                (
+                    "at reads one value per coordinate, and 'rel' is not single-valued in ['h'] at the columns "
+                    "the call lands on (['g'])",
+                ),
                 id='at-through-a-bare-relation',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'key': 'g', 'values': ['h', 'z']},
+                    'objective': {'expression': 'sum(at(r, by=lz, over=h, into=z))'},
+                },
+                (
+                    "into=['z'] names ['z'], which the key of 'lz' does not hold",
+                    "A read lands on the key it reads at, ['g']",
+                    "Land on the key, or sum toward ['z']",
+                ),
+                id='a-read-landing-on-a-value-column',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'key': 'g', 'values': ['h', 'z']},
+                    'objective': {'expression': 'sum(at(r, by=lz, over=h, into=[g, z]))'},
+                },
+                ("into=['g', 'z'] names ['z'], which the key of 'lz' does not hold",),
+                id='a-read-landing-on-the-key-and-a-value-column',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
                 (
-                    "this sum walks to the key ['g']",
+                    "this sum lands on the key ['g']",
                     'that is a read, which is',
                     "at(..., by=lk, over=['h'], into=['g'])",
                 ),
-                id='a-sum-that-walks-to-the-key-is-a-read',
+                id='a-sum-that-lands-on-the-key-is-a-read',
             ),
             pytest.param(
                 {
@@ -964,7 +1037,7 @@ class TestRulesDecidedWithoutData:
                     'dimensions.z': {},
                     'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=[h, z]))'},
                 },
-                ('names 2 relations, and one call walks one table',),
+                ('names 2 relations, and one call reads one table',),
                 id='several-relations-in-one-by',
             ),
             pytest.param(
@@ -981,7 +1054,7 @@ class TestRulesDecidedWithoutData:
                     'objective': {'expression': 'sum(sum(q, by=bare, over=k, into=m))'},
                 },
                 ("joins 'bare' on ['h'] through more than one column",),
-                id='a-walk-joining-one-dimension-through-two-columns',
+                id='a-call-joining-one-dimension-through-two-columns',
             ),
             pytest.param(
                 {
@@ -1022,14 +1095,14 @@ class TestRulesDecidedWithoutData:
         for fragment in fragments:
             assert fragment in message
 
-    def test_the_at_a_sum_walking_to_the_key_names_is_one_the_language_takes(self):
+    def test_the_at_a_sum_landing_on_the_key_names_is_one_the_language_takes(self):
         """A refusal that names a call is holding out a rewrite, so the rewrite has to load.
 
-        Was: the message swapped the walk's ends, answering a sum refused for
-        walking to the key with `at(..., over=<into>, into=<over>)` — which
+        Was: the message swapped the direction's ends, answering a sum refused
+        for landing on the key with `at(..., over=<into>, into=<over>)` — which
         `at` refuses in turn, for reading a column that is not single-valued
         at the one the operand fixes. Both operators take `over=` as the
-        column the walk consumes, so the rewrite is the author's own spelling
+        column the read consumes, so the rewrite is the author's own spelling
         with `at` in place of `sum`.
 
         Reading the call out of the message rather than restating it is the

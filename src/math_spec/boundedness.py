@@ -19,21 +19,21 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from math_spec.errors import Advice
 from math_spec.program import (
     Add,
-    At,
     Cases,
     Constant,
     Divide,
     Dual,
-    ExpressionNode,
+    Expression,
     GroupSum,
     Multiply,
     Negate,
     Parameter,
     Power,
+    Pullback,
     Sum,
     Translate,
     Variable,
-    Window,
+    WindowSum,
     children,
     variables_of,
 )
@@ -113,7 +113,7 @@ def _times(sign: Sign, other: Sign) -> Sign:
     return None if sign is None or other is None else ('+' if sign == other else '-')
 
 
-def _coefficient_sign(node: ExpressionNode) -> Sign:
+def _coefficient_sign(node: Expression) -> Sign:
     """The sign *node* scales a term by, or ``None`` unless it is a signed constant.
 
     ``-2`` lowers to a negation over a constant, so the sign of a literal
@@ -128,7 +128,7 @@ def _coefficient_sign(node: ExpressionNode) -> Sign:
     return None
 
 
-def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
+def _record_signs(node: Expression, sign: Sign, signs: dict[str, Sign]) -> None:
     """Record the sign each variable under *node* carries into the objective.
 
     A variable reached twice with different signs, or once with an undecidable
@@ -162,7 +162,7 @@ def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> N
         _record_signs(node.base, None, signs)
         _record_signs(node.exponent, None, signs)
         return
-    if isinstance(node, Sum | GroupSum | At | Translate | Window | Cases):
+    if isinstance(node, Sum | GroupSum | Pullback | Translate | WindowSum | Cases):
         for child in children(node):
             _record_signs(child, sign, signs)
         return

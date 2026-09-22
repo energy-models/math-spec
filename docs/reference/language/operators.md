@@ -21,7 +21,7 @@ in a reported expression, are all of them. A composition of them goes in
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                                          |
 | `shift(array, along=dim, offset=p, edge=…)`         | `p` is an integer parameter, so each entity is reached by its own offset                                                                                          |
-| `shift(array, along=dim, offset=n, by=relation, within=c)` | The translation walks inside each group that the relation's column `c` makes. Neighbours, edges and a wrap all belong to that group                        |
+| `shift(array, along=dim, offset=n, by=relation, within=c)` | The translation steps inside each group that the relation's column `c` makes. Neighbours, edges and a wrap all belong to that group                        |
 | `sum_back(array, along=dim, window=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                                               |
 | `sum_back(array, along=dim, window=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                                            |
 | `sum_back(array, along=dim, window=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                                        |
@@ -78,7 +78,7 @@ is null belongs to no group.
 
 ## `at`
 
-`at(x, by=l, over=a, into=b)` walks the relation the other way. It consumes a
+`at(x, by=l, over=a, into=b)` reads the relation the other way. It consumes a
 value column and produces the key, so it reads one coarse value once for each
 fine label that points at it ([reads](relations.md#aggregates-and-reads)).
 
@@ -172,7 +172,7 @@ previous snapshot's duration.
 
 ### Translation within groups
 
-`by=` partitions the axis the operator walks, so the neighbour of a coordinate
+`by=` partitions the axis the operator steps along, so the neighbour of a coordinate
 is the coordinate before it in its own group. A group can be a season, an
 investment period or a representative day:
 
@@ -197,8 +197,8 @@ Every `edge=` setting then applies one group at a time. Bare, the first
 coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
 group onto its own last coordinate. `edge=v` puts `v` at the edge of each group.
 
-`by=` takes a relation with a key column over the dimension being walked, and
-`within=` names the value columns the group is made of
+`by=` takes a relation with a key column over the dimension being stepped
+along, and `within=` names the value columns the group is made of
 ([partitions](relations.md#partitions)). A coordinate the relation sends
 nowhere is in no group, so its row drops under every `edge=`.
 

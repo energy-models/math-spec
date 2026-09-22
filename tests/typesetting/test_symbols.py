@@ -109,6 +109,8 @@ def test_a_named_expression_has_a_legend_row_exactly_while_its_symbol_prints(nam
             id='a-table-still-carrying-descriptions',
         ),
         pytest.param({'dimensions': {'generator': {'letter': 'g'}}}, 'unknown key', id='an-unknown-key'),
+        pytest.param({'dimensions': ['generator']}, 'dimensions: must be a mapping', id='a-section-that-is-a-list'),
+        pytest.param({'names': 'p_max'}, 'names: must be a mapping', id='a-section-that-is-a-string'),
     ],
 )
 def test_an_entry_naming_nothing_is_an_error_with_the_near_miss(symbols, match):

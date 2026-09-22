@@ -22,13 +22,14 @@ from math_spec._expression_parser import (
     CasesNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
     ParameterNode,
-    RelationNode,
+    PartitionNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -38,9 +39,8 @@ from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
-    from typing import Any
 
     from math_spec.model import Spec, _ExpandedSpec
 
@@ -58,7 +58,7 @@ def _none_of(masks: list[program.Mask]) -> program.Mask:
     return remainder
 
 
-def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
+def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program) -> program.Program:
     """*spec* as a :class:`~math_spec.program.Program` — the public door.
 
     Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
@@ -140,17 +140,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             _Lowering(expanded, 'the objective').expr(resolved.objective),
         )
 
-    dimensions = {
-        dname: program.DimensionDeclaration(
-            tuple(
-                program.RelationDeclaration(lname, lk.pairs, lk.key_roles)
-                for lname, lk in expanded.relations.items()
-                if dname in lk.dims
-            ),
-            ddef.dtype,
-        )
-        for dname, ddef in expanded.dimensions.items()
-    }
+    dimensions = {dname: program.DimensionDeclaration(ddef.dtype) for dname, ddef in expanded.dimensions.items()}
     sos = {
         sname: program.SosDeclaration(
             sdef.variable,
@@ -175,9 +165,10 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         constraints=constraints,
         objective=objective,
         dimensions=dimensions,
+        relations=resolved.relations,
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
-        named_expressions=expressions,
+        expressions=expressions,
         given=given,
     )
 
@@ -194,7 +185,7 @@ class _Lowering:
     schema: _ExpandedSpec
     context: str
 
-    def expr(self, node: ArithmeticNode) -> program.ExpressionNode:
+    def expr(self, node: ArithmeticNode) -> program.Expression:
         """Rewrite one resolved core-AST expression as a program expression."""
         if isinstance(node, NumberNode):
             return program.Constant(node.value)
@@ -263,7 +254,7 @@ class _Lowering:
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
 
-    def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def sum(self, node: FunctionCallNode) -> program.Expression:
         """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
 
         Two program nodes under one surface verb: reducing a dim away and reducing it
@@ -278,16 +269,16 @@ class _Lowering:
             consumed = node.kwargs['over']
             assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (consumed.name,))
-        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.GroupSum(operand, walk=by_node.walk)
+        assert isinstance(by_node, DirectionNode), 'resolution reads sum(by=) in a direction'
+        return program.GroupSum(operand, direction=by_node.direction)
 
-    def at(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def at(self, node: FunctionCallNode) -> program.Expression:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
-        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.At(self.expr(node.args[0]), walk=by_node.walk)
+        assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
+        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction)
 
-    def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def sum_back(self, node: FunctionCallNode) -> program.Expression:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
 
         *window* is an integer literal of at least one, or a parameter naming a
@@ -296,7 +287,7 @@ class _Lowering:
 
         ``by=`` names the relation the window stops at the edges of, and rides on
         the node the way it rides on a translation — the dim rules have already
-        held it to one relation over the walked dimension.
+        held it to one relation over the dimension stepped along.
         """
         over_node = node.kwargs['along']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
@@ -309,9 +300,9 @@ class _Lowering:
         else:
             assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
             width = int(window_node.value)
-        return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
+        return program.WindowSum(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
-    def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
+    def shift(self, node: FunctionCallNode) -> program.Expression:
         """``shift(x, along=d, offset=n)`` — the value at *t - offset* along one dim.
 
         What the vacated positions contribute is ``edge=``'s to say, and the
@@ -339,7 +330,7 @@ class _Lowering:
 
 
 #: One lowering per name in the language's ``BUILTIN_NAMES``.
-_CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode]] = {
+_CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.Expression]] = {
     'sum': _Lowering.sum,
     'at': _Lowering.at,
     'sum_back': _Lowering.sum_back,
@@ -347,21 +338,21 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 }
 
 
-def _partition_of(node: FunctionCallNode) -> program.Walk | None:
-    """The walk a translation partitions by, if the call names a relation.
+def _partition_of(node: FunctionCallNode) -> program.Partition | None:
+    """The partition a translation steps inside, if the call names a relation.
 
-    That it is a *single* relation, walked *along the translated dimension*, is
+    That it is a *single* relation, stepped *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """
     by_node = node.kwargs.get('by')
     if by_node is None:
         return None
-    assert isinstance(by_node, RelationNode)
-    return by_node.walk
+    assert isinstance(by_node, PartitionNode), "resolution reads a translation's by= as a partition"
+    return by_node.partition
 
 
-def _bound_expression(value: float | str) -> program.ExpressionNode:
+def _bound_expression(value: float | str) -> program.Expression:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)

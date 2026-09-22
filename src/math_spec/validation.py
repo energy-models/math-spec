@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Literal, assert_never, overload
 
 import math_spec.degree as degree
 from math_spec._expression_parser import (
@@ -37,7 +38,7 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.program import BooleanLiteralNode
+from math_spec.program import BooleanLiteral
 from math_spec.resolution import (
     Namespace,
     Resolved,
@@ -52,10 +53,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from math_spec.model import ExpressionBlock
-    from math_spec.program import WhereNode
+    from math_spec.program import Predicate
 
 
-def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
+def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -80,7 +81,7 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
         raise SchemaError(msg)
     if isinstance(model, Spec):
         return model
-    return Spec.model_validate(model if isinstance(model, dict) else read_model(model))
+    return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
 
 
 def _once(errors: list[str]) -> str:
@@ -164,7 +165,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective)
+    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
     check_schema(schema, resolved)
     return resolved
 
@@ -185,11 +186,11 @@ def _named(
 
     found = len(errors)
     arms: list[CaseArm] = []
-    masks: dict[str, WhereNode] = {}
+    masks: dict[str, Predicate] = {}
     for case_name, case in block.cases.items():
         arm_context = case_context(name, case_name)
         when = resolve_where_text(case.when, ns, arm_context, errors)
-        if isinstance(when, BooleanLiteralNode):
+        if isinstance(when, BooleanLiteral):
             errors.append(_constant_arm(arm_context, value=when.value))
         elif when is not None:
             masks[case_name] = when

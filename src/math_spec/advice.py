@@ -14,17 +14,17 @@ from typing import TYPE_CHECKING
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
-from math_spec.program import At, GroupSum, walk
+from math_spec.program import GroupSum, Pullback, walk
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
-    from typing import Any
 
     from math_spec.model import Spec
     from math_spec.program import Program
 
 
-def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice, ...]:
+def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
     """Everything the language advises about *model* — never an error, decidable without data.
 
     Args:
@@ -97,12 +97,11 @@ def _never_an_axis(program: Program) -> list[Advice]:
 def _produced_axes(program: Program) -> set[str]:
     """The axes the expressions create beyond what any declaration indexes.
 
-    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine dimension.
+    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine
+    dimension: either way, the dims the direction produces.
     """
     axes: set[str] = set()
-    for node in walk(*program.expressions):
-        if isinstance(node, GroupSum):
-            axes.update(node.into)
-        elif isinstance(node, At):
-            axes.update(node.over)
+    for node in walk(*program.roots):
+        if isinstance(node, GroupSum | Pullback):
+            axes.update(node.direction.produced_dims)
     return axes
