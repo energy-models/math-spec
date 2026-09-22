@@ -32,6 +32,8 @@ SCENARIO_FREE_VARIABLES = {
     'StorageUnit_p_nom_ext',
     'Store_e_nom_ext',
     'Line_s_nom_ext',
+    'Process_p_nom_ext',
+    'Transformer_s_nom_ext',
 }
 
 

@@ -1343,6 +1343,178 @@ def build():
 </details>
 <!-- reference:rung_16_link_delay:end -->
 
+### Rung 17 — process
+
+A process is a generalized converter. It moves an internal power from `bus0` to
+the buses it feeds, and each port draws or delivers at its own `rate`. A
+non-extendable process carries a fixed capacity. An extendable one chooses its
+capacity between `p_nom_min` and `p_nom_max`. A ramp limit caps the change in
+internal power between snapshots. A `p_set` fixes an internal power schedule. A
+`p_nom_set` fixes an extendable process's built capacity. The machinery is the
+generator's and the link's, read over a converter.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Process-p`, `Process-p_nom`](#variable-domains) | done | internal power and capacity, as a link |
+| [`Process-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#process-fix-p-lower) | done | rungs 1 and 3, over a converter |
+| [`Process-p-ramp_limit_*`](#process-p-ramp_limit_up) | done | rung 4, on a non-committable converter |
+| [`Process-p_set`](#process-p_set) | done | a fixed internal power schedule |
+| [`Process-p_nom_set`](#process-p_nom_set) | done | a fixed built capacity |
+| [`Bus-nodal_balance`](#bus-nodal_balance) | done | each port enters at its `rate` |
+| [objective](#objective) | done | marginal cost on internal power; capital on capacity |
+
+<!-- reference:rung_17_process:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `9730.0`, 70 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_17_process.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 17: process — generalized converters, one fixed and ramping, one extendable, one on a set schedule, all feeding a hub."""
+
+from __future__ import annotations
+
+from math import nan
+
+import spine
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'hub')
+    n.add(
+        'Process',
+        'conv_fix',
+        bus0='north',
+        bus1='hub',
+        p_nom=50,
+        marginal_cost=2,
+        ramp_limit_up=0.3,
+        ramp_limit_down=0.3,
+    )
+    n.add(
+        'Process',
+        'conv_ext',
+        bus0='south',
+        bus1='hub',
+        p_nom_extendable=True,
+        capital_cost=20,
+        p_nom_min=5,
+        p_nom_max=40,
+        marginal_cost=1,
+        p_nom_set=25,
+    )
+    n.add('Process', 'conv_set', bus0='north', bus1='hub', p_nom=20, marginal_cost=3, p_set=[10, nan, nan, nan])
+    n.add('Load', 'hub_load', bus='hub', p_set=[15, 20, 25, 10])
+    return n
+```
+
+</details>
+<!-- reference:rung_17_process:end -->
+
+### Rung 18 — transformer
+
+A transformer is a passive branch between two buses, as a line is, but its flow
+follows its effective series reactance and a fixed phase shift. It obeys the
+Kirchhoff voltage law (KVL) around every independent cycle, so it builds no flow
+outside a mesh. A non-extendable transformer carries a fixed nominal apparent
+power. An extendable one chooses it between `s_nom_min` and `s_nom_max`. An
+`s_set` fixes a flow schedule. An `s_nom_set` fixes an extendable transformer's
+built capacity.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Transformer-s`, `Transformer-s_nom`](#variable-domains) | done | flow and capacity, as a line |
+| [`Transformer-fix-s-*`, `-ext-s-*`, `-ext-s_nom-*`](#transformer-fix-s-lower) | done | rungs 1 and 3, over a transformer |
+| [`Transformer-s_set`](#transformer-s_set) | done | a fixed flow schedule |
+| [`Transformer-s_nom_set`](#transformer-s_nom_set) | done | a fixed built capacity |
+| [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | rung 6, over `x_pu_eff` and a phase shift |
+| [objective](#objective) | done | capital on capacity |
+
+<!-- reference:rung_18_transformer:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `12274.401472395122`, 106 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_18_transformer.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 18: transformer — passive branches under KVL in a meshed triangle, one fixed and on a set flow, two extendable in parallel."""
+
+from __future__ import annotations
+
+from math import nan
+
+import spine
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'a')
+    n.add('Bus', 'b')
+    n.add('Bus', 'c')
+    n.add('Generator', 'hydro18', bus='a', p_nom=80, marginal_cost=10)
+    n.add('Generator', 'diesel18', bus='b', p_nom=80, marginal_cost=50)
+    n.add('Load', 'town18', bus='c', p_set=45)
+    n.add('Line', 'ab', bus0='a', bus1='b', carrier='AC', length=30, x=0.1, r=0.01, s_nom=60)
+    n.add(
+        'Transformer',
+        'bc',
+        bus0='b',
+        bus1='c',
+        x=0.1,
+        r=0.01,
+        s_nom=60,
+        phase_shift=10,
+        s_set=[16, nan, nan, nan],
+    )
+    n.add(
+        'Transformer',
+        'ca',
+        bus0='c',
+        bus1='a',
+        x=0.15,
+        r=0.01,
+        s_nom=60,
+        s_nom_extendable=True,
+        capital_cost=10,
+        s_nom_min=5,
+        s_nom_max=40,
+        s_nom_set=30,
+        tap_ratio=1.05,
+    )
+    n.add(
+        'Transformer',
+        'ca2',
+        bus0='c',
+        bus1='a',
+        x=0.12,
+        r=0.01,
+        s_nom=60,
+        s_nom_extendable=True,
+        capital_cost=8,
+        s_nom_min=5,
+        s_nom_max=40,
+    )
+    return n
+```
+
+</details>
+<!-- reference:rung_18_transformer:end -->
+
 ### Not on a rung
 
 | PyPSA                          | status | note                                 |
@@ -1379,14 +1551,17 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 |---|---|
 | $`\Xi`$ | index $`\xi`$ — `scenario` — the futures dispatch is chosen in, each with a weight |
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — dispatch periods |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — network nodes |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Process\_output\_bus}: \mathcal{R} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
 | $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
+| $`\mathcal{J}`$ | index $`j`$ — `process` with $`\mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J}`$ — generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate |
+| $`\mathcal{R}`$ | index $`r`$ — `process_output` with $`\mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J},\ \mathrm{Process\_output\_bus}: \mathcal{R} \to \mathcal{N}`$ — a process's ports, one label per port a process declares — PyPSA's `bus0`, `bus1`, … each carry a signed `rate`, so a process of any number of ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 | $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
 | $`\mathcal{V}`$ | index $`v`$ — `store` with $`\mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — pure energy stores, each on one bus |
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
+| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a fixed phase shift |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
 | $`\mathcal{B}`$ | index $`b`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 | $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
@@ -1428,6 +1603,21 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
 | $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
+| $`\mathrm{z}^{\mathrm{nom}}`$ | `Process_p_nom` over $`\mathcal{J}`$ — nominal internal power |
+| $`\mathrm{ext}^{z}`$ | `Process_p_nom_extendable` over $`\mathcal{J}`$ — whether the nominal internal power is a decision |
+| $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
+| $`\overline{\mathrm{z}}`$ | `Process_p_max_pu` over $`\mathcal{T} \times \mathcal{J}`$ — most internal power, per unit of nominal power |
+| $`\alpha`$ | `Process_rate` over $`\mathcal{R}`$ — the energy a port draws or delivers per unit of internal power, PyPSA's `rate0`, `rate1`, … read long — negative where the port withdraws, positive where it injects; a link is a process whose `bus0` rate is minus one and whose output rates are its efficiencies |
+| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once |
+| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the horizon's end — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at the first snapshots is lost |
+| $`\mathrm{c}^{z}`$ | `Process_marginal_cost` over $`\mathcal{T} \times \mathcal{J}`$ — cost of one unit of internal power |
+| $`\mathrm{ru}^{z}`$ | `Process_ramp_limit_up` over $`\mathcal{J}`$ — most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{rd}^{z}`$ | `Process_ramp_limit_down` over $`\mathcal{J}`$ — most a process may lower its internal power between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{z}^{\mathrm{set}}`$ | `Process_p_set` over $`\mathcal{T} \times \mathcal{J}`$ — a given internal power schedule; a process without one has no row here |
+| $`\underline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_min` over $`\mathcal{J}`$ — least nominal power an extendable process may be built at |
+| $`\overline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_max` over $`\mathcal{J}`$ — most nominal power an extendable process may be built at |
+| $`\mathrm{c}^{\mathrm{cap},z}`$ | `Process_capital_cost` over $`\mathcal{J}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{z}^{\mathrm{nom,set}}`$ | `Process_p_nom_set` over $`\mathcal{J}`$ — a given nominal power for an extendable process; one without a value has no row here |
 | $`\mathrm{load}`$ | `Load_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{D}`$ — demand |
 | $`\pi`$ | `scenario_weight` over $`\Xi`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
@@ -1438,11 +1628,15 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{on}^{h}`$ | `StorageUnit_active` over $`\mathcal{T} \times \mathcal{S}`$ — whether a storage unit stands in a snapshot's period — PyPSA's `active`, data prep |
 | $`\mathrm{on}^{e}`$ | `Store_active` over $`\mathcal{T} \times \mathcal{V}`$ — whether a store stands in a snapshot's period — PyPSA's `active`, data prep |
 | $`\mathrm{on}^{s}`$ | `Line_active` over $`\mathcal{T} \times \mathcal{K}`$ — whether a line stands in a snapshot's period — PyPSA's `active`, data prep |
+| $`\mathrm{on}^{z}`$ | `Process_active` over $`\mathcal{T} \times \mathcal{J}`$ — whether a process stands in a snapshot's period — PyPSA's `active`, data prep |
+| $`\mathrm{on}^{\sigma}`$ | `Transformer_active` over $`\mathcal{T} \times \mathcal{M}`$ — whether a transformer stands in a snapshot's period — PyPSA's `active`, data prep |
 | $`\mathrm{W}`$ | `Generator_capital_weight` over $`\mathcal{G}`$ — the sum of period weights a generator stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{f}`$ | `Link_capital_weight` over $`\mathcal{L}`$ — the sum of period weights a link stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{h}`$ | `StorageUnit_capital_weight` over $`\mathcal{S}`$ — the sum of period weights a storage unit stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{e}`$ | `Store_capital_weight` over $`\mathcal{V}`$ — the sum of period weights a store stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{s}`$ | `Line_capital_weight` over $`\mathcal{K}`$ — the sum of period weights a line stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{W}^{z}`$ | `Process_capital_weight` over $`\mathcal{J}`$ — the sum of period weights a process stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $`\mathrm{W}^{\sigma}`$ | `Transformer_capital_weight` over $`\mathcal{M}`$ — the sum of period weights a transformer stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
 | $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit |
 | $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top |
@@ -1503,6 +1697,16 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{s}^{\mathrm{nom,set}}`$ | `Line_s_nom_set` over $`\mathcal{K}`$ — a given nominal apparent power for an extendable line; one without a value has no row here |
 | $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
 | $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
+| $`\sigma^{\mathrm{nom}}`$ | `Transformer_s_nom` over $`\mathcal{M}`$ — nominal apparent power |
+| $`\mathrm{ext}^{\sigma}`$ | `Transformer_s_nom_extendable` over $`\mathcal{M}`$ — whether the nominal apparent power is a decision |
+| $`\overline{\sigma}`$ | `Transformer_s_max_pu` over $`\mathcal{T} \times \mathcal{M}`$ — most flow either way, per unit of nominal apparent power |
+| $`\underline{\sigma}^{\mathrm{nom}}`$ | `Transformer_s_nom_min` over $`\mathcal{M}`$ — least nominal apparent power an extendable transformer may be built at |
+| $`\overline{\sigma}^{\mathrm{nom}}`$ | `Transformer_s_nom_max` over $`\mathcal{M}`$ — most nominal apparent power an extendable transformer may be built at |
+| $`\mathrm{c}^{\mathrm{cap},\sigma}`$ | `Transformer_capital_cost` over $`\mathcal{M}`$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\sigma^{\mathrm{nom,set}}`$ | `Transformer_s_nom_set` over $`\mathcal{M}`$ — a given nominal apparent power for an extendable transformer; one without a value has no row here |
+| $`\sigma^{\mathrm{set}}`$ | `Transformer_s_set` over $`\mathcal{T} \times \mathcal{M}`$ — a given flow schedule; a transformer without one has no row here |
+| $`\mathrm{x}^{\sigma}`$ | `Transformer_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's effective series reactance, `x` times its tap ratio, signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle basis, data prep; a transformer in no cycle has no row |
+| $`\vartheta`$ | `Transformer_phase_shift_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's fixed phase shift in radians, signed by its orientation in the cycle — a constant added to the cycle sum, data prep; a transformer with no shift or in no cycle has no row. PyPSA also admits an optimisable phase shift, a later rung this file does not carry |
 | $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{B}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
 | $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{B}`$ — which way the row binds — `<=`, `>=` or `==` |
 | $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{B}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
@@ -1522,6 +1726,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{m}^{l}`$ | `Line_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{K}`$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row |
 | $`\mathrm{m}^{h}`$ | `StorageUnit_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{S}`$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row |
 | $`\mathrm{m}^{e}`$ | `Store_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{V}`$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{m}^{z}`$ | `Process_tech_capacity_weight` over $`\mathcal{B} \times \mathcal{J}`$ — one where the process is in the row's carrier-and-bus set — data prep; one outside it has no row |
 
 #### Variables
 
@@ -1529,6 +1734,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 |---|---|
 | $`p`$ | `Generator_p` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-p` — output of a generator in a snapshot |
 | $`f`$ | `Link_p` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $`z`$ | `Process_p` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-p` — PyPSA's internal power `p`: a positive value drives every port at its own rate, withdrawing where the rate is negative and injecting where it is positive |
 | $`h^{+}`$ | `StorageUnit_p_dispatch` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-p_dispatch` — power delivered to the bus |
 | $`h^{-}`$ | `StorageUnit_p_store` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-p_store` — power drawn from the bus into charge |
 | $`\mathit{soc}`$ | `StorageUnit_state_of_charge` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — `StorageUnit-state_of_charge` — energy held at the end of a snapshot |
@@ -1540,9 +1746,12 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{up}`$ | `Generator_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
 | $`\mathit{dn}`$ | `Generator_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
+| $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
 | $`S`$ | `Line_s_nom_ext` over $`\mathcal{K}`$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`F`$ | `Link_p_nom_ext` over $`\mathcal{L}`$ — `Link-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $`Z`$ | `Process_p_nom_ext` over $`\mathcal{J}`$ — `Process-p_nom` — nominal internal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $`\Sigma`$ | `Transformer_s_nom_ext` over $`\mathcal{M}`$ — `Transformer-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`H`$ | `StorageUnit_p_nom_ext` over $`\mathcal{S}`$ — `StorageUnit-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`E`$ | `Store_e_nom_ext` over $`\mathcal{V}`$ — `Store-e_nom` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`a`$ | `CVaR_a` over $`\Xi`$ — `CVaR-a` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not |
@@ -1559,9 +1768,11 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\Delta^{+}`$ | `Generator_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{-}`$ | `Generator_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_effective` over $`\mathcal{L}`$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\widetilde{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_effective` over $`\mathcal{J}`$ — the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
+| $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed transfer wraps from the horizon's end, and where it is not the energy still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
 | $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{B}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
 | $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{B}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
 | $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\mathcal{B}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
@@ -1587,12 +1798,14 @@ objective:
     + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
     + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
     + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
+    + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
+    + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
     + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
     + CVaR_omega * CVaR
 ```
 
 ```math
-\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} \cdot \mathrm{W}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} \cdot \mathrm{W}^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} \cdot \mathrm{W}^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} \cdot \mathrm{W}^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} \cdot \mathrm{W}^{s}_{k} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
+\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} \cdot \mathrm{W}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} \cdot \mathrm{W}^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} \cdot \mathrm{W}^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} \cdot \mathrm{W}^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} \cdot \mathrm{W}^{s}_{k} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{c}^{\mathrm{cap},z}_{j} \cdot \mathrm{W}^{z}_{j} + \sum_{m \in \mathcal{M}} \Sigma_{m} \cdot \mathrm{c}^{\mathrm{cap},\sigma}_{m} \cdot \mathrm{W}^{\sigma}_{m} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
 ```
 
 ### `Generator-fix-p-lower`
@@ -1849,6 +2062,118 @@ Link_p_nom_set:
 
 ```math
 F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{nom,set}}_{l} \text{ is defined}
+```
+
+### `Process-fix-p-lower`
+
+`Process_fix_p_lower`
+
+```yaml
+Process_fix_p_lower:
+  description: "`Process-fix-p-lower` — a fixed process runs at least its minimum, negative for the other way"
+  dims: [scenario, snapshot, process]
+  where: not Process_p_nom_extendable AND Process_active
+  expression: Process_p >= Process_p_min_pu * Process_p_nom
+```
+
+```math
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-fix-p-upper`
+
+`Process_fix_p_upper`
+
+```yaml
+Process_fix_p_upper:
+  description: "`Process-fix-p-upper` — a fixed process runs at most its nominal power"
+  dims: [scenario, snapshot, process]
+  where: not Process_p_nom_extendable AND Process_active
+  expression: Process_p <= Process_p_max_pu * Process_p_nom
+```
+
+```math
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-ext-p-lower`
+
+`Process_ext_p_lower`
+
+```yaml
+Process_ext_p_lower:
+  description: "`Process-ext-p-lower` — an extendable process runs at least its minimum of the chosen build, negative for the other way"
+  dims: [scenario, snapshot, process]
+  where: Process_p_nom_extendable AND Process_active
+  expression: Process_p >= Process_p_min_pu * Process_p_nom_ext
+```
+
+```math
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-ext-p-upper`
+
+`Process_ext_p_upper`
+
+```yaml
+Process_ext_p_upper:
+  description: "`Process-ext-p-upper` — an extendable process runs at most the chosen build"
+  dims: [scenario, snapshot, process]
+  where: Process_p_nom_extendable AND Process_active
+  expression: Process_p <= Process_p_max_pu * Process_p_nom_ext
+```
+
+```math
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-ext-p_nom-lower`
+
+`Process_ext_p_nom_lower`
+
+```yaml
+Process_ext_p_nom_lower:
+  description: "`Process-ext-p_nom-lower` — the chosen build is at least its floor"
+  dims: [process]
+  where: Process_p_nom_extendable
+  expression: Process_p_nom_ext >= Process_p_nom_min
+```
+
+```math
+Z_{j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j}
+```
+
+### `Process-ext-p_nom-upper`
+
+`Process_ext_p_nom_upper`
+
+```yaml
+Process_ext_p_nom_upper:
+  description: "`Process-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  dims: [process]
+  where: Process_p_nom_extendable AND Process_p_nom_max
+  expression: Process_p_nom_ext <= Process_p_nom_max
+```
+
+```math
+Z_{j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \text{ is defined}
+```
+
+### `Process-p_nom_set`
+
+`Process_p_nom_set`
+
+```yaml
+Process_p_nom_set:
+  description: "`Process-p_nom_set` — the chosen build pinned, wherever a value is given"
+  dims: [process]
+  where: Process_p_nom_extendable AND Process_p_nom_set
+  expression: Process_p_nom_ext == Process_p_nom_set
+```
+
+```math
+Z_{j} = \mathrm{z}^{\mathrm{nom,set}}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{nom,set}}_{j} \text{ is defined}
 ```
 
 ### `StorageUnit-fix-p_dispatch-lower`
@@ -2521,6 +2846,134 @@ Line_s_set:
 s_{\xi,t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
+### `Transformer-fix-s-lower`
+
+`Transformer_fix_s_lower`
+
+```yaml
+Transformer_fix_s_lower:
+  description: "`Transformer-fix-s-lower` — a fixed transformer carries at least the negative of its rating"
+  dims: [scenario, snapshot, transformer]
+  where: not Transformer_s_nom_extendable AND Transformer_active
+  expression: Transformer_s >= -Transformer_s_max_pu * Transformer_s_nom
+```
+
+```math
+\sigma_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-fix-s-upper`
+
+`Transformer_fix_s_upper`
+
+```yaml
+Transformer_fix_s_upper:
+  description: "`Transformer-fix-s-upper` — a fixed transformer carries at most its rating"
+  dims: [scenario, snapshot, transformer]
+  where: not Transformer_s_nom_extendable AND Transformer_active
+  expression: Transformer_s <= Transformer_s_max_pu * Transformer_s_nom
+```
+
+```math
+\sigma_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-ext-s-lower`
+
+`Transformer_ext_s_lower`
+
+```yaml
+Transformer_ext_s_lower:
+  description: "`Transformer-ext-s-lower` — an extendable transformer carries at least the negative of its rating of the chosen build"
+  dims: [scenario, snapshot, transformer]
+  where: Transformer_s_nom_extendable AND Transformer_active
+  expression: Transformer_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+```
+
+```math
+\sigma_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-ext-s-upper`
+
+`Transformer_ext_s_upper`
+
+```yaml
+Transformer_ext_s_upper:
+  description: "`Transformer-ext-s-upper` — an extendable transformer carries at most its rating of the chosen build"
+  dims: [scenario, snapshot, transformer]
+  where: Transformer_s_nom_extendable AND Transformer_active
+  expression: Transformer_s <= Transformer_s_max_pu * Transformer_s_nom_ext
+```
+
+```math
+\sigma_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-ext-s_nom-lower`
+
+`Transformer_ext_s_nom_lower`
+
+```yaml
+Transformer_ext_s_nom_lower:
+  description: "`Transformer-ext-s_nom-lower` — the chosen build is at least its floor"
+  dims: [transformer]
+  where: Transformer_s_nom_extendable
+  expression: Transformer_s_nom_ext >= Transformer_s_nom_min
+```
+
+```math
+\Sigma_{m} \ge \underline{\sigma}^{\mathrm{nom}}_{m} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m}
+```
+
+### `Transformer-ext-s_nom-upper`
+
+`Transformer_ext_s_nom_upper`
+
+```yaml
+Transformer_ext_s_nom_upper:
+  description: "`Transformer-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  dims: [transformer]
+  where: Transformer_s_nom_extendable AND Transformer_s_nom_max
+  expression: Transformer_s_nom_ext <= Transformer_s_nom_max
+```
+
+```math
+\Sigma_{m} \le \overline{\sigma}^{\mathrm{nom}}_{m} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \overline{\sigma}^{\mathrm{nom}}_{m} \text{ is defined}
+```
+
+### `Transformer-s_nom_set`
+
+`Transformer_s_nom_set`
+
+```yaml
+Transformer_s_nom_set:
+  description: "`Transformer-s_nom_set` — the chosen build pinned, wherever a value is given"
+  dims: [transformer]
+  where: Transformer_s_nom_extendable AND Transformer_s_nom_set
+  expression: Transformer_s_nom_ext == Transformer_s_nom_set
+```
+
+```math
+\Sigma_{m} = \sigma^{\mathrm{nom,set}}_{m} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \sigma^{\mathrm{nom,set}}_{m} \text{ is defined}
+```
+
+### `Transformer-s_set`
+
+`Transformer_s_set`
+
+```yaml
+Transformer_s_set:
+  description: "`Transformer-s_set` — flow pinned to the given schedule, wherever one is given"
+  dims: [scenario, snapshot, transformer]
+  where: Transformer_s_set AND Transformer_active
+  expression: Transformer_s == Transformer_s_set
+```
+
+```math
+\sigma_{\xi,t,m} = \sigma^{\mathrm{set}}_{t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \sigma^{\mathrm{set}}_{t,m} \text{ is defined} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
 ### `Kirchhoff-Voltage-Law`
 
 `Kirchhoff_Voltage_Law`
@@ -2530,13 +2983,18 @@ Kirchhoff_Voltage_Law:
   description: >-
     `Kirchhoff-Voltage-Law` — around every independent cycle the
     impedance-weighted flows sum to nothing, which is what makes the linear
-    power flow physical rather than transport
+    power flow physical rather than transport. A transformer's flow weighs its
+    effective reactance, and its fixed phase shift enters the cycle sum as a
+    constant
   dims: [scenario, snapshot, cycle]
-  expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+  expression: >-
+    sum(Line_s * Line_cycle_weight, over=line)
+    + sum(Transformer_s * Transformer_cycle_weight, over=transformer)
+    + sum(Transformer_phase_shift_weight, over=transformer) == 0
 ```
 
 ```math
-\sum_{k \in \mathcal{K}} s_{\xi,t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
+\sum_{k \in \mathcal{K}} s_{\xi,t,k} \cdot \mathrm{x}_{k,c} + \sum_{m \in \mathcal{M}} \sigma_{\xi,t,m} \cdot \mathrm{x}^{\sigma}_{m,c} + \sum_{m \in \mathcal{M}} \vartheta_{m,c} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
 ```
 
 ### `Generator-p-ramp_limit_up`
@@ -2620,6 +3078,41 @@ Link_p_ramp_limit_down:
 
 ```math
 f_{\xi,t - 1,l} - f_{\xi,t,l} \le \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Process-p-ramp_limit_up`
+
+`Process_p_ramp_limit_up`
+
+```yaml
+Process_p_ramp_limit_up:
+  description: >-
+    `Process-p-ramp_limit_up` — a process raises internal power no faster than
+    its limit of the build. The translated term vacates the first snapshot,
+    where a plain optimize builds no row either
+  dims: [scenario, snapshot, process]
+  where: Process_ramp_limit_up AND Process_active
+  expression: Process_p - shift(Process_p, along=snapshot, offset=1) <= Process_ramp_limit_up * Process_p_nom_effective
+```
+
+```math
+z_{\xi,t,j} - z_{\xi,t - 1,j} \le \mathrm{ru}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-p-ramp_limit_down`
+
+`Process_p_ramp_limit_down`
+
+```yaml
+Process_p_ramp_limit_down:
+  description: "`Process-p-ramp_limit_down` — a process lowers internal power no faster than its limit of the build"
+  dims: [scenario, snapshot, process]
+  where: Process_ramp_limit_down AND Process_active
+  expression: shift(Process_p, along=snapshot, offset=1) - Process_p <= Process_ramp_limit_down * Process_p_nom_effective
+```
+
+```math
+z_{\xi,t - 1,j} - z_{\xi,t,j} \le \mathrm{rd}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `StorageUnit-ext-p_dispatch-lower`
@@ -2955,6 +3448,22 @@ Link_p_set:
 f_{\xi,t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{f}^{\mathrm{set}}_{t,l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
+### `Process-p_set`
+
+`Process_p_set`
+
+```yaml
+Process_p_set:
+  description: "`Process-p_set` — internal power pinned to the given schedule, wherever one is given"
+  dims: [scenario, snapshot, process]
+  where: Process_p_set AND Process_active
+  expression: Process_p == Process_p_set
+```
+
+```math
+z_{\xi,t,j} = \mathrm{z}^{\mathrm{set}}_{t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{z}^{\mathrm{set}}_{t,j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
+```
+
 ### `StorageUnit-p_set`
 
 `StorageUnit_p_set`
@@ -3252,8 +3761,9 @@ Bus_nodal_balance:
   description: >-
     `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
     stores included, less what the links take away, plus what arrives over
-    them after losses and any delay at every port they deliver to, meets the
-    load there.
+    them after losses and any delay at every port they deliver to, each
+    process port drawing or delivering at its own rate and each passive branch
+    carrying its flow, meets the load there.
     A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
   dims: [scenario, snapshot, bus]
@@ -3263,13 +3773,16 @@ Bus_nodal_balance:
     + sum(Store_p, by=Store_bus, over=store, into=bus)
     - sum(Link_p, by=Link_bus0, over=link, into=bus)
     + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
+    + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
     - sum(Line_s, by=Line_bus0, over=line, into=bus)
     + sum(Line_s, by=Line_bus1, over=line, into=bus)
+    - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
+    + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
     == sum(Load_p_set, by=Load_bus, over=load, into=bus)
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
 ```
 
 ### `Carrier-growth_limit`
@@ -3436,6 +3949,21 @@ Link_p_nom_effective:
 \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} = \begin{cases} F_{l} & \text{if } \mathrm{ext}^{f}_{l} \\ \mathrm{f}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
 ```
 
+### `Process_p_nom_effective`
+
+```yaml
+Process_p_nom_effective:
+  description: the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise
+  dims: [process]
+  cases:
+    extendable: { when: Process_p_nom_extendable, expression: Process_p_nom_ext }
+  otherwise: Process_p_nom
+```
+
+```math
+\widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} = \begin{cases} Z_{j} & \text{if } \mathrm{ext}^{z}_{j} \\ \mathrm{z}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+```
+
 ### `StorageUnit_charge_carried_in`
 
 ```yaml
@@ -3505,6 +4033,28 @@ Link_output_arrival:
 
 ```math
 \overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
+```
+
+### `Process_output_arrival`
+
+```yaml
+Process_output_arrival:
+  description: >-
+    what a process transfers at a port at a snapshot — its internal power
+    times the port's rate, delayed by the port's `delay`; where the port is
+    `cyclic_delay` the delayed transfer wraps from the horizon's end, and where
+    it is not the energy still in transit at the first snapshots is lost. A
+    port that does not delay (`delay` zero) transfers at once, cyclic or not
+  dims: [scenario, snapshot, process_output]
+  cases:
+    wrapping:
+      when: Process_output_cyclic_delay
+      expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap')
+  otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0)
+```
+
+```math
+\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
 ```
 
 ### `primary_energy`
@@ -3582,10 +4132,11 @@ tech_capacity_expansion:
     + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
     + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
     + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
+    + sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{b} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} \qquad \forall\, b \in \mathcal{B}
+\mathit{tech\_capacity\_expansion}_{b} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{m}^{z}_{b,j} \qquad \forall\, b \in \mathcal{B}
 ```
 
 ### `scenario_opex`
@@ -3596,6 +4147,7 @@ scenario_opex:
   expression: >-
     sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
     + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(Process_p * Process_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
     + sum(sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
     + sum(sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
     + sum(sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
@@ -3607,7 +4159,7 @@ scenario_opex:
 ```
 
 ```math
-\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
 ```
 
 #### Variable domains
@@ -3622,6 +4174,12 @@ p_{\xi,t,g} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g 
 
 ```math
 f_{\xi,t,l} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{on}^{f}_{t,l}
+```
+
+**`Process_p`**
+
+```math
+z_{\xi,t,j} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{on}^{z}_{t,j}
 ```
 
 **`StorageUnit_p_dispatch`**
@@ -3690,6 +4248,12 @@ u_{\xi,t,g} \ge 0, u_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \
 s_{\xi,t,k} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{on}^{s}_{t,k}
 ```
 
+**`Transformer_s`**
+
+```math
+\sigma_{\xi,t,m} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{on}^{\sigma}_{t,m}
+```
+
 **`Line_s_nom_ext`**
 
 ```math
@@ -3706,6 +4270,18 @@ P_{g} \in \mathbb{R} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
 
 ```math
 F_{l} \in \mathbb{R} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l}
+```
+
+**`Process_p_nom_ext`**
+
+```math
+Z_{j} \in \mathbb{R} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j}
+```
+
+**`Transformer_s_nom_ext`**
+
+```math
+\Sigma_{m} \in \mathbb{R} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m}
 ```
 
 **`StorageUnit_p_nom_ext`**

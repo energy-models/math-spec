@@ -15,6 +15,9 @@ dimensions:
   storage_unit: { index: s, set: '\mathcal{S}' }
   store: { index: v, set: '\mathcal{V}' }
   line: { index: k, set: '\mathcal{K}' }
+  transformer: { index: m, set: '\mathcal{M}' }
+  process: { index: j, set: '\mathcal{J}' }
+  process_output: { index: r, set: '\mathcal{R}' }
   cycle: { index: c, set: '\mathcal{C}' }
   scenario: { index: '\xi', set: '\Xi' }
   period: { index: y, set: '\mathcal{Y}' }
@@ -82,6 +85,25 @@ names:
   Link_p_nom_max: '\overline{\mathrm{f}}^{\mathrm{nom}}'
   Link_capital_cost: '\mathrm{c}^{\mathrm{cap},f}'
   Link_p_nom_set: '\mathrm{f}^{\mathrm{nom,set}}'
+  Process_p: z
+  Process_p_nom: '\mathrm{z}^{\mathrm{nom}}'
+  Process_p_nom_extendable: '\mathrm{ext}^{z}'
+  Process_p_min_pu: '\underline{\mathrm{z}}'
+  Process_p_max_pu: '\overline{\mathrm{z}}'
+  Process_rate: '\alpha'
+  Process_output_delay: '\mathrm{d}^{z}'
+  Process_output_cyclic_delay: '\mathrm{cyc}^{z}'
+  Process_marginal_cost: '\mathrm{c}^{z}'
+  Process_ramp_limit_up: '\mathrm{ru}^{z}'
+  Process_ramp_limit_down: '\mathrm{rd}^{z}'
+  Process_p_set: '\mathrm{z}^{\mathrm{set}}'
+  Process_p_nom_min: '\underline{\mathrm{z}}^{\mathrm{nom}}'
+  Process_p_nom_max: '\overline{\mathrm{z}}^{\mathrm{nom}}'
+  Process_capital_cost: '\mathrm{c}^{\mathrm{cap},z}'
+  Process_p_nom_set: '\mathrm{z}^{\mathrm{nom,set}}'
+  Process_p_nom_ext: "Z"
+  Process_p_nom_effective: '\widetilde{\mathrm{z}}^{\mathrm{nom}}'
+  Process_output_arrival: '\overrightarrow{z}'
   StorageUnit_p_nom_ext: "H"
   StorageUnit_p_nom_min: '\underline{\mathrm{h}}^{\mathrm{nom}}'
   StorageUnit_p_nom_max: '\overline{\mathrm{h}}^{\mathrm{nom}}'
@@ -103,6 +125,18 @@ names:
   Line_s_nom_set: '\mathrm{s}^{\mathrm{nom,set}}'
   Line_s_set: '\mathrm{s}^{\mathrm{set}}'
   Line_cycle_weight: '\mathrm{x}'
+  Transformer_s: '\sigma'
+  Transformer_s_nom_ext: '\Sigma'
+  Transformer_s_nom: '\sigma^{\mathrm{nom}}'
+  Transformer_s_nom_extendable: '\mathrm{ext}^{\sigma}'
+  Transformer_s_max_pu: '\overline{\sigma}'
+  Transformer_s_nom_min: '\underline{\sigma}^{\mathrm{nom}}'
+  Transformer_s_nom_max: '\overline{\sigma}^{\mathrm{nom}}'
+  Transformer_capital_cost: '\mathrm{c}^{\mathrm{cap},\sigma}'
+  Transformer_s_nom_set: '\sigma^{\mathrm{nom,set}}'
+  Transformer_s_set: '\sigma^{\mathrm{set}}'
+  Transformer_cycle_weight: '\mathrm{x}^{\sigma}'
+  Transformer_phase_shift_weight: '\vartheta'
   GlobalConstraint_type: '\mathrm{type}'
   GlobalConstraint_sense: '\mathrm{sense}'
   GlobalConstraint_constant: '\mathrm{K}'
@@ -120,6 +154,7 @@ names:
   Generator_tech_capacity_weight: '\mathrm{m}'
   Link_tech_capacity_weight: '\mathrm{m}^{f}'
   Line_tech_capacity_weight: '\mathrm{m}^{l}'
+  Process_tech_capacity_weight: '\mathrm{m}^{z}'
   StorageUnit_tech_capacity_weight: '\mathrm{m}^{h}'
   Store_tech_capacity_weight: '\mathrm{m}^{e}'
   StorageUnit_p_dispatch: "h^{+}"
@@ -168,11 +203,15 @@ names:
   StorageUnit_active: '\mathrm{on}^{h}'
   Store_active: '\mathrm{on}^{e}'
   Line_active: '\mathrm{on}^{s}'
+  Process_active: '\mathrm{on}^{z}'
+  Transformer_active: '\mathrm{on}^{\sigma}'
   Generator_capital_weight: '\mathrm{W}'
   Link_capital_weight: '\mathrm{W}^{f}'
   StorageUnit_capital_weight: '\mathrm{W}^{h}'
   Store_capital_weight: '\mathrm{W}^{e}'
   Line_capital_weight: '\mathrm{W}^{s}'
+  Process_capital_weight: '\mathrm{W}^{z}'
+  Transformer_capital_weight: '\mathrm{W}^{\sigma}'
   Generator_first_active: '\mathrm{new}'
   Carrier_max_growth: '\overline{\Delta}'
   Carrier_max_relative_growth: '\mathrm{r}'
