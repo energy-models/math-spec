@@ -456,7 +456,7 @@ def test_an_assumption_lowers_both_of_its_masks():
     assert assumption == Holds(
         Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
         Mask(ParameterDefined('flag', ('g',))),
-    )
+    ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
     assert assumption_message('sound', assumption) == (
         "assumption 'sound' does not hold for the data bound to 'c', 'k'"
     ), 'the refusal names what the consumer bound, so it can say which column is wrong'
@@ -476,7 +476,7 @@ def test_an_assumption_refuses_in_the_words_the_file_wrote():
     assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
     assert assumption_message('sound', assumption) == (
         f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
-    )
+    ), 'the sentence trails what the author wrote'
 
 
 def test_a_cased_side_reads_the_data_its_regions_are_decided_by():

@@ -1277,6 +1277,21 @@ class TestAssumptions:
                 id='a-variable-in-the-where',
             ),
             pytest.param(
+                {'holds': 'c > 0', 'where': 'false'},
+                ('folds to false', 'checked on no row'),
+                id='a-where-that-is-always-false',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'p AND false'},
+                ('folds to false', 'checked on no row'),
+                id='a-where-that-hides-a-variable-behind-a-fold',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'flag OR true'},
+                ('folds to true', 'narrows nothing'),
+                id='a-where-that-is-always-true',
+            ),
+            pytest.param(
                 'c > tag',
                 ("'tag' is declared dtype: str, and an expression is arithmetic",),
                 id='a-label-parameter-on-a-side',
@@ -1308,7 +1323,9 @@ class TestAssumptions:
     def test_an_entry_round_trips_as_the_form_it_was_written_in(self):
         """A bare string stays one, and a mapping keeps only the keys it carried."""
         spec = _schema(assumptions={'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}})
-        assert spec.to_dict()['assumptions'] == {'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}}
+        assert spec.to_dict()['assumptions'] == {'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}}, (
+            'neither form gains a key the file did not write'
+        )
 
     def test_a_variable_free_comparison_is_pointed_at_assumptions_rather_than_at_data_prep(self):
         """The refusal named nowhere to put the fact until this section existed."""

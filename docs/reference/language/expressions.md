@@ -75,7 +75,8 @@ Position decides which kinds of name are legal:
 A bare word in the value of a keyword argument is a name to resolve, which is
 why `wrap` is quoted. A keyword's key is never a name.
 
-Constraints sit outside the flat namespace, so a model may name a constraint
+Constraints and assumptions sit outside the flat namespace, because no
+expression names either, so a model may name a constraint or an assumption
 after a variable. The objective has no name at all.
 
 ## How dimensions combine

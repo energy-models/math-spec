@@ -102,6 +102,9 @@ either a claim about nothing or a claim no data can meet:
 > `Assumption 'sound'`: the predicate `'c > 0 OR true'` folds to true, so it
 > assumes nothing of the data. Delete it, or name a parameter it constrains.
 
+A `where:` the connectives decide is refused the same way: one that folds to
+true narrows nothing, and one that folds to false checks the entry on no row.
+
 **A variable.** An assumption is about the numbers the caller binds, and a
 variable is what the solver decides from them:
 
