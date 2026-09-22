@@ -20,7 +20,16 @@ from typing import TYPE_CHECKING, cast, get_args
 
 import pyparsing as pp
 
-from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, keywords, parse_text
+from math_spec._expression_parser import (
+    ARITHMETIC,
+    NAME,
+    ArithmeticNode,
+    KeywordNode,
+    NameNode,
+    children,
+    keywords,
+    parse_text,
+)
 from math_spec._sealed import Sealed
 from math_spec.program import (
     And,
@@ -42,13 +51,6 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class UnresolvedNameNode:
-    """A bare name — unresolved. ``resolution.py`` types it."""
-
-    name: str
-
-
-@dataclass(frozen=True)
 class ColumnNode:
     """``relation.column`` on a side of a comparison — the one place the language names a column."""
 
@@ -59,18 +61,6 @@ class ColumnNode:
     def shown(self) -> str:
         """The column as the file wrote it, for an error message."""
         return f'{self.relation}.{self.column}'
-
-
-@dataclass(frozen=True)
-class QuotedNode:
-    """A right-hand side that arrived in quotes.
-
-    A bare word is ambiguous — it may name a declaration — and resolution
-    refuses it for that reason; a quoted one is unambiguously a label, which
-    is the only way to write ``combined-cycle`` or a date.
-    """
-
-    value: str
 
 
 @dataclass(frozen=True)
@@ -113,22 +103,23 @@ class UnresolvedComparisonNode:
 
     A side is the expression grammar's arithmetic, so a name, a number and a
     ``position(...)`` call all arrive as the nodes an expression would carry
-    them in; a relation column and a quoted label have nodes of their own.
+    them in, a quoted label as the :class:`KeywordNode` a quoted kwarg is, and a
+    relation column in a node of its own.
     """
 
     left: ArithmeticNode | ColumnNode
     op: PredicateOperator
-    right: ArithmeticNode | ColumnNode | QuotedNode
+    right: ArithmeticNode | ColumnNode | KeywordNode
 
 
 #: What resolution rewrites away on the where side — the nodes whose leaves
 #: are still names the schema has not been asked about.
-UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPredicateCallNode | UnresolvedCountNode
+UnresolvedWhereNode = NameNode | UnresolvedComparisonNode | UnresolvedPredicateCallNode | UnresolvedCountNode
 
 #: Every node a parsed where string is built of: the connectives and literals,
 #: the unresolved leaves, and the arithmetic and the two side nodes under a
 #: comparison. What the depth measurement walks.
-_ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | QuotedNode
+_ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | KeywordNode
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +150,7 @@ def _build_where_grammar() -> pp.ParserElement:
     column = pp.Regex(rf'({NAME})\.({NAME})').set_parse_action(lambda t: ColumnNode(*t[0].split('.')))
     quoted = (pp.QuotedString("'", esc_char='\\') | pp.QuotedString('"', esc_char='\\')).set_parse_action(
         # pyrefly: ignore[implicit-any-lambda]
-        lambda t: QuotedNode(t[0])
+        lambda t: KeywordNode(t[0])
     )
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
@@ -190,7 +181,7 @@ def _build_where_grammar() -> pp.ParserElement:
         # pyrefly: ignore[implicit-any-lambda]
     ).set_parse_action(lambda t: UnresolvedComparisonNode(t[0], t[1], t[2]))
     # pyrefly: ignore[implicit-any-lambda]
-    existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
+    existence = name.copy().set_parse_action(lambda t: NameNode(t[0]))
 
     atom = (
         true_lit
@@ -281,8 +272,8 @@ def parse_where(text: str) -> Predicate | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
 
     The connectives and literals are the resolved vocabulary's own; the leaves
-    naming declarations are ``Unresolved*`` nodes, which only
-    :func:`~math_spec.resolution.resolve_where` takes.
+    naming declarations are a bare :class:`NameNode` or an ``Unresolved*``
+    node, which only :func:`~math_spec.resolution.resolve_where` takes.
 
     Raises:
         SchemaError: If *text* is not a where string of the language. A

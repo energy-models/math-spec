@@ -47,10 +47,8 @@ from math_spec._expression_parser import (
 )
 from math_spec._where_parser import (
     ColumnNode,
-    QuotedNode,
     UnresolvedComparisonNode,
     UnresolvedCountNode,
-    UnresolvedNameNode,
     UnresolvedPredicateCallNode,
     UnresolvedWhereNode,
     parse_where,
@@ -758,7 +756,7 @@ class _Resolver:
         """One predicate node typed, or returned unresolved with its refusal appended."""
         if isinstance(node, BooleanLiteral | TypedPredicate):
             return node
-        if isinstance(node, UnresolvedNameNode):
+        if isinstance(node, NameNode):
             return self._where_name(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
@@ -778,7 +776,7 @@ class _Resolver:
         """A connective's child, typed as resolved: an unresolved one survives only with its refusal appended."""
         return cast('Predicate', self.where(node))
 
-    def _where_name(self, node: UnresolvedNameNode) -> Predicate | UnresolvedWhereNode:
+    def _where_name(self, node: NameNode) -> Predicate | UnresolvedWhereNode:
         """A bare name: a parameter's or relation's definedness, or a variable's existence."""
         ns, context = self.ns, self.context
         kind = ns.kind(node.name)
@@ -965,8 +963,8 @@ class _Resolver:
         ns = self.ns
         name, right = _side_name(node.left), node.right
         value: float | str | None
-        quoted = isinstance(right, QuotedNode)
-        if isinstance(right, QuotedNode):
+        quoted = isinstance(right, KeywordNode)
+        if isinstance(right, KeywordNode):
             value = right.value
         elif isinstance(right, ColumnNode):
             value = right.shown
@@ -991,7 +989,7 @@ class _Resolver:
         found = len(self.errors)
         sides = []
         for side in (node.left, node.right):
-            if isinstance(side, ColumnNode | QuotedNode):
+            if isinstance(side, ColumnNode | KeywordNode):
                 self.errors.append(_not_arithmetic(context, side))
                 continue
             if any(isinstance(n, FunctionCallNode) and n.name == 'count' for n in nodes(side)):
@@ -1051,7 +1049,7 @@ class _Resolver:
             )
             return node
         dimension, by, into = shape
-        index = None if isinstance(node.right, ColumnNode | QuotedNode) else _literal(node.right)
+        index = None if isinstance(node.right, ColumnNode | KeywordNode) else _literal(node.right)
         if index is None or not index.value.is_integer():
             self.errors.append(
                 f'{context}: position({dimension}) is compared against an integer index, where 0 is first and a '
@@ -1376,7 +1374,7 @@ def _literal(value: ArithmeticNode) -> NumberNode | None:
     return None
 
 
-def _not_arithmetic(context: str, side: ColumnNode | QuotedNode) -> str:
+def _not_arithmetic(context: str, side: ColumnNode | KeywordNode) -> str:
     """Why a relation column or a quoted label may not stand on a side of a comparison of expressions."""
     if isinstance(side, ColumnNode):
         return (

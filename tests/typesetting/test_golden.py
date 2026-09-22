@@ -142,17 +142,15 @@ def _rendered_trees() -> Iterator[object]:
         yield from links
 
 
-#: What resolution never hands the walk: the four nodes a where carries before
-#: its sides are read, the three an expression only carries before names are
-#: resolved, and the lowered form of a comparison of expressions, which only a
+#: What resolution never hands the walk: the two nodes a where carries before
+#: its sides are read, the three an expression and a where carry before names
+#: are resolved, and the lowered form of a comparison of expressions, which only a
 #: program carries. The walk raises on each rather than rendering it, so a
 #: fixture reaching one would be a bug in resolution rather than a case worth
 #: committing output for.
 UNRESOLVED = {
-    'UnresolvedNameNode',
     'UnresolvedComparisonNode',
     'ColumnNode',
-    'QuotedNode',
     'NameNode',
     'NameListNode',
     'KeywordNode',
