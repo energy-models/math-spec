@@ -43,6 +43,7 @@ from math_spec.program import (
     BooleanLiteral,
     Check,
     Contiguous,
+    CountComparison,
     Curved,
     DimensionComparison,
     DimensionPosition,
@@ -59,6 +60,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     VariableDefined,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
@@ -86,6 +88,7 @@ _WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
 AlignedComparison = (
     ParameterComparison
     | ArithmeticComparison
+    | CountComparison
     | DimensionComparison
     | DimensionPosition
     | RelationComparison
@@ -606,6 +609,10 @@ class Walk:
             msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
             raise AssertionError(msg)
 
+        if isinstance(node, TranslatedPredicate):
+            moved = ctx.translated(node.along, _Step(node.offset, 'plain'))
+            return self._where(node.operand.root, moved)
+
         if isinstance(node, RelationDefined):
             return self._relation_row(node.name, self._frame_key(node.name, ctx)), comparison
 
@@ -654,6 +661,12 @@ class Walk:
         elif isinstance(node, RelationPairComparison):
             left = self._value_read(node.name, node.column, ctx)
             right = self._value_read(node.other, node.other_column, ctx)
+        elif isinstance(node, CountComparison):
+            index, inner = ctx.reducing(node.over)
+            counted = self.format.set_of(
+                self._membership(node.over, index), self._predicate(node.predicate.root, inner)
+            )
+            left, right = self.format.cardinality(counted), self._number(node.value)
         else:
             assert_never(node)
         return left, f'{self._op(_PREDICATES[node.op])} {right}'

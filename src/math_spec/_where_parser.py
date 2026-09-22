@@ -14,13 +14,15 @@ knows, so the grammar hands both sides over bare and
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import TYPE_CHECKING, cast, get_args
 
 import pyparsing as pp
 
 from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, parse_text
+from math_spec._sealed import Sealed
+from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
@@ -33,7 +35,7 @@ from math_spec.program import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 # ---------------------------------------------------------------------------
 # AST nodes
@@ -73,6 +75,40 @@ class QuotedNode:
 
 
 @dataclass(frozen=True)
+class UnresolvedPredicateCallNode:
+    """``<name>(<predicate>[, <kwarg>…])`` — an operator reading a predicate rather than arithmetic.
+
+    The expression grammar cannot carry this shape: its call rule takes
+    arithmetic arguments, and a predicate is not arithmetic. So the where
+    grammar reads it, and resolution decides which operator the name is and
+    what the kwargs mean. ``kwargs`` is held and hashed as
+    :class:`~math_spec._expression_parser.FunctionCallNode` holds its own.
+    """
+
+    name: str
+    operand: Predicate | UnresolvedWhereNode
+    kwargs: Mapping[str, ArithmeticNode] = field(default_factory=dict, hash=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, 'kwargs', Sealed(self.kwargs))
+
+
+@dataclass(frozen=True)
+class UnresolvedCountNode:
+    """``count(<predicate>, over=<dim>) <op> <number>`` — a count against a literal.
+
+    Its own node rather than an :class:`UnresolvedComparisonNode` with a call
+    on the left: every other comparison has arithmetic on both sides, and
+    widening that one to carry a predicate would widen every reader of a side
+    with it.
+    """
+
+    call: UnresolvedPredicateCallNode
+    op: PredicateOperator
+    value: ArithmeticNode
+
+
+@dataclass(frozen=True)
 class UnresolvedComparisonNode:
     """``side <op> side`` before the sides are read; ``resolution.py`` decides what each is.
 
@@ -86,9 +122,9 @@ class UnresolvedComparisonNode:
     right: ArithmeticNode | ColumnNode | QuotedNode
 
 
-#: What resolution rewrites away on the where side — the two nodes whose
-#: leaves are still names the schema has not been asked about.
-UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode
+#: What resolution rewrites away on the where side — the nodes whose leaves
+#: are still names the schema has not been asked about.
+UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPredicateCallNode | UnresolvedCountNode
 
 #: Every node a parsed where string is built of: the connectives and literals,
 #: the unresolved leaves, and the arithmetic and the two side nodes under a
@@ -99,6 +135,18 @@ _ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | Q
 # ---------------------------------------------------------------------------
 # Grammar
 # ---------------------------------------------------------------------------
+
+
+def _predicate_call(tokens: pp.ParseResults) -> UnresolvedPredicateCallNode:
+    """The call node, with a keyword given twice refused as the arithmetic grammar refuses it."""
+    name, operand, *pairs = tokens
+    kwargs: dict[str, ArithmeticNode] = {}
+    for key, value in pairs:
+        if key in kwargs:
+            msg = f'{name}({key}=) is given twice. A keyword names one value; drop one of them.'
+            raise SchemaError(msg)
+        kwargs[key] = value
+    return UnresolvedPredicateCallNode(name, operand, kwargs)
 
 
 def _build_where_grammar() -> pp.ParserElement:
@@ -122,14 +170,44 @@ def _build_where_grammar() -> pp.ParserElement:
     )
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
-    comparison = ((column | ARITHMETIC) + comparator + (quoted | column | ARITHMETIC)).set_parse_action(
+    kwarg = (name + pp.Suppress('=') + (quoted | ARITHMETIC)).set_parse_action(lambda t: (t[0], t[1]))
+
+    def _call(head: pp.ParserElement) -> pp.ParserElement:
+        """``<head>(<predicate>[, <kwarg>…])`` — the one shape whose operand is a predicate.
+
+        ``count`` is spelled in the grammar rather than left to resolution, as
+        ``position`` is, because only the grammar can decide to read its
+        argument as a predicate. Every other predicate-taking call stands where
+        arithmetic cannot, so the comparison above it has already been tried
+        and the name is free.
+        """
+        return (
+            head + pp.Suppress('(') + where_expr + pp.ZeroOrMore(pp.Suppress(',') + kwarg) + pp.Suppress(')')
+        ).set_parse_action(_predicate_call)
+
+    count_call = _call(pp.CaselessKeyword('count'))
+    predicate_call = _call(name.copy())
+
+    count_comparison = (count_call + comparator + ARITHMETIC).set_parse_action(
         # pyrefly: ignore[implicit-any-lambda]
-        lambda t: UnresolvedComparisonNode(t[0], t[1], t[2])
+        lambda t: UnresolvedCountNode(t[0], t[1], t[2])
     )
+    comparison = (
+        (column | ARITHMETIC) + comparator + (quoted | column | ARITHMETIC)
+        # pyrefly: ignore[implicit-any-lambda]
+    ).set_parse_action(lambda t: UnresolvedComparisonNode(t[0], t[1], t[2]))
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
-    atom = true_lit | false_lit | comparison | existence | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
+    atom = (
+        true_lit
+        | false_lit
+        | count_comparison
+        | comparison
+        | predicate_call
+        | existence
+        | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
+    )
 
     NOT = pp.CaselessKeyword('NOT').suppress()
     # pyrefly: ignore[implicit-any-lambda]
@@ -191,7 +269,11 @@ _DEEP_REWRITE = (
 
 
 def _nested(node: _ParsedWhere) -> tuple[_ParsedWhere, ...]:
-    """What a where string nests through: a connective's operands, and the arithmetic on a comparison's sides."""
+    """What a where string nests through: a connective's operands, a comparison's sides, and a call's predicate."""
+    if isinstance(node, UnresolvedCountNode):
+        return (node.call, node.value)
+    if isinstance(node, UnresolvedPredicateCallNode):
+        return (node.operand, *node.kwargs.values())
     if isinstance(node, UnresolvedComparisonNode):
         return (node.left, node.right)
     if isinstance(node, ArithmeticNode):

@@ -764,6 +764,51 @@ covered:
 \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget} \qquad \text{where } \sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget}
 ```
 
+#### `counted`
+
+a count of the coordinates a predicate admits, which reduces one dim away
+
+```yaml
+counted:
+  dims: [bus]
+  where: "count(tech_cap > 0, over=technology) >= 2"
+  expression: theta <= budget
+```
+
+```math
+\theta_{b} \le \mathrm{budget} \qquad \forall\, b \in \mathcal{B} \,:\, \lvert \{ e \in \mathcal{E} \,:\, \mathrm{tech\_cap}_{b,e} > 0 \} \rvert \ge 2
+```
+
+#### `counted_here`
+
+the same count along a dim the frame carries, so the set takes a primed dummy
+
+```yaml
+counted_here:
+  dims: [bus, technology]
+  where: "count(tech_cap > 0, over=technology) >= 2"
+  expression: theta <= tech_cap
+```
+
+```math
+\theta_{b} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E} \,:\, \lvert \{ e' \in \mathcal{E} \,:\, \mathrm{tech\_cap}_{b,e'} > 0 \} \rvert \ge 2
+```
+
+#### `run_start`
+
+a predicate read one coordinate back, which is false where the translation vacates
+
+```yaml
+run_start:
+  dims: [snapshot, bus]
+  where: "load AND NOT shift(load, along=snapshot, offset=1)"
+  expression: slack <= load
+```
+
+```math
+\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} \text{ is defined} \wedge \neg \left( \mathrm{load}_{t - 1,b} \text{ is defined} \right)
+```
+
 #### `capped`
 
 an expressions: entry on a side, read by the name the file gave it

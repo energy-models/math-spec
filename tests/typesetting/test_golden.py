@@ -154,11 +154,12 @@ UNRESOLVED = {
 }
 
 #: A dataclass the walk steps *through* rather than renders: an arm has no
-#: branch of its own — its ``when`` and ``value`` do — and a direction and the
-#: relation it reads are the facts a node carries rather than nodes. None is a
-#: member of any node union, so they are subtracted from what the tree walk
-#: finds rather than added to what the vocabulary declares.
-CARRIERS = {'CaseArm', 'Direction', 'Partition', 'RelationDeclaration'}
+#: branch of its own — its ``when`` and ``value`` do — a direction and the
+#: relation it reads are the facts a node carries rather than nodes, and a
+#: ``Mask`` is the wrapper a leaf carries a predicate in. None is a member of
+#: any node union, so they are subtracted from what the tree walk finds rather
+#: than added to what the vocabulary declares.
+CARRIERS = {'CaseArm', 'Direction', 'Mask', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():

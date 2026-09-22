@@ -26,6 +26,7 @@ from math_spec.program import (
     And,
     ArithmeticComparison,
     BooleanLiteral,
+    CountComparison,
     DimensionComparison,
     DimensionPosition,
     ExpressionComparison,
@@ -37,6 +38,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     TypedPredicate,
     VariableDefined,
 )
@@ -260,6 +262,18 @@ def _observe(
     """
     if isinstance(node, ArithmeticComparison | ExpressionComparison):
         raise Undecidable(_expression_rewrite(node))
+    if isinstance(node, CountComparison):
+        msg = (
+            'it counts the coordinates a predicate admits, which only the data decides — test a parameter '
+            'against a literal, or precompute the count as a parameter and test that'
+        )
+        raise Undecidable(msg)
+    if isinstance(node, TranslatedPredicate):
+        msg = (
+            'it reads a predicate at a neighbouring coordinate, and which rows that admits only the data '
+            'decides — test this row, or precompute the neighbour as a boolean parameter and test that'
+        )
+        raise Undecidable(msg)
     if isinstance(node, DimensionPosition):
         values.add(node.position)
     elif isinstance(node, RelationPairComparison):
@@ -299,6 +313,10 @@ def _subject_of(node: TypedPredicate) -> Subject:
             return Subject('relation_pair', name, other)
         case ArithmeticComparison() | ExpressionComparison():
             return Subject('expression', 'a comparison of expressions')
+        case CountComparison():
+            return Subject('expression', 'a count of the coordinates a predicate admits')
+        case TranslatedPredicate():
+            return Subject('expression', 'a predicate read at a neighbouring coordinate')
         case _:
             assert_never(node)
 
@@ -492,6 +510,9 @@ def _atom(node: TypedPredicate, cell: dict[Subject, Cell], grid: _Grid) -> bool:
             return bool(value) if op == '==' else not value
         case ArithmeticComparison() | ExpressionComparison():
             msg = 'a comparison of expressions is refused as undecidable before any cell is read'
+            raise AssertionError(msg)
+        case CountComparison() | TranslatedPredicate():
+            msg = 'a predicate read as a count or at a neighbour is refused as undecidable before any cell is read'
             raise AssertionError(msg)
         case DimensionPosition(op=op, position=position):
             return _compare(value, op, position)
