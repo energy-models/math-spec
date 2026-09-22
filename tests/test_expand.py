@@ -12,11 +12,12 @@ are about the verb rather than about either formulation — those are in
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import piecewise
+from math_spec import piecewise, to_spec
 from math_spec.lowering import to_program
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
 from tests.test_sos import CURVE
@@ -36,9 +37,25 @@ MASKED = override(
     },
 )
 
+#: One directory per rule: a `before.yaml`, and the `after.yaml` it expands to,
+#: written by hand. A name ending in `-piecewise` or `-sos` asks for that kind
+#: alone, and any other name asks for both.
+PAIRS = Path(__file__).parent / 'expand'
+
+
 #: Every model the repository ships, which is what the sources invariant is
 #: asserted over — the same corpus the LaTeX gate renders.
 MODELS = models()
+
+
+@pytest.mark.parametrize('case', sorted(PAIRS.iterdir()), ids=lambda case: case.name)
+def test_a_model_expands_to_the_file_written_beside_it(case: Path):
+    """Both files load and print through the same code, so `after.yaml` may leave a
+    default out and still be compared whole: every name, bound, row and assumption."""
+    kinds = [kind for kind in ('piecewise', 'sos') if case.name.endswith(f'-{kind}')]
+    expanded = to_spec(case / 'before.yaml').expand(*kinds)
+
+    assert expanded.to_yaml() == to_spec(case / 'after.yaml').to_yaml()
 
 
 @pytest.mark.parametrize(

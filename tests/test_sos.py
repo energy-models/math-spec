@@ -42,26 +42,6 @@ CURVE = {
 }
 
 
-def test_a_set_of_order_one_admits_a_member_only_where_its_own_binary_is_one():
-    expanded = schema_of(PICKED).expand('sos')
-
-    assert not expanded.sos, 'the block is spent once its declarations are emitted'
-    assert expanded.variables['pick_seg'].domain == 'binary'
-    assert expanded.variables['pick_seg'].dims == ['g'], "the binary runs over the member's own dims"
-    assert expanded.constraints['pick_pick'].expression == 'sum(pick_seg, over=g) <= 1'
-    assert expanded.constraints['pick_nonzero'].expression == 'p <= 10.0 * (pick_seg)'
-
-
-def test_a_set_of_order_two_admits_a_member_in_either_half_of_one_segment():
-    schema = schema_of(override(PICKED, **{'sos.pick.type': 2}))
-    expanded = schema.expand('sos')
-
-    assert expanded.constraints['pick_adjacency'].expression == (
-        'p <= 10.0 * (pick_seg + shift(pick_seg, along=g, offset=1, edge=0))'
-    )
-    assert 'pick_nonzero' not in expanded.constraints, 'the order decides which linking row is written'
-
-
 @pytest.mark.parametrize(
     ('bounds', 'rows'),
     [

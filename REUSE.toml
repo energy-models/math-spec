@@ -48,6 +48,13 @@ path = [
 SPDX-FileCopyrightText = "math-spec Contributors"
 SPDX-License-Identifier = "MIT"
 
+# The expansion pairs are printed verbatim on the docs pages as the before and
+# after of `expand()`, so an in-file header would render there too.
+[[annotations]]
+path = ["tests/expand/**/*.yaml"]
+SPDX-FileCopyrightText = "math-spec Contributors"
+SPDX-License-Identifier = "MIT"
+
 [[annotations]]
 path = ["pixi.lock"]
 SPDX-FileCopyrightText = "math-spec contributors"
