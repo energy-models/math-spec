@@ -99,6 +99,14 @@ _TRANSLATIONS: dict[TranslationPolicy, tuple[OperatorName, OperatorName]] = {
 }
 
 
+def _stepped(along: ArithmeticNode) -> str:
+    """The dimension a translation steps along, off its ``along=``: the dimension itself, or the partition's key column."""
+    if isinstance(along, PartitionNode):
+        return along.partition.along_dim
+    assert isinstance(along, DimensionNode), 'resolution refuses an along= that is neither'
+    return along.name
+
+
 def _amount(node: ArithmeticNode) -> int | str:
     """``shift``'s ``offset=``: a signed number, or the name of a parameter.
 
@@ -423,23 +431,21 @@ class Walk:
         which, since the call does not.
         """
         if node.name == 'shift':
-            dim = node.kwargs['along']
-            assert isinstance(dim, DimensionNode)
+            dim = _stepped(node.kwargs['along'])
             step = self._step(_amount(node.kwargs['offset']), node.kwargs.get('edge'))
             self.noticed.policies.add(step.policy)
-            step = replace(step, within=self._group(node.kwargs.get('by'), dim.name))
-            return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
+            step = replace(step, within=self._group(node.kwargs['along']))
+            return self._arithmetic(node.args[0], ctx.translated(dim, step))
 
         if node.name == 'sum_back':
-            over = node.kwargs['along']
-            assert isinstance(over, DimensionNode)
+            over = _stepped(node.kwargs['along'])
             policy = 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain'
-            step = _Step(1, policy, within=self._group(node.kwargs.get('by'), over.name))
+            step = _Step(1, policy, within=self._group(node.kwargs['along']))
             self.noticed.policies.add(step.policy)
-            source, inner = ctx.reducing(over.name)
-            lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
+            source, inner = ctx.reducing(over)
+            lag = f'{ctx.subscript(over)} {self._translation(step)} {source}'
             domain = (
-                f'{source} {self._op("in")} {self.symbols.set[over.name]} {self._op("such_that")} '
+                f'{source} {self._op("in")} {self.symbols.set[over]} {self._op("such_that")} '
                 f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["window"])}'
             )
             body = self._reduction_body(node.args[0], inner)
@@ -455,8 +461,7 @@ class Walk:
                 ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.name, at, read))
             return self._arithmetic(node.args[0], ctx)
 
-        if (by := node.kwargs.get('by')) is not None:
-            assert isinstance(by, DirectionNode)
+        if (by := node.kwargs.get('by') or node.kwargs.get('over')) is not None and isinstance(by, DirectionNode):
             direction = by.direction
             dummies: dict[str, str] = {}
             inner = ctx
@@ -468,7 +473,7 @@ class Walk:
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
         elif (consumed := node.kwargs.get('over')) is not None:
-            assert isinstance(consumed, DimensionNode)
+            assert isinstance(consumed, DimensionNode), 'a dotted over= is read as a direction above'
             dummy, inner = ctx.reducing(consumed.name)
             domain = self._membership(consumed.name, dummy)
         else:
@@ -498,17 +503,16 @@ class Walk:
             return [self._relation_row(direction.name, at)]
         return [f'{self._relation_read(direction.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
-    def _group(self, by: ArithmeticNode | None, dim: str) -> str:
-        """A ``by=`` as the superscript its translation operator carries.
+    def _group(self, along: ArithmeticNode) -> str:
+        """A dotted ``along=`` as the superscript its translation operator carries.
 
         The bare index, not the subscript in force: the group is a property of
         the row being written, and a window whose operand is itself translated
         still asks which group *that row* is in.
         """
-        if by is None:
+        if not isinstance(along, PartitionNode):
             return ''
-        assert isinstance(by, PartitionNode)
-        partition = by.partition
+        partition = along.partition
         at = {r: self.symbols.index[partition.dim(r)] for r in (partition.along, *partition.joined)}
         return self._tuple([self._relation_read(partition.name, at, r) for r in partition.group])
 

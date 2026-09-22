@@ -26,6 +26,6 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+    expression: sum(p, over=zone_of.generator) >= demand
 
 objective: { sense: minimize, expression: sum(p) }

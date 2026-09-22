@@ -69,7 +69,7 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$
 
-### `sum(array, by=relation, over=a, into=b)`
+### `sum(array, over=relation.a)`
 
 `examples/operators/sum_by.yaml`
 
@@ -98,14 +98,14 @@ variables:
 constraints:
   bus_total:
     dims: [snapshot, bus]
-    expression: sum(p, by=gen_bus, over=generator, into=bus) <= limit
+    expression: sum(p, over=gen_bus.generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$
 
-### `sum(array, by=relation, over=a, into=b), joining on the rest of the key`
+### `sum(array, over=relation.a), joining on the rest of the key`
 
 `examples/operators/sum_by_columns.yaml`
 
@@ -134,14 +134,14 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+    expression: sum(p, over=zone_of.generator) >= demand
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=[a, …], into=[b, …])`
+### `sum(array, by=relation.[b, …])`
 
 `examples/operators/sum_by_column_lists.yaml`
 
@@ -171,7 +171,7 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+    expression: sum(p, by=slot_of.[bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -361,7 +361,7 @@ objective: { sense: minimize, expression: sum(order) }
 
 $`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$
 
-### `shift(array, along=dim, offset=n, by=relation, within=c)`
+### `shift(array, along=relation.a, offset=n, within=c)`
 
 `examples/operators/shift_partitioned.yaml`
 
@@ -385,7 +385,7 @@ variables:
 constraints:
   no_faster_than_before_in_season:
     dims: [snapshot]
-    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of, within=season)
+    expression: p <= shift(p, along=season_of.snapshot, offset=1, edge='wrap', within=season)
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -494,7 +494,7 @@ objective: { sense: minimize, expression: sum(on) }
 
 $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
-### `sum_back(array, along=dim, window=n, by=relation, within=c)`
+### `sum_back(array, along=relation.a, window=n, within=c)`
 
 `examples/operators/sum_back_partitioned.yaml`
 
@@ -523,7 +523,7 @@ variables:
 constraints:
   stays_up_inside_its_day:
     dims: [unit, hour]
-    expression: sum_back(started, along=hour, window=3, by=day_of, within=day) <= on
+    expression: sum_back(started, along=day_of.hour, window=3, within=day) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```

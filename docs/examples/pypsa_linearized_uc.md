@@ -244,10 +244,10 @@ Bus_nodal_balance:
     there
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, over=Generator_bus.generator)
+    - sum(Link_p, over=Link_bus0.link)
+    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, over=Link_output_bus.link_output)
+    == sum(Load_p_set, over=Load_bus.load)
 ```
 
 ```math

@@ -591,13 +591,13 @@ _ZONE_OF = RelationDeclaration((('u', 'unit'), ('zone', 'zone')), ('u',))
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
         pytest.param(
-            DirectionNode(Direction('zone_of', _ZONE_OF, ('u',), ('zone',), ())),
-            'zone_of',
+            DirectionNode(Direction('zone_of', _ZONE_OF, ('u',), ('zone',), ()), 'zone_of.u'),
+            'zone_of.u',
             id='a-relation-read-in-a-direction',
         ),
         pytest.param(
-            PartitionNode(Partition('zone_of', _ZONE_OF, 'u', ('zone',), ())),
-            'zone_of',
+            PartitionNode(Partition('zone_of', _ZONE_OF, 'u', ('zone',), ()), 'zone_of.u'),
+            'zone_of.u',
             id='a-relation-stepped-along-as-a-partition',
         ),
         pytest.param(EdgeNode(), "'wrap'", id='a-resolved-edge'),

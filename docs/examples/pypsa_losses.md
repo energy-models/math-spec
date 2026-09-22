@@ -328,14 +328,14 @@ Bus_nodal_balance:
     loss — PyPSA dissipates a branch's loss half at either end
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
-    - sum(Line_s, by=Line_bus0, over=line, into=bus)
-    + sum(Line_s, by=Line_bus1, over=line, into=bus)
-    - 0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus)
-    - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, over=Generator_bus.generator)
+    - sum(Link_p, over=Link_bus0.link)
+    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, over=Link_output_bus.link_output)
+    - sum(Line_s, over=Line_bus0.line)
+    + sum(Line_s, over=Line_bus1.line)
+    - 0.5 * sum(Line_loss, over=Line_bus0.line)
+    - 0.5 * sum(Line_loss, over=Line_bus1.line)
+    == sum(Load_p_set, over=Load_bus.load)
 ```
 
 ```math

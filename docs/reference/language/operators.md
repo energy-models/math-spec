@@ -14,18 +14,18 @@ in a reported expression, are all of them. A composition of them goes in
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                                            |
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                                         |
-| `sum(array, by=relation, over=a, into=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                                    |
-| `sum(array, by=relation, over=[a, …], into=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                                              |
+| `sum(array, over=relation.a)`                      | Column `a` collapses onto the relation's value column. The other key columns are joined on, so the array carries them and the result keeps them                   |
+| `sum(array, by=relation.[b, …])`                   | The columns named are what the result lands on, and the rest of the key collapses                                                                                 |
 | `at(array, by=relation, over=a, into=b)`               | Column `a` is replaced by column `b`, one value per coordinate. Either may be a list                                                                               |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                                        |
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                                          |
 | `shift(array, along=dim, offset=p, edge=…)`         | `p` is an integer parameter, so each entity is reached by its own offset                                                                                          |
-| `shift(array, along=dim, offset=n, by=relation, within=c)` | The translation steps inside each group that the relation's column `c` makes. Neighbours, edges and a wrap all belong to that group                        |
+| `shift(array, along=relation.a, offset=n, within=c)` | The translation steps along key column `a` inside each group that the relation's column `c` makes. Neighbours, edges and a wrap all belong to that group        |
 | `sum_back(array, along=dim, window=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                                               |
 | `sum_back(array, along=dim, window=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                                            |
 | `sum_back(array, along=dim, window=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                                        |
-| `sum_back(array, along=dim, window=n, by=relation, within=c)` | The window stays inside each group that the relation's column `c` makes                                                                                     |
+| `sum_back(array, along=relation.a, window=n, within=c)` | The window steps along key column `a` and stays inside each group that the relation's column `c` makes                                                        |
 
 `array` is any expression with the right dimension set, so each operator reads a
 parameter as readily as a variable. Dimension arguments are name-checked at
@@ -41,9 +41,10 @@ result is a scalar.
 An operand that is already scalar, and an `over=` naming a dimension the
 operand does not carry, are both errors.
 
-`sum(x, by=l, over=a, into=b)` sums through a [relation](relations.md),
-consuming column `a` and landing the result on column `b`. A nodal balance is
-one `sum(by=)` per kind of component:
+`sum(x, over=l.a)` sums through a [relation](relations.md), consuming key
+column `a` and landing the result on the relation's value column. The dot
+names the relation and the column together. A nodal balance is one such sum
+per kind of component:
 
 ```yaml
 dimensions:
@@ -63,15 +64,20 @@ constraints:
   nodal_balance:
     dims: [bus]
     expression: >-
-      sum(p, by=gen_bus, over=generator, into=bus)
-      + sum(f, by=line_to, over=line, into=bus)
-      - sum(f, by=line_from, over=line, into=bus)
+      sum(p, over=gen_bus.generator)
+      + sum(f, over=line_to.line)
+      - sum(f, over=line_from.line)
       == load
 ```
 
 The same `f` is summed twice through two relations, once as inflow and once as
 outflow. What the call reads and what its result carries are on
 [how a relation is used](relations.md#how-a-relation-is-used).
+
+`by=` names the other end instead: `sum(x, by=l.b)` lands the result on
+column `b` and sums the whole key away. A relation with several value columns
+takes `by=`, because there the relation no longer says which one end a bare
+`over=` leaves.
 
 A group with no members contributes nothing, and a member whose relation value
 is null belongs to no group.
@@ -123,8 +129,9 @@ dimension being summed.
 axis is **short**, so no row is lost. `edge='wrap'` makes the window
 reach around the axis. A number here is a load error.
 
-`by=` keeps the window inside each group that a relation makes. The relation
-obeys the rules given for [`shift(by=)`](#translation-within-groups).
+A dotted `along=` keeps the window inside each group that a relation makes.
+The relation obeys the rules given for
+[`shift(along=relation.a)`](#translation-within-groups).
 
 ## `shift`
 
@@ -172,8 +179,8 @@ previous snapshot's duration.
 
 ### Translation within groups
 
-`by=` partitions the axis the operator steps along, so the neighbour of a coordinate
-is the coordinate before it in its own group. A group can be a season, an
+A dotted `along=` partitions the axis the operator steps along, so the
+neighbour of a coordinate is the coordinate before it in its own group. A group can be a season, an
 investment period or a representative day:
 
 ```yaml
@@ -189,7 +196,7 @@ variables:
 constraints:
   season_balance:
     dims: [snapshot]
-    expression: soc == shift(soc, along=snapshot, offset=1, edge='wrap', by=season_of, within=season) + inflow
+    expression: soc == shift(soc, along=season_of.snapshot, offset=1, edge='wrap', within=season) + inflow
 objective: { sense: minimize, expression: sum(soc) }
 ```
 
@@ -197,9 +204,8 @@ Every `edge=` setting then applies one group at a time. Bare, the first
 coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
 group onto its own last coordinate. `edge=v` puts `v` at the edge of each group.
 
-`by=` takes a relation with a key column over the dimension being stepped
-along, and `within=` names the value columns the group is made of
-([partitions](relations.md#partitions)). A coordinate the relation sends
+The dot names the key column stepped along, and `within=` names the value
+columns the group is made of ([partitions](relations.md#partitions)). A coordinate the relation sends
 nowhere is in no group, so its row drops under every `edge=`.
 
 ### A parameter as offset
@@ -233,8 +239,9 @@ rewrite:
 - **The parameter does not vary along the dimension being translated.**
 - **The parameter varies only over dimensions the shift can read.** Those are
   the dimensions of the shifted expression, and the dimension a
-  [`by=`](#translation-within-groups) relation groups into, so `offset=lead`
-  with `lead: {dims: [period]}` under `by=period_of` gives one lag per period.
+  [partition](#translation-within-groups) groups into, so `offset=lead`
+  with `lead: {dims: [period]}` under `along=period_of.snapshot` gives one lag
+  per period.
 
 The sign travels in the values: `offset=-lead` is refused.
 
@@ -251,20 +258,20 @@ language prints on [Every construct, as math](../notation.md).
 |---|---|
 | `sum(array)` | $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$ |
 | `sum(array, over=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
-| `sum(array, by=relation, over=a, into=b)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$ |
-| `sum(array, by=relation, over=a, into=b), joining on the rest of the key` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
-| `sum(array, by=relation, over=[a, …], into=[b, …])` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
+| `sum(array, over=relation.a)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$ |
+| `sum(array, over=relation.a), joining on the rest of the key` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
+| `sum(array, by=relation.[b, …])` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
 | `at(array, by=relation, over=a, into=b)` | $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$ |
 | `at(array, by=relation, over=a, into=b), two columns over one dimension` | $`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$ |
 | `shift(array, along=dim, offset=n)` | $`p_{t} \le p_{t - 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge='wrap')` | $`p_{t} \le p_{t \ominus 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge=v)` | $`p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=p, edge=…)` | $`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$ |
-| `shift(array, along=dim, offset=n, by=relation, within=c)` | $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$ |
+| `shift(array, along=relation.a, offset=n, within=c)` | $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `sum_back(array, along=dim, window=n)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `sum_back(array, along=dim, window=p)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `sum_back(array, along=dim, window=p, edge='wrap')` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
-| `sum_back(array, along=dim, window=n, by=relation, within=c)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
+| `sum_back(array, along=relation.a, window=n, within=c)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `dual(constraint)` | $`\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\, t \in \mathcal{T}`$ |
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.

@@ -82,7 +82,7 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
     ('patch', 'reach'),
     [
         pytest.param(
-            _rows('p >= shift(p, along=h, offset=1, by=day_of, within=day, edge=0)'),
+            _rows('p >= shift(p, along=day_of.h, offset=1, edge=0, within=day)'),
             Reach("constraint 'k'", 'day_of', 'partition'),
             id='a-shift-inside-groups',
         ),
@@ -133,7 +133,7 @@ def test_resolving_keeps_the_static_reach_and_what_a_relation_decides():
             'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=width, edge=0)'},
             'grouped': {
                 'dims': ['h', 'u'],
-                'expression': 'p >= shift(p, along=h, offset=1, by=day_of, within=day, edge=0)',
+                'expression': 'p >= shift(p, along=day_of.h, offset=1, edge=0, within=day)',
             },
         }
     ).resolved({'width': -1})
@@ -216,7 +216,7 @@ def test_a_grouping_that_consumes_the_axis_couples_it():
     program = ms.to_program(
         {
             **BASE,
-            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of, over=u, into=zone) <= cap'}},
+            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, over=zone_of.u) <= cap'}},
         }
     )
     verdict = program.separability['u']

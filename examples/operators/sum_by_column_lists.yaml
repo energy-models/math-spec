@@ -27,6 +27,6 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+    expression: sum(p, by=slot_of.[bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }

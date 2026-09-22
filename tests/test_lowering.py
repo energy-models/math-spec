@@ -412,7 +412,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
-            'sum(p, by=lk, over=g, into=h)',
+            'sum(p, over=lk.g)',
             GroupSum(Variable('p'), direction=LK_DIRECTION),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
@@ -437,7 +437,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'shift(p, along=g, offset=1, by=lk, within=h, edge=0)',
+            'shift(p, along=lk.g, offset=1, within=h, edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -459,7 +459,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=2, by=lk, within=h)',
+            'sum_back(p, along=lk.g, window=2, within=h)',
             WindowSum(
                 Variable('p'),
                 'g',
@@ -494,7 +494,7 @@ def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
                 'constraints': {
                     'k': {
                         'dims': ['hour'],
-                        'expression': 'p >= shift(p, along=hour, offset=1, edge=0, by=cal, within=day)',
+                        'expression': 'p >= shift(p, along=cal.hour, offset=1, edge=0, within=day)',
                     }
                 },
             }
@@ -523,13 +523,13 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
                 'first': {
                     'dims': ['snapshot', 'generator'],
-                    'where': 'position(generator, by=zone_of, within=zone) == 0',
+                    'where': 'position(zone_of.generator, within=zone) == 0',
                 },
             },
             'constraints': {
                 'zonal': {
                     'dims': ['snapshot', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=generator, into=zone) <= 1',
+                    'expression': 'sum(p, over=zone_of.generator) <= 1',
                 },
                 'priced': {
                     'dims': ['snapshot', 'generator'],
@@ -537,7 +537,7 @@ def test_a_relation_lowers_with_the_direction_each_call_names():
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot, into=zone) <= 1',
+                    'expression': 'sum(p, over=zone_of.snapshot) <= 1',
                 },
             },
         }

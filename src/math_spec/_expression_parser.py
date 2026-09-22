@@ -120,7 +120,7 @@ class DimensionNode:
 
 @dataclass(frozen=True)
 class NameListNode:
-    """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
+    """A bracketed list of names in a kwarg value — ``at(x, by=l, over=[a, b], into=c)``.
 
     Unresolved: which kind of name the kwarg admits is the operator's business.
     """
@@ -150,22 +150,30 @@ class ColumnRefNode:
 
 @dataclass(frozen=True)
 class DirectionNode:
-    """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
+    """A resolved ``over=`` or ``by=``: the relation, read in the :class:`Direction` the call names.
+
+    ``shown`` is the value as the file wrote it — ``rel.column`` where the dot
+    named the columns, the bare name where ``at`` names its ends beside it —
+    because one direction has two spellings and a node prints the one it came
+    from.
+    """
 
     direction: Direction
+    shown: str
 
     def __str__(self) -> str:
-        return self.direction.name
+        return self.shown
 
 
 @dataclass(frozen=True)
 class PartitionNode:
-    """A resolved ``by=`` on ``shift`` or ``sum_back``: the relation, as the :class:`Partition` the call steps inside."""
+    """A resolved dotted ``along=``: the relation, as the :class:`Partition` the call steps inside."""
 
     partition: Partition
+    shown: str
 
     def __str__(self) -> str:
-        return self.partition.name
+        return self.shown
 
 
 @dataclass(frozen=True)
@@ -353,7 +361,7 @@ def operand(node: ArithmeticNode) -> str:
 # Node groups
 
 #: A resolved reference the language admits only as an operator kwarg *value*:
-#: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
+#: ``sum(x, over=d)``, ``sum(x, by=l.b)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
 KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode

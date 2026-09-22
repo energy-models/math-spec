@@ -283,12 +283,12 @@ class TestDimensionKwargs:
         [
             pytest.param('sum(p, over=snapshto) == load', ('silent no-op', 'sum(over=snapshto)'), id='sum-over-typo'),
             pytest.param(
-                'sum(p, by=bus) == load',
+                'sum(p, by=bus.b) == load',
                 ("'bus' is a dimension, and by= takes a relation",),
                 id='by-names-a-dimension',
             ),
             pytest.param(
-                'sum(p, by=zne) == load',
+                'sum(p, by=zne.bus) == load',
                 ('does not name a relation', "Did you mean 'zone'?"),
                 id='by-relation-typo',
             ),
@@ -308,7 +308,7 @@ class TestDimensionKwargs:
         ('expression', 'dims'),
         [
             pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
-            pytest.param('sum(p, by=zone, over=generator, into=bus) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
+            pytest.param('sum(p, over=zone.generator) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
             pytest.param(
                 "shift(p, along=snapshot, offset=1, edge='wrap') == load",
                 ['snapshot', 'generator'],
@@ -359,7 +359,7 @@ class TestAnUndeclaredKeywordIsRefusedOnce:
 
     SIGNATURE = (
         'The objective: shift() expects '
-        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])"
+        "shift(<expr>, along=<dim|relation.key column>, offset=<n>[, edge='wrap'|<number>][, within=<column>])"
     )
 
     @pytest.mark.parametrize(
@@ -387,7 +387,7 @@ class TestAnUndeclaredKeywordIsRefusedOnce:
 
     TEMPLATE_SIGNATURE = (
         "Macro 'm': shift() expects "
-        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])"
+        "shift(<expr>, along=<dim|relation.key column>, offset=<n>[, edge='wrap'|<number>][, within=<column>])"
     )
 
     @pytest.mark.parametrize(
@@ -517,7 +517,7 @@ class TestPositionResolves:
         ('mask', 'position', 'by'),
         [
             ('position(snapshot) == 0', 0, None),
-            ('position(snapshot, by=period_of, within=period) == 0', 0, 'period_of'),
+            ('position(period_of.snapshot, within=period) == 0', 0, 'period_of'),
         ],
         ids=['first', 'first of each period'],
     )
@@ -536,15 +536,25 @@ class TestPositionResolves:
             ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
             ('position(nope) == 0', ["'nope' is not declared"]),
             (
-                'position(snapshot, by=load) == 0',
-                ['position(by=load) does not name a relation', "Declare it under 'relations:'"],
+                'position(load.snapshot) == 0',
+                ['position(along=load) does not name a relation', "Declare it under 'relations:'"],
             ),
             (
-                'position(snapshot, by=starts_at, within=snapshot) == 0',
-                ["no key column over 'snapshot'", "its key is ['period']"],
+                'position(starts_at.snapshot) == 0',
+                ['a partition steps along one key column', "whose key is ['period']"],
+            ),
+            (
+                'position(starts_at.period, within=period) == 0',
+                ["within=['period'] names a key column", "its value columns are ['snapshot']"],
             ),
         ],
-        ids=['a parameter', 'undeclared', 'by= is not a relation', 'by= is over another dim'],
+        ids=[
+            'a parameter',
+            'undeclared',
+            'the dotted name is not a relation',
+            'the column is not a key column',
+            'within= names a key column',
+        ],
     )
     def test_it_refuses(self, mask: str, fragments: list[str]):
         with pytest.raises(LanguageError) as excinfo:
@@ -572,18 +582,18 @@ class TestAWhereSideIsReadInResolution:
             pytest.param('position(g) == c', ('compared against an integer index',), id='a-position-against-a-name'),
             pytest.param(
                 'position(g, h) == 0',
-                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                ('position() is written position(<dim|relation.key column>[, within=<column>])',),
                 id='a-position-with-two-dimensions',
             ),
             pytest.param(
                 'position(g, edge=1) == 0',
-                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
+                ('position() is written position(<dim|relation.key column>[, within=<column>])',),
                 id='a-position-with-a-kwarg-it-lacks',
             ),
             pytest.param(
-                'position(g, by=[lk, lk2]) == 0',
-                ('position() is written position(<dim>[, by=<relation>, within=<column>])',),
-                id='a-position-by-a-list',
+                'position(2) == 0',
+                ('position() is written position(<dim|relation.key column>[, within=<column>])',),
+                id='a-position-of-a-number',
             ),
         ],
     )
@@ -734,18 +744,18 @@ class TestRulesDecidedWithoutData:
                     'dimensions.z': {},
                     'relations.lk': {'key': ['g', 'z'], 'values': 'h'},
                     'variables.q.dims': ['g', 'h', 'z'],
-                    'objective': {'expression': 'sum(sum(q, by=lk, over=g, into=h))'},
+                    'objective': {'expression': 'sum(sum(q, over=lk.g))'},
                 },
-                ("sum(by=lk) lands on ['h'], which the expression already carries",),
+                ("sum(over=lk.g) lands on ['h'], which the expression already carries",),
                 id='landing-on-a-dim-the-operand-carries',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=z, into=h))'}},
+                {'objective': {'expression': 'sum(sum(p, over=lk.z))'}},
                 ("over=z names no column of 'lk', whose columns are ['g', 'h']",),
                 id='from-a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=h, into=h))'}},
+                {'objective': {'expression': 'sum(at(r, by=lk, over=h, into=h))'}},
                 ("over= and into= both name ['h']",),
                 id='from-and-to-the-same-column',
             ),
@@ -753,33 +763,32 @@ class TestRulesDecidedWithoutData:
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'g', 'values': ['h', 'z']},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=g, into=[h, h]))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz.[h, h]))'},
                 },
-                ("into=['h', 'h'] names a column twice",),
-                id='a-to-list-naming-a-column-twice',
-            ),
-            pytest.param(
-                {
-                    'dimensions.z': {},
-                    'relations.lz': {'key': 'g', 'values': ['h', 'z']},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[g, h], into=h))'},
-                },
-                ("over= and into= both name ['h']",),
-                id='a-from-list-overlapping-to',
+                ("by=['h', 'h'] names a column twice",),
+                id='a-landing-list-naming-a-column-twice',
             ),
             pytest.param(
                 {
                     'relations.lz': {'key': 'g', 'values': {'h0': 'h', 'h1': 'h'}},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[h0, h1], into=g))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz.[h0, h1]))'},
+                },
+                ("by=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
+                id='a-landing-list-naming-two-columns-over-one-dimension',
+            ),
+            pytest.param(
+                {
+                    'relations.lz': {'key': 'g', 'values': {'h0': 'h', 'h1': 'h'}},
+                    'objective': {'expression': 'sum(sum(p, over=lz.[h0, h1]))'},
                 },
                 ("over=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
                 id='a-from-list-naming-two-columns-over-one-dimension',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, within=h, over=g))'}},
+                {'objective': {'expression': 'sum(shift(p, along=lk.g, offset=1, edge=0, within=h, over=g))'}},
                 (
-                    "shift() expects shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>]"
-                    '[, by=<relation>, within=<column>])',
+                    'shift() expects shift(<expr>, along=<dim|relation.key column>, offset=<n>'
+                    "[, edge='wrap'|<number>][, within=<column>])",
                 ),
                 id='a-partition-takes-no-from',
             ),
@@ -787,46 +796,85 @@ class TestRulesDecidedWithoutData:
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'g', 'values': ['h', 'z']},
-                    'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lz, within=g))'},
+                    'objective': {'expression': 'sum(shift(p, along=lz.g, offset=1, edge=0, within=g))'},
                 },
                 ("within=['g'] names a key column of 'lz', and a partition groups by value columns",),
                 id='a-partition-grouped-within-a-key-column',
             ),
             pytest.param(
-                {'variables.q.where': 'position(g, by=lk, within=z) == 0'},
+                {'variables.q.where': 'position(lk.g, within=z) == 0'},
                 ("within=z names no column of 'lk', whose columns are ['g', 'h']",),
                 id='position-within-a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, into=g))'}},
+                {'objective': {'expression': 'sum(at(p, over=g))'}},
                 ('names a column of a relation, and no by= names the relation',),
-                id='into-without-by',
+                id='a-column-kwarg-without-by',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'key': 'g', 'values': ['h', 'z']},
+                    'objective': {'expression': 'sum(sum(p, over=lz.g))'},
+                },
+                (
+                    "over= lands on every value column it does not name, and 'lz' leaves ['h', 'z']",
+                    'by=lz.<columns>',
+                ),
+                id='a-grouping-that-leaves-several-value-columns',
+            ),
+            pytest.param(
+                {'relations.rel': {'key': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, over=rel.g))'}},
+                ("'rel' has no value column left for the sum to land on", 'by=rel.<column>'),
+                id='a-grouping-that-leaves-none',
+            ),
+            pytest.param(
+                {
+                    'relations.bare': {'key': {'k0': 'g', 'k1': 'g', 'm': 'h'}},
+                    'objective': {'expression': 'sum(sum(q, by=bare.m))'},
+                },
+                ("the key columns it sums away (['k0', 'k1']) are two over ['g']",),
+                id='a-grouping-that-sums-two-columns-over-one-dimension-away',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, over=lk))'}},
+                ("'lk' is a relation, and over= names a dimension, or a key column of a relation as lk.<column>",),
+                id='a-relation-named-without-its-column',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, within=h))'}},
+                ('names a bare dimension, which makes no groups', 'drop within='),
+                id='a-group-named-on-an-unpartitioned-axis',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(lk.h)'}},
+                ('lk.h names the columns of a relation', 'a value stands bare'),
+                id='a-dotted-name-in-a-value-position',
             ),
             pytest.param(
                 {'relations.rel': {'key': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
-                ('sum() through a relation leaves into=, over= unsaid',),
-                id='a-bare-relation-needs-both-ends-named',
+                ("sum(by=rel) names 'rel' and no column of it", 'Write by=rel.<column>'),
+                id='a-grouping-names-the-columns-it-lands-on',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk))'}},
+                {'objective': {'expression': 'sum(shift(p, along=lk.g, offset=1, edge=0))'}},
                 (
-                    'shift() through a relation leaves within= unsaid',
+                    'shift(along=lk.g) leaves within= unsaid',
                     'A partition names the value columns it groups by, so that a relation may gain a value column',
                 ),
                 id='a-partition-names-the-columns-it-groups-by',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum_back(p, along=g, window=2, by=lk))'}},
-                ('sum_back() through a relation leaves within= unsaid',),
+                {'objective': {'expression': 'sum(sum_back(p, along=lk.g, window=2))'}},
+                ('sum_back(along=lk.g) leaves within= unsaid',),
                 id='a-window-names-the-columns-it-groups-by',
             ),
             pytest.param(
-                {'variables.q.where': 'position(g, by=lk) == 0'},
+                {'variables.q.where': 'position(lk.g) == 0'},
                 (
-                    'position(g, by=lk) leaves within= unsaid',
+                    'position(lk.g) leaves within= unsaid',
                     'A partition names the value columns it groups by',
-                    'position(g, by=lk, within=<column>)',
-                    "value columns of 'lk' are ['h']",
+                    "The value columns of 'lk' are ['h']",
                 ),
                 id='a-position-names-the-columns-it-counts-within',
             ),
@@ -864,7 +912,7 @@ class TestRulesDecidedWithoutData:
                 id='a-read-landing-on-the-key-and-a-value-column',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
+                {'objective': {'expression': 'sum(sum(q, by=lk.g))'}},
                 (
                     "this sum lands on the key ['g']",
                     'that is a read, which is',
@@ -875,7 +923,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'relations.rel': {'key': ['g', 'h']},
-                    'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=rel, within=h))'},
+                    'objective': {'expression': 'sum(shift(p, along=rel.g, offset=1, edge=0, within=h))'},
                 },
                 ("'rel' is a bare relation", 'it makes no groups and no coordinate is in exactly one'),
                 id='a-partition-through-a-bare-relation',
@@ -1035,7 +1083,7 @@ class TestRulesDecidedWithoutData:
                 {
                     'relations.lk2': {'key': 'g', 'values': 'z'},
                     'dimensions.z': {},
-                    'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=[h, z]))'},
+                    'objective': {'expression': 'sum(at(r, by=[lk, lk2], over=h, into=g))'},
                 },
                 ('names 2 relations, and one call reads one table',),
                 id='several-relations-in-one-by',
@@ -1044,17 +1092,6 @@ class TestRulesDecidedWithoutData:
                 {'objective': {'expression': 'sum(at(c, by=lk, over=h, into=g))'}},
                 ("at(by=lk) reads through ['h'], which the expression does not carry (dims ['g'])",),
                 id='a-read-whose-operand-lacks-the-column-it-reads-through',
-            ),
-            pytest.param(
-                {
-                    'dimensions.z': {},
-                    # only a bare relation may key two columns over one dimension: a key that
-                    # determines a value is refused for it at the declaration
-                    'relations.bare': {'key': {'k': 'g', 'j0': 'h', 'j1': 'h', 'm': 'z'}},
-                    'objective': {'expression': 'sum(sum(q, by=bare, over=k, into=m))'},
-                },
-                ("joins 'bare' on ['h'] through more than one column",),
-                id='a-call-joining-one-dimension-through-two-columns',
             ),
             pytest.param(
                 {
@@ -1109,7 +1146,7 @@ class TestRulesDecidedWithoutData:
         point: a fragment can agree with a message that names a call nothing
         accepts.
         """
-        message = _refusal(objective={'expression': 'sum(sum(q, by=lk, over=h, into=g))'})
+        message = _refusal(objective={'expression': 'sum(sum(q, by=lk.g))'})
         named = re.search(r'Write (at\(.*?\)), or sum', message)
         assert named is not None, f'the refusal holds out no at() to write instead: {message}'
         rewrite = named.group(1).replace("'", '').replace('...', 'r')

@@ -137,7 +137,7 @@ class Subject:
 
     ``kind`` separates the namespaces that could otherwise collide: a
     dimension's coordinates and its *rank* are two subjects over one name, and
-    a rank is further split by the ``by=`` relation it is counted within.
+    a rank is further split by the relation it is counted within.
     """
 
     kind: Literal['param', 'dim', 'rank', 'relation', 'relation_pair', 'variable']

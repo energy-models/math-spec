@@ -3076,14 +3076,14 @@ Bus_nodal_balance:
     carries load, and this file does not yet.
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus, over=storage_unit, into=bus)
-    + sum(Store_p, by=Store_bus, over=store, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
-    - sum(Line_s, by=Line_bus0, over=line, into=bus)
-    + sum(Line_s, by=Line_bus1, over=line, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, over=Generator_bus.generator)
+    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, over=StorageUnit_bus.storage_unit)
+    + sum(Store_p, over=Store_bus.store)
+    - sum(Link_p, over=Link_bus0.link)
+    + sum(Link_output_arrival, over=Link_output_bus.link_output)
+    - sum(Line_s, over=Line_bus0.line)
+    + sum(Line_s, over=Line_bus1.line)
+    == sum(Load_p_set, over=Load_bus.load)
 ```
 
 ```math

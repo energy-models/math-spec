@@ -134,7 +134,7 @@ That another tool has a feature is not by itself a reason to add it.
 A component library is a set of templates, such as a boiler, a battery and a
 line, that agree on how ports and flows are named. You merge the templates you
 need into one file, wire the components together with a connectivity table in
-the data, and close the system with one `sum(by=)` balance.
+the data, and close the system with one grouped `sum` balance.
 
 The topology is data. Adding a second battery is a row in a table, so the file
 grows with the number of component _types_.

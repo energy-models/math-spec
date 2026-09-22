@@ -15,6 +15,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CaseArm,
     CasesNode,
+    ColumnRefNode,
     ComparisonNode,
     DefinitionNode,
     DualNode,
@@ -306,6 +307,13 @@ def _check_expression(
     return resolved
 
 
+def _relation_names(value: ArithmeticNode) -> tuple[str, ...]:
+    """The relation names a ``by=`` or a dotted ``over=`` carries: bare, dotted, or a bracketed list of bare names."""
+    if isinstance(value, ColumnRefNode):
+        return (value.name,)
+    return names_in(value)
+
+
 def _check_template_names(
     node: ArithmeticNode,
     context: str,
@@ -319,7 +327,10 @@ def _check_template_names(
     keyword the operator does not declare is caught in a template nothing calls.
     A case arm's value only: its ``when`` is the declaration's, checked there.
     """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
+    if isinstance(
+        node,
+        NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode | ColumnRefNode,
+    ):
         return
 
     if isinstance(node, NameNode):
@@ -350,18 +361,27 @@ def _check_template_names(
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
+            match builtin.kind_of(kwarg) if builtin else 'value':
                 case 'dimension':
-                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
+                    if isinstance(value, ColumnRefNode):
+                        if value.name not in formals and ns.kind(value.name) != 'relation':
+                            errors.append(
+                                f'{context}: {node.name}({kwarg}={value}) does not name a relation or a '
+                                f'formal of this macro.'
+                            )
+                    elif (
+                        isinstance(value, NameNode)
+                        and value.name not in formals | ns.dimensions
+                        and ns.kind(value.name) != 'relation'
+                    ):
                         errors.append(
                             f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                            f'declared dimension or a formal of this macro.'
+                            f'declared dimension, a relation, or a formal of this macro.'
                         )
                 case 'relation':
                     errors.extend(
                         f'{context}: {node.name}({kwarg}={one}) does not name a relation or a formal of this macro.'
-                        for one in names_in(value)
+                        for one in _relation_names(value)
                         if one not in formals and ns.kind(one) != 'relation'
                     )
                 case 'value':

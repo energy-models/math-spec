@@ -65,8 +65,8 @@ Position decides which kinds of name are legal:
 | Position                               | Legal kinds                                                                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                          |
-| dimension argument (`over=`, `along=`) | a dimension                                                                                                        |
-| relation argument (`by=`)              | a relation. `over=`, `into=` and `within=` name its columns                                                        |
+| dimension argument (`over=`, `along=`) | a dimension, or a relation's key column written `l.a`                                                              |
+| relation argument (`by=`)              | a relation with the columns it lands on, written `l.b`. An `at` names a bare relation, and `over=` and `into=` its columns |
 | `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                                     |
 | `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                      |
 | the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number                                                                               |
@@ -90,7 +90,7 @@ The dimension set of every expression is known before any data binds:
 | `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                                  |
 | `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                              |
 | `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                           |
-| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
+| `sum(x, over=l.a)`, `sum(x, by=l.b)` | `(dims(x) − consumed) ∪ produced` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
 | `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                                         |
 | `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                           |
 | `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                           |
@@ -133,7 +133,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name OP value`, `name.col OP value`    | relation             | A filter on a value column, read at the relation's key. Name the column where the key determines several                                                          |
 | `name OP name`, `name.a OP name.b`      | two relation columns | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop              |
 | `position(name) OP i`                   | dimension            | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                       |
-| `position(name, by=relation, within=c)` | dimension            | The same, counted within each group the relation makes                                                                                                            |
+| `position(relation.a, within=c)`        | relation key column  | The same, counted within each group the relation makes                                                                                                            |
 | `AND` `OR` `NOT`                        | —                    | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                     |
 | `True` / `False`                        | —                    | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either |
 
@@ -187,8 +187,8 @@ constraints:
 `-1` is the last position, and `-2` the one before it. A position that no
 coordinate occupies is an error when the data binds.
 
-`by=` counts inside each group that a relation makes. That gives one seeded row
-per period, however long each period is:
+A dotted axis counts inside each group that a relation makes. That gives one
+seeded row per period, however long each period is:
 
 ```yaml
 dimensions:
@@ -203,11 +203,11 @@ variables:
 constraints:
   soc_start:
     dims: [snapshot]
-    where: "position(snapshot, by=period_of, within=period) == 0"
+    where: "position(period_of.snapshot, within=period) == 0"
     expression: soc == at(soc_initial, by=period_of, over=period, into=snapshot)
 ```
 
-The relation must have a key column over the dimension being counted, and
-`within=` names the value columns the groups are made of
+The dot names the key column being counted along, and `within=` names the
+value columns the groups are made of
 ([partitions](relations.md#partitions)). A coordinate the relation sends
 nowhere is in no group.

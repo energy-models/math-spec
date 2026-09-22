@@ -314,10 +314,10 @@ Bus_nodal_balance:
     there
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, over=Generator_bus.generator)
+    - sum(Link_p, over=Link_bus0.link)
+    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, over=Link_output_bus.link_output)
+    == sum(Load_p_set, over=Load_bus.load)
 ```
 
 ```math
@@ -338,8 +338,8 @@ Carrier_growth_limit:
   dims: [carrier, period]
   where: Carrier_max_growth
   expression: >-
-    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier), along=period, offset=1, edge=0)
+    sum(Generator_p_nom_ext * Generator_first_active, over=Generator_carrier.generator)
+    - shift(sum(Generator_p_nom_ext * Generator_first_active, over=Generator_carrier.generator), along=period, offset=1, edge=0)
     * Carrier_max_relative_growth
     <= Carrier_max_growth
 ```

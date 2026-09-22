@@ -11,7 +11,7 @@ from functools import partial
 import pytest
 
 from math_spec._expression_parser import ComparisonNode, DefinitionNode, parse_expression, with_children
-from math_spec.errors import LanguageError
+from math_spec.errors import LanguageError, SchemaError
 from math_spec.expansion import parse_and_expand
 from tests.fixtures import DISPATCH_MODEL, schema_of
 
@@ -109,6 +109,28 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
     reads through, as every pass does."""
     expanded = parse_and_expand(call, schema(expressions=expressions, macros=macros), 'expression')
     assert _bodies(expanded) == parse_expression(want)
+
+
+@pytest.mark.parametrize(
+    ('template', 'call', 'want'),
+    [
+        pytest.param('sum(x, over=r.g)', 'grouped(p, r=lk)', 'sum(p, over=lk.g)', id='before-the-dot'),
+        pytest.param('sum(x, by=r.h)', 'grouped(p, r=lk)', 'sum(p, by=lk.h)', id='and-in-a-landing-kwarg'),
+    ],
+)
+def test_a_formal_may_stand_where_a_relation_does_before_a_dot(template, call, want):
+    """A formal bound to a relation was substituted only where a bare name stood, so `over=r.g` reached resolution as `r`."""
+    macros = {'grouped': {'args': ['x'], 'kwargs': ['r'], 'template': template}}
+    relations = {'relations': {'lk': {'key': 'generator', 'values': 'bus'}}, 'dimensions.bus': {'dtype': 'str'}}
+    expanded = parse_and_expand(call, schema(macros=macros, **relations), 'expression')
+    assert expanded == parse_expression(want), 'the relation the call passes stands before the dot'
+
+
+def test_a_formal_before_a_dot_takes_a_relation_and_nothing_else():
+    """An expression there has no relation name to put before the dot, and the refusal says so."""
+    macros = {'grouped': {'args': ['x'], 'kwargs': ['r'], 'template': 'sum(x, over=r.g)'}}
+    with pytest.raises(SchemaError, match='passes r= where a relation belongs'):
+        parse_and_expand('grouped(p, r=p * 2)', schema(macros=macros), 'expression')
 
 
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():

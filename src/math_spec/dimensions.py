@@ -137,9 +137,9 @@ def _dims_call(node: FunctionCallNode, schema: Spec, context: str) -> frozenset[
 
 
 def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``sum`` reduces a dim away, or reads a relation: the consumed dim goes, the produced dims arrive, the joined stay."""
-    by = node.kwargs.get('by')
-    if by is None and 'over' not in node.kwargs:
+    """``sum`` reduces a dim away, or reads a relation: the consumed dims go, the produced arrive, the joined stay."""
+    over, by = node.kwargs.get('over'), node.kwargs.get('by')
+    if over is None and by is None:
         if not inner:
             raise DimensionError(
                 f'{context}: sum() with no over= or by= sums every dim the operand '
@@ -147,31 +147,30 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
                 f'scalar. Drop the sum.'
             )
         return frozenset()
-    if by is None:
-        consumed = node.kwargs['over']
-        assert isinstance(consumed, DimensionNode)
-        if consumed.name not in inner:
-            raise DimensionError(
-                _not_carried(context, f'sum(over={consumed.name})', inner, 'drop the sum, or fix the dim')
-            )
-        return inner - {consumed.name}
+    if isinstance(over, DimensionNode):
+        if over.name not in inner:
+            raise DimensionError(_not_carried(context, f'sum(over={over.name})', inner, 'drop the sum, or fix the dim'))
+        return inner - {over.name}
 
-    assert isinstance(by, DirectionNode), 'resolution reads sum(by=) in a direction'
-    direction = by.direction
+    grouping = over if over is not None else by
+    assert isinstance(grouping, DirectionNode), 'resolution reads a sum through a relation in a direction'
+    kwarg = 'over' if over is not None else 'by'
+    call = f'sum({kwarg}={grouping})'
+    direction = grouping.direction
     if missing := sorted(set(direction.consumed_dims) - inner):
         raise DimensionError(
             _not_carried(
                 context,
-                f'sum(by={direction.name}) consumes {missing}, the dims it reads from,',
+                f'{call} consumes {missing}, the dims it reads from,',
                 inner,
                 'drop the sum, or fix the dim',
             )
         )
-    return _read_dims(f'sum(by={direction.name})', direction, inner, context)
+    return _read_dims(call, direction, inner, context)
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``at`` is the adjoint of ``sum(by=)``: it consumes the dims a sum produces and produces the ones it consumes."""
+    """``at`` is the adjoint of a grouped ``sum``: it consumes the dims a sum produces and produces the ones it consumes."""
     by = node.kwargs['by']
     assert isinstance(by, DirectionNode), 'resolution reads at(by=) in a direction'
     direction = by.direction
@@ -187,24 +186,23 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``shift`` and ``sum_back`` keep every dim, and their amount, edge and partition are checked here."""
-    over = node.kwargs['along']
-    assert isinstance(over, DimensionNode)
-    if over.name not in inner:
+    along = node.kwargs['along']
+    assert isinstance(along, DimensionNode | PartitionNode), 'resolution reads an along= as a dimension or a partition'
+    stepped = along.name if isinstance(along, DimensionNode) else along.partition.along_dim
+    if stepped not in inner:
         raise DimensionError(
             _not_carried(
                 context,
-                f'{node.name}(along={over.name})',
+                f'{node.name}(along={along})',
                 inner,
                 f'name a dim the operand carries, or drop the {node.name}',
             )
         )
-    _check_named_amount(node, over.name, inner, schema, context)
+    _check_named_amount(node, stepped, inner, schema, context)
     _check_amount_form(node, context)
     _check_edge(node, context)
-    by = node.kwargs.get('by')
-    if by is not None:
-        assert isinstance(by, PartitionNode), "resolution reads a translation's by= as a partition"
-        _check_joined(f'{node.name}(along={over.name}, by={by.partition.name})', by.partition, inner, context)
+    if isinstance(along, PartitionNode):
+        _check_joined(f'{node.name}(along={along})', along.partition, inner, context)
     return inner
 
 
@@ -233,9 +231,9 @@ def _read_dims(call: str, direction: Direction, inner: frozenset[str], context: 
 def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], context: str) -> None:
     """The columns a call joins on are read at their dimensions, so the operand carries every one, each once.
 
-    A joined dimension the call also consumes is the same ambiguity as two
-    joined columns over one dimension: the operand's one coordinate would
-    have to be read as both. A partition consumes nothing.
+    A joined dimension the call also consumes is read twice at the operand's
+    one coordinate: as the column the call reads from, and as the column it
+    joins at. A partition consumes nothing.
     """
     dims = use.joined_dims
     if missing := sorted(set(dims) - inner):
@@ -246,7 +244,7 @@ def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], 
             f'read it between different columns.'
         )
     consumed = use.consumed_dims if isinstance(use, Direction) else ()
-    if twice := sorted({d for d in dims if dims.count(d) > 1 or d in consumed}):
+    if twice := sorted({d for d in dims if d in consumed}):
         raise DimensionError(
             f"{context}: {call} joins '{use.name}' on {twice} through more than one column, and the operand "
             f'carries each dimension once. Read between different columns, or use a relation whose joined '
@@ -429,9 +427,11 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
             f'carries it. A named {words.noun} that varies over the axis it steps along is {words.varies} '
             f"— declare '{amount.name}' over dims '{over}' is not one of."
         )
-    by = node.kwargs.get('by')
+    along = node.kwargs.get('along')
     groups = (
-        frozenset(by.partition.dim(v) for v in by.partition.group) if isinstance(by, PartitionNode) else frozenset()
+        frozenset(along.partition.dim(v) for v in along.partition.group)
+        if isinstance(along, PartitionNode)
+        else frozenset()
     )
     if stray := sorted(frozenset(declared.dims) - inner - groups):
         raise DimensionError(

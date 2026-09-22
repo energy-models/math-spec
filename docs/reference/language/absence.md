@@ -84,7 +84,7 @@ there instead, write `where: rel_max` on the constraint.
 | Operator                              | An output slot reads            | An absent input                      |
 | ------------------------------------- | ------------------------------- | ------------------------------------ |
 | `sum(x, over=d)`                      | every position along `d`        | is one summand fewer; the row stands |
-| `sum(x, by=relation, over=a, into=b)` | every member of the group       | is one summand fewer; the row stands |
+| `sum(x, over=relation.a)`             | every member of the group       | is one summand fewer; the row stands |
 | `sum_back(x, along=d, window=w)`      | the positions the window covers | is one summand fewer; the row stands |
 | `shift(x, along=d, offset=n)`         | one position, `n` back          | _is_ the output, so it spreads       |
 | `at(x, by=relation, over=a, into=b)`  | one position, through the map   | _is_ the output, so it spreads       |

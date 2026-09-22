@@ -26,6 +26,6 @@ variables:
 constraints:
   bus_total:
     dims: [snapshot, bus]
-    expression: sum(p, by=gen_bus, over=generator, into=bus) <= limit
+    expression: sum(p, over=gen_bus.generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }

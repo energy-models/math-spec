@@ -12,6 +12,7 @@ from math_spec._expression_parser import (
     ArithmeticNode,
     CaseArm,
     CasesNode,
+    ColumnRefNode,
     ComparisonNode,
     DefinitionNode,
     FunctionCallNode,
@@ -168,7 +169,25 @@ def _expand_macro(
 
 
 def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode]) -> ArithmeticNode:
-    """Replace formal-name NameNodes in *node* with their bound subtrees."""
+    """Replace formal-name NameNodes in *node* with their bound subtrees.
+
+    A formal standing before a dot — ``sum(x, over=rel.column)`` in a template —
+    binds to the relation the call passes, which is a name and nothing else.
+    """
     if isinstance(node, NameNode) and node.name in bindings:
         return bindings[node.name]
+    if isinstance(node, ColumnRefNode) and node.name in bindings:
+        return ColumnRefNode(_bound_relation(node, bindings), node.columns)
     return with_children(node, lambda child: _substitute(child, bindings))
+
+
+def _bound_relation(ref: ColumnRefNode, bindings: dict[str, ArithmeticNode]) -> str:
+    """The relation name the formal before the dot binds to; anything but a name there is refused."""
+    bound = bindings[ref.name]
+    if not isinstance(bound, NameNode):
+        msg = (
+            f"'{ref}' passes {ref.name}= where a relation belongs, and the argument is not a relation name. "
+            f'Pass the relation bare.'
+        )
+        raise SchemaError(msg)
+    return bound.name
