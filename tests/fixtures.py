@@ -100,7 +100,7 @@ def raw_of(source: str | Path | dict[str, Any]) -> dict[str, Any]:
 def expression_of(text: str, ns: Namespace, context: str) -> ParsedNode:
     """Parse, expand and resolve one expression, raising every problem at once rather than collecting."""
     errors: list[str] = []
-    resolved = resolve_expression(parse_and_expand(text, ns.schema, context), ns, context, errors)
+    resolved = resolve_expression(parse_and_expand(text, ns, context), ns, context, errors)
     if errors:
         raise LanguageError('\n'.join(errors))
     assert resolved is not None

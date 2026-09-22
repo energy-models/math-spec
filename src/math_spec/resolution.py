@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
@@ -54,8 +54,9 @@ from math_spec._where_parser import (
     parse_where,
 )
 from math_spec.dimensions import dims_of, pulled_back_dims
-from math_spec.errors import DimensionError, LanguageError, did_you_mean, prefixed
-from math_spec.expansion import expand
+from math_spec.errors import DimensionError, LanguageError, SchemaError, did_you_mean, prefixed
+from math_spec.exclusivity import overlapping
+from math_spec.expansion import expand, parse_and_expand
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
@@ -94,7 +95,7 @@ from math_spec.program import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import DeclaredDtype, Spec
+    from math_spec.model import DeclaredDtype, ExpressionBlock, Spec
 
 
 #: What a name a file may write turns out to be. Answered by
@@ -109,7 +110,18 @@ class Namespace:
     A name has one kind: model.py refuses one declared under two sections.
     """
 
-    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'parameters', 'relations', 'schema', 'variables')
+    __slots__ = (
+        '_loading',
+        '_named',
+        'constraints',
+        'dimensions',
+        'dtypes',
+        'leaf_dims',
+        'parameters',
+        'relations',
+        'schema',
+        'variables',
+    )
 
     def __init__(self, schema: Spec) -> None:
         #: The schema the names come from — what an expression is expanded and
@@ -140,6 +152,42 @@ class Namespace:
             **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
             **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
         }
+        #: named expression -> its resolved node, or ``None``, and its refusals;
+        #: filled the first time anything reads the name.
+        self._named: dict[str, tuple[CasesNode | DefinitionNode | None, tuple[str, ...]]] = {}
+        #: The named expressions being resolved, outermost first — a cycle's chain.
+        self._loading: list[str] = []
+
+    def named(self, name: str, context: str) -> CasesNode | DefinitionNode:
+        """The ``expressions:`` entry *name* as the node that stands where its name is written.
+
+        Resolved under the entry's own context the first time it is asked
+        for, and read from then on, so a fault in it is reported once.
+
+        Raises:
+            SchemaError: The entry reads itself, or does not load.
+        """
+        if name in self._loading:
+            chain = ' -> '.join([*self._loading[self._loading.index(name) :], name])
+            msg = f'{context}: circular expression reference: {chain}'
+            raise SchemaError(msg)
+        node, _ = self.named_entry(name)
+        if node is None:
+            msg = f"{context}: named expression '{name}' does not load. Its refusal is listed with it."
+            raise SchemaError(msg)
+        return node
+
+    def named_entry(self, name: str) -> tuple[CasesNode | DefinitionNode | None, tuple[str, ...]]:
+        """The ``expressions:`` entry *name* resolved, or ``None``, with every refusal it earned."""
+        if name not in self._named:
+            errors: list[str] = []
+            self._loading.append(name)
+            try:
+                node = _named(name, self.schema.expressions[name], self, errors)
+            finally:
+                self._loading.pop()
+            self._named[name] = (node, tuple(errors))
+        return self._named[name]
 
     def kind(self, name: str) -> DeclarationKind | None:
         """What *name* was declared as, or ``None`` where the file declares it nowhere."""
@@ -347,6 +395,71 @@ def resolve_where_text(
     return resolve_where(node, ns, context, errors, self_variable)
 
 
+def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) -> CasesNode | DefinitionNode | None:
+    """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
+
+    A cased entry's arms are checked one by one, so every fault is collected
+    rather than the first, and proved apart only once all of them resolve.
+    """
+    context = f"Named expression '{name}'"
+    if not block.cases:
+        assert block.expression is not None
+        body = _value(block.expression, ns, context, errors)
+        return None if body is None else DefinitionNode(name, body)
+
+    found = len(errors)
+    arms: list[CaseArm] = []
+    masks: dict[str, Predicate] = {}
+    for case_name, case in block.cases.items():
+        arm_context = case_context(name, case_name)
+        when = resolve_where_text(case.when, ns, arm_context, errors)
+        if isinstance(when, BooleanLiteral):
+            errors.append(_constant_arm(arm_context, value=when.value))
+        elif when is not None:
+            masks[case_name] = when
+        value = _value(case.expression, ns, arm_context, errors)
+        if when is not None and value is not None:
+            arms.append(CaseArm(case_name, when, value))
+    assert block.otherwise is not None
+    fallback = _value(block.otherwise, ns, case_context(name, None), errors)
+    if len(errors) > found or fallback is None:
+        return None
+    errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
+    return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
+
+
+def _value(text: str, ns: Namespace, context: str, errors: list[str]) -> ArithmeticNode | None:
+    """One expression string that stands for a value, typed; ``None`` once anything in it failed."""
+    try:
+        ast = parse_and_expand(text, ns, context)
+    except ValueError as e:
+        errors.append(prefixed(context, e))
+        return None
+    if isinstance(ast, ComparisonNode):
+        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {text!r}')
+        return None
+    resolved = resolve_expression(ast, ns, context, errors)
+    assert not isinstance(resolved, ComparisonNode), 'an arithmetic tree resolves to arithmetic'
+    return resolved
+
+
+def _constant_arm(context: str, *, value: bool) -> str:
+    """The refusal for a case arm whose mask the connectives already decided.
+
+    Cases are proved apart rather than ranked, so an always-true arm is not
+    one that shadows the arms under it — it is one no other arm can be proved
+    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
+    is the plainer half: nothing to apply to.
+    """
+    if value:
+        return (
+            f'{context}: the mask admits every row, so no other arm can hold anywhere '
+            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
+            f'or narrow the `when`.'
+        )
+    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
+
+
 @dataclass(frozen=True)
 class _Resolver:
     """One resolution walk, and the three things every step of it reads.
@@ -383,13 +496,18 @@ class _Resolver:
         *amount* marks an ``offset=``/``window=`` value, whose dtype rule is
         ``dimensions._check_named_amount``'s and stricter than "a number", so the
         numeric check here stands aside for it. A quoted keyword or a name list in
-        arithmetic arrives through a macro formal bound to one.
+        arithmetic arrives through a macro formal bound to one. A named
+        expression arrives resolved, from :meth:`Namespace.named`, and passes.
         """
-        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode) or self._formal(node):
+        if isinstance(
+            node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | CasesNode | DefinitionNode
+        ):
+            return node
+        if self._formal(node):
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
-        if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | DefinitionNode):
+        if isinstance(node, UnaryOperatorNode | BinaryOperatorNode):
             return with_children(node, self._arith)
         if isinstance(node, FunctionCallNode):
             return self._call(node)
@@ -407,8 +525,6 @@ class _Resolver:
                 f'terms out and add them.'
             )
             return node
-        if isinstance(node, CasesNode):
-            return self._cases(node)
         assert_never(node)
 
     def _name(self, node: NameNode, *, amount: bool) -> ArithmeticNode:
@@ -478,15 +594,6 @@ class _Resolver:
                 case None:
                     pass  # a keyword the operator does not declare; the shape error already named it
         return FunctionCallNode(node.name, args, kwargs)
-
-    def _cases(self, node: CasesNode) -> CasesNode:
-        """Each arm's value and ``when`` typed under the arm's own context."""
-        arms = []
-        for arm in node.arms:
-            arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = None if arm.when is None else resolve_where(arm.when, self.ns, arm_context, self.errors)
-            arms.append(CaseArm(arm.label, when, replace(self, context=arm_context)._arith(arm.value)))
-        return CasesNode(node.name, tuple(arms))
 
     def _amount(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
         """``offset=`` or ``window=``: a number or a parameter name, never an expression.
@@ -1020,7 +1127,7 @@ class _Resolver:
                 )
                 continue
             try:
-                expanded = expand(side, ns.schema, context)
+                expanded = expand(side, ns, context)
             except ValueError as e:
                 self.errors.append(prefixed(context, e))
                 continue
