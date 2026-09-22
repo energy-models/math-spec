@@ -15,8 +15,10 @@ import re
 
 import pytest
 
+from math_spec import piecewise
 from math_spec.errors import SchemaError
 from math_spec.lowering import to_program
+from math_spec.model import Spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
 from tests.test_sos import CURVE
 from tools.render_tex import models
@@ -69,6 +71,20 @@ def test_each_set_of_kinds_is_expanded_once():
     assert schema.expand('piecewise') is schema.expand('piecewise')
     assert schema.expand() is schema.expand('piecewise', 'sos')
     assert schema.expand() is not schema.expand('piecewise'), 'a set left standing is a different model'
+
+
+def test_writing_everything_out_reuses_the_curves_the_load_wrote_out(monkeypatch):
+    """`expand()` called the curve expander directly, so the model the load had already
+    written out and cached was built again, and validated again, on every full ask."""
+    schema = schema_of(CURVE)
+    asked: list[Spec] = []
+    written_out = piecewise.expand_piecewise
+    monkeypatch.setattr(piecewise, 'expand_piecewise', lambda spec: asked.append(spec) or written_out(spec))
+
+    assert not schema.expand().piecewise
+    assert [spec for spec in asked if spec.piecewise] == [], (
+        'the curves were written out at load, and that is the model the sets are written out of'
+    )
 
 
 def test_an_expansion_that_derived_parameters_prints_rather_than_round_trips():

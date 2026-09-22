@@ -972,18 +972,8 @@ class TestRulesDecidedWithoutData:
                 id='sos-of-order-three',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'bound': 0}}},
-                ('bound must be a positive, finite number',),
-                id='sos-bound-zero',
-            ),
-            pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'bound': float('inf')}}},
-                ('bound must be a positive, finite number',),
-                id='sos-bound-infinite',
-            ),
-            pytest.param(
                 {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}}, 'variables.p.bounds': {'lower': 0}},
-                ("variable 'p' has no upper bound", 'bound: on the set'),
+                ("variable 'p' has no upper bound", 'Declare bounds.upper'),
                 id='sos-over-a-member-with-no-coefficient',
             ),
             pytest.param(
@@ -993,8 +983,8 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'bound': 10}},
-                    'variables.p.bounds': {'lower': 0},
+                    'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}},
+                    'variables.p.bounds': {'lower': 0, 'upper': 10},
                     'variables.s_seg': {'dims': ['g'], 'domain': 'binary'},
                 },
                 ("its expansion writes variable 's_seg'",),

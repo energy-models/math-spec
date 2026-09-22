@@ -693,16 +693,11 @@ class SosDeclaration:
     dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
     (:attr:`Program.variables`).
-
-    ``bound`` is the coefficient the rows this set expands to link a member by
-    (:meth:`~math_spec.model.Spec.expand`), and is ``None`` where the file
-    states none and the member's own upper bound is it.
     """
 
     variable: str
     over: str
     sos_type: Literal[1, 2]
-    bound: float | None = None
 
 
 @dataclass(frozen=True)

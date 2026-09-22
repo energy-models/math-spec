@@ -154,7 +154,6 @@ def lower_program(expanded: Spec) -> program.Program:
             sdef.variable,
             sdef.over,
             sos_type=sdef.type,
-            bound=sdef.bound,
         )
         for sname, sdef in expanded.sos.items()
     }

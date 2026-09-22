@@ -175,7 +175,6 @@ sos:
     variable: build # the variable the set is over
     over: size # the dimension it runs along — one set per coordinate of the rest
     type: 1 # 1: at most one non-zero; 2: at most two, and consecutive
-    bound: 500 # optional: the coefficient the set's own expansion links a member by
 ```
 
 `type: 1` is a choice: at most one member is non-zero. `type: 2` is an
@@ -204,10 +203,9 @@ at `type: 2`:
 | `s_nonzero` (`type: 1`), `s_adjacency` (`type: 2`) | `x <= upper * admitted`                           |
 | the same name plus `_below`                        | `x >= lower * admitted`, where `lower` is not `0` |
 
-Each coefficient is read off the member's own `bounds:`, and the set's `bound:`
-replaces the one above where it declares one. A binary member's are `0` and `1`,
-from its domain. A row multiplies by its coefficient rather than reading it, so
-a bound the data carries is a coefficient like any other:
+Each coefficient is read off the member's own `bounds:`. A binary member's are
+`0` and `1`, from its domain. A row multiplies by its coefficient rather than
+reading it, so a bound the data carries is a coefficient like any other:
 `bounds: {lower: floor, upper: cap}` states `x >= floor * admitted` and
 `x <= cap * admitted`.
 
@@ -219,8 +217,12 @@ So each side needs a coefficient, and a model is refused at load without one:
 
 - `bounds.lower`, a number or a parameter. An omitted lower bound leaves the
   member free below zero, which no row can pull back.
-- `bounds.upper`, a number or a parameter, or the set's `bound:`, or
-  `domain: binary`.
+- `bounds.upper`, a number or a parameter, or `domain: binary`.
+
+The set carries no coefficient of its own. A number below the member's bound
+would cap a picked member the set does not cap, and one above it is a looser
+row than the bound already states, so there is no value of such a key that
+states the set and nothing else.
 
 A positive `bounds.lower` loads and is infeasible, as it is on a solver that
 takes the set: an unpicked member has to be `0`, and its own bound says it is

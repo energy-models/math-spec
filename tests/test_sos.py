@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pytest
 
+from math_spec.errors import SchemaError
 from math_spec.lowering import to_program
 from tests.fixtures import SMALL_MODEL, override, schema_of
 
@@ -92,11 +93,13 @@ def test_an_unpicked_member_is_held_at_zero_from_the_sides_its_bounds_state(boun
     assert written == rows, 'the rows a set states, and no row that states nothing'
 
 
-def test_the_declared_bound_is_the_coefficient_rather_than_the_tighter_of_it_and_the_upper():
-    """Two consumers took different sides of this and solved different models."""
-    schema = schema_of(override(PICKED, **{'sos.pick.bound': 500}))
-
-    assert schema.expand('sos').constraints['pick_nonzero'].expression == 'p <= 500.0 * (pick_seg)'
+def test_a_set_carries_no_coefficient_of_its_own():
+    """`bound:` replaced the member's upper bound in the linking row. Below it the row
+    capped a picked member the set does not cap; above it the row was a looser big-M;
+    a solver taking the set natively ignored it either way. So the coefficient is the
+    member's own bound and nothing else, and the key is not in the language."""
+    with pytest.raises(SchemaError, match="unknown key 'bound' in a sos declaration"):
+        schema_of(override(PICKED, **{'sos.pick.bound': 500}))
 
 
 def test_a_coefficient_of_one_is_left_out_of_the_row_rather_than_printed():

@@ -680,9 +680,9 @@ class SosBlock(_StrictBlock):
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
     and those two consecutive. A consumer with the concept takes the set as
-    one; :meth:`Spec.expand` states it as binaries instead, and ``bound`` is
-    the coefficient those rows link a member by from above, where the member's
-    own ``upper`` is not the one to use.
+    one; :meth:`Spec.expand` states it as binaries instead, and the rows it
+    writes multiply by the member's own ``bounds``, which is why a member
+    needs both.
     """
 
     _label: ClassVar[str] = 'a sos declaration'
@@ -690,7 +690,6 @@ class SosBlock(_StrictBlock):
     variable: str
     over: str
     type: SosType
-    bound: float | None = None
     description: str | None = None
 
     @field_validator('type', mode='wrap')
@@ -704,17 +703,6 @@ class SosBlock(_StrictBlock):
             return cast('SosType', handler(v))
         except ValidationError:
             raise ValueError(msg) from None
-
-    @field_validator('bound')
-    @classmethod
-    def _check_bound(cls, v: float | None) -> float | None:
-        if v is not None and not (v > 0 and math.isfinite(v)):
-            msg = (
-                f'bound must be a positive, finite number, got {v!r} — it is the coefficient the rows this '
-                f'set expands to multiply a binary by.'
-            )
-            raise ValueError(msg)
-        return v
 
 
 #: The language surfaces this reader understands. A **language** version, not a
@@ -922,11 +910,12 @@ class Spec(_StrictBlock):
         from math_spec.piecewise import expand_piecewise
         from math_spec.sos import expand_sets
 
-        expanded = self
-        if 'piecewise' in wanted:
-            expanded = expand_piecewise(expanded)
-        if 'sos' in wanted and expanded.sos:
-            expanded = expand_sets(expanded)
+        if wanted == ('piecewise',):
+            expanded = expand_piecewise(self)
+        else:
+            expanded = self.expand('piecewise') if 'piecewise' in wanted else self
+            if expanded.sos:
+                expanded = expand_sets(expanded)
         if expanded is not self:
             self._expansions[wanted] = expanded
         return expanded
@@ -1134,7 +1123,7 @@ class Spec(_StrictBlock):
             if (member := self.variables.get(block.variable)) is None:
                 continue
             context = f"Sos '{sname}'"
-            below, above = coefficients(block.bound, member.domain, member.bounds.lower, member.bounds.upper)
+            below, above = coefficients(member.domain, member.bounds.lower, member.bounds.upper)
             if below is None:
                 yield (
                     f"{context}: variable '{block.variable}' has no lower bound, and the set expands to rows "
@@ -1145,7 +1134,7 @@ class Spec(_StrictBlock):
                 yield (
                     f"{context}: variable '{block.variable}' has no upper bound, and the set expands to rows "
                     f'that hold an unpicked member at zero from above as well as below. Declare bounds.upper, '
-                    f'as a number or a parameter, or bound: on the set.'
+                    f'as a number or a parameter.'
                 )
 
     def _sos_emitted_names(self) -> Iterator[str]:

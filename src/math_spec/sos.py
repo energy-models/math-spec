@@ -27,20 +27,19 @@ if TYPE_CHECKING:
 Coefficients = tuple[float | str | None, float | str | None]
 
 
-def coefficients(bound: float | None, domain: str, lower: float | str, upper: float | str) -> Coefficients:
+def coefficients(domain: str, lower: float | str, upper: float | str) -> Coefficients:
     """What a member's two linking rows multiply its binary by, ``None`` on a side the model leaves open.
 
-    The set's own ``bound:`` is the one above, so the coefficient a reader sees
-    is the one the file chose rather than the tighter of two; then the 0 and 1 a
-    binary's domain fixes, which no bounds block carries; then the member's own
-    declared bounds, each a number or the name of a parameter. A parameter is a
-    coefficient like any other: it is what the row multiplies by, and no rewrite
-    needs to know its value.
+    The 0 and 1 a binary's domain fixes, which no bounds block carries;
+    otherwise the member's own declared bounds, each a number or the name of a
+    parameter. A parameter is a coefficient like any other: it is what the row
+    multiplies by, and no rewrite needs to know its value. Nothing else is a
+    coefficient: a number below the bound would cap a picked member the set
+    does not cap, and one above it is a looser row than the bound already
+    states.
     """
     fixed = domain == 'binary'
     below = 0.0 if fixed else (None if lower == float('-inf') else lower)
-    if bound is not None:
-        return below, bound
     return below, (1.0 if fixed else (None if upper == float('inf') else upper))
 
 
@@ -127,7 +126,7 @@ def emit(raw: dict[str, object], name: str) -> None:
         'dims': [d for d in dims if d != over],
         'expression': f'sum({emitted.seg}, over={over}) <= 1',
     }
-    below, above = _coefficients(block, member)
+    below, above = _coefficients(member)
     constraints[emitted.link] = {'dims': dims, 'expression': f'{variable} <= {_scaled(above, picked)}'}
     if below != 0.0:
         constraints[emitted.below] = {'dims': dims, 'expression': f'{variable} >= {_scaled(below, picked)}'}
@@ -143,18 +142,17 @@ def _scaled(factor: float | str, picked: str) -> str:
     return f'({picked})' if factor == 1.0 else f'{factor} * ({picked})'
 
 
-def _coefficients(block: dict[str, object], member: dict[str, object]) -> tuple[float | str, float | str]:
-    """The two coefficients as an expression writes them, read off the set and its member."""
+def _coefficients(member: dict[str, object]) -> tuple[float | str, float | str]:
+    """The two coefficients as an expression writes them, read off the member."""
     bounds: dict[str, object] = {'lower': float('-inf'), 'upper': float('inf')}
     declared = member.get('bounds')
     assert declared is None or isinstance(declared, dict), 'a validated model carries a bounds block as a mapping'
     bounds.update(declared or {})
-    lower, upper, bound = bounds['lower'], bounds['upper'], block.get('bound')
+    lower, upper = bounds['lower'], bounds['upper']
     assert isinstance(lower, float | str) and isinstance(upper, float | str), (
         'a bound is a number or the name of a parameter'
     )
-    assert bound is None or isinstance(bound, float), 'the schema holds bound: to a number'
-    below, above = coefficients(bound, str(member.get('domain', 'continuous')), lower, upper)
+    below, above = coefficients(str(member.get('domain', 'continuous')), lower, upper)
     assert below is not None and above is not None, 'a set with a side left open is refused at load'
     return below, above
 
