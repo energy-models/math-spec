@@ -122,10 +122,11 @@ PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 #: writes out on request.
 Formulation = Literal['piecewise', 'sos']
 
-#: The shape a method needs a curve to have to be exact on it, carried by the
-#: :class:`~math_spec.program.Curved` check. ``convex`` and ``concave`` name
-#: one bend; ``either`` is the hull's weaker condition — any single bend will
-#: do, and only a *mixed* curve fails it.
+#: The shape a method needs a curve to have to be exact on it, which the
+#: ``<block>_curvature`` assumption states. ``convex`` and ``concave`` name the
+#: side a bounded link binds from; ``either`` is the weaker condition a block
+#: with both links pinned states — any single bend will do, and only a *mixed*
+#: curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
 
 #: The set form of each vocabulary above, for callers that want membership.

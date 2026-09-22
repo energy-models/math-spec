@@ -117,10 +117,10 @@ this section.
 
 A [`piecewise:`](piecewise.md) block puts its own conditions on the numbers.
 Its breakpoints increase along the curve, and the shape is the one its
-`method:` is exact for. The language derives both from the method, not from
-anything the file writes, and carries them beside the written ones under the
-name a refusal quotes. A `method: convex` block called `curve` adds
-`curve increasing` and `curve curvature`.
+`method:` is exact for. The language derives both from the method and the sign
+on its links, not from anything else the file writes, and carries them beside
+the written ones under the name a refusal quotes. A `method: convex` block
+called `curve` adds `curve_increasing` and `curve_curvature`.
 
 Both kinds print under one _Assumptions_ heading, because a reader checking
 the data against the document checks all of them.

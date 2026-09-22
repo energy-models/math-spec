@@ -357,13 +357,20 @@ LP_CONCAVE = override(
         'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '<=']],
     },
 )
+#: Both links pinned, so nothing says which way the weights are pushed.
 CONVEX = override(raw_of(NONCONVEX_YAML), **{'piecewise.cost_curve.method': 'convex'})
+#: The hull bounded below, which is the same relaxation ``lp`` states as its segment lines.
+CONVEX_BOUNDED = override(CONVEX, **{'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]})
+#: The hull bounded above, so the binding side is the upper one.
+CONVEX_BOUNDED_BELOW = override(CONVEX, **{'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '<=']]})
 
 
 #: Named so the completeness check below can read the answers back off them.
 _CURVATURE_CASES = [
     pytest.param(raw_of(NONCONVEX_YAML), None, id='adjacency-takes-any-shape'),
-    pytest.param(CONVEX, 'either', id='convex-cuts-corners-off-a-mixed-curve'),
+    pytest.param(CONVEX, 'either', id='convex-pinned-both-ways-states-a-single-bend'),
+    pytest.param(CONVEX_BOUNDED, 'convex', id='convex-bounded-above-states-a-convex-curve'),
+    pytest.param(CONVEX_BOUNDED_BELOW, 'concave', id='convex-bounded-below-states-a-concave-curve'),
     pytest.param(LP, 'convex', id='lp-bounded-above-states-a-convex-curve'),
     pytest.param(LP_CONCAVE, 'concave', id='lp-bounded-below-states-a-concave-curve'),
 ]

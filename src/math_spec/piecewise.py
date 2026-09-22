@@ -41,16 +41,23 @@ _UNGATED = '_ungated'
 def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
 
-    ``convex`` relaxes the weights onto the hull, which cuts the corners of a
-    *mixed* curve and nothing else, so it answers ``'either'``. ``lp`` states
-    one side of the curve as its segment lines and the bounded link's sign says
-    which side, so the opposite bend is silently wrong rather than merely loose.
+    A bounded link binds from one side, and that side is the hull boundary the
+    weights are driven onto: ``>=`` reaches the lower one, which is the curve
+    itself only where the curve is convex. ``lp`` states that boundary as its
+    segment lines and ``convex`` relaxes the weights onto it, so the two rest
+    on the same shape and read the same sign for it. The opposite bend is
+    silently wrong rather than merely loose.
+
+    With both links pinned the weights range over the whole hull, and what
+    drives them within it is the objective rather than the block. There the
+    most a method states is ``'either'``: a mixed curve is wrong whichever way
+    the pressure runs, and a single bend is exact one of the two ways.
     """
-    if pw.method == 'convex':
-        return 'either'
-    if pw.method != 'lp':
+    if pw.method not in ('convex', 'lp'):
         return None
-    return 'convex' if pw.curve[1].sign == '>=' else 'concave'
+    if (sign := pw.curve[1].sign) == '==':
+        return 'either'
+    return 'convex' if sign == '>=' else 'concave'
 
 
 def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:

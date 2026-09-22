@@ -133,10 +133,16 @@ the axis. A gap, or a curve with no points, is refused when the data binds.
 They differ in what the solver is handed: `adjacency` **is** `sos2` with the set
 written out, so the two emit the same rows under the same names.
 
-`convex` is a different model. It is exact only for a curve whose curvature
-matches the optimisation pressure, and that match is checked against the
-breakpoint values when the data binds. It takes exactly two links and no
+`convex` is a different model: the weights range over the hull the breakpoints
+span rather than over the curve itself. It takes exactly two links and no
 `activity:`.
+
+A bounded link binds from one side, and that side is the part of the hull the
+weights are driven onto. `>=` requires a convex curve and `<=` a concave one.
+With both links pinned the weights reach the whole hull. What drives them
+within it is the rest of the model rather than the block, so the curve must
+bend one way only. Each of the three conditions is checked against the
+breakpoint values when the data binds.
 
 `lp` states the curve as its segment lines. It needs **exactly two links**, one
 of them bounded with `<=` or `>=`, and no `activity:`:
@@ -151,9 +157,8 @@ piecewise:
       - [op_cost, bp_y, ">="] # cost bounded below by the curve
 ```
 
-`>=` requires a convex curve and `<=` a concave one, checked against the values
-when the data binds. The two domain rows hold the pinned link inside the
-breakpoint range.
+The bounded link decides the shape, as it does under `convex` above. The two
+domain rows hold the pinned link inside the breakpoint range.
 
 `links:` is a list, so the number of expressions a block ties is written in the
 file. Where that number is data, write the formulation out
