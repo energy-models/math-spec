@@ -41,8 +41,11 @@ from math_spec._expression_parser import (
 from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
 from math_spec.program import (
+    ArithmeticComparison,
+    CountComparison,
     DimensionComparison,
     DimensionPosition,
+    ExpressionComparison,
     JoinColumns,
     Mask,
     ParameterComparison,
@@ -51,6 +54,7 @@ from math_spec.program import (
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    TranslatedPredicate,
     VariableDefined,
 )
 
@@ -540,17 +544,23 @@ def _check_where_dims(
             continue
         match atom:
             case ParameterDefined() | ParameterComparison():
-                noun = 'parameter'
+                leaf = f"where-parameter '{atom.name}'"
             case VariableDefined():
-                noun = 'variable'
+                leaf = f"where-variable '{atom.name}'"
             case DimensionComparison() | DimensionPosition():
-                noun = 'dimension'
+                leaf = f"where-dimension '{atom.name}'"
             case RelationComparison() | RelationPairComparison() | RelationDefined():
-                noun = 'relation'
+                leaf = f"where-relation '{atom.name}'"
+            case ArithmeticComparison() | ExpressionComparison():
+                leaf = 'a where-comparison of expressions'
+            case CountComparison():
+                leaf = f"a where-count over '{atom.over}'"
+            case TranslatedPredicate():
+                leaf = f"a where-predicate translated along '{atom.along}'"
             case _:
                 assert_never(atom)
         raise DimensionError(
-            f"{context}: where-{noun} '{atom.name}' reads dims {outside} outside the frame {sorted(frame)}. "
+            f'{context}: {leaf} reads dims {outside} outside the frame {sorted(frame)}. '
             f'Reducing a mask over an unlisted dim would silently widen it — add the dim to dims:, '
             f'or test a name the frame carries.'
         )

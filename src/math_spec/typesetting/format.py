@@ -56,6 +56,8 @@ OperatorName = Literal[
     'integers',
     'binary_set',
     'sos_set',
+    'curve',
+    'hull',
     'position',
     'dual',
     'minimize',
@@ -66,9 +68,11 @@ OperatorName = Literal[
 #: LaTeX spelling first and its Typst spelling second — one row per operator,
 #: so no format can be missing one. ``such_that`` is the colon in
 #: "∀ t ∈ T : condition", ``times`` sits between sets in the legend,
-#: ``maps_to`` is the → in a coordinate map, and the three translations are
-#: three models: plain leaves the vacated position absent, ``cyclic_*`` wraps,
-#: ``edge_*`` fills it with the value it carries as a subscript.
+#: ``maps_to`` is the → in a coordinate map, ``curve`` and ``hull`` are the two
+#: sets a ``piecewise:`` block states its links lie on, and the three
+#: translations are three models: plain leaves the vacated position absent,
+#: ``cyclic_*`` wraps, ``edge_*`` fills it with the value it carries as a
+#: subscript.
 OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'cdot': (r'\cdot', 'dot'),
     'plus': ('+', '+'),
@@ -98,6 +102,8 @@ OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'integers': (r'\mathbb{Z}', 'ZZ'),
     'binary_set': (r'\{0, 1\}', '{0, 1}'),
     'sos_set': (r'\mathrm{SOS}', 'upright("SOS")'),
+    'curve': (r'\mathrm{pwl}', 'upright("pwl")'),
+    'hull': (r'\mathrm{conv}', 'upright("conv")'),
     'position': (r'\mathrm{pos}', 'upright("pos")'),
     'dual': (r'\lambda', 'lambda'),
     'minimize': (r'\min', 'min'),
@@ -222,6 +228,10 @@ class Format(Protocol):
         ...
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
+
+    def set_of(self, members: str, condition: str) -> str:
+        """A set by comprehension: ``{ k ∈ K : condition }``."""
+        ...
 
     def summation(self, domain: str, body: str) -> str: ...
 

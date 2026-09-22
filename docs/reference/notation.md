@@ -45,6 +45,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int } # the breakpoints every curve below runs through
 
 relations:
   gen_bus: { key: generator, values: bus }
@@ -69,6 +70,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [generator, bp] } # the x-axis of every curve below, and what a derived mask is read from
+  bp_y: { dims: [generator, bp] }
+  bp_heat: { dims: [generator, bp] }
+  bp_run: { dims: [generator, bp], dtype: bool } # how far each curve runs, so a block has a mask to print
 ```
 
 #### Sets
@@ -81,6 +86,7 @@ parameters:
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{S}`$ | index $`s`$ — `season` with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}`$ |
 | $`\mathcal{E}`$ | index $`e`$ — `technology` with $`\mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
+| $`\mathcal{A}`$ | index $`a`$ — `bp` |
 
 #### Parameters
 
@@ -98,6 +104,10 @@ parameters:
 | $`\mathrm{lead}`$ | `lead` over $`\mathcal{G}`$ |
 | $`\mathrm{budget}`$ | `budget` (scalar) |
 | $`\mathrm{growth}`$ | `growth` (scalar) |
+| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_heat}`$ | `bp_heat` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_run}`$ | `bp_run` over $`\mathcal{G} \times \mathcal{A}`$ |
 
 #### Variables
 
@@ -113,11 +123,16 @@ parameters:
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{fuel}`$ | `fuel` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{heat}`$ | `heat` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{warm}`$ | `warm` over $`\mathcal{T} \times \mathcal{G}`$ |
 
 #### Definitions
 
 | Symbol | Meaning |
 |---|---|
+| $`\mathrm{spend}^{\mathrm{cap}}`$ | `spend_cap` over $`\mathcal{G}`$ |
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
 | $`\mathit{marginal\_price}`$ | `marginal_price` over $`\mathcal{T} \times \mathcal{B}`$ |
@@ -701,7 +716,124 @@ never:
 \mathit{slack}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T} \,:\, \bot
 ```
 
+#### `margin`
+
+a mask comparing two expressions, which prints as the arithmetic it is
+
+```yaml
+margin:
+  dims: [snapshot, generator]
+  where: "p_max - p_min > cost / 2"
+  expression: p <= p_max
+```
+
+```math
+p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} - \mathrm{p}^{\mathrm{min}}_{g} > \frac{\mathrm{cost}_{g}}{2}
+```
+
+#### `ramped`
+
+a translation under a comparison names its edge, a pullback reads through a relation, and the position keeps the vacated row out
+
+```yaml
+ramped:
+  dims: [snapshot, bus]
+  where: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of, over=zone, into=bus) AND position(snapshot) > 0"
+  expression: slack <= load
+```
+
+```math
+\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \wedge \mathrm{pos}(t) > 0
+```
+
+#### `covered`
+
+a reduction on a side of a scalar mask, so nothing is left to quantify
+
+```yaml
+covered:
+  dims: []
+  where: "sum(p_max, over=generator) >= budget"
+  expression: sum(p) <= budget
+```
+
+```math
+\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget} \qquad \text{where } \sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget}
+```
+
+#### `counted`
+
+a count of the coordinates a predicate admits, which reduces one dim away
+
+```yaml
+counted:
+  dims: [bus]
+  where: "count(tech_cap > 0, over=technology) >= 2"
+  expression: theta <= budget
+```
+
+```math
+\theta_{b} \le \mathrm{budget} \qquad \forall\, b \in \mathcal{B} \,:\, \lvert \{ e \in \mathcal{E} \,:\, \mathrm{tech\_cap}_{b,e} > 0 \} \rvert \ge 2
+```
+
+#### `counted_here`
+
+the same count along a dim the frame carries, so the set takes a primed dummy
+
+```yaml
+counted_here:
+  dims: [bus, technology]
+  where: "count(tech_cap > 0, over=technology) >= 2"
+  expression: theta <= tech_cap
+```
+
+```math
+\theta_{b} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E} \,:\, \lvert \{ e' \in \mathcal{E} \,:\, \mathrm{tech\_cap}_{b,e'} > 0 \} \rvert \ge 2
+```
+
+#### `run_start`
+
+a predicate read one coordinate back, which is false where the translation vacates
+
+```yaml
+run_start:
+  dims: [snapshot, bus]
+  where: "load AND NOT shift(load, along=snapshot, offset=1)"
+  expression: slack <= load
+```
+
+```math
+\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} \text{ is defined} \wedge \neg \left( \mathrm{load}_{t - 1,b} \text{ is defined} \right)
+```
+
+#### `capped`
+
+an expressions: entry on a side, read by the name the file gave it
+
+```yaml
+capped:
+  dims: [snapshot, generator]
+  where: "spend_cap > 0 OR NOT is_flexible"
+  expression: p <= p_max
+```
+
+```math
+p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g}
+```
+
 ### Definitions
+
+#### `spend_cap`
+
+a data-only entry, so a where may compare it
+
+```yaml
+spend_cap: cost * 2
+```
+
+```math
+\mathrm{spend}^{\mathrm{cap}}_{g} = \mathrm{cost}_{g} \cdot 2 \qquad \forall\, g \in \mathcal{G}
+```
 
 #### `spend`
 
@@ -901,15 +1033,72 @@ weight:
 0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-### Curves, as what they expand to
+#### `fuel`
 
-A curve is sugar: what prints is the formulation it expands to, which is the math the solver receives. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
+a curve's second axis
+
+```yaml
+fuel:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{fuel}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `heat`
+
+its third, so one curve ties three expressions
+
+```yaml
+heat:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{heat}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `op_cost`
+
+bounded by a curve rather than pinned to it
+
+```yaml
+op_cost:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{op\_cost}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `warm`
+
+a gate not every unit has, so the curve it gates is ungated where it does not exist
+
+```yaml
+warm:
+  dims: [snapshot, generator]
+  domain: binary
+  where: "is_flexible"
+```
+
+```math
+\mathit{warm}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{is\_flexible}_{g}
+```
+
+### Curves
+
+A curve prints as the curve it states, over the frame the block builds one per coordinate of, and its expansion prints the rows that curve stands for. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
 
 #### `economies_of_scale`
 
 **`method: adjacency`** — a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -930,6 +1119,12 @@ economies_of_scale:
 ```
 
 ```math
+\left( \mathit{shipment}_{p,m},\ \mathit{scaled}_{p,m} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{b},\ \mathrm{y}_{b}) \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+```
+
+Written out by `spec.expand()`:
+
+```math
 \sum_{b \in \mathcal{B}} \lambda_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
 ```
 
@@ -942,7 +1137,7 @@ economies_of_scale:
 ```
 
 ```math
-\sum_{b \in \mathcal{B}} \delta_{p,m,b} = 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
+\sum_{b \in \mathcal{B}} \delta_{p,m,b} \le 1 \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M}
 ```
 
 ```math
@@ -957,11 +1152,15 @@ economies_of_scale:
 \delta_{p,m,b} \in \{0, 1\} \qquad \forall\, p \in \mathcal{P},\ m \in \mathcal{M},\ b \in \mathcal{B}
 ```
 
+```math
+\mathrm{x}_{b} \text{ is defined} \wedge \mathrm{y}_{b} \text{ is defined} \qquad \forall\, b \in \mathcal{B}
+```
+
 #### `cost_curve`
 
 **`method: sos2`** — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -980,6 +1179,12 @@ cost_curve:
     - [op_cost, bp_y]
   method: sos2
 ```
+
+```math
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
 
 ```math
 \sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
@@ -1001,11 +1206,15 @@ cost_curve:
 \left( \lambda_{t,g,b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+```math
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
 #### `cost_curve`
 
 **`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1026,6 +1235,12 @@ cost_curve:
 ```
 
 ```math
+\left( \mathit{dispatch}_{t,g},\ \mathit{op\_cost}_{t,g} \right) \in \mathrm{conv}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
+
+```math
 \sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
@@ -1041,11 +1256,23 @@ cost_curve:
 0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 
+```math
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{x}_{g,b \boxminus_{0} 1} < \mathrm{x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) > 0
+```
+
+```math
+\lvert \{ b \in \mathcal{B} \,:\, \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathrm{x}_{g,b \boxplus_{0} 1} - \mathrm{x}_{g,b} \right) > \left( \mathrm{y}_{g,b \boxplus_{0} 1} - \mathrm{y}_{g,b} \right) \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \wedge \mathrm{pos}(b) > 0 \wedge \mathrm{pos}(b) \neq \lvert \mathcal{B} \rvert - 1 \} \rvert = 0 \vee \lvert \{ b \in \mathcal{B} \,:\, \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathrm{x}_{g,b \boxplus_{0} 1} - \mathrm{x}_{g,b} \right) < \left( \mathrm{y}_{g,b \boxplus_{0} 1} - \mathrm{y}_{g,b} \right) \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \wedge \mathrm{pos}(b) > 0 \wedge \mathrm{pos}(b) \neq \lvert \mathcal{B} \rvert - 1 \} \rvert = 0 \qquad \forall\, g \in \mathcal{G}
+```
+
 #### `cost_curve`
 
 **`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the weights print as:
+Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the breakpoints print as:
 
 ```yaml
 notation: latex
@@ -1065,6 +1292,12 @@ cost_curve:
 ```
 
 ```math
+\mathit{op\_cost}_{t,g} \ge \mathrm{pwl}_{b \in \mathcal{B}}(\mathrm{x}_{g,b},\ \mathrm{y}_{g,b})(\mathit{dispatch}_{t,g}) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+Written out by `spec.expand()`:
+
+```math
 \mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathit{dispatch}_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) \neq 0
 ```
 
@@ -1076,7 +1309,25 @@ cost_curve:
 \mathit{dispatch}_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
 ```
 
+```math
+\mathrm{x}_{g,b} \text{ is defined} \wedge \mathrm{y}_{g,b} \text{ is defined} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{x}_{g,b \boxminus_{0} 1} < \mathrm{x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) > 0
+```
+
+```math
+\left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathrm{x}_{g,b \boxplus_{0} 1} - \mathrm{x}_{g,b} \right) \le \left( \mathrm{y}_{g,b \boxplus_{0} 1} - \mathrm{y}_{g,b} \right) \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) > 0 \wedge \mathrm{pos}(b) \neq \lvert \mathcal{B} \rvert - 1
+```
+
+```math
+\lvert \{ b \in \mathcal{B} \,:\, \mathrm{x}_{g,b} \text{ is defined} \} \rvert \ge 2 \qquad \forall\, g \in \mathcal{G}
+```
+
 ### Sets carried to the solver
+
+A set prints beside the variable it restricts, because it restricts that variable rather than adding a row of its own. Under it are the rows it is written out as.
 
 #### `adjacent`
 
@@ -1091,5 +1342,123 @@ adjacent:
 
 ```math
 \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\, t \in \mathcal{T}
+```
+
+Written out by `spec.expand()`:
+
+```math
+\sum_{g \in \mathcal{G}} \mathit{adjacent\_seg}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T}
+```
+
+```math
+\mathit{weight}_{t,g} \le \mathit{adjacent\_seg}_{t,g} + \mathit{adjacent\_seg}_{t,g \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+```math
+\mathit{adjacent\_seg}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+### What the data has to satisfy
+
+#### `bounds_do_not_cross`
+
+two parameters, which is arithmetic like any other
+
+```yaml
+bounds_do_not_cross: "p_min <= p_max"
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `efficiency_is_a_fraction`
+
+a connective, so the line has no relation to align on
+
+```yaml
+efficiency_is_a_fraction: "eta > 0 AND eta <= 1"
+```
+
+```math
+\mathrm{eta}_{g} > 0 \wedge \mathrm{eta}_{g} \le 1 \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `lead_times_are_short`
+
+one parameter against a literal
+
+```yaml
+lead_times_are_short: "lead <= 3"
+```
+
+```math
+\mathrm{lead}_{g} \le 3 \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `zones_agree`
+
+two maps into one set, compared row by row
+
+```yaml
+zones_agree: "zone_of == area_of"
+```
+
+```math
+\mathrm{zone\_of}(b) = \mathrm{area\_of}(b) \qquad \forall\, b \in \mathcal{B}
+```
+
+#### `budget_covers_the_peak`
+
+a reduction on a side, leaving nothing to quantify
+
+```yaml
+budget_covers_the_peak: "sum(p_max, over=generator) >= budget"
+```
+
+```math
+\sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget}
+```
+
+#### `ramps_are_gentle`
+
+a translation inside arithmetic, and a position keeping the vacated row out
+
+```yaml
+ramps_are_gentle:
+  holds: "load - shift(load, along=snapshot, offset=1, edge=0) <= budget"
+  where: "position(snapshot) > 0"
+```
+
+```math
+\mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{pos}(t) > 0
+```
+
+#### `flexible_units_have_headroom`
+
+a bare bool parameter as the where
+
+```yaml
+flexible_units_have_headroom:
+  holds: "p_min < p_max"
+  where: "is_flexible"
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} < \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{is\_flexible}_{g}
+```
+
+#### `northern_demand_is_real`
+
+a relation comparison as the where, over a frame two dims wide
+
+```yaml
+northern_demand_is_real:
+  holds: "load >= 0"
+  where: "zone_of == 'north'"
+```
+
+```math
+\mathrm{load}_{t,b} \ge 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'}
 ```
 <!-- notation:end -->
