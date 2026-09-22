@@ -521,6 +521,10 @@ class Join:
     def added_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.added)
 
+    @property
+    def kept_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.kept)
+
 
 @dataclass(frozen=True)
 class Partition:
