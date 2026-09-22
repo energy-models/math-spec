@@ -45,7 +45,7 @@ holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
     --8<-- "tests/expand/set-type1/before.yaml"
     ```
 
-=== "After `expand()`"
+=== "`expand()`"
 
     ```yaml
     --8<-- "tests/expand/set-type1/after.yaml"
@@ -58,9 +58,15 @@ names is refused at load.
 ## 3. Read a curve
 
 The `piecewise:` block below ties `x` and `y` to a curve through the
-breakpoints in `x_bp` and `y_bp`. Its expansion adds a weight per breakpoint,
-one link row per tied variable, and the binaries that keep the two nonzero
-weights next to each other.
+breakpoints in `x_bp` and `y_bp`. A `method: sos2` curve states a set, so it
+writes out in two steps. Compare the tabs from left to right:
+
+- **`expand('piecewise')` writes the curve out and leaves its set.** It adds a
+  weight per breakpoint and one link row per tied variable. An `sos:` block
+  over the weights keeps at most two neighbouring weights nonzero.
+- **`expand()` writes the set out too.** The `sos:` block becomes one binary
+  per segment and the rows that keep the two nonzero weights next to each
+  other.
 
 === "Before"
 
@@ -68,37 +74,29 @@ weights next to each other.
     --8<-- "tests/expand/curve-sos2/before.yaml"
     ```
 
-=== "After `expand()`"
+=== "`expand('piecewise')`"
+
+    ```yaml
+    --8<-- "tests/expand/curve-sos2-piecewise/after.yaml"
+    ```
+
+=== "`expand()`"
 
     ```yaml
     --8<-- "tests/expand/curve-sos2/after.yaml"
     ```
 
-The expansion also writes an
+Both expansions also write an
 [`assumptions:`](../reference/language/assumptions.md) row. A missing
 breakpoint row reads as a zero, not as a shorter curve, so the curve states
 that its breakpoints are there.
 
 ## 4. Write out one kind at a time
 
-Pass a kind to keep the other construct. A `method: sos2` curve states a set,
-so `expand('piecewise')` writes the curve out and leaves that set standing:
-
-=== "Before"
-
-    ```yaml
-    --8<-- "tests/expand/curve-sos2-piecewise/before.yaml"
-    ```
-
-=== "After `expand('piecewise')`"
-
-    ```yaml
-    --8<-- "tests/expand/curve-sos2-piecewise/after.yaml"
-    ```
-
-`expand('sos')` writes the sets out and keeps the curves. `expand()` with no
-argument writes the curves out first, because a curve can state a set and a set
-never states a curve.
+Pass a kind to keep the other construct. `expand('piecewise')` keeps the sets,
+and `expand('sos')` keeps the curves. `expand()` with no argument writes the
+curves out first, because a curve can state a set and a set never states a
+curve.
 
 ## Every method, before and after
 

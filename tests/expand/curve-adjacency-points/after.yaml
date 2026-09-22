@@ -49,5 +49,5 @@ assumptions:
     holds: count(x_bp AND NOT shift(x_bp, along=bp, offset=1), over=bp) == 1
     description: >-
       piecewise 'curve': points: 'x_bp' must mark a consecutive run of at least
-      one breakpoint per curve — the chord row joins a breakpoint to the one
-      before it, and the domain rows sit on the curve's own first and last.
+      one breakpoint per curve — the weights are nonzero only on two
+      neighbouring breakpoints, and a gap leaves no neighbour across it.
