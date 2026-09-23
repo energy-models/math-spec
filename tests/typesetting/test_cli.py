@@ -70,21 +70,23 @@ def test_check_accepts_the_model_that_carries_every_construct(capsys):
     """The golden model exercises every operator and every edge policy, so
     `check` accepting it is the claim that the whole language loads through
     one door — and that none of it draws advice."""
-    assert front.main(['check', str(golden.MODEL), '--expand']) == 0, 'the whole language loads'
+    assert front.main(['check', str(golden.MODEL)]) == 0, 'the whole language loads'
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
-def test_check_writes_no_curve_out_unasked(capsys):
-    """`check` expanded every curve on the user's behalf, the one verb that read a file differently from the rest.
+def test_check_reads_a_curve_as_written(capsys):
+    """`check` expanded every curve on the user's behalf, then refused a curve without `--expand`; either way
+    it read a file differently from the typeset verbs, which print it as written.
 
-    Nothing in the package writes a formulation out unasked: `check` refuses
-    a curve model as any consumer building rows does, and `--expand` is how
-    the shell asks for the rows, the flag the typeset verbs already take.
+    Advice reads a block as the rows it states, so `check` takes the file as
+    written and has no `--expand`: the rows are a different document to
+    print, not a different model to advise on.
     """
-    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 1, 'a curve left as written is a refusal'
-    captured = capsys.readouterr()
-    assert captured.out == '' and 'is still a curve' in captured.err, 'the refusal goes to stderr and names the block'
-    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand']) == 0, 'asked for, the rows are checked'
+    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 0, 'a curve left as written is checked as written'
+    assert capsys.readouterr() == ('', ''), 'no advice, no output'
+    with pytest.raises(SystemExit) as left:
+        front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand'])
+    assert left.value.code == 2, 'check has no --expand, since it would change nothing'
 
 
 def _carries(stream: str, said: str) -> bool:
