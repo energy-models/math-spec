@@ -22,8 +22,8 @@ machine and in CI.
 
    Advice prints on stdout and exits with status 0. A model the language
    accepts with nothing to advise prints nothing. A model with a `piecewise:`
-   block is refused as written, because advice reads the rows a curve states
-   and nothing writes them out unasked: pass `--expand` to check the rows.
+   block is refused as written, because advice reads the rows a curve is expanded
+   into and nothing expands a curve unasked: pass `--expand` to check the rows.
 
    ```text
    Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is -inf, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.
@@ -39,8 +39,8 @@ machine and in CI.
 
 3. **Ask from Python** where the check is one step of a longer script.
    `to_spec` raises a `MathSpecError` for anything the language refuses, and
-   `advice` returns what it would print. Advice reads the rows a curve states,
-   so pass the model with its curves written out:
+   `advice` returns what it would print. Advice reads the rows a curve is expanded into,
+   so pass the model with its curves expanded:
 
    ```python
    import math_spec as ms

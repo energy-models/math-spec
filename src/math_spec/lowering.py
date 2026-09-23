@@ -9,8 +9,8 @@ loads: it reads every expression and where string into the program's own
 nodes, checks every rule decidable without data, and packages the
 declarations, section for section. The program mirrors the model it was
 lowered from: a ``piecewise:`` block the model still declares is a curve on
-the program, and :meth:`~math_spec.model.Spec.expand` is what writes it out
-as rows.
+the program, and :meth:`~math_spec.model.Spec.expand` is what expands it
+into rows.
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ def lower(schema: Spec) -> Program:
       not a silently-empty mask;
     - macro formals may shadow model names but not a declared dimension, since
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
-    - no name a set or curve writes out is one the file declares
+    - no name a set or curve emits when expanded is one the file declares
       (:func:`~math_spec.validation.emitted_name_errors`), read off the
       curve as lowered;
     - every dim rule (``dimensions.check_schema``), once names resolve.
@@ -82,7 +82,7 @@ def lower(schema: Spec) -> Program:
     the link the file wrote, so the expansion writes rows the language has
     already held to every rule; what its method assumes of the breakpoints
     stands under the program's assumptions with the file's own, so a model
-    states what it assumes whether or not its curves are written out.
+    states what it assumes whether or not its curves are expanded.
 
     Returns:
         The program of what *schema* declares, section for section.

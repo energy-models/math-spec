@@ -257,7 +257,7 @@ class SymbolTable:
 
         A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
         one table spells both readings of a model: the blocks as the file states
-        them, and the rows :meth:`~math_spec.model.Spec.expand` writes out.
+        them, and the rows :meth:`~math_spec.model.Spec.expand` expands them into.
         """
         dims = set(program.dimensions)
         everything = dims | _declared(program) | _emitted(program)
@@ -276,7 +276,7 @@ def _declared(program: Program) -> set[str]:
 
 
 def _emitted(program: Program) -> set[str]:
-    """Every name writing *program*'s curves and sets out would declare."""
+    """Every name expanding *program*'s curves and sets would declare."""
     emitted = [
         *(Emitted.of(name, curve).by_kind for name, curve in program.piecewise.items()),
         *(EmittedSet.of(name, block.sos_type).by_kind for name, block in program.sos.items()),

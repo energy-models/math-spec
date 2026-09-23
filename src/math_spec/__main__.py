@@ -8,7 +8,7 @@
 per typeset format, read off :data:`math_spec.typesetting.FORMATS`. Every verb
 reads the file as written and takes ``--expand``, because a shell cannot
 compose :meth:`~math_spec.model.Spec.expand` the way a caller does, and
-nothing here writes a formulation out unasked.
+nothing here expands a formulation unasked.
 """
 
 from __future__ import annotations

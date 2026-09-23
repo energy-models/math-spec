@@ -73,7 +73,7 @@ def test_the_order_is_the_languages_rather_than_the_callers():
     """A curve states a set, so asking for the set first would leave one behind."""
     asked_backwards = schema_of(CURVE).expand('sos', 'piecewise')
 
-    assert not asked_backwards.sos and not asked_backwards.piecewise, 'both are written out either way round'
+    assert not asked_backwards.sos and not asked_backwards.piecewise, 'both are expanded either way round'
 
 
 def test_a_model_with_nothing_to_write_out_is_the_one_that_comes_back():
@@ -91,22 +91,22 @@ def test_each_set_of_kinds_is_expanded_once():
     assert schema.expand() is not schema.expand('piecewise'), 'a set left standing is a different model'
 
 
-def test_the_curves_are_written_out_once_however_they_are_asked_for(monkeypatch):
+def test_the_curves_are_expanded_once_however_they_are_asked_for(monkeypatch):
     """`expand()` called the curve expander directly, so the model `expand('piecewise')` had
-    already written out and cached was built again, and validated again, on every full ask.
+    already expanded and cached was built again, and validated again, on every full ask.
 
-    Loading writes nothing out: the expander runs on the first ask and never
+    Loading expands nothing: the expander runs on the first ask and never
     again, whichever of the two asks comes first.
     """
     schema = schema_of(CURVE)
     asked: list[Spec] = []
-    written_out = piecewise.expand_piecewise
-    monkeypatch.setattr(piecewise, 'expand_piecewise', lambda spec: asked.append(spec) or written_out(spec))
+    expander = piecewise.expand_piecewise
+    monkeypatch.setattr(piecewise, 'expand_piecewise', lambda spec: asked.append(spec) or expander(spec))
 
-    assert asked == [], 'loading a model writes no curve out'
+    assert asked == [], 'loading a model expands no curve'
     assert not schema.expand().piecewise
     assert not schema.expand('piecewise').piecewise
-    assert asked == [schema], 'the curves were written out once, and that model is the one the sets are written out of'
+    assert asked == [schema], 'the curves were expanded once, and that model is the one the sets are expanded from'
 
 
 def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
@@ -135,7 +135,7 @@ ASSUMED = [
 def test_what_a_curve_assumes_of_its_numbers_rides_on_the_expansion_too(model):
     """`lp` and `convex` are exact only for a curve of the right shape, which no load
     decides. The program carries the condition for the consumer that has the numbers,
-    and writing the curve out must not be the way a model loses it."""
+    and expanding the curve must not be the way a model loses it."""
     spec = schema_of(model)
     stated = spec.expand('piecewise').program.assumptions
     written_out = spec.expand().program.assumptions
@@ -153,6 +153,6 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
     is therefore the same either way."""
     spec = schema_of(model)
     supplied = set(spec.expand('piecewise').program.parameters)
-    written_out = set(spec.expand().program.parameters)
+    expanded = set(spec.expand().program.parameters)
 
-    assert written_out == supplied, 'writing a formulation out asks for data the model it came from did not'
+    assert expanded == supplied, 'expanding a formulation asks for data the model it came from did not'

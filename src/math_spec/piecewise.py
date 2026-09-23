@@ -102,7 +102,7 @@ def assumptions_of(block: str, pw: PiecewiseDeclaration) -> dict[str, Assumption
     a mask must be one run.
 
     Read off the block rather than off an expansion, so a model states what it
-    assumes whether or not its curves have been written out. Each condition is
+    assumes whether or not its curves have been expanded. Each condition is
     an ``assumptions:`` entry over the parameters the file declared, its
     ``description`` naming the method and the rewrite that takes a curve of any
     shape: the expansion writes them into the model, and a model that still
@@ -360,8 +360,8 @@ class _Block:
     def _assumptions(self) -> None:
         """What the method assumes of the numbers, written into the model the expansion returns.
 
-        A formulation states its conditions the way it states its rows, so a
-        model that has been written out carries them as language rather than
+        A formulation states its conditions the way it states its rows, so an
+        expanded model carries them as language rather than
         as something a consumer has to know to ask for.
         """
         assumptions = sos.section(self.raw, 'assumptions')
@@ -460,10 +460,10 @@ class _Block:
 
 
 def expand_piecewise(schema: Spec) -> Spec:
-    """*schema* with every ``piecewise:`` block written out — *schema* itself where it declares none.
+    """*schema* with every ``piecewise:`` block expanded — *schema* itself where it declares none.
 
     A ``method: adjacency`` block states its restriction as the set
-    ``method: sos2`` states, and then that set is written out here too: the
+    ``method: sos2`` states, and then that set is expanded here too: the
     binaries are what the method *is*, so the model that comes back carries no
     set of its own (:func:`math_spec.sos.emit` is where they are spelled).
     Each block's frame and names are read off the program *schema* lowered to.

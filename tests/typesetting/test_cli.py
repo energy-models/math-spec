@@ -74,10 +74,10 @@ def test_check_accepts_the_model_that_carries_every_construct(capsys):
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
-def test_check_writes_no_curve_out_unasked(capsys):
+def test_check_expands_no_curve_unasked(capsys):
     """`check` expanded every curve on the user's behalf, the one verb that read a file differently from the rest.
 
-    Nothing in the package writes a formulation out unasked: `check` refuses
+    Nothing in the package expands a formulation unasked: `check` refuses
     a curve model as any consumer building rows does, and `--expand` is how
     the shell asks for the rows, the flag the typeset verbs already take.
     """

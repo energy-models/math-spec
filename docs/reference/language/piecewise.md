@@ -10,8 +10,7 @@ affine. `piecewise:` states a curve through breakpoints. `sos:` states a family
 of variables of which only one, or only two neighbours, may be non-zero.
 
 Both are **formulations**: each states plain variables and constraints rather
-than being one, and [`spec.expand()`](#writing-a-formulation-out) writes them
-out.
+than being one, and [`spec.expand()`](#expanding-a-formulation) expands them.
 
 ## `piecewise`
 
@@ -56,8 +55,8 @@ A block states plain variables and constraints: one weight per breakpoint in
 `[0, 1]`, one row making the weights sum to 1, and one row per link tying its
 expression to the weighted breakpoints. A `Program` holds those rows, because a
 consumer builds them; the [typeset output](../typeset.md) prints the curve
-itself, and [`spec.expand()`](#writing-a-formulation-out) is what writes the
-rows into a model of their own.
+itself, and [`spec.expand()`](#expanding-a-formulation) expands it into a model
+of those rows.
 
 The breakpoint order is the declared order of `over`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
@@ -65,7 +64,7 @@ decrease in that order is refused when the data binds.
 Every condition this page says is checked "when the data binds" is an
 [assumption](assumptions.md), written in the same grammar as one the file
 states. The `method:` implies it rather than the file writing it, so
-[`expand()`](#writing-a-formulation-out) writes it into `assumptions:` under
+[`expand()`](#expanding-a-formulation) writes it into `assumptions:` under
 the block's own name, and a model that still declares the block derives the
 same text when it loads. Both print under one heading, and the consumer that
 binds the numbers runs them.
@@ -124,14 +123,14 @@ the axis. A gap, or a curve with no points, is refused when the data binds.
 
 | `method`                | What it adds                                                                  |                                                                |
 | ----------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `adjacency` _(default)_ | an [`sos:`](#sos) block over the weights, written out as binaries             | the curve, built                                               |
+| `adjacency` _(default)_ | an [`sos:`](#sos) block over the weights, expanded into binaries              | the curve, built                                               |
 | `sos2`                  | an [`sos:`](#sos) block over the weights, left as a set                       | the curve, stated for a solver that branches on the set itself |
 | `convex`                | nothing                                                                       | the hull, which is a pure linear program                       |
 | `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain | the curve as its own lines                                     |
 
 `adjacency` and `sos2` state the same restriction and reach the same optimum.
 They differ in what the solver is handed: `adjacency` **is** `sos2` with the set
-written out, so the two emit the same rows under the same names.
+expanded, so the two emit the same rows under the same names.
 
 `convex` is a different model: the weights range over the hull the breakpoints
 span rather than over the curve itself. It takes exactly two links and no
@@ -163,7 +162,7 @@ each sits where the mask holds and does not one breakpoint outward, which is
 the first and the last breakpoint of each curve.
 
 `links:` is a list, so the number of expressions a block ties is written in the
-file. Where that number is data, write the formulation out
+file. Where that number is data, expand the formulation by hand
 ([a curve by hand](../../howto/curve-by-hand.md)).
 
 ## `sos`
@@ -189,7 +188,7 @@ Membership belongs to the variable. Its `where` decides which coordinates exist,
 so a masked-out member is not in the set. The order is the declared order of
 the `along` dimension.
 
-### What a set is written out as
+### What a set expands into
 
 `spec.expand('sos')` states the set as binaries: one per member for `type: 1`,
 one per segment for `type: 2`. A member the binaries do not admit is held at
@@ -233,10 +232,11 @@ above that.
 A name the expansion writes that the file already declares is refused at load
 too.
 
-## Writing a formulation out
+## Expanding a formulation
 
-`Spec.expand()` returns the same math with its formulations stated as plain
-variables and constraints:
+To expand a formulation is to state it as the plain variables and constraints
+it stands for. `Spec.expand()` returns the same math with every formulation
+expanded:
 
 ```python
 from math_spec import to_spec
@@ -254,13 +254,13 @@ a model before and after, as whole files.
   other string is refused, naming the two. Curves go first whatever order they
   are asked in, because a `method: sos2` curve states a set and no set states a
   curve.
-- **A model with nothing to write out is the model that comes back.** So is a
+- **A model with nothing to expand is the model that comes back.** So is a
   second call with the same kinds.
 - **The same data binds a model and its expansion.** Neither a set nor a curve
   emits a parameter. A curve under `points:` sits its rows on `where:`
   predicates over the mask the file named, and the expansion is a file like any
   other: `to_yaml()` writes it, and loading it back changes nothing.
-- **`spec.program` writes nothing out.** The program mirrors the model: a
+- **`spec.program` expands nothing.** The program mirrors the model: a
   curve the model still declares is under `program.piecewise`, typed, and
   `spec.expand('piecewise').program` carries its rows instead. A consumer
   building rows reads the expansion's program, and refuses a curve it finds on

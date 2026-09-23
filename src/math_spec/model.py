@@ -83,8 +83,8 @@ class _StrictBlock(BaseModel):
         return data
 
 
-#: A block that states rows rather than being one, which :meth:`Spec.expand`
-#: writes out on request.
+#: A block that stands for plain variables and constraints, which
+#: :meth:`Spec.expand` expands into them on request.
 Formulation = Literal['piecewise', 'sos']
 
 #: The shape a method needs a curve to have to be exact on it, which the
@@ -98,7 +98,7 @@ Curvature = Literal['convex', 'concave', 'either']
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
 
-#: Every formulation, in the order :meth:`Spec.expand` writes them out: a curve
+#: Every formulation, in the order :meth:`Spec.expand` expands them: a curve
 #: emits a set, and no set emits a curve.
 FORMULATIONS: tuple[Formulation, ...] = ('piecewise', 'sos')
 
@@ -708,7 +708,7 @@ class Spec(_StrictBlock):
     The API is the eleven declaration sections plus ``version`` and
     ``description``, three ways back out — :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
-    same math with its formulations written out — and :attr:`program`, the
+    same math with its formulations expanded — and :attr:`program`, the
     model typed, which every reader after load walks. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
@@ -748,7 +748,7 @@ class Spec(_StrictBlock):
         raises here; loading forces it, so every ask on a model in hand is the
         one object. It mirrors the model: a ``piecewise:`` block still in it is
         a curve under ``program.piecewise`` and a ``sos:`` block a set under
-        ``program.sos``, and :meth:`expand` is what writes either out as rows,
+        ``program.sos``, and :meth:`expand` is what expands either into rows,
         so a consumer building rows reads ``spec.expand(...).program`` and
         refuses a block it does not take.
         """
@@ -823,7 +823,7 @@ class Spec(_StrictBlock):
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
     def expand(self, *kinds: Formulation) -> Spec:
-        """This model with its formulations written out as plain variables and constraints.
+        """This model with its formulations expanded into plain variables and constraints.
 
         A formulation states rows rather than being one — ``piecewise:`` states
         a curve, ``sos:`` states which members of a family may be nonzero — and
@@ -833,7 +833,7 @@ class Spec(_StrictBlock):
         and a curve's rows sit on ``where`` predicates over the file's own.
 
         Args:
-            kinds: Which formulations to write out — ``'piecewise'``,
+            kinds: Which formulations to expand — ``'piecewise'``,
                 ``'sos'``, or none of them for every one. They go in
                 :data:`FORMULATIONS` order whatever order they are asked in,
                 because a ``method: sos2`` curve emits a set and no set emits a
@@ -891,7 +891,7 @@ class Spec(_StrictBlock):
 
         A fault in a curve's link is named against the link the file wrote. The
         rows a curve states are held to the language when :meth:`expand`
-        writes them out, since an expansion is a model like any other.
+        expands them, since an expansion is a model like any other.
         """
         _ = self.program
         return self

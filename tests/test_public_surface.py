@@ -38,7 +38,7 @@ SURFACE = frozenset(
 )  # fmt: skip
 
 #: What `Spec` promises beyond the sections a file declares: the two ways back
-#: out and the verb that writes a formulation out. A `model_`-prefixed name is
+#: out and the verb that expands a formulation. A `model_`-prefixed name is
 #: pydantic's, not a contract this project keeps.
 SPEC_SURFACE = frozenset({'to_dict', 'to_yaml', 'expand', 'program'})
 

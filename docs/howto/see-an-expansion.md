@@ -6,11 +6,11 @@ SPDX-License-Identifier: CC-BY-4.0
 # See what a curve or a set expands to
 
 A [`piecewise:`](../reference/language/piecewise.md) block and a `sos:` block
-each stand for plain variables and constraints. Write them out to review a
+each stand for plain variables and constraints. Expand them to review a
 formulation, to teach one, or to hand the model to an engine that has no
 concept of a set.
 
-## 1. Write the formulation out
+## 1. Expand the formulation
 
 `expand()` returns the same math with its formulations stated as plain
 declarations. `to_yaml()` prints the result as a file.
@@ -31,7 +31,7 @@ declarations. `to_yaml()` prints the result as a file.
     ```
 
 The command line prints the expansion as math rather than as YAML. Pass
-`'piecewise'` or `'sos'` to write out one kind and keep the other.
+`'piecewise'` or `'sos'` to expand one kind and keep the other.
 
 ## 2. Read a set
 
@@ -145,12 +145,12 @@ is the binary of the set `pick`.
 
 The `piecewise:` block below ties `x` and `y` to a curve through the
 breakpoints in `x_bp` and `y_bp`. A `method: sos2` curve states a set, so it
-writes out in two steps. Compare the tabs from left to right:
+expands in two steps. Compare the tabs from left to right:
 
-- **`expand('piecewise')` writes the curve out and leaves its set.** It adds a
+- **`expand('piecewise')` expands the curve and leaves its set.** It adds a
   weight per breakpoint and one link row per tied variable. An `sos:` block
   over the weights keeps at most two neighbouring weights nonzero.
-- **`expand()` writes the set out too.** The `sos:` block becomes one binary
+- **`expand()` expands the set too.** The `sos:` block becomes one binary
   per segment and the rows that keep the two nonzero weights next to each
   other.
 
@@ -442,4 +442,4 @@ writes out in two steps. Compare the tabs from left to right:
 The [`assumptions:`](../reference/language/assumptions.md) rows state what
 the curve needs of its data. What
 `expand()` accepts, and what each `method:` emits, is under
-[piecewise curves and SOS](../reference/language/piecewise.md#writing-a-formulation-out).
+[piecewise curves and SOS](../reference/language/piecewise.md#expanding-a-formulation).

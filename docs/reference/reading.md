@@ -76,12 +76,12 @@ program built when the model loaded, so every ask on one model returns one
 object. The program mirrors the model: a `piecewise:` block the model still
 declares is a curve under `program.piecewise`, typed, and a `sos:` block is a
 set under `program.sos`. `spec.expand('piecewise')` is the model with each
-curve written out as rows, and `spec.expand()` writes the sets out too. Which
+curve expanded into rows, and `spec.expand()` expands the sets too. Which
 to read is the caller's to say, because a consumer printing a curve wants the
 curve and a consumer building rows wants the rows. A consumer building rows
 reads the sections it takes and refuses the rest: a curve or a set still on
-the program is a block it did not ask to have written out. Nothing in the
-package writes a block out unasked, so a consumer that wants the rows calls
+the program is a block it did not ask to have expanded. Nothing in the
+package expands a block unasked, so a consumer that wants the rows calls
 `spec.expand('piecewise')` at its own door, and a consumer that refuses a
 curve does so in its own words, naming that call:
 
@@ -101,7 +101,7 @@ rows_of(rows) is rows  # True
 | printing, or checking a model without data                          | `Program` | Every description and every curve is there   |
 | rewriting the file, for `macros:` or the text a link was written as | `Spec`    | A program holds trees, and a file holds text |
 
-## Formulations written out
+## Expanded formulations
 
 `Spec.expand()` returns a `Spec` whose formulations — `piecewise:` and `sos:` —
 are stated as the variables and constraints they stand for. It is the same math,
@@ -115,8 +115,8 @@ spec.expand() is spec.expand()  # True
 ```
 
 A consumer that takes a set lowers `spec.expand('piecewise')`, and one that
-does not lowers `spec.expand()`; what a set is written out as is on the
-[piecewise page](language/piecewise.md#what-a-set-is-written-out-as). A
+does not lowers `spec.expand()`; what a set expands into is on the
+[piecewise page](language/piecewise.md#what-a-set-expands-into). A
 consumer handed a program still carrying a curve or a set it cannot take
 refuses it and names the expansion.
 
@@ -200,7 +200,7 @@ arrives as a `Mask` too. The node classes live in `math_spec.program`.
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one model uses.
-Ask it of the rows a solver takes, since a curve written out uses more of the
+Ask it of the rows a solver takes, since an expanded curve uses more of the
 language than the block did:
 
 ```python

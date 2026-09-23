@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""`sos:` as a formulation: what a set is written out as, and what it may not lose.
+"""`sos:` as a formulation: what a set expands into, and what it may not lose.
 
 Every claim here is one `Spec.expand` reaches with no data bound — which
 declarations a set emits, which coefficient links them, and that the adjacency

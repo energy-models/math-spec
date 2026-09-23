@@ -83,10 +83,10 @@ _SEGMENTS = {
 
 
 def expand_sets(schema: Spec) -> Spec:
-    """*schema* with every ``sos:`` block written out as binaries and the rows that link them.
+    """*schema* with every ``sos:`` block expanded into binaries and the rows that link them.
 
-    The curves an expansion wrote out ride along, because a model whose
-    curves are already written out is the one this is usually asked of.
+    The rows an earlier expansion emitted ride along, because a model whose
+    curves are already expanded is the one this is usually asked of.
     """
     raw = schema.model_dump()
     for name in list(schema.sos):

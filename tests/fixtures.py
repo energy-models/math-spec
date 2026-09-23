@@ -85,7 +85,7 @@ def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Spec:
 
 
 def expanded(source: str | Path | dict[str, Any] | Spec, *kinds: Any, **patch: Any) -> Spec:
-    """:func:`schema_of` with its formulations written out — what a consumer building rows reads from a model with a curve."""
+    """:func:`schema_of` with its formulations expanded — what a consumer building rows reads from a model with a curve."""
     schema = source if isinstance(source, Spec) else schema_of(source, **patch)
     return schema.expand(*kinds)
 

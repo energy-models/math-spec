@@ -107,7 +107,7 @@ def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
 
 
 def test_a_curve_left_as_written_is_refused_however_the_model_arrives():
-    """Advice reads the rows a curve states and writes nothing out on the caller's behalf.
+    """Advice reads the rows a curve states and expands nothing on the caller's behalf.
 
     It once expanded a file or a Spec itself, which is the choice every other
     door leaves to the caller; a program with a block was let through when the

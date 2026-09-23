@@ -64,7 +64,7 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
 
 
 def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
-    """Every name a set or curve of *program* would write out that *schema* already declares.
+    """Every name a set or curve of *program* emits when expanded that *schema* already declares.
 
     Read off the program rather than the file, since what a curve writes is
     decided by the curve as lowered — its links, its method, its mask.
