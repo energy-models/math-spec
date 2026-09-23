@@ -26,7 +26,7 @@ SURFACE = frozenset(
         # the two public states, and the door to both
         'Spec', 'to_spec', 'program',
         # the error tree, and the one wording a consumer's own refusals share
-        'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError', 'UnexpandedCurveError',
+        'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'did_you_mean',
         # the verdicts a consumer asks for rather than re-deriving
         'advice', 'Advice',

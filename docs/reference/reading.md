@@ -82,17 +82,13 @@ curve and a consumer building rows wants the rows. A consumer building rows
 reads the sections it takes and refuses the rest: a curve or a set still on
 the program is a block it did not ask to have written out. Nothing in the
 package writes a block out unasked, so a consumer that wants the rows calls
-`spec.expand('piecewise')` at its own door. The refusal of a curve has one
-wording, `UnexpandedCurveError`, which names the blocks and the expansion to
-pass:
+`spec.expand('piecewise')` at its own door, and a consumer that refuses a
+curve does so in its own words, naming that call:
 
 ```python
-from math_spec import UnexpandedCurveError
-
-
 def rows_of(program):
     if program.piecewise:
-        raise UnexpandedCurveError(program.piecewise)
+        raise ValueError(f"{sorted(program.piecewise)} are curves; pass spec.expand('piecewise')")
     return program
 
 

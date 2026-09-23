@@ -13,15 +13,7 @@ program instead.
 
 from math_spec import program
 from math_spec.advice import advice
-from math_spec.errors import (
-    Advice,
-    DimensionError,
-    LanguageError,
-    MathSpecError,
-    SchemaError,
-    UnexpandedCurveError,
-    did_you_mean,
-)
+from math_spec.errors import Advice, DimensionError, LanguageError, MathSpecError, SchemaError, did_you_mean
 from math_spec.model import Spec
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.typesetting import (
@@ -45,7 +37,6 @@ __all__ = [
     'SchemaError',
     'Spec',
     'SymbolTable',
-    'UnexpandedCurveError',
     'advice',
     'did_you_mean',
     'program',

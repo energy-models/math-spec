@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from math_spec.boundedness import unbounded_notes
-from math_spec.errors import Advice, UnexpandedCurveError
+from math_spec.errors import Advice, LanguageError
 from math_spec.program import GroupSum, Program, Pullback, walk
 from math_spec.validation import to_spec
 
@@ -38,11 +38,18 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
         advice; ``str()`` of each is its sentence.
 
     Raises:
-        UnexpandedCurveError: A ``piecewise:`` block still in the model.
+        LanguageError: A ``piecewise:`` block still in the model, naming the
+            expansion to pass.
     """
     program = model if isinstance(model, Program) else to_spec(model).program
     if program.piecewise:
-        raise UnexpandedCurveError(program.piecewise)
+        named = ', '.join(f"'{name}'" for name in program.piecewise)
+        msg = (
+            f'piecewise: {named} states rows rather than being one, and advice reads the rows. Pass '
+            f"spec.expand('piecewise'), which writes each block out as the variables and constraints it states "
+            f'and keeps every sos: block — or spec.expand(), which writes the sets out as binaries too.'
+        )
+        raise LanguageError(msg)
     return tuple(_never_an_axis(program) + unbounded_notes(program))
 
 
