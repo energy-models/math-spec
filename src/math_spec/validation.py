@@ -15,7 +15,14 @@ from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
 from math_spec.model import Spec
 from math_spec.piecewise import assumptions_of, curve_frame
-from math_spec.program import BooleanLiteral, ConstraintDeclaration, Holds, Mask, ObjectiveDeclaration, VariableDefined
+from math_spec.program import (
+    Assumption,
+    BooleanLiteral,
+    ConstraintDeclaration,
+    Mask,
+    ObjectiveDeclaration,
+    VariableDefined,
+)
 from math_spec.resolution import (
     Namespace,
     Resolved,
@@ -136,7 +143,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         if expression is not None:
             objective = ObjectiveDeclaration(schema.objective.sense, expression)
 
-    assumptions: dict[str, Holds] = {}
+    assumptions: dict[str, Assumption] = {}
     for aname, adef in schema.assumptions.items():
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
@@ -165,7 +172,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     return resolved
 
 
-def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Holds | None:
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:
     """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
 
     A predicate the connectives decide is refused: one that folds to true
@@ -195,7 +202,7 @@ def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[s
     if len(errors) > found:
         return None
     assert holds is not None, 'a where string that read to nothing appended an error'
-    return Holds(Mask(holds), mask_of(where), block.description)
+    return Assumption(Mask(holds), mask_of(where), block.description)
 
 
 def _decided_assumption(context: str, text: str, *, value: bool) -> str:

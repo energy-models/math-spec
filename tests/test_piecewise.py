@@ -17,7 +17,7 @@ from math_spec import CURVATURES
 from math_spec.errors import LanguageError, SchemaError
 from math_spec.lowering import lower_program, to_program
 from math_spec.piecewise import expand_piecewise
-from math_spec.program import Holds, assumption_message
+from math_spec.program import Assumption, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
@@ -456,7 +456,7 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
         'cost_curve_breakpoints',
         'cost_curve_contiguous',
     ], 'an lp curve with a mask assumes all five, each named after the block that implies it'
-    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+    assert all(isinstance(a, Assumption) for a in program.assumptions.values()), (
         'a method states its conditions in the same language the file does, so a consumer has one kind to read'
     )
     assert program.assumptions['cost_curve_increasing'].predicate.names_read == frozenset({'bp_x'}), (

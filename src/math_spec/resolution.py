@@ -57,6 +57,7 @@ from math_spec.operators import (
 from math_spec.program import (
     Add,
     And,
+    Assumption,
     BooleanLiteral,
     Cases,
     Constant,
@@ -70,7 +71,6 @@ from math_spec.program import (
     Expression,
     ExpressionComparison,
     GroupSum,
-    Holds,
     Mask,
     Multiply,
     Named,
@@ -282,7 +282,7 @@ class Resolved:
     constraints: dict[str, ConstraintDeclaration]
     objective: ObjectiveDeclaration | None
     relations: dict[str, RelationDeclaration]
-    assumptions: dict[str, Holds]
+    assumptions: dict[str, Assumption]
     piecewise: dict[str, tuple[Expression, ...]]
 
     @cached_property

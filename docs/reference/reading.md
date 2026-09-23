@@ -111,17 +111,17 @@ refusal quotes. The engine, which has the numbers, runs each one and raises
 `assumption_message` where it fails:
 
 ```python
-from math_spec.program import Holds, assumption_message
+from math_spec.program import Assumption, assumption_message
 
 sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_complete', 'curve_curvature', 'curve_increasing']
-isinstance(program.assumptions['curve_increasing'], Holds)  # True
+isinstance(program.assumptions['curve_increasing'], Assumption)  # True
 message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
 message  # "assumption 'curve_increasing' does not hold for the data bound to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
 written = assumption_message('cost_is_never_negative', program.assumptions['cost_is_never_negative'])
 written  # "assumption 'cost_is_never_negative' does not hold for the data bound to 'bp_y' — a negative cost is a gain the objective would chase"
 ```
 
-One kind stands in that mapping. A `Holds` carries a predicate as two masks —
+One kind stands in that mapping. An `Assumption` carries a predicate as two masks —
 `predicate`, and the `where` it is checked under — and the sentence a refusal
 trails under `description`. What a `piecewise:` block's method implies about
 its breakpoints is written in the same language and stands beside what the
