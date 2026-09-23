@@ -17,9 +17,7 @@ the spine (`spine.py`) plus that rung's own `n.add` calls, data inline, so
 the PyPSA model under review is the script itself. A rung stated by a file of
 its own names it as `MODEL`; one that needs `n.optimize` keywords names them
 as `OPTIMIZE`; one that names `BRANCH_OUTAGES` is solved by
-`n.optimize.optimize_security_constrained` over them. A rung that names `MGA`
-is solved once more through `n.optimize.optimize_mga` with those keywords, and
-that solve is the record. PyPSA is not a dependency
+`n.optimize.optimize_security_constrained` over them. PyPSA is not a dependency
 of this project; this script pins the versions the recorded numbers are from,
 and the `PyPSA references` workflow runs `--check` on every change.
 """
@@ -48,9 +46,9 @@ def build(rung: str) -> pypsa.Network:
     return importlib.import_module(rung).build()
 
 
-def keywords(rung: str, call: str = 'OPTIMIZE') -> dict[str, object]:
-    """What the rung's `n.optimize` (or `optimize_mga`, for `MGA`) takes beyond the solver — the script's `call`, if it names one."""
-    return dict(getattr(importlib.import_module(rung), call, {}))
+def keywords(rung: str) -> dict[str, object]:
+    """What the rung's `n.optimize` takes beyond the solver — the script's `OPTIMIZE`, if it names any."""
+    return dict(getattr(importlib.import_module(rung), 'OPTIMIZE', {}))
 
 
 def record(n: pypsa.Network) -> dict[str, object]:
@@ -78,9 +76,6 @@ def solved(rung: str) -> dict[str, object]:
             solver_name='highs', branch_outages=outages, **keywords(rung)
         )
     assert status == 'ok', f'{rung}: HiGHS did not solve — {status} / {condition}'
-    if mga := keywords(rung, 'MGA'):
-        status, condition = n.optimize.optimize_mga(solver_name='highs', **mga)
-        assert status == 'ok', f'{rung}: HiGHS did not solve the MGA run — {status} / {condition}'
     return record(n)
 
 
