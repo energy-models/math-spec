@@ -1193,6 +1193,46 @@ expressions:
     cases:
       extendable: { when: Generator_p_nom_extendable, expression: Generator_p_nom_ext }
     otherwise: Generator_p_nom
+  Generator_ramp_up_rate:
+    description: >-
+      the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
+      full build where it has none, since a start-up ramp alone builds the row
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
+    otherwise: 1
+  Generator_ramp_down_rate:
+    description: >-
+      the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
+      the full build where it has none, since a shut-down ramp alone builds the row
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
+    otherwise: 1
+  Generator_start_up_rate:
+    description: >-
+      the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`,
+      or the full build where it has none
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_start_up, expression: Generator_ramp_limit_start_up }
+    otherwise: 1
+  Generator_shut_down_rate:
+    description: >-
+      the shut-down ramp a unit's down row reads — PyPSA's
+      `ramp_limit_shut_down`, or the full build where it has none
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
+    otherwise: 1
+  Generator_p_nom_committed:
+    description: >-
+      the build a committed unit's ramp rows are taken against — one module
+      where the build is extendable and modular, the given build otherwise
+    dims: [generator]
+    cases:
+      modular_build: { when: Generator_p_nom_extendable AND Generator_p_nom_mod > 0, expression: Generator_p_nom_mod }
+    otherwise: Generator_p_nom
   Generator_ramp_up_allowance:
     description: >-
       how far a generator may raise output between two snapshots — its ramp
@@ -1203,10 +1243,10 @@ expressions:
       committed:
         when: Generator_committable
         expression: >-
-          Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
-          + Generator_ramp_limit_start_up * Generator_p_nom
+          Generator_ramp_up_rate * Generator_p_nom_committed * Generator_previous_status
+          + Generator_start_up_rate * Generator_p_nom_committed
           * (Generator_status - Generator_previous_status)
-    otherwise: Generator_ramp_limit_up * Generator_p_nom_effective
+    otherwise: Generator_ramp_up_rate * Generator_p_nom_effective
   Generator_ramp_down_allowance:
     description: >-
       how far a generator may lower output between two snapshots — its ramp
@@ -1217,10 +1257,10 @@ expressions:
       committed:
         when: Generator_committable
         expression: >-
-          Generator_ramp_limit_down * Generator_p_nom * Generator_status
-          + Generator_ramp_limit_shut_down * Generator_p_nom
+          Generator_ramp_down_rate * Generator_p_nom_committed * Generator_status
+          + Generator_shut_down_rate * Generator_p_nom_committed
           * (Generator_previous_status - Generator_status)
-    otherwise: Generator_ramp_limit_down * Generator_p_nom_effective
+    otherwise: Generator_ramp_down_rate * Generator_p_nom_effective
   Link_p_nom_effective:
     description: the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise
     dims: [link]
@@ -1244,6 +1284,46 @@ expressions:
     cases:
       opening: { when: "position(snapshot) == 0", expression: 0 }
     otherwise: shift(Link_p, along=snapshot, offset=1)
+  Link_ramp_up_rate:
+    description: >-
+      the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the
+      full build where it has none, since a start-up ramp alone builds the row
+    dims: [link]
+    cases:
+      given: { when: Link_ramp_limit_up, expression: Link_ramp_limit_up }
+    otherwise: 1
+  Link_ramp_down_rate:
+    description: >-
+      the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or
+      the full build where it has none, since a shut-down ramp alone builds the row
+    dims: [link]
+    cases:
+      given: { when: Link_ramp_limit_down, expression: Link_ramp_limit_down }
+    otherwise: 1
+  Link_start_up_rate:
+    description: >-
+      the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`,
+      or the full build where it has none
+    dims: [link]
+    cases:
+      given: { when: Link_ramp_limit_start_up, expression: Link_ramp_limit_start_up }
+    otherwise: 1
+  Link_shut_down_rate:
+    description: >-
+      the shut-down ramp a link's down row reads — PyPSA's
+      `ramp_limit_shut_down`, or the full build where it has none
+    dims: [link]
+    cases:
+      given: { when: Link_ramp_limit_shut_down, expression: Link_ramp_limit_shut_down }
+    otherwise: 1
+  Link_p_nom_committed:
+    description: >-
+      the build a committed link's ramp rows are taken against — one module
+      where the build is extendable and modular, the given build otherwise
+    dims: [link]
+    cases:
+      modular_build: { when: Link_p_nom_extendable AND Link_p_nom_mod > 0, expression: Link_p_nom_mod }
+    otherwise: Link_p_nom
   Link_ramp_up_allowance:
     description: >-
       how far a link may raise flow between two snapshots — its ramp
@@ -1254,10 +1334,10 @@ expressions:
       committed:
         when: Link_committable
         expression: >-
-          Link_ramp_limit_up * Link_p_nom * Link_previous_status
-          + Link_ramp_limit_start_up * Link_p_nom
+          Link_ramp_up_rate * Link_p_nom_committed * Link_previous_status
+          + Link_start_up_rate * Link_p_nom_committed
           * (Link_status - Link_previous_status)
-    otherwise: Link_ramp_limit_up * Link_p_nom_effective
+    otherwise: Link_ramp_up_rate * Link_p_nom_effective
   Link_ramp_down_allowance:
     description: >-
       how far a link may lower flow between two snapshots — its ramp
@@ -1268,10 +1348,10 @@ expressions:
       committed:
         when: Link_committable
         expression: >-
-          Link_ramp_limit_down * Link_p_nom * Link_status
-          + Link_ramp_limit_shut_down * Link_p_nom
+          Link_ramp_down_rate * Link_p_nom_committed * Link_status
+          + Link_shut_down_rate * Link_p_nom_committed
           * (Link_previous_status - Link_status)
-    otherwise: Link_ramp_limit_down * Link_p_nom_effective
+    otherwise: Link_ramp_down_rate * Link_p_nom_effective
   Process_p_nom_effective:
     description: the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise
     dims: [process]
@@ -1295,6 +1375,46 @@ expressions:
     cases:
       opening: { when: "position(snapshot) == 0", expression: 0 }
     otherwise: shift(Process_p, along=snapshot, offset=1)
+  Process_ramp_up_rate:
+    description: >-
+      the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the
+      full build where it has none, since a start-up ramp alone builds the row
+    dims: [process]
+    cases:
+      given: { when: Process_ramp_limit_up, expression: Process_ramp_limit_up }
+    otherwise: 1
+  Process_ramp_down_rate:
+    description: >-
+      the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or
+      the full build where it has none, since a shut-down ramp alone builds the row
+    dims: [process]
+    cases:
+      given: { when: Process_ramp_limit_down, expression: Process_ramp_limit_down }
+    otherwise: 1
+  Process_start_up_rate:
+    description: >-
+      the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`,
+      or the full build where it has none
+    dims: [process]
+    cases:
+      given: { when: Process_ramp_limit_start_up, expression: Process_ramp_limit_start_up }
+    otherwise: 1
+  Process_shut_down_rate:
+    description: >-
+      the shut-down ramp a process's down row reads — PyPSA's
+      `ramp_limit_shut_down`, or the full build where it has none
+    dims: [process]
+    cases:
+      given: { when: Process_ramp_limit_shut_down, expression: Process_ramp_limit_shut_down }
+    otherwise: 1
+  Process_p_nom_committed:
+    description: >-
+      the build a committed process's ramp rows are taken against — one module
+      where the build is extendable and modular, the given build otherwise
+    dims: [process]
+    cases:
+      modular_build: { when: Process_p_nom_extendable AND Process_p_nom_mod > 0, expression: Process_p_nom_mod }
+    otherwise: Process_p_nom
   Process_ramp_up_allowance:
     description: >-
       how far a process may raise internal power between two snapshots — its ramp
@@ -1305,10 +1425,10 @@ expressions:
       committed:
         when: Process_committable
         expression: >-
-          Process_ramp_limit_up * Process_p_nom * Process_previous_status
-          + Process_ramp_limit_start_up * Process_p_nom
+          Process_ramp_up_rate * Process_p_nom_committed * Process_previous_status
+          + Process_start_up_rate * Process_p_nom_committed
           * (Process_status - Process_previous_status)
-    otherwise: Process_ramp_limit_up * Process_p_nom_effective
+    otherwise: Process_ramp_up_rate * Process_p_nom_effective
   Process_ramp_down_allowance:
     description: >-
       how far a process may lower internal power between two snapshots — its ramp
@@ -1319,10 +1439,10 @@ expressions:
       committed:
         when: Process_committable
         expression: >-
-          Process_ramp_limit_down * Process_p_nom * Process_status
-          + Process_ramp_limit_shut_down * Process_p_nom
+          Process_ramp_down_rate * Process_p_nom_committed * Process_status
+          + Process_shut_down_rate * Process_p_nom_committed
           * (Process_previous_status - Process_status)
-    otherwise: Process_ramp_limit_down * Process_p_nom_effective
+    otherwise: Process_ramp_down_rate * Process_p_nom_effective
   StorageUnit_charge_carried_in:
     description: >-
       the charge a unit opens a snapshot with — its last snapshot's less
@@ -1657,11 +1777,12 @@ constraints:
       releases the row in the snapshot it turns on
     dims: [scenario, snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+      Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+      AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
     expression: >-
       Generator_p - Generator_previous_p <=
-      Generator_ramp_limit_up * Generator_p_nom_ext
+      Generator_ramp_up_rate * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_previous_status
   Generator_p_ramp_limit_up_start_big_m:
     description: >-
@@ -1670,11 +1791,12 @@ constraints:
       the chosen build; the big M releases the row everywhere else
     dims: [scenario, snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+      Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+      AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
     expression: >-
       Generator_p - Generator_previous_p <=
-      Generator_ramp_limit_start_up * Generator_p_nom_ext
+      Generator_start_up_rate * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_start_up
   Generator_p_ramp_limit_down_run_big_m:
     description: >-
@@ -1683,11 +1805,12 @@ constraints:
       releases the row in the snapshot it turns off
     dims: [scenario, snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+      Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+      AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
     expression: >-
       Generator_previous_p - Generator_p <=
-      Generator_ramp_limit_down * Generator_p_nom_ext
+      Generator_ramp_down_rate * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_status
   Generator_p_ramp_limit_down_shut_big_m:
     description: >-
@@ -1696,11 +1819,12 @@ constraints:
       the chosen build; the big M releases the row everywhere else
     dims: [scenario, snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+      Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+      AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
     expression: >-
       Generator_previous_p - Generator_p <=
-      Generator_ramp_limit_shut_down * Generator_p_nom_ext
+      Generator_shut_down_rate * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_shut_down
   Generator_p_nom_modularity:
     description: "`Generator-p_nom_modularity` — the chosen build is a whole number of modules"
@@ -1847,11 +1971,12 @@ constraints:
       releases the row in the snapshot it turns on
     dims: [scenario, snapshot, link]
     where: >-
-      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
     expression: >-
       Link_p - Link_previous_p <=
-      Link_ramp_limit_up * Link_p_nom_ext
+      Link_ramp_up_rate * Link_p_nom_ext
       + Link_big_m - Link_big_m * Link_previous_status
   Link_p_ramp_limit_up_start_big_m:
     description: >-
@@ -1860,11 +1985,12 @@ constraints:
       the chosen build; the big M releases the row everywhere else
     dims: [scenario, snapshot, link]
     where: >-
-      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
     expression: >-
       Link_p - Link_previous_p <=
-      Link_ramp_limit_start_up * Link_p_nom_ext
+      Link_start_up_rate * Link_p_nom_ext
       + Link_big_m - Link_big_m * Link_start_up
   Link_p_ramp_limit_down_run_big_m:
     description: >-
@@ -1873,11 +1999,12 @@ constraints:
       releases the row in the snapshot it turns off
     dims: [scenario, snapshot, link]
     where: >-
-      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
     expression: >-
       Link_previous_p - Link_p <=
-      Link_ramp_limit_down * Link_p_nom_ext
+      Link_ramp_down_rate * Link_p_nom_ext
       + Link_big_m - Link_big_m * Link_status
   Link_p_ramp_limit_down_shut_big_m:
     description: >-
@@ -1886,11 +2013,12 @@ constraints:
       the chosen build; the big M releases the row everywhere else
     dims: [scenario, snapshot, link]
     where: >-
-      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
     expression: >-
       Link_previous_p - Link_p <=
-      Link_ramp_limit_shut_down * Link_p_nom_ext
+      Link_shut_down_rate * Link_p_nom_ext
       + Link_big_m - Link_big_m * Link_shut_down
   Link_p_nom_modularity:
     description: "`Link-p_nom_modularity` — the chosen build is a whole number of modules"
@@ -2037,11 +2165,12 @@ constraints:
       releases the row in the snapshot it turns on
     dims: [scenario, snapshot, process]
     where: >-
-      Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_up
+      Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+      AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
     expression: >-
       Process_p - Process_previous_p <=
-      Process_ramp_limit_up * Process_p_nom_ext
+      Process_ramp_up_rate * Process_p_nom_ext
       + Process_big_m - Process_big_m * Process_previous_status
   Process_p_ramp_limit_up_start_big_m:
     description: >-
@@ -2050,11 +2179,12 @@ constraints:
       the chosen build; the big M releases the row everywhere else
     dims: [scenario, snapshot, process]
     where: >-
-      Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_up
+      Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+      AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
     expression: >-
       Process_p - Process_previous_p <=
-      Process_ramp_limit_start_up * Process_p_nom_ext
+      Process_start_up_rate * Process_p_nom_ext
       + Process_big_m - Process_big_m * Process_start_up
   Process_p_ramp_limit_down_run_big_m:
     description: >-
@@ -2063,11 +2193,12 @@ constraints:
       releases the row in the snapshot it turns off
     dims: [scenario, snapshot, process]
     where: >-
-      Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_down
+      Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+      AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
     expression: >-
       Process_previous_p - Process_p <=
-      Process_ramp_limit_down * Process_p_nom_ext
+      Process_ramp_down_rate * Process_p_nom_ext
       + Process_big_m - Process_big_m * Process_status
   Process_p_ramp_limit_down_shut_big_m:
     description: >-
@@ -2076,11 +2207,12 @@ constraints:
       the chosen build; the big M releases the row everywhere else
     dims: [scenario, snapshot, process]
     where: >-
-      Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_down
+      Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+      AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
     expression: >-
       Process_previous_p - Process_p <=
-      Process_ramp_limit_shut_down * Process_p_nom_ext
+      Process_shut_down_rate * Process_p_nom_ext
       + Process_big_m - Process_big_m * Process_shut_down
   Process_p_nom_modularity:
     description: "`Process-p_nom_modularity` — the chosen build is a whole number of modules"
@@ -2316,8 +2448,8 @@ constraints:
       first snapshot — nor does any unit a big M releases instead
     dims: [scenario, snapshot, generator]
     where: >-
-      Generator_ramp_limit_up
-      AND NOT (Generator_committable AND Generator_p_nom_extendable)
+      (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
+      AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
       AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
     expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
   Generator_p_ramp_limit_down:
@@ -2329,8 +2461,8 @@ constraints:
       first snapshot — nor does any unit a big M releases instead
     dims: [scenario, snapshot, generator]
     where: >-
-      Generator_ramp_limit_down
-      AND NOT (Generator_committable AND Generator_p_nom_extendable)
+      (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
+      AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
       AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
     expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
   Link_p_ramp_limit_up:
@@ -2342,8 +2474,8 @@ constraints:
       first snapshot — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
     where: >-
-      Link_ramp_limit_up
-      AND NOT (Link_committable AND Link_p_nom_extendable)
+      (Link_ramp_limit_up OR Link_ramp_limit_start_up)
+      AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
       AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
     expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
   Link_p_ramp_limit_down:
@@ -2355,8 +2487,8 @@ constraints:
       first snapshot — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
     where: >-
-      Link_ramp_limit_down
-      AND NOT (Link_committable AND Link_p_nom_extendable)
+      (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
+      AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
       AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
     expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
   Process_p_ramp_limit_up:
@@ -2368,8 +2500,8 @@ constraints:
       first snapshot — nor does any process a big M releases instead
     dims: [scenario, snapshot, process]
     where: >-
-      Process_ramp_limit_up
-      AND NOT (Process_committable AND Process_p_nom_extendable)
+      (Process_ramp_limit_up OR Process_ramp_limit_start_up)
+      AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
       AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
     expression: Process_p - Process_previous_p <= Process_ramp_up_allowance
   Process_p_ramp_limit_down:
@@ -2381,8 +2513,8 @@ constraints:
       first snapshot — nor does any process a big M releases instead
     dims: [scenario, snapshot, process]
     where: >-
-      Process_ramp_limit_down
-      AND NOT (Process_committable AND Process_p_nom_extendable)
+      (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
+      AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
       AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
     expression: Process_previous_p - Process_p <= Process_ramp_down_allowance
   StorageUnit_ext_p_dispatch_lower:

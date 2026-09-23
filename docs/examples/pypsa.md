@@ -374,7 +374,7 @@ def build():
 
 | PyPSA                          | status | note                                                       |
 | ------------------------------ | ------ | ---------------------------------------------------------- |
-| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | the build, the allowance and the output carried in are cased quantities, so fixed, extendable and committed are one block; big-M is rung 8's |
+| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | the build, the allowance and the output carried in are cased quantities, so fixed, extendable and committed are one block; big-M is rung 8's. A missing limit reads as the full build, and a start-up or shut-down ramp alone builds the row, rung 28 |
 
 <!-- reference:rung_04_ramps:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `8785.0`, 64 rows.
@@ -676,7 +676,7 @@ def build():
 | [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status — a fixed build too, beside its ordinary `com-p-*` rows |
 | [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper-cap) | done | a cap row beside a big-M row; `M` is the build cap at full availability, data prep |
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
-| [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down; the output carried in is a cased quantity, so each is one block |
+| [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down; the output carried in is a cased quantity, so each is one block. A modular build takes the ordinary rows against one module instead, rung 27 |
 
 <!-- reference:rung_08_modular_big_m:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `15915.0`, 191 rows.
@@ -2278,6 +2278,125 @@ def build():
 </details>
 <!-- reference:rung_26_committable_process:end -->
 
+### Rung 27 — modular ramps
+
+A committable, extendable and modular unit gets no big-M ramp rows. PyPSA gives
+it the ordinary `{c}-p-ramp_limit_*` rows of a committed unit, with one module
+`p_nom_mod` in place of `p_nom`. The status counts the modules that are on, so
+the allowance grows with each module. This rung has one such generator, link
+and process on a peak bus, each with a ramp limit of one half and a start-up
+and shut-down ramp of 0.6. The ramp rows bind at the rise and at the fall of
+the load.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`{c}-p-ramp_limit_up/down`, modular](#generator-p-ramp_limit_up) | done | the committed allowance reads `p_nom_committed`: one module where the build is extendable and modular, `p_nom` otherwise |
+| [`{c}-p-ramp_limit_*-bigM`, modular](#generator-p-ramp_limit_up-run-bigm) | done | not built for a modular build |
+
+<!-- reference:rung_27_modular_ramp:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `45469.49999999998`, 161 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_27_modular_ramp.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 27: modular ramps — a committable extendable modular unit ramps against one module through the ordinary ramp rows, not the big-M ones."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus a peak bus served by a committable modular generator, link and process, each ramp-limited, with a dear backup."""
+    n = spine.build()
+    n.add('Bus', 'peak')
+    common = {
+        'committable': True,
+        'p_nom_extendable': True,
+        'p_nom_mod': 20,
+        'p_nom_max': 60,
+        'capital_cost': 2,
+        'p_min_pu': 0.2,
+        'up_time_before': 0,
+        'ramp_limit_up': 0.5,
+        'ramp_limit_down': 0.5,
+        'ramp_limit_start_up': 0.6,
+        'ramp_limit_shut_down': 0.6,
+    }
+    n.add('Generator', 'mod_gen', bus='peak', marginal_cost=3, **common)
+    n.add('Link', 'mod_link', bus0='north', bus1='peak', marginal_cost=4, **common)
+    n.add('Process', 'mod_proc', bus0='south', bus1='peak', rate0=-1.25, marginal_cost=5, **common)
+    n.add('Generator', 'peak_backup', bus='peak', p_nom=200, marginal_cost=500)
+    n.add('Load', 'peak_load', bus='peak', p_set=[10, 90, 150, 20])
+    return n
+```
+
+</details>
+<!-- reference:rung_27_modular_ramp:end -->
+
+### Rung 28 — a start-up ramp alone
+
+PyPSA builds a ramp row where either the ramp limit or the start-up ramp is
+given, and reads the missing one as `1.0`, the full build. The down row is the
+same with the shut-down ramp. This rung has a committable generator, link and
+process that carry only a start-up ramp of 0.4 and a shut-down ramp of 0.5. The
+start-up ramp caps the snapshot each unit turns on, and the shut-down ramp caps
+the snapshot before it turns off.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`{c}-p-ramp_limit_up/down`, start-up or shut-down ramp alone](#generator-p-ramp_limit_up) | done | the `where:` reads either limit; `ramp_up_rate` and its three siblings read a missing one as `1` |
+
+<!-- reference:rung_28_start_up_ramp:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `83282.99999999983`, 152 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_28_start_up_ramp.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 28: a start-up ramp alone — a committable unit with only a start-up and a shut-down ramp still gets ramp rows, at the full build between them."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus a pulse bus served by committable generator, link and process that carry only start-up and shut-down ramps, with a dear backup."""
+    n = spine.build()
+    n.add('Bus', 'pulse')
+    common = {
+        'committable': True,
+        'p_nom': 40,
+        'p_min_pu': 0.1,
+        'up_time_before': 0,
+        'ramp_limit_start_up': 0.4,
+        'ramp_limit_shut_down': 0.5,
+    }
+    n.add('Generator', 'pulse_gen', bus='pulse', marginal_cost=3, **common)
+    n.add('Link', 'pulse_link', bus0='north', bus1='pulse', marginal_cost=4, **common)
+    n.add('Process', 'pulse_proc', bus0='south', bus1='pulse', rate0=-1.25, marginal_cost=5, **common)
+    n.add('Generator', 'pulse_backup', bus='pulse', p_nom=200, marginal_cost=500)
+    n.add('Load', 'pulse_load', bus='pulse', p_set=[0, 60, 110, 0])
+    return n
+```
+
+</details>
+<!-- reference:rung_28_start_up_ramp:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2585,16 +2704,31 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overleftarrow{u}`$ | `Generator_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{p}`$ | `Generator_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
 | $`\widetilde{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_effective` over $`\mathcal{G}`$ — the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\widetilde{\mathrm{ru}}`$ | `Generator_ramp_up_rate` over $`\mathcal{G}`$ — the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}`$ | `Generator_ramp_down_rate` over $`\mathcal{G}`$ — the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{\mathrm{up}}`$ | `Generator_start_up_rate` over $`\mathcal{G}`$ — the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{\mathrm{dn}}`$ | `Generator_shut_down_rate` over $`\mathcal{G}`$ — the shut-down ramp a unit's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
+| $`\widehat{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_committed` over $`\mathcal{G}`$ — the build a committed unit's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{+}`$ | `Generator_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{-}`$ | `Generator_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_effective` over $`\mathcal{L}`$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $`\overleftarrow{u}^{f}`$ | `Link_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the commitment state a link carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{f}`$ | `Link_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the flow a link carries into a snapshot — nothing at the start of the horizon, which is why a link that came in running carries no ramp row there |
+| $`\widetilde{\mathrm{ru}}^{f}`$ | `Link_ramp_up_rate` over $`\mathcal{L}`$ — the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}^{f}`$ | `Link_ramp_down_rate` over $`\mathcal{L}`$ — the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{f,\mathrm{up}}`$ | `Link_start_up_rate` over $`\mathcal{L}`$ — the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{f,\mathrm{dn}}`$ | `Link_shut_down_rate` over $`\mathcal{L}`$ — the shut-down ramp a link's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
+| $`\widehat{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_committed` over $`\mathcal{L}`$ — the build a committed link's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{f,+}`$ | `Link_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may raise flow between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{f,-}`$ | `Link_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may lower flow between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_effective` over $`\mathcal{J}`$ — the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $`\overleftarrow{u}^{z}`$ | `Process_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — the commitment state a process carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{z}`$ | `Process_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — the internal power a process carries into a snapshot — nothing at the start of the horizon, which is why a process that came in running carries no ramp row there |
+| $`\widetilde{\mathrm{ru}}^{z}`$ | `Process_ramp_up_rate` over $`\mathcal{J}`$ — the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}^{z}`$ | `Process_ramp_down_rate` over $`\mathcal{J}`$ — the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{z,\mathrm{up}}`$ | `Process_start_up_rate` over $`\mathcal{J}`$ — the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{z,\mathrm{dn}}`$ | `Process_shut_down_rate` over $`\mathcal{J}`$ — the shut-down ramp a process's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
+| $`\widehat{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_committed` over $`\mathcal{J}`$ — the build a committed process's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{z,+}`$ | `Process_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may raise internal power between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{z,-}`$ | `Process_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may lower internal power between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
@@ -3253,16 +3387,17 @@ Generator_p_ramp_limit_up_run_big_m:
     releases the row in the snapshot it turns on
   dims: [scenario, snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+    Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_p - Generator_previous_p <=
-    Generator_ramp_limit_up * Generator_p_nom_ext
+    Generator_ramp_up_rate * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_previous_status
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-start-bigM`
@@ -3277,16 +3412,17 @@ Generator_p_ramp_limit_up_start_big_m:
     the chosen build; the big M releases the row everywhere else
   dims: [scenario, snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+    Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_p - Generator_previous_p <=
-    Generator_ramp_limit_start_up * Generator_p_nom_ext
+    Generator_start_up_rate * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_start_up
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-run-bigM`
@@ -3301,16 +3437,17 @@ Generator_p_ramp_limit_down_run_big_m:
     releases the row in the snapshot it turns off
   dims: [scenario, snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+    Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_previous_p - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom_ext
+    Generator_ramp_down_rate * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_status
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
@@ -3325,16 +3462,17 @@ Generator_p_ramp_limit_down_shut_big_m:
     the chosen build; the big M releases the row everywhere else
   dims: [scenario, snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+    Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
   expression: >-
     Generator_previous_p - Generator_p <=
-    Generator_ramp_limit_shut_down * Generator_p_nom_ext
+    Generator_shut_down_rate * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_shut_down
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p_nom_modularity`
@@ -3718,16 +3856,17 @@ Link_p_ramp_limit_up_run_big_m:
     releases the row in the snapshot it turns on
   dims: [scenario, snapshot, link]
   where: >-
-    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+    Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+    AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
   expression: >-
     Link_p - Link_previous_p <=
-    Link_ramp_limit_up * Link_p_nom_ext
+    Link_ramp_up_rate * Link_p_nom_ext
     + Link_big_m - Link_big_m * Link_previous_status
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \mathrm{ru}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_up-start-bigM`
@@ -3742,16 +3881,17 @@ Link_p_ramp_limit_up_start_big_m:
     the chosen build; the big M releases the row everywhere else
   dims: [scenario, snapshot, link]
   where: >-
-    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+    Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+    AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
   expression: >-
     Link_p - Link_previous_p <=
-    Link_ramp_limit_start_up * Link_p_nom_ext
+    Link_start_up_rate * Link_p_nom_ext
     + Link_big_m - Link_big_m * Link_start_up
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \mathrm{ru}^{f,\mathrm{up}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down-run-bigM`
@@ -3766,16 +3906,17 @@ Link_p_ramp_limit_down_run_big_m:
     releases the row in the snapshot it turns off
   dims: [scenario, snapshot, link]
   where: >-
-    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+    Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+    AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
   expression: >-
     Link_previous_p - Link_p <=
-    Link_ramp_limit_down * Link_p_nom_ext
+    Link_ramp_down_rate * Link_p_nom_ext
     + Link_big_m - Link_big_m * Link_status
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \mathrm{rd}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down-shut-bigM`
@@ -3790,16 +3931,17 @@ Link_p_ramp_limit_down_shut_big_m:
     the chosen build; the big M releases the row everywhere else
   dims: [scenario, snapshot, link]
   where: >-
-    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+    Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+    AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
   expression: >-
     Link_previous_p - Link_p <=
-    Link_ramp_limit_shut_down * Link_p_nom_ext
+    Link_shut_down_rate * Link_p_nom_ext
     + Link_big_m - Link_big_m * Link_shut_down
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \mathrm{rd}^{f,\mathrm{dn}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p_nom_modularity`
@@ -4183,16 +4325,17 @@ Process_p_ramp_limit_up_run_big_m:
     releases the row in the snapshot it turns on
   dims: [scenario, snapshot, process]
   where: >-
-    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_up
+    Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+    AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
   expression: >-
     Process_p - Process_previous_p <=
-    Process_ramp_limit_up * Process_p_nom_ext
+    Process_ramp_up_rate * Process_p_nom_ext
     + Process_big_m - Process_big_m * Process_previous_status
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \mathrm{ru}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_up-start-bigM`
@@ -4207,16 +4350,17 @@ Process_p_ramp_limit_up_start_big_m:
     the chosen build; the big M releases the row everywhere else
   dims: [scenario, snapshot, process]
   where: >-
-    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_up
+    Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+    AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
   expression: >-
     Process_p - Process_previous_p <=
-    Process_ramp_limit_start_up * Process_p_nom_ext
+    Process_start_up_rate * Process_p_nom_ext
     + Process_big_m - Process_big_m * Process_start_up
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \mathrm{ru}^{z,\mathrm{up}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down-run-bigM`
@@ -4231,16 +4375,17 @@ Process_p_ramp_limit_down_run_big_m:
     releases the row in the snapshot it turns off
   dims: [scenario, snapshot, process]
   where: >-
-    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_down
+    Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+    AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
   expression: >-
     Process_previous_p - Process_p <=
-    Process_ramp_limit_down * Process_p_nom_ext
+    Process_ramp_down_rate * Process_p_nom_ext
     + Process_big_m - Process_big_m * Process_status
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \mathrm{rd}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down-shut-bigM`
@@ -4255,16 +4400,17 @@ Process_p_ramp_limit_down_shut_big_m:
     the chosen build; the big M releases the row everywhere else
   dims: [scenario, snapshot, process]
   where: >-
-    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_down
+    Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
+    AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
   expression: >-
     Process_previous_p - Process_p <=
-    Process_ramp_limit_shut_down * Process_p_nom_ext
+    Process_shut_down_rate * Process_p_nom_ext
     + Process_big_m - Process_big_m * Process_shut_down
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \mathrm{rd}^{z,\mathrm{dn}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p_nom_modularity`
@@ -4902,14 +5048,14 @@ Generator_p_ramp_limit_up:
     first snapshot — nor does any unit a big M releases instead
   dims: [scenario, snapshot, generator]
   where: >-
-    Generator_ramp_limit_up
-    AND NOT (Generator_committable AND Generator_p_nom_extendable)
+    (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
+    AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
     AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
   expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ru}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down`
@@ -4926,14 +5072,14 @@ Generator_p_ramp_limit_down:
     first snapshot — nor does any unit a big M releases instead
   dims: [scenario, snapshot, generator]
   where: >-
-    Generator_ramp_limit_down
-    AND NOT (Generator_committable AND Generator_p_nom_extendable)
+    (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
+    AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
     AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
   expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{rd}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-p-ramp_limit_up`
@@ -4950,14 +5096,14 @@ Link_p_ramp_limit_up:
     first snapshot — nor does any link a big M releases instead
   dims: [scenario, snapshot, link]
   where: >-
-    Link_ramp_limit_up
-    AND NOT (Link_committable AND Link_p_nom_extendable)
+    (Link_ramp_limit_up OR Link_ramp_limit_start_up)
+    AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
     AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
   expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down`
@@ -4974,14 +5120,14 @@ Link_p_ramp_limit_down:
     first snapshot — nor does any link a big M releases instead
   dims: [scenario, snapshot, link]
   where: >-
-    Link_ramp_limit_down
-    AND NOT (Link_committable AND Link_p_nom_extendable)
+    (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
+    AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
     AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
   expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Process-p-ramp_limit_up`
@@ -4998,14 +5144,14 @@ Process_p_ramp_limit_up:
     first snapshot — nor does any process a big M releases instead
   dims: [scenario, snapshot, process]
   where: >-
-    Process_ramp_limit_up
-    AND NOT (Process_committable AND Process_p_nom_extendable)
+    (Process_ramp_limit_up OR Process_ramp_limit_start_up)
+    AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
     AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
   expression: Process_p - Process_previous_p <= Process_ramp_up_allowance
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down`
@@ -5022,14 +5168,14 @@ Process_p_ramp_limit_down:
     first snapshot — nor does any process a big M releases instead
   dims: [scenario, snapshot, process]
   where: >-
-    Process_ramp_limit_down
-    AND NOT (Process_committable AND Process_p_nom_extendable)
+    (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
+    AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
     AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
   expression: Process_previous_p - Process_p <= Process_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `StorageUnit-ext-p_dispatch-lower`
@@ -5811,6 +5957,91 @@ Generator_p_nom_effective:
 \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} = \begin{cases} P_{g} & \text{if } \mathrm{ext}_{g} \\ \mathrm{p}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
 ```
 
+### `Generator_ramp_up_rate`
+
+```yaml
+Generator_ramp_up_rate:
+  description: >-
+    the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
+    full build where it has none, since a start-up ramp alone builds the row
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}_{g} = \begin{cases} \mathrm{ru}_{g} & \text{if } \mathrm{ru}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_ramp_down_rate`
+
+```yaml
+Generator_ramp_down_rate:
+  description: >-
+    the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
+    the full build where it has none, since a shut-down ramp alone builds the row
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}_{g} = \begin{cases} \mathrm{rd}_{g} & \text{if } \mathrm{rd}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_start_up_rate`
+
+```yaml
+Generator_start_up_rate:
+  description: >-
+    the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`,
+    or the full build where it has none
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_start_up, expression: Generator_ramp_limit_start_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} = \begin{cases} \mathrm{ru}^{\mathrm{up}}_{g} & \text{if } \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_shut_down_rate`
+
+```yaml
+Generator_shut_down_rate:
+  description: >-
+    the shut-down ramp a unit's down row reads — PyPSA's
+    `ramp_limit_shut_down`, or the full build where it has none
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} = \begin{cases} \mathrm{rd}^{\mathrm{dn}}_{g} & \text{if } \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_p_nom_committed`
+
+```yaml
+Generator_p_nom_committed:
+  description: >-
+    the build a committed unit's ramp rows are taken against — one module
+    where the build is extendable and modular, the given build otherwise
+  dims: [generator]
+  cases:
+    modular_build: { when: Generator_p_nom_extendable AND Generator_p_nom_mod > 0, expression: Generator_p_nom_mod }
+  otherwise: Generator_p_nom
+```
+
+```math
+\widehat{\mathrm{p}}^{\mathrm{nom}}_{g} = \begin{cases} \mathrm{p}^{\mathrm{mod}}_{g} & \text{if } \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \\ \mathrm{p}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
 ### `Generator_ramp_up_allowance`
 
 ```yaml
@@ -5824,14 +6055,14 @@ Generator_ramp_up_allowance:
     committed:
       when: Generator_committable
       expression: >-
-        Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
-        + Generator_ramp_limit_start_up * Generator_p_nom
+        Generator_ramp_up_rate * Generator_p_nom_committed * Generator_previous_status
+        + Generator_start_up_rate * Generator_p_nom_committed
         * (Generator_status - Generator_previous_status)
-  otherwise: Generator_ramp_limit_up * Generator_p_nom_effective
+  otherwise: Generator_ramp_up_rate * Generator_p_nom_effective
 ```
 
 ```math
-\Delta^{+}_{\xi,t,g} = \begin{cases} \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{\xi,t,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{\xi,t,g} - \overleftarrow{u}_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \mathrm{ru}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
+\Delta^{+}_{\xi,t,g} = \begin{cases} \widetilde{\mathrm{ru}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{\xi,t,g} + \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \left( u_{\xi,t,g} - \overleftarrow{u}_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \widetilde{\mathrm{ru}}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Generator_ramp_down_allowance`
@@ -5847,14 +6078,14 @@ Generator_ramp_down_allowance:
     committed:
       when: Generator_committable
       expression: >-
-        Generator_ramp_limit_down * Generator_p_nom * Generator_status
-        + Generator_ramp_limit_shut_down * Generator_p_nom
+        Generator_ramp_down_rate * Generator_p_nom_committed * Generator_status
+        + Generator_shut_down_rate * Generator_p_nom_committed
         * (Generator_previous_status - Generator_status)
-  otherwise: Generator_ramp_limit_down * Generator_p_nom_effective
+  otherwise: Generator_ramp_down_rate * Generator_p_nom_effective
 ```
 
 ```math
-\Delta^{-}_{\xi,t,g} = \begin{cases} \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{\xi,t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{\xi,t,g} - u_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \mathrm{rd}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
+\Delta^{-}_{\xi,t,g} = \begin{cases} \widetilde{\mathrm{rd}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot u_{\xi,t,g} + \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{\xi,t,g} - u_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \widetilde{\mathrm{rd}}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Link_p_nom_effective`
@@ -5907,6 +6138,91 @@ Link_previous_p:
 \overleftarrow{f}_{\xi,t,l} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ f_{\xi,t - 1,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
 ```
 
+### `Link_ramp_up_rate`
+
+```yaml
+Link_ramp_up_rate:
+  description: >-
+    the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the
+    full build where it has none, since a start-up ramp alone builds the row
+  dims: [link]
+  cases:
+    given: { when: Link_ramp_limit_up, expression: Link_ramp_limit_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}^{f}_{l} = \begin{cases} \mathrm{ru}^{f}_{l} & \text{if } \mathrm{ru}^{f}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+```
+
+### `Link_ramp_down_rate`
+
+```yaml
+Link_ramp_down_rate:
+  description: >-
+    the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or
+    the full build where it has none, since a shut-down ramp alone builds the row
+  dims: [link]
+  cases:
+    given: { when: Link_ramp_limit_down, expression: Link_ramp_limit_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}^{f}_{l} = \begin{cases} \mathrm{rd}^{f}_{l} & \text{if } \mathrm{rd}^{f}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+```
+
+### `Link_start_up_rate`
+
+```yaml
+Link_start_up_rate:
+  description: >-
+    the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`,
+    or the full build where it has none
+  dims: [link]
+  cases:
+    given: { when: Link_ramp_limit_start_up, expression: Link_ramp_limit_start_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} = \begin{cases} \mathrm{ru}^{f,\mathrm{up}}_{l} & \text{if } \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+```
+
+### `Link_shut_down_rate`
+
+```yaml
+Link_shut_down_rate:
+  description: >-
+    the shut-down ramp a link's down row reads — PyPSA's
+    `ramp_limit_shut_down`, or the full build where it has none
+  dims: [link]
+  cases:
+    given: { when: Link_ramp_limit_shut_down, expression: Link_ramp_limit_shut_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} = \begin{cases} \mathrm{rd}^{f,\mathrm{dn}}_{l} & \text{if } \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+```
+
+### `Link_p_nom_committed`
+
+```yaml
+Link_p_nom_committed:
+  description: >-
+    the build a committed link's ramp rows are taken against — one module
+    where the build is extendable and modular, the given build otherwise
+  dims: [link]
+  cases:
+    modular_build: { when: Link_p_nom_extendable AND Link_p_nom_mod > 0, expression: Link_p_nom_mod }
+  otherwise: Link_p_nom
+```
+
+```math
+\widehat{\mathrm{f}}^{\mathrm{nom}}_{l} = \begin{cases} \mathrm{f}^{\mathrm{mod}}_{l} & \text{if } \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \\ \mathrm{f}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+```
+
 ### `Link_ramp_up_allowance`
 
 ```yaml
@@ -5920,14 +6236,14 @@ Link_ramp_up_allowance:
     committed:
       when: Link_committable
       expression: >-
-        Link_ramp_limit_up * Link_p_nom * Link_previous_status
-        + Link_ramp_limit_start_up * Link_p_nom
+        Link_ramp_up_rate * Link_p_nom_committed * Link_previous_status
+        + Link_start_up_rate * Link_p_nom_committed
         * (Link_status - Link_previous_status)
-  otherwise: Link_ramp_limit_up * Link_p_nom_effective
+  otherwise: Link_ramp_up_rate * Link_p_nom_effective
 ```
 
 ```math
-\Delta^{f,+}_{\xi,t,l} = \begin{cases} \mathrm{ru}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} + \mathrm{ru}^{f,\mathrm{up}}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+\Delta^{f,+}_{\xi,t,l} = \begin{cases} \widetilde{\mathrm{ru}}^{f}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} + \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \widetilde{\mathrm{ru}}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
 ```
 
 ### `Link_ramp_down_allowance`
@@ -5943,14 +6259,14 @@ Link_ramp_down_allowance:
     committed:
       when: Link_committable
       expression: >-
-        Link_ramp_limit_down * Link_p_nom * Link_status
-        + Link_ramp_limit_shut_down * Link_p_nom
+        Link_ramp_down_rate * Link_p_nom_committed * Link_status
+        + Link_shut_down_rate * Link_p_nom_committed
         * (Link_previous_status - Link_status)
-  otherwise: Link_ramp_limit_down * Link_p_nom_effective
+  otherwise: Link_ramp_down_rate * Link_p_nom_effective
 ```
 
 ```math
-\Delta^{f,-}_{\xi,t,l} = \begin{cases} \mathrm{rd}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot u^{f}_{\xi,t,l} + \mathrm{rd}^{f,\mathrm{dn}}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+\Delta^{f,-}_{\xi,t,l} = \begin{cases} \widetilde{\mathrm{rd}}^{f}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot u^{f}_{\xi,t,l} + \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \left( \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \widetilde{\mathrm{rd}}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
 ```
 
 ### `Process_p_nom_effective`
@@ -6003,6 +6319,91 @@ Process_previous_p:
 \overleftarrow{z}_{\xi,t,j} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ z_{\xi,t - 1,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 
+### `Process_ramp_up_rate`
+
+```yaml
+Process_ramp_up_rate:
+  description: >-
+    the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the
+    full build where it has none, since a start-up ramp alone builds the row
+  dims: [process]
+  cases:
+    given: { when: Process_ramp_limit_up, expression: Process_ramp_limit_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}^{z}_{j} = \begin{cases} \mathrm{ru}^{z}_{j} & \text{if } \mathrm{ru}^{z}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+```
+
+### `Process_ramp_down_rate`
+
+```yaml
+Process_ramp_down_rate:
+  description: >-
+    the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or
+    the full build where it has none, since a shut-down ramp alone builds the row
+  dims: [process]
+  cases:
+    given: { when: Process_ramp_limit_down, expression: Process_ramp_limit_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}^{z}_{j} = \begin{cases} \mathrm{rd}^{z}_{j} & \text{if } \mathrm{rd}^{z}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+```
+
+### `Process_start_up_rate`
+
+```yaml
+Process_start_up_rate:
+  description: >-
+    the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`,
+    or the full build where it has none
+  dims: [process]
+  cases:
+    given: { when: Process_ramp_limit_start_up, expression: Process_ramp_limit_start_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} = \begin{cases} \mathrm{ru}^{z,\mathrm{up}}_{j} & \text{if } \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+```
+
+### `Process_shut_down_rate`
+
+```yaml
+Process_shut_down_rate:
+  description: >-
+    the shut-down ramp a process's down row reads — PyPSA's
+    `ramp_limit_shut_down`, or the full build where it has none
+  dims: [process]
+  cases:
+    given: { when: Process_ramp_limit_shut_down, expression: Process_ramp_limit_shut_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} = \begin{cases} \mathrm{rd}^{z,\mathrm{dn}}_{j} & \text{if } \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+```
+
+### `Process_p_nom_committed`
+
+```yaml
+Process_p_nom_committed:
+  description: >-
+    the build a committed process's ramp rows are taken against — one module
+    where the build is extendable and modular, the given build otherwise
+  dims: [process]
+  cases:
+    modular_build: { when: Process_p_nom_extendable AND Process_p_nom_mod > 0, expression: Process_p_nom_mod }
+  otherwise: Process_p_nom
+```
+
+```math
+\widehat{\mathrm{z}}^{\mathrm{nom}}_{j} = \begin{cases} \mathrm{z}^{\mathrm{mod}}_{j} & \text{if } \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \\ \mathrm{z}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+```
+
 ### `Process_ramp_up_allowance`
 
 ```yaml
@@ -6016,14 +6417,14 @@ Process_ramp_up_allowance:
     committed:
       when: Process_committable
       expression: >-
-        Process_ramp_limit_up * Process_p_nom * Process_previous_status
-        + Process_ramp_limit_start_up * Process_p_nom
+        Process_ramp_up_rate * Process_p_nom_committed * Process_previous_status
+        + Process_start_up_rate * Process_p_nom_committed
         * (Process_status - Process_previous_status)
-  otherwise: Process_ramp_limit_up * Process_p_nom_effective
+  otherwise: Process_ramp_up_rate * Process_p_nom_effective
 ```
 
 ```math
-\Delta^{z,+}_{\xi,t,j} = \begin{cases} \mathrm{ru}^{z}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} + \mathrm{ru}^{z,\mathrm{up}}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \overleftarrow{u}^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \mathrm{ru}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+\Delta^{z,+}_{\xi,t,j} = \begin{cases} \widetilde{\mathrm{ru}}^{z}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} + \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \overleftarrow{u}^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \widetilde{\mathrm{ru}}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 
 ### `Process_ramp_down_allowance`
@@ -6039,14 +6440,14 @@ Process_ramp_down_allowance:
     committed:
       when: Process_committable
       expression: >-
-        Process_ramp_limit_down * Process_p_nom * Process_status
-        + Process_ramp_limit_shut_down * Process_p_nom
+        Process_ramp_down_rate * Process_p_nom_committed * Process_status
+        + Process_shut_down_rate * Process_p_nom_committed
         * (Process_previous_status - Process_status)
-  otherwise: Process_ramp_limit_down * Process_p_nom_effective
+  otherwise: Process_ramp_down_rate * Process_p_nom_effective
 ```
 
 ```math
-\Delta^{z,-}_{\xi,t,j} = \begin{cases} \mathrm{rd}^{z}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot u^{z}_{\xi,t,j} + \mathrm{rd}^{z,\mathrm{dn}}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( \overleftarrow{u}^{z}_{\xi,t,j} - u^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \mathrm{rd}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+\Delta^{z,-}_{\xi,t,j} = \begin{cases} \widetilde{\mathrm{rd}}^{z}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot u^{z}_{\xi,t,j} + \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \left( \overleftarrow{u}^{z}_{\xi,t,j} - u^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \widetilde{\mathrm{rd}}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 
 ### `StorageUnit_charge_carried_in`
