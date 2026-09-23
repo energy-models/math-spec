@@ -12,16 +12,16 @@ the one call.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, get_args
+from pathlib import Path
+from typing import get_args
 
 import pytest
 
-from math_spec import LanguageError, advice, to_spec
+from math_spec import advice, to_spec
 from math_spec.errors import AdviceKind
 from tests.fixtures import SMALL_MODEL, override
 
-if TYPE_CHECKING:
-    from pathlib import Path
+EXAMPLES = Path(__file__).resolve().parents[1] / 'examples'
 
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
 TARGET_ONLY = override(
@@ -34,9 +34,11 @@ TARGET_ONLY = override(
 UNREACHED = override(TARGET_ONLY, relations={})
 
 #: A curve on ``p``, so the program of the file as written carries a block and
-#: the program of its expansion carries the rows.
+#: the program of its expansion carries the rows. The objective drives ``p``
+#: down unopposed by anything but the curve.
 CURVED = override(
     UNREACHED,
+    objective={'sense': 'minimize', 'expression': 'sum(p)'},
     dimensions={'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}, 'bp': {'dtype': 'int'}},
     parameters={'c': {'dims': ['g']}, 'bp_x': {'dims': ['bp']}, 'bp_y': {'dims': ['bp']}},
     variables={'p': {'dims': ['g']}, 'cost': {'dims': ['g']}},
@@ -106,19 +108,22 @@ def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
     ], 'one model, one answer, whichever of the four the caller happens to hold'
 
 
-def test_a_curve_left_as_written_is_refused_however_the_model_arrives():
-    """Advice reads the rows a curve states and writes nothing out on the caller's behalf.
+def test_a_curve_is_read_as_the_rows_it_states_however_the_model_arrives():
+    """Advice expanded a curve on the caller's behalf, then refused one left as written; a program with a
+    block was once let through and advised on the file's rows as if the curve stated none.
 
-    It once expanded a file or a Spec itself, which is the choice every other
-    door leaves to the caller; a program with a block was let through when the
-    guard was deleted, advising on the file's own rows as if the curve stated
-    none.
+    A curve states its rows the way a set does: each link names the variables
+    a link row would. Nothing is expanded, and the answer is the expansion's.
     """
-    rows = advice(to_spec(CURVED).expand('piecewise'))
-    assert [(n.kind, n.subject) for n in rows] == [(n.kind, n.subject) for n in advice(to_spec(CURVED).expand())], (
-        'the expansion is what advice reads, with or without its sets'
-    )
+    rows = [(n.kind, n.subject) for n in advice(to_spec(CURVED).expand('piecewise'))]
+    assert rows == [('never-an-axis', 'h')], 'the link row holds p, so only the unreached dimension draws a note'
     for arrived in (CURVED, to_spec(CURVED), to_spec(CURVED).program):
-        with pytest.raises(LanguageError, match="piecewise: 'curve' states rows rather than being one") as refusal:
-            advice(arrived)
-        assert "expand('piecewise')" in str(refusal.value), 'the refusal names the block and the expansion to pass'
+        assert [(n.kind, n.subject) for n in advice(arrived)] == rows, 'the block and its rows get one answer'
+
+
+@pytest.mark.parametrize('example', ['piecewise', 'piecewise_lp', 'piecewise_ragged', 'sos'])
+def test_every_shipped_formulation_gets_the_answer_its_expansion_gets(example):
+    """The claim of the test above on every model the repository ships with a block."""
+    spec = to_spec(EXAMPLES / f'{example}.yaml')
+    as_written = [(n.kind, n.subject) for n in advice(spec)]
+    assert as_written == [(n.kind, n.subject) for n in advice(spec.expand())], 'one model, one answer, block or rows'
