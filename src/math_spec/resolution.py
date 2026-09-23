@@ -74,6 +74,7 @@ from math_spec.program import (
     DimensionPosition,
     Direction,
     ExpressionComparison,
+    Holds,
     Mask,
     Not,
     Or,
@@ -239,19 +240,6 @@ class ResolvedConstraint(NamedTuple):
     where: Mask | None
 
 
-class ResolvedAssumption(NamedTuple):
-    """One assumption's typed halves: the predicate it states, and the mask it is checked under.
-
-    ``description`` is the sentence a refusal quotes where one was written or
-    a method implied one, and ``None`` where the name is the whole of what a
-    reader is told.
-    """
-
-    holds: Mask
-    where: Mask | None
-    description: str | None = None
-
-
 @dataclass(frozen=True)
 class Resolved:
     """Every expression and where string of one schema, typed once at load.
@@ -277,7 +265,8 @@ class Resolved:
             copy, which every :class:`~math_spec.program.Direction` and
             :class:`~math_spec.program.Partition` in the trees holds.
         assumptions: Each ``assumptions:`` entry's predicate and the mask it
-            is checked under.
+            is checked under, as a program carries it, its comparisons of
+            expressions still in the core syntax tree.
         piecewise: Each ``piecewise:`` block's link expressions, in link order.
     """
 
@@ -286,7 +275,7 @@ class Resolved:
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
     relations: dict[str, RelationDeclaration]
-    assumptions: dict[str, ResolvedAssumption]
+    assumptions: dict[str, Holds]
     piecewise: dict[str, tuple[ArithmeticNode, ...]]
 
     @cached_property

@@ -107,9 +107,6 @@ VariableAbsence = Literal['undefined', 'zero']
 #: Which way an objective is optimised (the declaration rules).
 ObjectiveSense = Literal['minimize', 'maximize']
 
-#: The relation a link may pin its expression to the curve with.
-LinkSign = ComparisonOperator
-
 #: The order of special ordered set.
 SosType = Literal[1, 2]
 
@@ -550,7 +547,7 @@ class PiecewiseLink(_StrictBlock):
 
     expression: str
     values: str
-    sign: LinkSign = '=='
+    sign: ComparisonOperator = '=='
 
     @model_validator(mode='before')
     @classmethod

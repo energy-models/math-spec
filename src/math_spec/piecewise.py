@@ -15,12 +15,12 @@ its frame in :func:`curve_frame`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal
 
 import math_spec.sos as sos
 from math_spec.dimensions import dims_of
 from math_spec.errors import DimensionError
-from math_spec.model import Curvature, PiecewiseBlock, PiecewiseMethod, Spec
+from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, PiecewiseMethod, Spec
 from math_spec.program import PiecewiseDeclaration
 
 if TYPE_CHECKING:
@@ -64,20 +64,7 @@ def declaration_of(pw: PiecewiseBlock) -> PiecewiseDeclaration:
     )
 
 
-class Assumed(NamedTuple):
-    """One condition a method puts on the numbers, as the language writes it.
-
-    ``holds`` and ``where`` are where strings, resolved like any the file
-    wrote. ``description`` is the sentence a refusal quotes, which names the
-    method and the rewrite that takes a curve of any shape.
-    """
-
-    holds: str
-    where: str | None
-    description: str
-
-
-def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
+def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, AssumptionBlock]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
     Every curve assumes its breakpoints are there: a missing parameter row is
@@ -89,16 +76,17 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
 
     Read off the block rather than off an expansion, so a model states what it
     assumes whether or not its curves have been written out. Each condition is
-    a where string over the parameters the file declared: the expansion writes
-    them into ``assumptions:``, and a model that still declares the block
-    derives the same text at load.
+    an ``assumptions:`` entry over the parameters the file declared, its
+    ``description`` naming the method and the rewrite that takes a curve of any
+    shape: the expansion writes them into the model, and a model that still
+    declares the block resolves the same entries at load.
     """
     d, mask = pw.over, pw.points
-    assumed: dict[str, Assumed] = {}
-    assumed[f'{block}_complete'] = Assumed(
-        ' AND '.join(dict.fromkeys(link.values for link in pw.links)),
-        mask,
-        f"piecewise '{block}': every breakpoint the curve runs through needs a row in "
+    assumed: dict[str, AssumptionBlock] = {}
+    assumed[f'{block}_complete'] = AssumptionBlock(
+        holds=' AND '.join(dict.fromkeys(link.values for link in pw.links)),
+        where=mask,
+        description=f"piecewise '{block}': every breakpoint the curve runs through needs a row in "
         f'{_quoted(link.values for link in pw.links)} — a missing row is read as a zero rather than as a '
         f'shorter curve, so it sits the curve on the origin. '
         + (
@@ -110,25 +98,23 @@ def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, Assumed]:
     curvature = _curvature_required(pw)
     if curvature is not None:
         x, y = (link.values for link in pw.curve)
-        assumed[f'{block}_increasing'] = Assumed(
-            f'{_back(x, d, 1)} < {x}',
-            _neighbours(d, mask),
-            f"piecewise '{block}': method: {pw.method} requires strictly increasing breakpoints in '{x}' along '{d}'",
+        assumed[f'{block}_increasing'] = AssumptionBlock(
+            holds=f'{_back(x, d, 1)} < {x}',
+            where=_neighbours(d, mask),
+            description=f"piecewise '{block}': method: {pw.method} requires strictly increasing breakpoints in '{x}' along '{d}'",
         )
         assumed[f'{block}_curvature'] = _bends(block, pw, x, y, curvature)
     if pw.method == 'lp':
-        assumed[f'{block}_breakpoints'] = Assumed(
-            f'count({mask or pw.curve[0].values}, over={d}) >= 2',
-            None,
-            f"piecewise '{block}': method: lp needs at least two breakpoints per curve — the method *is* its "
+        assumed[f'{block}_breakpoints'] = AssumptionBlock(
+            holds=f'count({mask or pw.curve[0].values}, over={d}) >= 2',
+            description=f"piecewise '{block}': method: lp needs at least two breakpoints per curve — the method *is* its "
             f'segment lines, so a curve with no segment states nothing and leaves the bounded link on its own '
             f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.',
         )
     if mask is not None:
-        assumed[f'{block}_contiguous'] = Assumed(
-            f'count({_edge(d, mask, "first")}, over={d}) == 1',
-            None,
-            f"piecewise '{block}': points: '{mask}' must mark a consecutive run of at least one breakpoint per "
+        assumed[f'{block}_contiguous'] = AssumptionBlock(
+            holds=f'count({_edge(d, mask, "first")}, over={d}) == 1',
+            description=f"piecewise '{block}': points: '{mask}' must mark a consecutive run of at least one breakpoint per "
             f'curve — {_GAP[pw.method]}.',
         )
     return assumed
@@ -183,7 +169,7 @@ def _interior(over: str, mask: str | None) -> str:
     return f'{mask} AND shift({mask}, along={over}, offset=1) AND shift({mask}, along={over}, offset=-1)'
 
 
-def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature) -> Assumed:
+def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
     """The curve bends the way *curvature* says, as a comparison of the two slopes at each breakpoint.
 
     The slopes are compared as a cross-product rather than as two quotients,
@@ -205,12 +191,13 @@ def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature)
     )
     if curvature == 'either':
         up, down = bend.format('>'), bend.format('<')
-        return Assumed(
-            f'count({up} AND {interior}, over={d}) == 0 OR count({down} AND {interior}, over={d}) == 0',
-            None,
-            description,
+        return AssumptionBlock(
+            holds=f'count({up} AND {interior}, over={d}) == 0 OR count({down} AND {interior}, over={d}) == 0',
+            description=description,
         )
-    return Assumed(bend.format('<=' if curvature == 'convex' else '>='), interior, description)
+    return AssumptionBlock(
+        holds=bend.format('<=' if curvature == 'convex' else '>='), where=interior, description=description
+    )
 
 
 @dataclass(frozen=True)
@@ -348,10 +335,7 @@ class _Block:
         """
         assumptions = sos.section(self.raw, 'assumptions')
         for name, assumed in assumptions_of(self.name, self.pw).items():
-            entry: dict[str, object] = {'holds': assumed.holds, 'description': assumed.description}
-            if assumed.where is not None:
-                entry['where'] = assumed.where
-            assumptions[name] = entry
+            assumptions[name] = assumed.model_dump()
 
     # -- emitters ----------------------------------------------------------
 
