@@ -503,7 +503,7 @@ class _Block:
 
     def _expr_dims(self, text: str, ctx: str) -> frozenset[str]:
         """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
-        ast = parse_and_expand(text, self.schema, ctx)
+        ast = parse_and_expand(text, self.ns, ctx)
         if isinstance(ast, ComparisonNode):
             raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
         errors: list[str] = []

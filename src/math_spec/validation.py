@@ -12,17 +12,14 @@ from typing import TYPE_CHECKING, Literal, overload
 import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
-    CaseArm,
     CasesNode,
     ComparisonNode,
     DefinitionNode,
     ParsedNode,
-    case_context,
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError, prefixed
-from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
 from math_spec.piecewise import assumptions_of
@@ -39,9 +36,6 @@ from math_spec.resolution import (
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from math_spec.model import ExpressionBlock
-    from math_spec.program import Predicate
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -70,17 +64,6 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     if isinstance(model, Spec):
         return model
     return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
-
-
-def _once(errors: list[str]) -> str:
-    """The errors as one message, an identical sentence kept only the first time.
-
-    A cased expression is expanded at every use, so a fault in one of its arms
-    is found again at each constraint naming it. Every error carries the
-    context it was found in, so two that differ at all are two faults and an
-    exact repeat is one seen twice.
-    """
-    return '\n'.join(dict.fromkeys(errors))
 
 
 def validate_expressions(schema: Spec) -> Resolved:
@@ -117,7 +100,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         context = f"Macro '{mname}'"
         formals = frozenset((*macro.args, *macro.kwargs))
         try:
-            body_ast = expand(parse_template(mname, macro, context), schema, context, shadow=formals)
+            body_ast = expand(parse_template(mname, macro, context), ns, context, shadow=formals)
         except ValueError as e:
             errors.append(prefixed(context, e))
             continue
@@ -130,9 +113,13 @@ def validate_expressions(schema: Spec) -> Resolved:
         resolve_expression(body_ast, ns, context, errors, formals=formals)
 
     expressions: dict[str, CasesNode | DefinitionNode] = {}
-    for ename, block in schema.expressions.items():
-        if (node := _named(ename, block, ns, errors)) is not None:
+    for ename in schema.expressions:
+        node, refusals = ns.named_entry(ename)
+        errors.extend(refusals)
+        if node is not None:
             expressions[ename] = node
+    if errors:
+        raise SchemaError('\n'.join(errors))
 
     variables = {
         vname: mask_of(resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname))
@@ -174,44 +161,11 @@ def validate_expressions(schema: Spec) -> Resolved:
             piecewise[pname] = tuple(link for link in links if link is not None)
 
     if errors:
-        raise SchemaError(_once(errors))
+        raise SchemaError('\n'.join(errors))
 
     resolved = Resolved(expressions, variables, constraints, objective, ns.relations, assumptions, piecewise)
     check_schema(schema, resolved)
     return resolved
-
-
-def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) -> CasesNode | DefinitionNode | None:
-    """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
-
-    A cased entry's arms are checked one by one, so every fault is collected
-    rather than the first, and proved apart only once all of them resolve.
-    """
-    context = f"Named expression '{name}'"
-    if not block.cases:
-        assert block.expression is not None
-        body = _check_expression(block.expression, ns, context, errors, comparison=False, ceiling=None)
-        return None if body is None else DefinitionNode(name, body)
-
-    found = len(errors)
-    arms: list[CaseArm] = []
-    masks: dict[str, Predicate] = {}
-    for case_name, case in block.cases.items():
-        arm_context = case_context(name, case_name)
-        when = resolve_where_text(case.when, ns, arm_context, errors)
-        if isinstance(when, BooleanLiteral):
-            errors.append(_constant_arm(arm_context, value=when.value))
-        elif when is not None:
-            masks[case_name] = when
-        value = _check_expression(case.expression, ns, arm_context, errors, comparison=False, ceiling=None)
-        if when is not None and value is not None:
-            arms.append(CaseArm(case_name, when, value))
-    assert block.otherwise is not None
-    fallback = _check_expression(block.otherwise, ns, case_context(name, None), errors, comparison=False, ceiling=None)
-    if len(errors) > found or fallback is None:
-        return None
-    errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
-    return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
 
 
 def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> ResolvedAssumption | None:
@@ -270,23 +224,6 @@ def _decided_where(context: str, text: str, *, value: bool) -> str:
     )
 
 
-def _constant_arm(context: str, *, value: bool) -> str:
-    """The refusal for a case arm whose mask the connectives already decided.
-
-    Cases are proved apart rather than ranked, so an always-true arm is not
-    one that shadows the arms under it — it is one no other arm can be proved
-    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
-    is the plainer half: nothing to apply to.
-    """
-    if value:
-        return (
-            f'{context}: the mask admits every row, so no other arm can hold anywhere '
-            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
-            f'or narrow the `when`.'
-        )
-    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
-
-
 @overload
 def _check_expression(
     expression: str,
@@ -329,7 +266,7 @@ def _check_expression(
     declared.
     """
     try:
-        ast = parse_and_expand(expression, ns.schema, context)
+        ast = parse_and_expand(expression, ns, context)
     except ValueError as e:
         errors.append(prefixed(context, e))
         return None
