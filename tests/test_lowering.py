@@ -24,6 +24,7 @@ from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
     And,
+    Assumption,
     BooleanLiteral,
     Cases,
     Constant,
@@ -37,7 +38,6 @@ from math_spec.program import (
     ExpressionComparison,
     Footprint,
     GroupSum,
-    Holds,
     Mask,
     Multiply,
     Negate,
@@ -498,7 +498,7 @@ def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
     program = to_program(expanded(EXAMPLES / 'piecewise_lp.yaml', 'piecewise'))
     derived = [name for name in program.assumptions if name.startswith('cost_curve_')]
 
-    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+    assert all(isinstance(a, Assumption) for a in program.assumptions.values()), (
         'a method states its conditions in the language the file writes, so one kind stands in the mapping'
     )
     assert derived == [
@@ -514,7 +514,7 @@ def test_an_assumption_lowers_both_of_its_masks():
     program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}}))
     assumption = program.assumptions['sound']
 
-    assert assumption == Holds(
+    assert assumption == Assumption(
         Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
         Mask(ParameterDefined('flag', ('g',))),
     ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'

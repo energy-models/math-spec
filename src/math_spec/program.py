@@ -40,6 +40,7 @@ __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'And',
+    'Assumption',
     'BooleanLiteral',
     'Cases',
     'Connective',
@@ -60,7 +61,6 @@ __all__ = [
     'FanIn',
     'Footprint',
     'GroupSum',
-    'Holds',
     'Mask',
     'Multiply',
     'Named',
@@ -561,7 +561,7 @@ class PiecewiseDeclaration:
 
     The expansion lowered the links into constraints over the file's own
     parameters, and emitted none. What the block assumes of its numbers is an
-    :class:`Holds` like any other, under :attr:`Program.assumptions`; what
+    :class:`Assumption` like any other, under :attr:`Program.assumptions`; what
     is left here is the curve.
 
     Attributes:
@@ -576,7 +576,7 @@ class PiecewiseDeclaration:
 
 
 @dataclass(frozen=True)
-class Holds:
+class Assumption:
     """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
 
     ``predicate`` is true at every coordinate of its frame — the product of
@@ -594,7 +594,7 @@ class Holds:
     description: str | None = None
 
 
-def assumption_message(name: str, assumption: Holds) -> str:
+def assumption_message(name: str, assumption: Assumption) -> str:
     """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
@@ -850,7 +850,7 @@ class Program:
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
     #: language decides none of it, so the consumer binding the data checks
     #: each and refuses with :func:`assumption_message`.
-    assumptions: Mapping[str, Holds] = Sealed({})
+    assumptions: Mapping[str, Assumption] = Sealed({})
     #: Declared ``expressions:``, lowered, each saying whether the math reads
     #: it. None builds a row of its own — one the math reads is inlined where
     #: it is read — but all are lowered with the program, so a file whose
