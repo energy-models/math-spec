@@ -60,10 +60,6 @@ class DimensionError(LanguageError):
     """A dim-set rule was violated. Raised at load time, before any data."""
 
 
-class PiecewiseExpansionError(LanguageError):
-    """A piecewise block references something that doesn't exist or collides."""
-
-
 def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') -> str:
     """The repair clause for an unrecognised name: the near miss, or the set."""
     candidates = sorted(known)

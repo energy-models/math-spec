@@ -14,7 +14,7 @@ from math_spec.dimensions import check_schema
 from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
-from math_spec.piecewise import assumptions_of
+from math_spec.piecewise import assumptions_of, curve_frame
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
@@ -76,8 +76,9 @@ def validate_expressions(schema: Spec) -> Resolved:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
-    A ``piecewise:`` block's links are resolved here too, so the typesetter
-    reads the curve a file states without expanding it.
+    A ``piecewise:`` block's links are resolved here too, and its frame
+    checked, so the typesetter reads the curve a file states without expanding
+    it and the expansion reads the typed links.
 
     Returns:
         Every declaration's typed tree — what the dim rules, lowering and the
@@ -162,6 +163,8 @@ def validate_expressions(schema: Spec) -> Resolved:
 
     resolved = Resolved(expressions, variables, constraints, objective, ns.relations, assumptions, piecewise)
     check_schema(schema, resolved)
+    for pname, pdef in schema.piecewise.items():
+        curve_frame(schema, pname, pdef, resolved.piecewise[pname])
     return resolved
 
 

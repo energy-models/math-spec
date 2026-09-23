@@ -27,7 +27,7 @@ SURFACE = frozenset(
         'Spec', 'to_spec', 'program', 'to_program',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
-        'PiecewiseExpansionError', 'did_you_mean', 'schema_error',
+        'did_you_mean', 'schema_error',
         # the verdicts a consumer asks for rather than re-deriving
         'advice', 'Advice',
         # the closed operator set, and the wording of its refusals
