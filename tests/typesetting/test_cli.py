@@ -70,8 +70,23 @@ def test_check_accepts_the_model_that_carries_every_construct(capsys):
     """The golden model exercises every operator and every edge policy, so
     `check` accepting it is the claim that the whole language loads through
     one door — and that none of it draws advice."""
-    assert front.main(['check', str(golden.MODEL)]) == 0, 'the whole language loads'
+    assert front.main(['check', str(golden.MODEL), '--expand']) == 0, 'the whole language loads'
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
+
+
+def test_check_writes_no_curve_out_unasked(capsys):
+    """`check` expanded every curve on the user's behalf, the one verb that read a file differently from the rest.
+
+    Nothing in the package writes a formulation out unasked: `check` refuses
+    a curve model as any consumer building rows does, and `--expand` is how
+    the shell asks for the rows, the flag the typeset verbs already take.
+    """
+    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 1, 'a curve left as written is a refusal'
+    captured = capsys.readouterr()
+    assert captured.out == '' and 'states rows rather than being one' in captured.err, (
+        'the refusal goes to stderr and names the block'
+    )
+    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand']) == 0, 'asked for, the rows are checked'
 
 
 def _carries(stream: str, said: str) -> bool:

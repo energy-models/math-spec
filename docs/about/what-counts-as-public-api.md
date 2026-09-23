@@ -37,6 +37,12 @@ file, it is one.
   talks about a file the language accepts, and changes nothing.
 - **Safe to call again.** `spec.program` is one object, however often it is
   asked for.
+- **Nothing is written out unasked.** A `piecewise:` or `sos:` block is the
+  block until a caller writes it out with `spec.expand(...)`. No door, verb or
+  check expands a model on the caller's behalf: `spec.program` mirrors the
+  file, `advice` and the `check` verb refuse a curve left as written, and
+  `--expand` is how the shell asks. An engine that writes curves out at its
+  own door makes that choice for its users, not for the language.
 
 ## Three things a function never decides
 
