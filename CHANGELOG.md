@@ -19,6 +19,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.120](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.119...v0.0.0-alpha.120) (2026-09-23)
+
+
+### Features
+
+* **language:** a sos block says along, not over, for the dimension its set runs along ([#646](https://github.com/energy-models/math-spec/issues/646)) ([57062de](https://github.com/energy-models/math-spec/commit/57062de713c31faa42aaceb101f1ad3a2df37a1a))
+
 ## [0.0.0-alpha.119](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.118...v0.0.0-alpha.119) (2026-09-23)
 
 
