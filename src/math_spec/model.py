@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import re
+from functools import cached_property
 from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
@@ -725,11 +726,6 @@ class Spec(_StrictBlock):
     #: that expands to itself is not stored: two of them compare by their
     #: private state, which a model holding itself cannot answer.
     _expansions: dict[tuple[Formulation, ...], Spec] = PrivateAttr(default_factory=dict)
-    #: What :attr:`program` answers with, built as the model loads: computing
-    #: it *is* the expression pass, so a model the language refuses never
-    #: holds one.
-    _program: Program | None = PrivateAttr(default=None)
-
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
     #: any release — and declaring it is what lets a later reader refuse a file
@@ -750,19 +746,21 @@ class Spec(_StrictBlock):
     sos: dict[str, SosBlock] = {}
     assumptions: dict[str, AssumptionBlock] = {}
 
-    @property
+    @cached_property
     def program(self) -> Program:
         """This model typed, section for section — what every reader after load walks.
 
-        Built once, as the model loaded, so every ask is the same object. It
-        mirrors the model: a ``piecewise:`` block still in it is a curve under
-        ``program.piecewise`` and a ``sos:`` block a set under ``program.sos``,
-        and :meth:`expand` is what writes either out as rows, so a consumer
-        building rows reads ``spec.expand(...).program`` and refuses a block
-        it does not take.
+        Computing it *is* the expression pass, so a model the language refuses
+        raises here; loading forces it, so every ask on a model in hand is the
+        one object. It mirrors the model: a ``piecewise:`` block still in it is
+        a curve under ``program.piecewise`` and a ``sos:`` block a set under
+        ``program.sos``, and :meth:`expand` is what writes either out as rows,
+        so a consumer building rows reads ``spec.expand(...).program`` and
+        refuses a block it does not take.
         """
-        assert self._program is not None, 'a model that loaded was lowered'
-        return self._program
+        from math_spec.lowering import lower
+
+        return lower(self)
 
     @classmethod
     @override
@@ -901,9 +899,7 @@ class Spec(_StrictBlock):
         rows a curve states are held to the language when :meth:`expand`
         writes them out, since an expansion is a model like any other.
         """
-        from math_spec.lowering import lower
-
-        self._program = lower(self)
+        _ = self.program
         return self
 
 
