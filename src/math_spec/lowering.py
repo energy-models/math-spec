@@ -50,7 +50,7 @@ from math_spec.resolution import (
     resolve_expression_text,
     resolve_where_text,
 )
-from math_spec.validation import reference_errors
+from math_spec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
     from math_spec.model import AssumptionBlock, Spec
@@ -73,6 +73,9 @@ def lower(schema: Spec) -> Program:
       not a silently-empty mask;
     - macro formals may shadow model names but not a declared dimension, since
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
+    - no name a set or curve writes out is one the file declares
+      (:func:`~math_spec.validation.emitted_name_errors`), read off the
+      curve as lowered;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
     A ``piecewise:`` block's links are resolved and its frame checked here, on
@@ -156,9 +159,6 @@ def lower(schema: Spec) -> Program:
 
     curves: dict[str, tuple[Expression, ...]] = {}
     for pname, pdef in schema.piecewise.items():
-        for aname, assumed in assumptions_of(pname, pdef).items():
-            if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
-                assumptions[aname] = assumption
         links = resolve_links(pname, pdef, ns, errors)
         if links is None:
             continue
@@ -187,6 +187,10 @@ def lower(schema: Spec) -> Program:
             points=pdef.points,
             description=pdef.description,
         )
+        for aname, assumed in assumptions_of(pname, piecewise[pname]).items():
+            assumption = _assumption(aname, assumed, ns, errors)
+            assert assumption is not None and not errors, 'what a method assumes is stated in the language'
+            assumptions[aname] = assumption
 
     program = Program(
         parameters={
@@ -217,6 +221,8 @@ def lower(schema: Spec) -> Program:
         },
         description=schema.description,
     )
+    if errors := emitted_name_errors(schema, program):
+        raise SchemaError('\n'.join(errors))
     check_schema(schema, program)
     return program
 
