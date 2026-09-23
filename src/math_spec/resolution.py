@@ -127,7 +127,7 @@ _Edge = tuple[bool, float | None]
 #: How deep a resolved tree may be with every named expression it reads
 #: written in — the tree every pass after resolution recurses over. Three
 #: times what one text may nest, since a text reads other texts: a chain of
-#: 200 entries survived every pass on a default stack and 250 did not.
+#: 200 entries survived every pass on a default stack and 250 did not (#643).
 MAX_RESOLVED_DEPTH = 3 * MAX_DEPTH
 
 
