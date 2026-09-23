@@ -35,6 +35,7 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
+from math_spec.piecewise import curve_frame
 from math_spec.program import (
     And,
     BooleanLiteral,
@@ -920,7 +921,7 @@ class Walk:
         """
         block = self.schema.piecewise[name]
         links = self.schema.resolved.piecewise[name]
-        frame = self._curve_frame(name, block, links)
+        frame = list(curve_frame(self.schema, name, block, links))
         ctx = self._context([*frame, block.over])
         locus = self._locus(block, ctx)
         bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
@@ -988,20 +989,6 @@ class Walk:
         return self.format.cases(
             [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
         )
-
-    def _curve_frame(self, name: str, block: PiecewiseBlock, links: tuple[ArithmeticNode, ...]) -> list[str]:
-        """The dimensions the block builds one curve per coordinate of: every one its links and its gate carry.
-
-        The union the expansion takes its own frame from, and the expansion has
-        already held it to the rules — that no link carries the breakpoint
-        dimension among them (:mod:`math_spec.piecewise`).
-        """
-        dims: frozenset[str] = frozenset()
-        for i, node in enumerate(links):
-            dims |= dims_of(node, self.schema, f"piecewise '{name}' link {i}")
-        if block.activity is not None:
-            dims |= frozenset(self.schema.variables[block.activity].dims)
-        return self._sorted(dims)
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):
