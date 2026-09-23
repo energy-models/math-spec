@@ -30,7 +30,9 @@ from pydantic import (
 from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
 from math_spec.program import (
+    FORMULATIONS,
     DimensionDtype,
+    Formulation,
     ObjectiveSense,
     ParameterDtype,
     PiecewiseMethod,
@@ -82,10 +84,6 @@ class _StrictBlock(BaseModel):
         return data
 
 
-#: A block that states rows rather than being one, which :meth:`Spec.expand`
-#: writes out on request.
-Formulation = Literal['piecewise', 'sos']
-
 #: The shape a method needs a curve to have to be exact on it, which the
 #: ``<block>_curvature`` assumption states. ``convex`` and ``concave`` name the
 #: side a bounded link binds from; ``either`` is the weaker condition a block
@@ -102,10 +100,6 @@ NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 CURVATURES = frozenset(get_args(Curvature))
-
-#: Every formulation, in the order :meth:`Spec.expand` writes them out: a curve
-#: emits a set, and no set emits a curve.
-FORMULATIONS: tuple[Formulation, ...] = ('piecewise', 'sos')
 
 
 def _also_written_as(

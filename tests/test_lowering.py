@@ -68,6 +68,7 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, override, schema_of, where_of
+from tests.test_sos import CURVE
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
@@ -957,13 +958,33 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
     assert footprint.domains == {'continuous'}, 'never empty — a program has variables'
-    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.kinds)} == {frozenset}, (
-        'every field is a set, so one rule reads all of them'
-    )
+    assert footprint.formulations == frozenset(), 'a file with no block left as itself'
+    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.kinds, footprint.formulations)} == {
+        frozenset
+    }, 'every field is a set, so one rule reads all of them'
     assert footprint.quadratic <= QUADRATIC_POSITIONS, 'and the vocabulary a consumer pins its table against'
     assert {'objective', 'constraint'} == QUADRATIC_POSITIONS, (
         'a position admitted later widens this, which is what a consumer pins against to hear about it'
     )
+
+
+def test_a_consumer_says_which_formulations_it_takes_and_hears_about_the_rest():
+    """A program still carrying a curve lowered into rows that lacked it, silently: nothing here builds rows, so
+    the check is the consumer's to make at its door, and this is the one call that makes it."""
+    schema = schema_of(CURVE)
+    program, sets, rows = to_program(schema), to_program(schema.expand('piecewise')), to_program(schema.expand())
+
+    assert program.footprint.formulations == {'piecewise'} and sets.footprint.formulations == {'sos'}
+    assert rows.footprint.formulations == frozenset(), 'every block written out'
+    assert rows.written_out() is rows and sets.written_out('piecewise') is sets, (
+        'a program carrying only what the consumer takes whole is handed back'
+    )
+    with pytest.raises(LanguageError, match="piecewise: 'cost_curve' states rows rather than being one") as refusal:
+        program.written_out()
+    assert 'to_program(spec.expand())' in str(refusal.value), 'the refusal names the expansion to lower instead'
+    with pytest.raises(LanguageError, match="sos: 'cost_curve' is a set") as refusal:
+        sets.written_out('sos')
+    assert "to_program(spec.expand('sos'))" in str(refusal.value), 'in the words the consumer used'
 
 
 def test_the_footprint_is_walked_once_and_held(dispatch_program):

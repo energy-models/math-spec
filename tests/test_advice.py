@@ -114,6 +114,6 @@ def test_a_curve_is_written_out_before_advice_reads_it():
     assert [(n.kind, n.subject) for n in from_file] == [(n.kind, n.subject) for n in from_rows], (
         'a file and the program of its expansion are advised alike'
     )
-    with pytest.raises(LanguageError, match="piecewise: 'curve' states rows") as refusal:
+    with pytest.raises(LanguageError, match="piecewise: 'curve' states rows rather than being one") as refusal:
         advice(to_program(CURVED))
     assert "expand('piecewise')" in str(refusal.value), 'the refusal names the expansion to pass'

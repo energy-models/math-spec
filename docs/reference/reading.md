@@ -102,9 +102,16 @@ spec.expand() is spec.expand()  # True
 
 A consumer that takes a set lowers `spec.expand('piecewise')`, and one that
 does not lowers `spec.expand()`; what a set is written out as is on the
-[piecewise page](language/piecewise.md#what-a-set-is-written-out-as). A
-consumer handed a program still carrying a curve or a set it cannot take
-refuses it and names the expansion.
+[piecewise page](language/piecewise.md#what-a-set-is-written-out-as). Nothing
+in the package builds rows, so nothing in it can tell that a consumer ignored
+a block still on the program. A consumer building rows says which kinds it
+takes whole with `written_out`, in the words `expand` takes, and is refused
+with the expansion to lower where a block of another kind remains:
+
+```python
+sorted(program.footprint.formulations)  # ['piecewise']
+rows.written_out() is rows  # True
+```
 
 Every parameter the program declares is one the file declared, and the engine
 binds each from its data. The program of an expansion keeps no curve: the
@@ -195,6 +202,7 @@ footprint = rows.footprint
 sorted(footprint.quadratic)  # []
 sorted(footprint.domains)  # ['continuous']
 sorted(footprint.sos_types)  # []
+sorted(footprint.formulations)  # []
 sorted(kind.__name__ for kind in footprint.kinds)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
 ```
 

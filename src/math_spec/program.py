@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 from math_spec._expression_parser import ComparisonOperator
 from math_spec._sealed import Sealed
-from math_spec.errors import did_you_mean
+from math_spec.errors import LanguageError, did_you_mean
 
 if TYPE_CHECKING:
     import datetime
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
+    'FORMULATIONS',
     'QUADRATIC_POSITIONS',
     'Add',
     'And',
@@ -61,6 +62,7 @@ __all__ = [
     'ExpressionDeclaration',
     'FanIn',
     'Footprint',
+    'Formulation',
     'GroupSum',
     'Link',
     'Mask',
@@ -167,6 +169,14 @@ ObjectiveSense = Literal['minimize', 'maximize']
 
 #: The order of special ordered set.
 SosType = Literal[1, 2]
+
+#: A block that states rows rather than being one, which
+#: :meth:`~math_spec.model.Spec.expand` writes out on request.
+Formulation = Literal['piecewise', 'sos']
+
+#: Every formulation, in the order :meth:`~math_spec.model.Spec.expand` writes
+#: them out: a curve emits a set, and no set emits a curve.
+FORMULATIONS: tuple[Formulation, ...] = ('piecewise', 'sos')
 
 #: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
 #: with :data:`~math_spec.model.PIECEWISE_METHODS`, which says what each one
@@ -773,12 +783,16 @@ class Footprint:
         domains: Every domain declared.
         sos_types: The order of each special-ordered set declared.
         kinds: Every expression node kind that appears.
+        formulations: Each kind of block the program still carries as itself
+            rather than as the rows it states — what :meth:`Program.written_out`
+            refuses on behalf of a consumer that takes rows alone.
     """
 
     quadratic: frozenset[QuadraticPosition]
     domains: frozenset[VariableDomain]
     sos_types: frozenset[SosType]
     kinds: frozenset[type[Expression]]
+    formulations: frozenset[Formulation]
 
 
 @dataclass(frozen=True)
@@ -967,7 +981,38 @@ class Program:
             domains=frozenset(v.domain for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
             kinds=frozenset(type(node) for node in walk(*self.roots)),
+            formulations=frozenset(kind for kind in FORMULATIONS if getattr(self, kind)),
         )
+
+    def written_out(self, *kinds: Formulation) -> Program:
+        """This program, once it carries none of the formulations *kinds* name — every one where it names none.
+
+        The check a consumer building rows makes at its door. Nothing here
+        builds rows, so nothing here can tell that a consumer ignored a block
+        still on the program; this is how a consumer says which kinds it takes
+        whole and hears about the rest, in the words
+        :meth:`~math_spec.model.Spec.expand` takes.
+
+        Raises:
+            LanguageError: A block of a named kind still on the program, naming
+                the expansion to lower instead.
+        """
+        still = [kind for kind in (kinds or FORMULATIONS) if kind in self.footprint.formulations]
+        if not still:
+            return self
+        states = {
+            'piecewise': 'states rows rather than being one',
+            'sos': 'is a set, which a consumer takes whole or has written out as binaries',
+        }
+        found = '; '.join(
+            f'{kind}: {", ".join(repr(name) for name in getattr(self, kind))} {states[kind]}' for kind in still
+        )
+        spelled = ', '.join(repr(kind) for kind in kinds)
+        msg = (
+            f'{found}. Pass to_program(spec.expand({spelled})), which writes each block out as the '
+            f'variables and constraints it states.'
+        )
+        raise LanguageError(msg)
 
     @cached_property
     def separability(self) -> Mapping[str, Separability]:
