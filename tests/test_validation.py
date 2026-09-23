@@ -1507,6 +1507,67 @@ class TestRulesDecidedWithoutData:
                 ('a bare dimension name is true at every coordinate',),
                 id='where-a-bare-dimension',
             ),
+            pytest.param(
+                {
+                    'macros.scaled': {'args': ['x'], 'kwargs': ['n'], 'template': 'x * n'},
+                    'constraints': {'cap': {'dims': ['g'], 'expression': "scaled(p, n='wrap') <= c"}},
+                },
+                ("'wrap' is a quoted keyword", 'In an expression, quote nothing'),
+                id='a-quoted-keyword-as-an-operand',
+            ),
+            pytest.param(
+                {
+                    'macros.scaled': {'args': ['x'], 'kwargs': ['n'], 'template': 'x * n'},
+                    'constraints': {'cap': {'dims': ['g'], 'expression': 'scaled(p, n=[c, k]) <= c'}},
+                },
+                ('[c, k] is a list of names', 'write the terms out and add them'),
+                id='a-name-list-as-an-operand',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'shift(p, along=g, offset=p) <= c'}}},
+                ('shift(offset=...) must be a whole number, or the name of an integer parameter',),
+                id='a-shift-offset-naming-a-variable',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'shift(p, along=g, offset=1, edge=clip) <= c'}}},
+                ('shift(edge=clip) is not an edge policy', "Write edge='wrap'"),
+                id='an-edge-that-is-a-bare-name-other-than-wrap',
+            ),
+            pytest.param(
+                {'variables.p.where': 'shift(flag, along=c, offset=1)'},
+                ('shift(<predicate>, along=) names the dimension', 'Name a declared dimension'),
+                id='where-a-shifted-predicate-along-a-parameter',
+            ),
+            pytest.param(
+                {'macros.half': {'args': ['x'], 'template': 'x / 2'}, 'variables.p.where': 'c > half(k, k)'},
+                ("Variable 'p': macro 'half' expects 1 positional argument(s), got 2",),
+                id='where-a-side-whose-macro-call-does-not-expand',
+            ),
+            pytest.param(
+                {'variables.p.where': "c.h == 'x'"},
+                ("'c.h' reads a column of 'c', which is a parameter", 'Only a relation has columns'),
+                id='where-a-column-of-a-parameter',
+            ),
+            pytest.param(
+                {'variables.p.where': 'r > 0'},
+                ("where references variable 'r'", 'built before variables exist'),
+                id='where-a-variable-on-the-left',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'relations.lk.values': ['h', 'z'], 'variables.p.where': "lk == 'x'"},
+                ("'lk' has 2 value columns (['h', 'z'])", 'say which the comparison reads: lk.h'),
+                id='where-a-relation-of-two-value-columns-read-bare',
+            ),
+            pytest.param(
+                {'variables.p.where': "lk.zz == 'x'"},
+                ("'zz' is not a column of 'lk', whose columns are ['g', 'h']",),
+                id='where-a-column-the-relation-lacks',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'relations.lz': {'key': 'g', 'values': 'z'}, 'variables.p.where': 'lk == lz'},
+                ("compares 'lk' (a column over 'h') with 'lz' (a column over 'z')", 'can only mask everything out'),
+                id='where-two-relations-whose-columns-are-over-different-dimensions',
+            ),
         ],
     )
     def test_a_rule_decided_without_data(self, patch, fragments):
