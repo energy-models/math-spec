@@ -19,22 +19,13 @@ import pytest
 import math_spec.program as program_module
 from math_spec._expression_parser import (
     BinaryOperatorNode,
-    CasesNode,
     ComparisonNode,
-    DefinitionNode,
-    DimensionNode,
-    DirectionNode,
-    DualNode,
-    EdgeNode,
     FunctionCallNode,
     KeywordNode,
     NameListNode,
     NameNode,
     NumberNode,
-    ParameterNode,
-    PartitionNode,
     UnaryOperatorNode,
-    VariableNode,
     parse_expression,
 )
 from math_spec._where_parser import (
@@ -46,11 +37,8 @@ from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
-    Direction,
     Not,
     Or,
-    Partition,
-    RelationDeclaration,
     _conjuncts,
 )
 
@@ -538,37 +526,3 @@ def test_a_parsed_tree_prints_to_text_that_parses_to_the_same_tree(text):
 )
 def test_a_node_prints_as_the_file_writes_it(text, printed):
     assert str(parse_expression(text)) == printed, 'the spelling is the one a file could be written with'
-
-
-_ZONE_OF = RelationDeclaration((('u', 'unit'), ('zone', 'zone')), ('u',))
-
-
-@pytest.mark.parametrize(
-    ('node', 'printed'),
-    [
-        pytest.param(VariableNode('p'), 'p', id='a-variable'),
-        pytest.param(ParameterNode('cost'), 'cost', id='a-parameter'),
-        pytest.param(DimensionNode('t'), 't', id='a-dimension'),
-        pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
-        pytest.param(
-            DirectionNode(Direction('zone_of', _ZONE_OF, ('u',), ('zone',), ())),
-            'zone_of',
-            id='a-relation-read-in-a-direction',
-        ),
-        pytest.param(
-            PartitionNode(Partition('zone_of', _ZONE_OF, 'u', ('zone',), ())),
-            'zone_of',
-            id='a-relation-stepped-along-as-a-partition',
-        ),
-        pytest.param(EdgeNode(), "'wrap'", id='a-resolved-edge'),
-        pytest.param(DefinitionNode('headroom', NameNode('p')), 'headroom', id='a-named-expression-prints-its-name'),
-        pytest.param(CasesNode('startup', ()), 'startup', id='and-so-does-a-cased-one'),
-    ],
-)
-def test_a_node_resolution_built_prints_the_name_the_file_wrote(node, printed):
-    """These eight never come out of the parser, so no round trip reaches them:
-    resolution rewrites a `NameNode` into each. A `DefinitionNode` and a
-    `CasesNode` stand where a name stood, and the name is what the file says at
-    that position — printing the inlined body would print an expression the
-    author never wrote."""
-    assert str(node) == printed, 'a resolved node prints the text it was resolved from'

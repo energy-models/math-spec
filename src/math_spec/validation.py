@@ -7,35 +7,37 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING
 
-import math_spec.degree as degree
-from math_spec._expression_parser import (
-    ArithmeticNode,
-    CasesNode,
-    ComparisonNode,
-    DefinitionNode,
-    ParsedNode,
-)
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError, prefixed
-from math_spec.expansion import expand, parse_and_expand, parse_template
-from math_spec.model import AssumptionBlock, Spec
-from math_spec.piecewise import assumptions_of
-from math_spec.program import BooleanLiteral, Mask, VariableDefined
+from math_spec.errors import SchemaError, prefixed
+from math_spec.expansion import expand, parse_template
+from math_spec.model import Spec
+from math_spec.piecewise import assumptions_of, curve_frame
+from math_spec.program import (
+    Assumption,
+    BooleanLiteral,
+    ConstraintDeclaration,
+    Mask,
+    ObjectiveDeclaration,
+    VariableDefined,
+)
 from math_spec.resolution import (
     Namespace,
     Resolved,
-    ResolvedAssumption,
-    ResolvedConstraint,
     mask_of,
+    resolve_constraint_text,
     resolve_expression,
+    resolve_expression_text,
     resolve_where_text,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from math_spec.model import AssumptionBlock
+    from math_spec.program import Named
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -81,8 +83,9 @@ def validate_expressions(schema: Spec) -> Resolved:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
-    A ``piecewise:`` block's links are resolved here too, so the typesetter
-    reads the curve a file states without expanding it.
+    A ``piecewise:`` block's links are resolved here too, and its frame
+    checked, so the typesetter reads the curve a file states without expanding
+    it and the expansion reads the typed links.
 
     Returns:
         Every declaration's typed tree — what the dim rules, lowering and the
@@ -100,7 +103,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         context = f"Macro '{mname}'"
         formals = frozenset((*macro.args, *macro.kwargs))
         try:
-            body_ast = expand(parse_template(mname, macro, context), ns, context, shadow=formals)
+            body_ast = expand(parse_template(mname, macro, context), ns, context)
         except ValueError as e:
             errors.append(prefixed(context, e))
             continue
@@ -112,7 +115,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         )
         resolve_expression(body_ast, ns, context, errors, formals=formals)
 
-    expressions: dict[str, CasesNode | DefinitionNode] = {}
+    expressions: dict[str, Named] = {}
     for ename in schema.expressions:
         node, refusals = ns.named_entry(ename)
         errors.extend(refusals)
@@ -126,35 +129,34 @@ def validate_expressions(schema: Spec) -> Resolved:
         for vname, vdef in schema.variables.items()
     }
 
-    constraints: dict[str, ResolvedConstraint] = {}
+    constraints: dict[str, ConstraintDeclaration] = {}
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         where = resolve_where_text(cdef.where, ns, context, errors)
-        expression = _check_expression(cdef.expression, ns, context, errors, comparison=True, ceiling=2)
-        if expression is not None:
-            constraints[cname] = ResolvedConstraint(expression, mask_of(where))
+        if (sides := resolve_constraint_text(cdef.expression, ns, context, errors)) is not None:
+            lhs, sense, rhs = sides
+            constraints[cname] = ConstraintDeclaration(tuple(cdef.dims), lhs, sense, rhs, mask_of(where))
 
     objective = None
     if schema.objective is not None:
-        objective = _check_expression(
-            schema.objective.expression, ns, 'The objective', errors, comparison=False, ceiling=2
-        )
+        expression = resolve_expression_text(schema.objective.expression, ns, 'The objective', errors, ceiling=2)
+        if expression is not None:
+            objective = ObjectiveDeclaration(schema.objective.sense, expression)
 
-    assumptions: dict[str, ResolvedAssumption] = {}
+    assumptions: dict[str, Assumption] = {}
     for aname, adef in schema.assumptions.items():
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
 
     for block, pw in schema.piecewise.items():
         for aname, assumed in assumptions_of(block, pw).items():
-            entry = AssumptionBlock(holds=assumed.holds, where=assumed.where, description=assumed.description)
-            if (assumption := _assumption(aname, entry, ns, errors)) is not None:
+            if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
                 assumptions[aname] = assumption
 
     piecewise = {}
     for pname, pdef in schema.piecewise.items():
         links = [
-            _check_expression(link.expression, ns, f"piecewise '{pname}' link {i}", errors, comparison=False, ceiling=1)
+            resolve_expression_text(link.expression, ns, f"piecewise '{pname}' link {i}", errors, ceiling=1)
             for i, link in enumerate(pdef.links)
         ]
         if all(link is not None for link in links):
@@ -165,10 +167,12 @@ def validate_expressions(schema: Spec) -> Resolved:
 
     resolved = Resolved(expressions, variables, constraints, objective, ns.relations, assumptions, piecewise)
     check_schema(schema, resolved)
+    for pname, pdef in schema.piecewise.items():
+        curve_frame(schema, pname, pdef, resolved.piecewise[pname])
     return resolved
 
 
-def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> ResolvedAssumption | None:
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:
     """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
 
     A predicate the connectives decide is refused: one that folds to true
@@ -198,7 +202,7 @@ def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[s
     if len(errors) > found:
         return None
     assert holds is not None, 'a where string that read to nothing appended an error'
-    return ResolvedAssumption(Mask(holds), mask_of(where), block.description)
+    return Assumption(Mask(holds), mask_of(where), block.description)
 
 
 def _decided_assumption(context: str, text: str, *, value: bool) -> str:
@@ -222,77 +226,3 @@ def _decided_where(context: str, text: str, *, value: bool) -> str:
         f'{context}: the where {text!r} folds to false, so the assumption is checked on no row. '
         f'Delete the entry, or write the where the data can satisfy.'
     )
-
-
-@overload
-def _check_expression(
-    expression: str,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: Literal[True],
-    ceiling: int | None,
-) -> ComparisonNode | None: ...
-@overload
-def _check_expression(
-    expression: str,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: Literal[False],
-    ceiling: int | None,
-) -> ArithmeticNode | None: ...
-
-
-def _check_expression(
-    expression: str,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: bool,
-    ceiling: int | None,
-) -> ParsedNode | None:
-    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
-
-    Returns the typed tree, or ``None`` once anything failed, the problem
-    appended to *errors*. ``ceiling`` is the degree the position honours, and
-    ``None`` for an ``expressions:`` entry's body: what the math admits
-    (:func:`~math_spec.degree.check_expression`) is a rule about the position
-    that *reads* it, so it fires on the expanded tree of every constraint,
-    objective, bound, where and piecewise link, and not where an entry is
-    declared.
-    """
-    try:
-        ast = parse_and_expand(expression, ns, context)
-    except ValueError as e:
-        errors.append(prefixed(context, e))
-        return None
-    if comparison and not isinstance(ast, ComparisonNode):
-        errors.append(
-            f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {expression!r}'
-        )
-        return None
-    if not comparison and isinstance(ast, ComparisonNode):
-        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
-        return None
-    resolved = resolve_expression(ast, ns, context, errors)
-    if resolved is None or ceiling is None:
-        return resolved
-    try:
-        degree.check_expression(resolved, context, ceiling=ceiling)
-    except LanguageError as e:
-        errors.append(str(e))
-        return None
-    if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
-        errors.append(
-            f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
-            f'Got: {expression!r}\n'
-            f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
-            f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
-        )
-        return None
-    return resolved

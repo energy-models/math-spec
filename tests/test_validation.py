@@ -1997,8 +1997,9 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
 
         return record
 
+    doors = (resolution.resolve_expression, resolution.resolve_constraint_text, resolution.resolve_where_text)
     for module in (validation, resolution):
-        for door in (resolution.resolve_expression, resolution.resolve_where_text):
+        for door in doors:
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
     spec = to_spec(
@@ -2019,8 +2020,8 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     to_markdown(spec)
 
     assert sorted(seen) == [
-        ('resolve_expression', "Constraint 'balance'"),
-        ('resolve_expression', "Constraint 'spare'"),
+        ('resolve_constraint_text', "Constraint 'balance'"),
+        ('resolve_constraint_text', "Constraint 'spare'"),
         ('resolve_expression', "Named expression 'headroom', case 'opening'"),
         ('resolve_expression', "Named expression 'headroom', otherwise"),
         ('resolve_expression', 'The objective'),

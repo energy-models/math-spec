@@ -15,9 +15,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import math_spec.degree as degree
 from math_spec._yaml import read_yaml
+from math_spec.degree import calls_dual
 from math_spec.errors import SchemaError, did_you_mean
+from math_spec.program import carries_variable
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
@@ -84,8 +85,8 @@ def chosen_expressions(schema: Spec) -> frozenset[str]:
     """
     return frozenset(
         name
-        for name, node in schema.resolved.expressions.items()
-        if degree.carries_variable(node) or degree.calls_dual(node)
+        for name, entry in schema.resolved.expressions.items()
+        if carries_variable(entry.body) or calls_dual(entry.body)
     )
 
 

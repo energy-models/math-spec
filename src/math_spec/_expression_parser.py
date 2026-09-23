@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The core AST every pass reads, and the pyparsing grammar that builds it — package-private.
+"""The syntax tree the expression grammar builds, and the grammar — package-private.
 
-Arithmetic nests anywhere; a comparison appears only at the top of a parsed
-expression.
+Only expansion and resolution read it: resolution rewrites it into the
+:mod:`math_spec.program` vocabulary, which every pass after reads. Arithmetic
+nests anywhere; a comparison appears only at the top of a parsed expression.
 """
 
 from __future__ import annotations
@@ -18,12 +19,9 @@ import pyparsing as pp
 
 from math_spec._sealed import Sealed
 from math_spec.errors import SchemaError
-from math_spec.operators import EDGE_WRAP
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping
-
-    from math_spec.program import Direction, Partition, Predicate
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -60,57 +58,7 @@ class NumberNode:
 
 @dataclass(frozen=True)
 class NameNode:
-    """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node."""
-
-    name: str
-
-    def __str__(self) -> str:
-        return self.name
-
-
-@dataclass(frozen=True)
-class VariableNode:
-    """A resolved reference to a declared decision variable."""
-
-    name: str
-
-    def __str__(self) -> str:
-        return self.name
-
-
-@dataclass(frozen=True)
-class ParameterNode:
-    """A resolved reference to a declared parameter."""
-
-    name: str
-
-    def __str__(self) -> str:
-        return self.name
-
-
-@dataclass(frozen=True)
-class DualNode:
-    """A resolved ``dual(c)``: the row dual of the declared constraint *c*, a leaf.
-
-    Constraints sit outside the flat namespace, so a bare name never resolves
-    to one; ``dual(c)`` is the one position that reads the constraint store. A
-    dual is a number only a solve produces, so the loader refuses this leaf
-    anywhere the math is built (:mod:`math_spec.validation`).
-    """
-
-    constraint: str
-
-    def __str__(self) -> str:
-        return f'dual({self.constraint})'
-
-
-@dataclass(frozen=True)
-class DimensionNode:
-    """A resolved reference to a declared dimension.
-
-    Only legal in operator kwarg *values* (``sum(x, over=generator)``), never as
-    a value in arithmetic — a dimension is a coordinate space, not data.
-    """
+    """A bare name whose kind only the schema knows; resolution rewrites every one into a program node."""
 
     name: str
 
@@ -132,26 +80,6 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class DirectionNode:
-    """A resolved ``by=`` on ``sum`` or ``at``: the relation, read in the :class:`Direction` the call names."""
-
-    direction: Direction
-
-    def __str__(self) -> str:
-        return self.direction.name
-
-
-@dataclass(frozen=True)
-class PartitionNode:
-    """A resolved ``by=`` on ``shift`` or ``sum_back``: the relation, as the :class:`Partition` the call steps inside."""
-
-    partition: Partition
-
-    def __str__(self) -> str:
-        return self.partition.name
-
-
-@dataclass(frozen=True)
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
@@ -162,14 +90,6 @@ class KeywordNode:
 
     def __str__(self) -> str:
         return f"'{self.value}'"
-
-
-@dataclass(frozen=True)
-class EdgeNode:
-    """The resolved ``edge='wrap'``; a number in the same position stays a :class:`NumberNode`."""
-
-    def __str__(self) -> str:
-        return f"'{EDGE_WRAP}'"
 
 
 @dataclass(frozen=True)
@@ -211,87 +131,10 @@ class FunctionCallNode:
         return f'{self.name}({", ".join(passed)})'
 
 
-@dataclass(frozen=True)
-class CaseArm:
-    """One region of a :class:`CasesNode`: where it applies, and the value there.
-
-    ``when`` is ``None`` on the **last** arm and only there — the block's
-    ``otherwise:``, which is what makes the quantity total without anything
-    having to prove it. Every other arm's ``when`` is proved apart from every
-    other arm's.
-    """
-
-    label: str
-    when: Predicate | None
-    value: ArithmeticNode
-
-
-def case_context(name: str, label: str | None) -> str:
-    """The context an error inside one arm of a cased expression is reported under.
-
-    Args:
-        name: The named expression the arm belongs to.
-        label: The case's name, or ``None`` for the block's ``otherwise:``.
-
-    Returns:
-        The context prefix an error message carries.
-    """
-    where = 'otherwise' if label is None else f"case '{label}'"
-    return f"Named expression '{name}', {where}"
-
-
-@dataclass(frozen=True)
-class CasesNode:
-    """A value defined by region — a named expression's ``cases:``, inlined where its name stood.
-
-    Exactly one arm applies at every coordinate, which :mod:`math_spec.exclusivity`
-    proves at load; the last arm is the block's ``otherwise:`` and carries no
-    ``when``. The arms are in file order. The frame is not carried here: it is
-    on the declaration.
-    """
-
-    name: str
-    arms: tuple[CaseArm, ...]
-
-    def __str__(self) -> str:
-        """The name the file wrote, which is all an expression ever said: ``cases:`` is YAML and not syntax."""
-        return self.name
-
-
-@dataclass(frozen=True)
-class DefinitionNode:
-    """A plain named expression's body, inlined where its name stood — carrying the name.
-
-    The math is the body's: every pass reads through this node as if the body
-    stood here bare. The name is for the typesetter, which may print the
-    quantity under it and define it once, as a paper does.
-    """
-
-    name: str
-    body: ArithmeticNode
-
-    def __str__(self) -> str:
-        """The name the file wrote, rather than the body inlined under it."""
-        return self.name
-
-
+#: Every arithmetic node the grammar builds. A name, a name list and a quoted
+#: keyword are what resolution reads for their kind; the rest is structure.
 ArithmeticNode = (
-    NumberNode
-    | NameNode
-    | NameListNode
-    | VariableNode
-    | ParameterNode
-    | DualNode
-    | DimensionNode
-    | DirectionNode
-    | PartitionNode
-    | EdgeNode
-    | KeywordNode
-    | UnaryOperatorNode
-    | BinaryOperatorNode
-    | FunctionCallNode
-    | CasesNode
-    | DefinitionNode
+    NumberNode | NameNode | NameListNode | KeywordNode | UnaryOperatorNode | BinaryOperatorNode | FunctionCallNode
 )
 
 
@@ -306,9 +149,7 @@ class ComparisonNode:
         return f'{self.left} {self.op} {self.right}'
 
 
-#: A whole spec-side expression tree — parse output and the resolved tree alike.
-#: Named apart from :data:`math_spec.program.Expression`, the lowered
-#: vocabulary a consumer reads.
+#: A whole parsed expression: arithmetic, or one comparison over it.
 ParsedNode = ArithmeticNode | ComparisonNode
 
 
@@ -323,8 +164,7 @@ def operand(node: ArithmeticNode) -> str:
     Whoever writes a node into a larger text — an operator, a line of a dumped
     sum — asks this rather than restating when brackets are needed.
 
-    A leaf, a call and a named expression are self-delimiting, and an operator
-    node is not. The brackets go on every operator operand rather than only the
+    A leaf and a call are self-delimiting, and an operator node is not. The brackets go on every operator operand rather than only the
     ones precedence would regroup, because a node prints without knowing its
     parent: ``a + (b * c)`` keeps the tree where ``a + b * c`` would rely on the
     reader knowing which binds tighter.
@@ -332,31 +172,11 @@ def operand(node: ArithmeticNode) -> str:
     return f'({node})' if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode)) else str(node)
 
 
-# Node groups
-
-#: A resolved reference the language admits only as an operator kwarg *value*:
-#: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
-#: the three is data, so none may stand in arithmetic — which is why the passes
-#: that walk a value position refuse them together.
-KwargNode = DimensionNode | DirectionNode | PartitionNode | EdgeNode
-
-#: What resolution rewrites away: a bare name, whose kind only the schema
-#: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.resolution.resolve_expression`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode
-
-#: Every leaf — nothing below it to descend into.
-LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
-
-
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.
 
-    Every pass that recurses the whole tree and acts only at certain leaves
-    goes through here, so a node added later reaches all of them. An
-    operator's kwargs are children too — a dimension or coordinate is an
+    An operator's kwargs are children too — a dimension or coordinate is an
     ordinary node in a kwarg value, which is what lets a macro bind a formal.
-    A case arm's ``when`` is not: it is a mask over the frame, not a value in it.
     """
     if isinstance(node, UnaryOperatorNode):
         return (node.operand,)
@@ -364,10 +184,6 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return (node.left, node.right)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
-    if isinstance(node, CasesNode):
-        return tuple(arm.value for arm in node.arms)
-    if isinstance(node, DefinitionNode):
-        return (node.body,)
     return ()
 
 
@@ -383,12 +199,8 @@ def nodes(*roots: ParsedNode) -> Iterator[ParsedNode]:
 
 
 def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], ArithmeticNode]) -> ArithmeticNode:
-    """*node* rebuilt with *recurse* applied to each of its :func:`children`; a leaf comes back as is.
-
-    A case arm's ``when`` is a mask over the frame, not a value in it, and is
-    carried across unchanged.
-    """
-    if isinstance(node, LeafNode):
+    """*node* rebuilt with *recurse* applied to each of its :func:`children`; a leaf comes back as is."""
+    if isinstance(node, NumberNode | NameNode | NameListNode | KeywordNode):
         return node
     if isinstance(node, UnaryOperatorNode):
         return UnaryOperatorNode(node.op, recurse(node.operand))
@@ -400,10 +212,6 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
             tuple(recurse(a) for a in node.args),
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
-    if isinstance(node, CasesNode):
-        return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
-    if isinstance(node, DefinitionNode):
-        return DefinitionNode(node.name, recurse(node.body))
     assert_never(node)
 
 

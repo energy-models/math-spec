@@ -50,13 +50,12 @@ variable with no constraint row.
 
 ## Which error you get
 
-|                           |                                                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `MathSpecError`           | The root. Everything below is an instance of it                                                                                  |
-| `LanguageError`           | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
-| `SchemaError`             | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
-| `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
-| `PiecewiseExpansionError` | A `piecewise:` block that cannot be expanded                                                                                     |
+|                  |                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `MathSpecError`  | The root. Everything below is an instance of it                                                                                  |
+| `LanguageError`  | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
+| `SchemaError`    | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
+| `DimensionError` | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
 
 Every one of these is reproducible from the YAML alone. An engine that binds
 numbers or calls a solver adds its own errors below `MathSpecError`.

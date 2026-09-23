@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The walk: resolved AST → typeset lines. Written once, for every format.
+"""The walk: resolved tree → typeset lines. Written once, for every format.
 
 Everything here is a decision about the *math* — where a bracket changes the
 reading, which dimension a reduction binds, that a mask belongs on the ∀ rather
@@ -15,54 +15,56 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from math_spec._expression_parser import (
-    ArithmeticNode,
-    BinaryOperator,
-    BinaryOperatorNode,
-    CasesNode,
-    DefinitionNode,
-    DimensionNode,
-    DirectionNode,
-    DualNode,
-    EdgeNode,
-    FunctionCallNode,
-    KwargNode,
-    NumberNode,
-    ParameterNode,
-    PartitionNode,
-    UnaryOperatorNode,
-    UnresolvedNode,
-    VariableNode,
-)
 from math_spec.dimensions import dims_of
+from math_spec.piecewise import curve_frame
 from math_spec.program import (
+    Add,
     And,
     BooleanLiteral,
+    Cases,
+    Constant,
     CountComparison,
     DimensionComparison,
     DimensionPosition,
     Direction,
+    Divide,
+    Dual,
+    Expression,
     ExpressionComparison,
+    GroupSum,
     Mask,
+    Multiply,
+    Named,
+    Negate,
     Not,
     Or,
+    Parameter,
     ParameterComparison,
     ParameterDefined,
+    Partition,
+    Power,
     Predicate,
     PredicateOperator,
+    Pullback,
     PulledBackPredicate,
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
+    Sum,
+    Translate,
     TranslatedPredicate,
+    Variable,
     VariableDefined,
+    WindowSum,
 )
+from math_spec.resolution import remainder
 from math_spec.typesetting.format import Entry, Line, OperatorName
 
 if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
+    from math_spec._expression_parser import BinaryOperator
     from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
@@ -81,7 +83,6 @@ _WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
 #: align on the way it aligns a constraint.
 AlignedComparison = (
     ParameterComparison
-    # pyrefly: ignore[implicit-any-type-argument]  # the union is an isinstance target, which takes no parameterized class
     | ExpressionComparison
     | CountComparison
     | DimensionComparison
@@ -114,18 +115,6 @@ _TRANSLATIONS: dict[TranslationPolicy, tuple[OperatorName, OperatorName]] = {
     'wrap': ('cyclic_minus', 'cyclic_plus'),
     'edge': ('edge_minus', 'edge_plus'),
 }
-
-
-def _amount(node: ArithmeticNode) -> int | str:
-    """``shift``'s ``offset=``: a signed number, or the name of a parameter.
-
-    A named offset is always backward — a negated one is refused at load, in
-    :func:`math_spec.dimensions.check_schema` — which the assert relies on.
-    """
-    if isinstance(node, ParameterNode):
-        return node.name
-    assert isinstance(node, NumberNode), 'resolution folds a literal offset to one signed number'
-    return int(node.value)
 
 
 @dataclass(frozen=True)
@@ -221,12 +210,14 @@ class _Context:
         return self.walk.format.subscript(symbol, [self.subscript(d) for d in dims])
 
 
-def _unsigned(node: ArithmeticNode) -> ArithmeticNode | None:
+def _unsigned(node: Expression) -> Expression | None:
     """*node* without its leading minus — on the node, or on the first factor of a product it heads — else ``None``."""
-    if isinstance(node, UnaryOperatorNode) and node.op == '-':
+    if isinstance(node, Negate):
         return node.operand
-    if isinstance(node, BinaryOperatorNode) and node.op in ('*', '/') and (left := _unsigned(node.left)) is not None:
-        return BinaryOperatorNode(node.op, left, node.right)
+    if isinstance(node, Multiply | Divide):
+        first, second = (node.left, node.right) if isinstance(node, Multiply) else (node.numerator, node.divisor)
+        if (head := _unsigned(first)) is not None:
+            return Multiply(head, second) if isinstance(node, Multiply) else Divide(head, second)
     return None
 
 
@@ -271,7 +262,7 @@ class Walk:
         block = self.schema.expressions[name]
         if block.cases:
             return list(block.dims or ())
-        return self._sorted(dims_of(self.schema.resolved.expressions[name], self.schema, f"expression '{name}'"))
+        return self._sorted(dims_of(self.schema.resolved.expressions[name].body, self.schema, f"expression '{name}'"))
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -346,151 +337,150 @@ class Walk:
 
     # -- arithmetic --------------------------------------------------------
 
-    def _expression(self, node: ArithmeticNode, ctx: _Context, *, need: int = 0) -> str:
+    def _expression(self, node: Expression, ctx: _Context, *, need: int = 0) -> str:
         text, precedence = self._arithmetic(node, ctx)
         return self.format.parenthesise(text) if precedence < need else text
 
-    def _arithmetic(self, node: ArithmeticNode, ctx: _Context) -> tuple[str, int]:
-        """Render *node*, returning the text and the precedence it binds at.
+    def _arithmetic(self, node: Expression, ctx: _Context) -> tuple[str, int]:
+        """Render *node*, returning the text and the precedence it binds at."""
+        if isinstance(node, Named):
+            if self.inline_expressions and not isinstance(node.body, Cases):
+                return self._arithmetic(node.body, ctx)
+            return ctx.indexed(self.symbols.name[node.name], self.frames[node.name]), _ATOM
 
-        A ``NameNode`` here means resolution was skipped, and a bare dimension
-        or coordinate in a value position is a language error caught long
-        before this module runs — so meeting either is an assertion, not a
-        rendering decision.
-        """
-        if isinstance(node, NumberNode):
+        if isinstance(node, Constant):
             return self._number(node.value), _ATOM if node.value >= 0 else 1
 
-        if isinstance(node, ParameterNode):
+        if isinstance(node, Parameter):
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
 
-        if isinstance(node, VariableNode):
+        if isinstance(node, Variable):
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].dims)), _ATOM
 
-        if isinstance(node, UnaryOperatorNode):
-            if node.op == '+':
-                return self._arithmetic(node.operand, ctx)
+        if isinstance(node, Negate):
             text, precedence = self._arithmetic(node.operand, ctx)
             operand = self.format.parenthesise(text) if precedence < 2 else text
             return f'{self._op("minus")}{operand}', 2
 
-        if isinstance(node, BinaryOperatorNode):
+        if isinstance(node, Add | Multiply | Divide | Power):
             return self._binary(node, ctx)
 
-        if isinstance(node, FunctionCallNode):
-            return self._call(node, ctx)
+        if isinstance(node, Sum):
+            return self._sum(node, ctx)
 
-        if isinstance(node, DefinitionNode) and self.inline_expressions:
-            return self._arithmetic(node.body, ctx)
+        if isinstance(node, GroupSum):
+            return self._group_sum(node, ctx)
 
-        if isinstance(node, CasesNode | DefinitionNode):
-            return ctx.indexed(self.symbols.name[node.name], self.frames[node.name]), _ATOM
+        if isinstance(node, Pullback):
+            return self._pullback(node, ctx)
 
-        if isinstance(node, DualNode):
+        if isinstance(node, Translate):
+            return self._translate(node, ctx)
+
+        if isinstance(node, WindowSum):
+            return self._window_sum(node, ctx)
+
+        if isinstance(node, Cases):
+            return self.format.cases(self._arms(node, ctx)), _ATOM
+
+        if isinstance(node, Dual):
             return self._dual(node, ctx), _ATOM
-
-        if isinstance(node, UnresolvedNode | KwargNode):
-            msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
-            raise AssertionError(msg)
 
         assert_never(node)
 
-    def _dual(self, node: DualNode, ctx: _Context) -> str:
+    def _dual(self, node: Dual, ctx: _Context) -> str:
         """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
-        frame = self._sorted(dims_of(node, self.schema, 'a dual'))
+        frame = self._sorted(frozenset(self.schema.constraints[node.constraint].dims))
         return self.format.subscript(
             self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
         )
 
-    def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
+    def _binary(self, node: Add | Multiply | Divide | Power, ctx: _Context) -> tuple[str, int]:
         """Render a binary operator, bracketing only where the reading demands.
 
-        Subtraction raises the requirement on its right operand by one:
-        ``a - (b - c)`` and ``a - (b + c)`` need the bracket; ``a - b*c``
-        does not. A negation folds into the sign beside it — ``a + -b`` is
-        ``a - b`` and ``a - -b`` is ``a + b`` — and as a factor it is
-        bracketed, since ``a · -b`` is a spelling nobody reads. A power is
-        atomic to everything but another power, a stacked superscript being
-        ambiguous.
+        A subtraction arrives as an addition of a negation and prints as the
+        subtraction it was: ``a + -b`` is ``a - b`` and ``a - -b`` is ``a + b``,
+        the sign folding until the right operand carries none. Subtraction
+        raises the requirement on its right operand by one: ``a - (b - c)``
+        and ``a - (b + c)`` need the bracket; ``a - b*c`` does not. A negated
+        factor is bracketed, since ``a · -b`` is a spelling nobody reads. A
+        power is atomic to everything but another power, a stacked
+        superscript being ambiguous.
         """
-        if node.op == '/':
-            top = self._expression(node.left, ctx)
-            bottom = self._expression(node.right, ctx)
+        if isinstance(node, Divide):
+            top = self._expression(node.numerator, ctx)
+            bottom = self._expression(node.divisor, ctx)
             return self.format.fraction(top, bottom), _ATOM
-        if node.op == '**':
-            base = self._expression(node.left, ctx, need=_PRECEDENCE['**'] + 1)
-            return self.format.superscript(base, self._expression(node.right, ctx)), _PRECEDENCE['**']
-        precedence = _PRECEDENCE[node.op]
+        if isinstance(node, Power):
+            base = self._expression(node.base, ctx, need=_PRECEDENCE['**'] + 1)
+            return self.format.superscript(base, self._expression(node.exponent, ctx)), _PRECEDENCE['**']
+        op: BinaryOperator = '*' if isinstance(node, Multiply) else '+'
+        precedence = _PRECEDENCE[op]
         left = self._expression(node.left, ctx, need=precedence)
-        operand, op = node.right, node.op
-        if op in ('+', '-') and (unsigned := _unsigned(operand)) is not None:
-            operand, op = unsigned, '-' if op == '+' else '+'
-        negated_factor = op == '*' and isinstance(operand, UnaryOperatorNode) and operand.op == '-'
+        operand = node.right
+        if op == '+':
+            while (unsigned := _unsigned(operand)) is not None:
+                operand, op = unsigned, '-' if op == '+' else '+'
+        negated_factor = op == '*' and isinstance(operand, Negate)
         need = _ATOM if negated_factor else _PRECEDENCE[op] + (1 if op == '-' else 0)
         right = self._expression(operand, ctx, need=need)
         names: dict[BinaryOperator, OperatorName] = {'*': 'cdot', '+': 'plus', '-': 'minus'}
         return self.format.joined([left, right], self._op(names[op])), precedence
 
-    def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
-        """Render an operator: a translation at the leaves, or a summation.
+    def _sum(self, node: Sum, ctx: _Context) -> tuple[str, int]:
+        """A reduction over named dims: one dummy index per dim, in declaration order."""
+        memberships = []
+        inner = ctx
+        for d in self._sorted(frozenset(node.over)):
+            dummy, inner = inner.reducing(d)
+            memberships.append(self._membership(d, dummy))
+        domain = self.format.joined(memberships, '')
+        return self.format.summation(domain, self._reduction_body(node.operand, inner)), _PRECEDENCE['+']
 
-        ``shift`` and ``at`` emit no operator of their own — they re-index the
-        operand, so the substitution shows at the leaves. A ``sum`` naming no
-        dim binds every dim its operand carries, and the domain has to say
-        which, since the call does not.
+    def _group_sum(self, node: GroupSum, ctx: _Context) -> tuple[str, int]:
+        """A sum through a relation: a dummy per consumed dim, and the row it joins on as the domain's condition."""
+        direction = node.direction
+        dummies: dict[str, str] = {}
+        inner = ctx
+        for d in direction.consumed_dims:
+            dummies[d], inner = inner.reducing(d)
+        conditions = list(self._grouping(direction, dummies, ctx))
+        domain = (
+            f'{self.format.joined([self._membership(d, dummies[d]) for d in direction.consumed_dims], "")} '
+            f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
+        )
+        return self.format.summation(domain, self._reduction_body(node.operand, inner)), _PRECEDENCE['+']
+
+    def _pullback(self, node: Pullback, ctx: _Context) -> tuple[str, int]:
+        """``at`` emits no operator of its own: it re-indexes the operand, so the read shows at the leaves."""
+        return self._arithmetic(node.operand, self._pulled_back(node.direction, ctx))
+
+    def _translate(self, node: Translate, ctx: _Context) -> tuple[str, int]:
+        """``shift`` emits no operator of its own: it re-indexes the operand, so the translation shows at the leaves.
+
+        ``edge='wrap'`` and a number are the two policies that print a symbol
+        of their own; absent is the bare shift, whose vacated positions are
+        absent.
         """
-        if node.name == 'shift':
-            dim = node.kwargs['along']
-            assert isinstance(dim, DimensionNode)
-            step = self._step(_amount(node.kwargs['offset']), node.kwargs.get('edge'))
-            self.noticed.policies.add(step.policy)
-            step = replace(step, within=self._group(node.kwargs.get('by'), dim.name))
-            return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
+        policy: TranslationPolicy = 'wrap' if node.wrap else 'edge' if node.fill is not None else 'plain'
+        fill = '' if node.fill is None else self._number(node.fill)
+        self.noticed.policies.add(policy)
+        step = _Step(node.offset, policy, fill, self._group(node.partition))
+        return self._arithmetic(node.operand, ctx.translated(node.along, step))
 
-        if node.name == 'sum_back':
-            over = node.kwargs['along']
-            assert isinstance(over, DimensionNode)
-            policy = 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain'
-            step = _Step(1, policy, within=self._group(node.kwargs.get('by'), over.name))
-            self.noticed.policies.add(step.policy)
-            source, inner = ctx.reducing(over.name)
-            lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
-            domain = (
-                f'{source} {self._op("in")} {self.symbols.set[over.name]} {self._op("such_that")} '
-                f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["window"])}'
-            )
-            body = self._reduction_body(node.args[0], inner)
-            return self.format.summation(domain, body), _PRECEDENCE['+']
-
-        if node.name == 'at':
-            by = node.kwargs['by']
-            assert isinstance(by, DirectionNode)
-            return self._arithmetic(node.args[0], self._pulled_back(by.direction, ctx))
-
-        if (by := node.kwargs.get('by')) is not None:
-            assert isinstance(by, DirectionNode)
-            direction = by.direction
-            dummies: dict[str, str] = {}
-            inner = ctx
-            for d in direction.consumed_dims:
-                dummies[d], inner = inner.reducing(d)
-            conditions = list(self._grouping(direction, dummies, ctx))
-            domain = (
-                f'{self.format.joined([self._membership(d, dummies[d]) for d in direction.consumed_dims], "")} '
-                f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
-            )
-        elif (consumed := node.kwargs.get('over')) is not None:
-            assert isinstance(consumed, DimensionNode)
-            dummy, inner = ctx.reducing(consumed.name)
-            domain = self._membership(consumed.name, dummy)
-        else:
-            memberships = []
-            inner = ctx
-            for d in self._sorted(dims_of(node.args[0], self.schema, 'a sum')):
-                dummy, inner = inner.reducing(d)
-                memberships.append(self._membership(d, dummy))
-            domain = self.format.joined(memberships, '')
-        return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
+    def _window_sum(self, node: WindowSum, ctx: _Context) -> tuple[str, int]:
+        """``sum_back``: a sum over the positions behind the row, the lag written as a translation of the index."""
+        policy: TranslationPolicy = 'wrap' if node.wrap else 'plain'
+        step = _Step(1, policy, within=self._group(node.partition))
+        self.noticed.policies.add(step.policy)
+        source, inner = ctx.reducing(node.along)
+        lag = f'{ctx.subscript(node.along)} {self._translation(step)} {source}'
+        domain = (
+            f'{source} {self._op("in")} {self.symbols.set[node.along]} {self._op("such_that")} '
+            f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.width)}'
+        )
+        body = self._reduction_body(node.operand, inner)
+        return self.format.summation(domain, body), _PRECEDENCE['+']
 
     def _pulled_back(self, direction: Direction, ctx: _Context) -> _Context:
         """*ctx* with each dimension *direction* consumes read at the relation, as ``at`` re-indexes a leaf."""
@@ -517,21 +507,19 @@ class Walk:
             return [self._relation_row(direction.name, at)]
         return [f'{self._relation_read(direction.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
-    def _group(self, by: ArithmeticNode | None, dim: str) -> str:
+    def _group(self, partition: Partition | None) -> str:
         """A ``by=`` as the superscript its translation operator carries.
 
         The bare index, not the subscript in force: the group is a property of
         the row being written, and a window whose operand is itself translated
         still asks which group *that row* is in.
         """
-        if by is None:
+        if partition is None:
             return ''
-        assert isinstance(by, PartitionNode)
-        partition = by.partition
         at = {r: self.symbols.index[partition.dim(r)] for r in (partition.along, *partition.joined)}
         return self._tuple([self._relation_read(partition.name, at, r) for r in partition.group])
 
-    def _width(self, node: ArithmeticNode) -> str:
+    def _width(self, width: int | str) -> str:
         """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
 
         Unsubscripted where it is named, as a translation's named offset is:
@@ -539,39 +527,21 @@ class Walk:
         where repeating them inside a summation's domain crowds out the
         condition that domain exists to state.
         """
-        if isinstance(node, ParameterNode):
-            return self.symbols.name[node.name]
-        assert isinstance(node, NumberNode)
-        return self._number(node.value)
-
-    def _step(self, by: int | str, edge: ArithmeticNode | None) -> _Step:
-        """Which of the three edge policies this ``shift`` asked for.
-
-        ``edge='wrap'`` is the language's one keyword and arrives as an
-        :class:`EdgeNode`; a number in the same position stays a
-        :class:`NumberNode` and is the value the vacated positions contribute;
-        absent is the bare shift, whose vacated positions are absent.
-        """
-        if isinstance(edge, EdgeNode):
-            return _Step(by, 'wrap')
-        if edge is None:
-            return _Step(by, 'plain')
-        assert isinstance(edge, NumberNode)
-        return _Step(by, 'edge', self._number(edge.value))
+        if isinstance(width, str):
+            return self.symbols.name[width]
+        return self._number(float(width))
 
     def _membership(self, dim: str, index: str | None = None) -> str:
         return f'{index or self.symbols.index[dim]} {self._op("in")} {self.symbols.set[dim]}'
 
-    def _reduction_body(self, node: ArithmeticNode, ctx: _Context) -> str:
+    def _reduction_body(self, node: Expression, ctx: _Context) -> str:
         """What sits to the right of a sum, bracketed only where it must be.
 
         A sum binds everything up to the next ``+`` or ``-`` at its own level,
         so an additive body needs the bracket and nothing else does — including
         a nested reduction, which is unambiguous.
         """
-        additive = isinstance(node, UnaryOperatorNode) or (
-            isinstance(node, BinaryOperatorNode) and node.op in ('+', '-')
-        )
+        additive = isinstance(node, Negate | Add)
         return self._expression(node, ctx, need=2 if additive else 0)
 
     # -- where strings -----------------------------------------------------
@@ -731,9 +701,9 @@ class Walk:
         if block is None:
             return []
         sense = self._op('minimize' if block.sense == 'minimize' else 'maximize')
-        node = self.schema.resolved.objective
-        assert node is not None, 'validation resolves the objective the file declares'
-        return [Line(label='', left=sense, right=self._expression(node, self._context()))]
+        objective = self.schema.resolved.objective
+        assert objective is not None, 'validation resolves the objective the file declares'
+        return [Line(label='', left=sense, right=self._expression(objective.expression, self._context()))]
 
     def _constraints(self) -> list[Line]:
         """Every constraint, then every curve.
@@ -749,13 +719,13 @@ class Walk:
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
-        node, where = self.schema.resolved.constraints[name]
+        constraint = self.schema.resolved.constraints[name]
         ctx = self._context(frame=block.dims)
-        condition = self._condition(ctx, where)
+        condition = self._condition(ctx, constraint.where)
         return Line(
             label=name,
-            left=self._expression(node.left, ctx),
-            right=f'{self._op(_PREDICATES[node.op])} {self._expression(node.right, ctx)}',
+            left=self._expression(constraint.lhs, ctx),
+            right=f'{self._op(_PREDICATES[constraint.sense])} {self._expression(constraint.rhs, ctx)}',
             condition=self._quantifier(list(block.dims), condition),
         )
 
@@ -784,13 +754,13 @@ class Walk:
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""
-        node = self.schema.resolved.expressions[name]
+        entry = self.schema.resolved.expressions[name]
         frame = self.frames[name]
         ctx = self._context(frame)
         body = (
-            self.format.cases(self._arms(node, ctx))
-            if isinstance(node, CasesNode)
-            else self._expression(node.body, ctx)
+            self.format.cases(self._arms(entry.body, ctx))
+            if isinstance(entry.body, Cases)
+            else self._expression(entry.body, ctx)
         )
         return Line(
             label=name,
@@ -818,21 +788,22 @@ class Walk:
             return self._piecewise(name)
         return self._variable(name)
 
-    def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
-        """Each arm as its value and the words saying where it applies.
+    def _arms(self, node: Cases, ctx: _Context) -> list[tuple[str, str]]:
+        """Each region as its value and the words saying where it applies.
 
-        Which arm is the fallback is a fact about the math, so the *walk*
-        chooses between "if" and "otherwise" and a Format only stacks the rows.
+        Which region is the fallback is a fact about the math, so the *walk*
+        chooses between "if" and "otherwise" and a Format only stacks the
+        rows: the last region is the ``otherwise`` where its mask is the
+        remainder of the others, which is how resolution builds it.
         """
-        arms = []
-        for arm in node.arms:
-            when = (
-                self.format.prose('otherwise')
-                if arm.when is None
-                else f'{self.format.prose("if ")} {self._predicate(arm.when, ctx, need=_WHERE_PRECEDENCE["and"])}'
-            )
-            arms.append((self._expression(arm.value, ctx), when))
-        return arms
+        *stated, last = node.regions
+        arms = [(self._expression(region.value, ctx), self._arm_condition(region.when, ctx)) for region in stated]
+        left_over = bool(stated) and last.when == remainder(region.when for region in stated)
+        when = self.format.prose('otherwise') if left_over else self._arm_condition(last.when, ctx)
+        return [*arms, (self._expression(last.value, ctx), when)]
+
+    def _arm_condition(self, when: Mask, ctx: _Context) -> str:
+        return f'{self.format.prose("if ")} {self._predicate(when.root, ctx, need=_WHERE_PRECEDENCE["and"])}'
 
     def _variables(self) -> list[Line]:
         """One line per variable, and one more for a set the variable carries.
@@ -900,7 +871,8 @@ class Walk:
 
     def _assumption(self, name: str) -> Line:
         """One assumption: the predicate over the frame both its masks name, under its ``where``."""
-        holds, where, _ = self.schema.resolved.assumptions[name]
+        assumption = self.schema.resolved.assumptions[name]
+        holds, where = assumption.predicate, assumption.where
         frame = self._sorted(holds.dims | (where.dims if where is not None else frozenset()))
         ctx = self._context(frame)
         if isinstance(holds.root, AlignedComparison):
@@ -920,7 +892,7 @@ class Walk:
         """
         block = self.schema.piecewise[name]
         links = self.schema.resolved.piecewise[name]
-        frame = self._curve_frame(name, block, links)
+        frame = list(curve_frame(self.schema, name, block, links))
         ctx = self._context([*frame, block.over])
         locus = self._locus(block, ctx)
         bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
@@ -988,20 +960,6 @@ class Walk:
         return self.format.cases(
             [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
         )
-
-    def _curve_frame(self, name: str, block: PiecewiseBlock, links: tuple[ArithmeticNode, ...]) -> list[str]:
-        """The dimensions the block builds one curve per coordinate of: every one its links and its gate carry.
-
-        The union the expansion takes its own frame from, and the expansion has
-        already held it to the rules — that no link carries the breakpoint
-        dimension among them (:mod:`math_spec.piecewise`).
-        """
-        dims: frozenset[str] = frozenset()
-        for i, node in enumerate(links):
-            dims |= dims_of(node, self.schema, f"piecewise '{name}' link {i}")
-        if block.activity is not None:
-            dims |= frozenset(self.schema.variables[block.activity].dims)
-        return self._sorted(dims)
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):

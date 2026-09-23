@@ -11,20 +11,20 @@ it is the contract consumers are written against.
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from typing import TYPE_CHECKING, get_args
+from typing import get_args
 
 import pytest
 
 from math_spec import LanguageError, Spec, to_program
-from math_spec._expression_parser import FunctionCallNode, NumberNode
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
-from math_spec.lowering import _Lowering, lower_program
+from math_spec.lowering import lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
     And,
+    Assumption,
     BooleanLiteral,
     Cases,
     Constant,
@@ -38,7 +38,6 @@ from math_spec.program import (
     ExpressionComparison,
     Footprint,
     GroupSum,
-    Holds,
     Mask,
     Multiply,
     Negate,
@@ -70,9 +69,6 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, override, schema_of, where_of
-
-if TYPE_CHECKING:
-    from math_spec._expression_parser import ArithmeticNode
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
@@ -109,12 +105,11 @@ SHAPES_MODEL = override(
 )
 
 
-def resolved(text: str, schema: Spec) -> ArithmeticNode:
-    """Parse, expand and resolve — exactly what the lowering pass receives.
+def resolved(text: str, schema: Spec) -> Expression:
+    """Parse, expand and resolve — the program tree a declaration holds.
 
-    A raw ``parse_expression`` result still holds ``NameNode``s, and lowering
-    asserts those never reach it. The ``'t'`` is the error-context label the
-    resolver stamps on refusals, not a dimension.
+    The ``'t'`` is the error-context label the resolver stamps on refusals,
+    not a dimension.
     """
     return expression_of(text, Namespace(schema), 't')
 
@@ -177,9 +172,9 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
     ns = Namespace(dispatch_schema)
-    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+2)', ns, 't')
-    assert isinstance(node, FunctionCallNode)
-    assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
+    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+0)', ns, 't')
+    assert isinstance(node, Translate)
+    assert (node.offset, node.fill) == (-1, 0.0)
 
 
 @pytest.mark.parametrize(
@@ -503,7 +498,7 @@ def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
     program = to_program(expanded(EXAMPLES / 'piecewise_lp.yaml', 'piecewise'))
     derived = [name for name in program.assumptions if name.startswith('cost_curve_')]
 
-    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+    assert all(isinstance(a, Assumption) for a in program.assumptions.values()), (
         'a method states its conditions in the language the file writes, so one kind stands in the mapping'
     )
     assert derived == [
@@ -519,7 +514,7 @@ def test_an_assumption_lowers_both_of_its_masks():
     program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}}))
     assumption = program.assumptions['sound']
 
-    assert assumption == Holds(
+    assert assumption == Assumption(
         Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
         Mask(ParameterDefined('flag', ('g',))),
     ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
@@ -573,9 +568,8 @@ def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_prog
     assert dispatch_program.variables['dispatch'].where == Mask(CAPACITY_POSITIVE)
 
 
-def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
-    lowered = _Lowering(dispatch_schema, 't').expr(resolved('cost ** cost', dispatch_schema))
-    assert isinstance(lowered, Power), 'a variable-free power has a plan node of its own'
+def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
+    assert isinstance(resolved('cost ** cost', dispatch_schema), Power), 'a variable-free power has a node of its own'
 
 
 @pytest.mark.parametrize(
@@ -643,10 +637,9 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
     ],
 )
-def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
+def test_a_construct_resolves_to_its_node(shapes_schema, expression, expected):
     """Which node each surface construct becomes, and every field it arrives with."""
-    lowered = _Lowering(shapes_schema, 't').expr(resolved(expression, shapes_schema))
-    assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
+    assert resolved(expression, shapes_schema) == expected, 'the whole frozen node, so no field is asserted by omission'
 
 
 def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():

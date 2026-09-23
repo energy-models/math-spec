@@ -60,10 +60,6 @@ class DimensionError(LanguageError):
     """A dim-set rule was violated. Raised at load time, before any data."""
 
 
-class PiecewiseExpansionError(LanguageError):
-    """A piecewise block references something that doesn't exist or collides."""
-
-
 def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') -> str:
     """The repair clause for an unrecognised name: the near miss, or the set."""
     candidates = sorted(known)
@@ -97,3 +93,14 @@ def schema_error(exc: ValidationError) -> LanguageError:
 def prefixed(context: str, e: ValueError) -> str:
     """*e* under *context*, once — an expansion error already carries it."""
     return str(e) if str(e).startswith(context) else f'{context}: {e}'
+
+
+def case_context(name: str, label: str | None) -> str:
+    """The context an error inside one arm of a cased expression is reported under.
+
+    Args:
+        name: The named expression the arm belongs to.
+        label: The case's name, or ``None`` for the block's ``otherwise:``.
+    """
+    where = 'otherwise' if label is None else f"case '{label}'"
+    return f"Named expression '{name}', {where}"

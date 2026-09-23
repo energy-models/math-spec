@@ -10,11 +10,12 @@ from functools import partial
 
 import pytest
 
-from math_spec._expression_parser import ComparisonNode, DefinitionNode, with_children
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
+from math_spec.lowering import inline
+from math_spec.program import Multiply, Named, Parameter, Sum, Variable
 from math_spec.resolution import Namespace
-from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, expression_of, schema_of
+from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
 
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],
@@ -25,12 +26,19 @@ WEIGHTED_SUM = {
 schema = partial(schema_of, DISPATCH_MODEL)
 
 
-def _bodies(node):
-    """*node* with every named expression's body standing bare where its name was."""
-    if isinstance(node, ComparisonNode):
-        return ComparisonNode(node.op, _bodies(node.left), _bodies(node.right))
-    node = node.body if isinstance(node, DefinitionNode) else node
-    return with_children(node, _bodies)
+def _resolved(text, ns):
+    """*text* as its program tree, or as its two sides and the sense between them where it compares."""
+    if any(op in text for op in ('<=', '>=', '==')):
+        return comparison_of(text, ns, 'expression')
+    return expression_of(text, ns, 'expression')
+
+
+def _bodies(resolved):
+    """*resolved* with every named expression's body standing bare where its name was."""
+    if isinstance(resolved, tuple):
+        left, op, right = resolved
+        return inline(left), op, inline(right)
+    return inline(resolved)
 
 
 @pytest.mark.parametrize(
@@ -105,20 +113,21 @@ def _bodies(node):
     ],
 )
 def test_a_call_expands_to_core_ast(expressions, macros, call, want):
-    """The math a call expands to is what `want` spells; a plain named
-    expression's body arrives under the node carrying its name, which `_bodies`
-    reads through, as every pass does."""
+    """The math a call expands to is what `want` spells; a named expression's
+    body arrives under the `Named` node carrying its name, which `_bodies`
+    inlines, as lowering does."""
     ns = Namespace(schema(expressions=expressions, macros=macros))
-    assert _bodies(expression_of(call, ns, 'expression')) == expression_of(want, ns, 'expression')
+    assert _bodies(_resolved(call, ns)) == _resolved(want, ns)
 
 
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():
     ns = Namespace(schema(expressions={'gen_cost': 'p * cost'}))
-    expanded = parse_and_expand('sum(gen_cost, over=generator)', ns, 'e')
-    assert expanded.args[0] == DefinitionNode('gen_cost', expression_of('p * cost', ns, 'e')), (
+    resolved = expression_of('sum(gen_cost, over=generator)', ns, 'e')
+    assert resolved == Sum(Named('gen_cost', Multiply(Variable('p'), Parameter('cost'))), ('generator',)), (
         'the body is inlined resolved and the name kept, for the typesetter to define it once'
     )
-    assert expanded.args[0] is parse_and_expand('gen_cost', ns, 'another use'), 'every use reads the one node'
+    assert isinstance(resolved, Sum)
+    assert resolved.operand is expression_of('gen_cost', ns, 'another use'), 'every use reads the one node'
 
 
 @pytest.mark.parametrize(

@@ -14,10 +14,10 @@ from __future__ import annotations
 import pytest
 
 from math_spec import CURVATURES
-from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
+from math_spec.errors import LanguageError, SchemaError
 from math_spec.lowering import lower_program, to_program
 from math_spec.piecewise import expand_piecewise
-from math_spec.program import Holds, assumption_message
+from math_spec.program import Assumption, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
@@ -88,7 +88,7 @@ TWO_DIM = override(
 
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
-    with pytest.raises(PiecewiseExpansionError, match="emitted sos 'cost_curve' collides"):
+    with pytest.raises(SchemaError, match="writes sos 'cost_curve', which this file already declares"):
         schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'over': 'snapshot', 'type': 1}})
 
 
@@ -247,7 +247,7 @@ def test_a_malformed_block_is_refused(model, patch, match):
 )
 def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expression, message):
     """Lowering would catch these too, but naming ``cost_curve_link0`` — a declaration the user never wrote."""
-    with pytest.raises(PiecewiseExpansionError, match=message) as exc:
+    with pytest.raises(SchemaError, match=message) as exc:
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.links': [[link_expression, 'bp_x'], ['op_cost', 'bp_y']]})
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
 
@@ -261,7 +261,7 @@ def test_a_link_reading_a_nonlinear_entry_is_refused():
     declaration: the entry-declaration relocation for the other math positions
     is `TestValidateExpressions.test_a_nonlinear_entry_is_refused_where_the_math_reads_it`.
     """
-    with pytest.raises(PiecewiseExpansionError, match='the divisor contains variables') as exc:
+    with pytest.raises(SchemaError, match='the divisor contains variables') as exc:
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -280,7 +280,7 @@ def test_a_link_reading_a_degree_two_product_entry_is_refused():
     reads a named entry and rejects the product. A constraint and the objective
     accept degree 2, so they are not the refusing site here.
     """
-    with pytest.raises(PiecewiseExpansionError, match='which is degree 2') as exc:
+    with pytest.raises(SchemaError, match='which is degree 2') as exc:
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -307,7 +307,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
     a dual carries no variable — and hand lowering a leaf no piecewise
     expansion can build.
     """
-    with pytest.raises(PiecewiseExpansionError, match='a dual exists only after a solve'):
+    with pytest.raises(SchemaError, match='a dual exists only after a solve'):
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -327,7 +327,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
 )
 def test_a_gate_that_is_not_a_variable_is_refused(activity, match):
     """Only a variable has a declaration to say what its absence means, and the block needs that answer."""
-    with pytest.raises(PiecewiseExpansionError, match=match):
+    with pytest.raises(SchemaError, match=match):
         expand_piecewise(schema_of(GATED, **{'piecewise.cost_curve.activity': activity}))
 
 
@@ -456,7 +456,7 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
         'cost_curve_breakpoints',
         'cost_curve_contiguous',
     ], 'an lp curve with a mask assumes all five, each named after the block that implies it'
-    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+    assert all(isinstance(a, Assumption) for a in program.assumptions.values()), (
         'a method states its conditions in the same language the file does, so a consumer has one kind to read'
     )
     assert program.assumptions['cost_curve_increasing'].predicate.names_read == frozenset({'bp_x'}), (
@@ -472,7 +472,9 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
 
 def test_a_curves_conditions_cannot_collide_with_a_written_assumption():
     """A condition a method states is a name the block emits, and a file writing it is the collision every emitted name is."""
-    with pytest.raises(LanguageError, match="emitted assumption 'cost_curve_increasing' collides"):
+    with pytest.raises(
+        SchemaError, match="writes assumption 'cost_curve_increasing', which this file already declares"
+    ):
         expanded(override(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}), 'piecewise')
 
 
