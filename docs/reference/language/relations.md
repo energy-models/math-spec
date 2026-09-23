@@ -94,8 +94,11 @@ Four rules hold for every use:
 ### Joins and group-bys
 
 Each column of the relation is either **joined on** or not, and either
-**grouped by** or not. `over=` names the columns joined on and not grouped by.
-`into=` names the columns grouped by and not joined on. Either may be a list.
+**grouped by** or not. `by=` names the relation, and not the columns grouped
+by. `over=` names the columns joined on and not grouped by, which leave the
+result. `into=` names the columns grouped by and not joined on, which the
+result lands on. Either may be a list. So in every call `over=` names what
+leaves and `into=` names what arrives, as `over=` does in `sum(p, over=d)`.
 
 | column of the relation        | joined on | grouped by | in the result |
 | ----------------------------- | --------- | ---------- | ------------- |

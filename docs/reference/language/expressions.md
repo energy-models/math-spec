@@ -245,11 +245,12 @@ objective:
 
 $$0 \le \mathit{rate}_{f} \le \mathrm{cap}_{f} \qquad \forall\thinspace f \in \mathcal{F} \thinspace : \thinspace \mathrm{has\_curve}_{\mathrm{converter\_of}(f)}$$
 
-The consumed dimension goes and the produced one arrives, so the mask above is
-over `flow` alone. The rules are those of `at` in an expression: `by=`,
-`over=` and `into=` are all written, the read lands on the relation's key, and
-the predicate carries every dimension the read consumes. The read maps one
-dimension onto another and adds none, so a mask still may not widen its frame.
+The column joined on, `converter`, leaves, and the column grouped by, `flow`,
+arrives. So the mask above is over `flow` alone. The rules are those of `at` in
+an expression: `by=`, `over=` and `into=` are all written, the read groups by
+the relation's key, and the predicate carries every dimension the read joins
+on. The read maps one dimension onto another and adds none, so a mask still may
+not widen its frame.
 
 A parameter compared as arithmetic reads through a relation too:
 `at(cap, by=bus_of, over=bus, into=generator) > 0`. The predicate form reads
