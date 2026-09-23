@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Literal
 import math_spec.sos as sos
 from math_spec.dimensions import dims_of
 from math_spec.errors import DimensionError
-from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, PiecewiseMethod, Spec
-from math_spec.program import PiecewiseDeclaration, carries_variable
+from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, Spec
+from math_spec.program import PiecewiseDeclaration, PiecewiseMethod, carries_variable
 from math_spec.resolution import resolve_expression_text
 
 if TYPE_CHECKING:

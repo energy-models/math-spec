@@ -26,7 +26,6 @@ from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
-import math_spec.model as _model
 from math_spec._expression_parser import ComparisonOperator
 from math_spec._sealed import Sealed
 from math_spec.errors import did_you_mean
@@ -49,6 +48,7 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'CountComparison',
+    'DeclaredDtype',
     'DimensionComparison',
     'DimensionDeclaration',
     'DimensionDtype',
@@ -78,6 +78,7 @@ __all__ = [
     'ParameterDtype',
     'Partition',
     'PiecewiseDeclaration',
+    'PiecewiseMethod',
     'Power',
     'Predicate',
     'PredicateOperator',
@@ -93,6 +94,7 @@ __all__ = [
     'RelationPairComparison',
     'Separability',
     'SosDeclaration',
+    'SosType',
     'Sum',
     'Translate',
     'TranslatedPredicate',
@@ -123,7 +125,6 @@ ConstraintSense = ComparisonOperator
 #: How a shape operator's output rows relate to its input slots, answered by
 #: :func:`fan_in` for every node.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
-ObjectiveSense = _model.ObjectiveSense
 
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
@@ -135,20 +136,42 @@ QuadraticPosition = Literal['objective', 'constraint']
 #: and hears about it when the language admits another.
 QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
 
-#: What a dimension's labels are — the language's own vocabulary
-#: (:data:`~math_spec.model.DimensionDtype`), under the name a consumer reads
-#: it by.
-DimensionDtype = _model.DimensionDtype
+#: The dtype a dimension index may declare (the declaration rules), and what
+#: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
+#: order and compare, where a *value* of that type is a moment nothing
+#: computes with.
+DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 
-#: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
-ParameterDtype = _model.ParameterDtype
+#: The dtype a parameter may declare (the declaration rules), and what its bound
+#: column must be. ``bool`` is a parameter's alone — a value column may be a
+#: flag a mask reads, where a label set of two members is a dimension nothing
+#: indexes by.
+ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
-#: What a masked variable's non-existence means
-#: (:data:`~math_spec.model.VariableAbsence`).
-VariableAbsence = _model.VariableAbsence
+#: What a *name* a where comparison tests may be — a parameter's dtype or a
+#: dimension's, since a relation's is its target's. The union rather than either
+#: half, because a mask names all three kinds and reads the dtype the same way.
+DeclaredDtype = ParameterDtype | DimensionDtype
 
-#: A variable's domain (:data:`~math_spec.model.VariableDomain`).
-VariableDomain = _model.VariableDomain
+#: The domain a variable may declare.
+VariableDomain = Literal['continuous', 'integer', 'binary']
+
+#: What a masked variable's non-existence *means* where it does not exist.
+#: ``undefined`` is the absence rules' default — a term carrying it takes its
+#: row. ``zero`` says the quantity *is* zero there, so the term contributes
+#: nothing and the row stands.
+VariableAbsence = Literal['undefined', 'zero']
+
+#: Which way an objective is optimised (the declaration rules).
+ObjectiveSense = Literal['minimize', 'maximize']
+
+#: The order of special ordered set.
+SosType = Literal[1, 2]
+
+#: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
+#: with :data:`~math_spec.model.PIECEWISE_METHODS`, which says what each one
+#: emits, by ``tests/test_schema.py``.
+PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
 
 # --------------------------------------------------------------------------
@@ -650,7 +673,7 @@ class SosDeclaration:
 
     variable: str
     along: str
-    sos_type: Literal[1, 2]
+    sos_type: SosType
     description: str | None = None
 
 
@@ -719,7 +742,7 @@ class PiecewiseDeclaration:
 
     over: str
     links: tuple[Link, ...]
-    method: _model.PiecewiseMethod
+    method: PiecewiseMethod
     frame: tuple[str, ...]
     activity: str | None = None
     points: str | None = None
@@ -754,7 +777,7 @@ class Footprint:
 
     quadratic: frozenset[QuadraticPosition]
     domains: frozenset[VariableDomain]
-    sos_types: frozenset[Literal[1, 2]]
+    sos_types: frozenset[SosType]
     kinds: frozenset[type[Expression]]
 
 

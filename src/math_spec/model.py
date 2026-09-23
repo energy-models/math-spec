@@ -29,6 +29,16 @@ from pydantic import (
 
 from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
+from math_spec.program import (
+    DimensionDtype,
+    ObjectiveSense,
+    ParameterDtype,
+    PiecewiseMethod,
+    Program,
+    SosType,
+    VariableAbsence,
+    VariableDomain,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -36,9 +46,6 @@ if TYPE_CHECKING:
     from pydantic import GetJsonSchemaHandler, SerializerFunctionWrapHandler
     from pydantic.config import ExtraValues
     from pydantic_core import CoreSchema
-
-    # program.py imports this module at runtime, so the import is type-only
-    from math_spec.program import Program  # noqa: TC004
 
 
 class _StrictBlock(BaseModel):
@@ -74,43 +81,6 @@ class _StrictBlock(BaseModel):
             )
         return data
 
-
-#: The dtype a dimension index may declare (the declaration rules), and what
-#: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
-#: order and compare, where a *value* of that type is a moment nothing
-#: computes with.
-DimensionDtype = Literal['float', 'int', 'str', 'datetime']
-
-#: The dtype a parameter may declare (the declaration rules), and what its bound
-#: column must be. ``bool`` is a parameter's alone — a value column may be a
-#: flag a mask reads, where a label set of two members is a dimension nothing
-#: indexes by.
-ParameterDtype = Literal['float', 'int', 'bool', 'str']
-
-#: What a *name* a where comparison tests may be — a parameter's dtype or a
-#: dimension's, since a relation's is its target's. The union rather than either
-#: half, because a mask names all three kinds and reads the dtype the same way.
-DeclaredDtype = ParameterDtype | DimensionDtype
-
-#: The domain a variable may declare.
-VariableDomain = Literal['continuous', 'integer', 'binary']
-
-#: What a masked variable's non-existence *means* where it does not exist.
-#: ``undefined`` is the absence rules' default — a term carrying it takes its
-#: row. ``zero`` says the quantity *is* zero there, so the term contributes
-#: nothing and the row stands.
-VariableAbsence = Literal['undefined', 'zero']
-
-#: Which way an objective is optimised (the declaration rules).
-ObjectiveSense = Literal['minimize', 'maximize']
-
-#: The order of special ordered set.
-SosType = Literal[1, 2]
-
-#: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
-#: with :data:`PIECEWISE_METHODS`, which says what each one emits, by
-#: ``tests/test_schema.py``.
-PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
 #: A block that states rows rather than being one, which :meth:`Spec.expand`
 #: writes out on request.
@@ -736,7 +706,7 @@ class Spec(_StrictBlock):
 
     A ``Spec`` that exists has passed the whole language: constructing one by
     any route — ``to_spec``, :meth:`model_validate`, the constructor — runs
-    every load-time check, expansion and expression pass included, and raises
+    every load-time check, expression pass included, and raises
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
@@ -911,16 +881,15 @@ class Spec(_StrictBlock):
 
     @model_validator(mode='after')
     def _lower(self) -> Spec:
-        """Every rule that reads across declarations, then every expression and where string — this file's own, and every one a curve emits.
+        """Every rule that reads across declarations, then every expression and where string.
 
-        This file's own first, so a fault in a link is named against the link
-        the file wrote. A curve's expansion is a model in its own right, so
-        validating it is what holds the declarations it writes to the language.
+        A fault in a curve's link is named against the link the file wrote. The
+        rows a curve states are held to the language when :meth:`expand`
+        writes them out, since an expansion is a model like any other.
         """
         from math_spec.lowering import lower
 
         self._program = lower(self)
-        self.expand('piecewise')
         return self
 
 

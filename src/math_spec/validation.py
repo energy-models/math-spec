@@ -35,8 +35,8 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
-    expression and where string, every macro template, and every declaration a
-    formulation emits.
+    rule one declaration is held to against the others, every expression and
+    where string, and every macro template.
 
     Args:
         model: A YAML path — a :class:`~pathlib.Path`, or a ``str`` with no

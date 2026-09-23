@@ -108,7 +108,8 @@ if TYPE_CHECKING:
 
     from math_spec._expression_parser import ComparisonOperator, ParsedNode
     from math_spec._where_parser import ParsedWhere
-    from math_spec.model import DeclaredDtype, ExpressionBlock, Spec
+    from math_spec.model import ExpressionBlock, Spec
+    from math_spec.program import DeclaredDtype
 
 
 #: What a name a file may write turns out to be. Answered by
