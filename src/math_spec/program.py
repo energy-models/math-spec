@@ -653,7 +653,7 @@ class ConstraintDeclaration:
 
 @dataclass(frozen=True)
 class SosDeclaration:
-    """One special-ordered set per coordinate of the variable's ``dims`` minus ``over``.
+    """One special-ordered set per coordinate of the variable's ``dims`` minus ``along``.
 
     The only declaration that adds neither a column nor a row: it names
     columns a consumer already has and says what may be nonzero among them. Which
@@ -663,7 +663,7 @@ class SosDeclaration:
     """
 
     variable: str
-    over: str
+    along: str
     sos_type: Literal[1, 2]
 
 

@@ -24,7 +24,7 @@ PICKED = override(
         'parameters.floor': {'dims': ['g']},
         'variables.p.bounds': {'lower': 0, 'upper': 10},
         'constraints': {'used': {'dims': ['g'], 'expression': 'p <= c'}},
-        'sos': {'pick': {'variable': 'p', 'over': 'g', 'type': 1}},
+        'sos': {'pick': {'variable': 'p', 'along': 'g', 'type': 1}},
     },
 )
 

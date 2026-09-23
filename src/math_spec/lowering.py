@@ -115,7 +115,7 @@ def lower_program(expanded: Spec) -> program.Program:
 
     dimensions = {dname: program.DimensionDeclaration(ddef.dtype) for dname, ddef in expanded.dimensions.items()}
     sos = {
-        sname: program.SosDeclaration(sdef.variable, sdef.over, sos_type=sdef.type)
+        sname: program.SosDeclaration(sdef.variable, sdef.along, sos_type=sdef.type)
         for sname, sdef in expanded.sos.items()
     }
     expressions = {

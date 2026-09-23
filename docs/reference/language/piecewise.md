@@ -175,7 +175,7 @@ variable, and how many members of that family may be non-zero at once.
 sos:
   pick_one_size:
     variable: build # the variable the set is over
-    over: size # the dimension it runs along — one set per coordinate of the rest
+    along: size # the dimension it runs along — one set per coordinate of the rest
     type: 1 # 1: at most one non-zero; 2: at most two, and consecutive
 ```
 
@@ -187,7 +187,7 @@ naming the same variable is a load error.
 
 Membership belongs to the variable. Its `where` decides which coordinates exist,
 so a masked-out member is not in the set. The order is the declared order of
-the `over` dimension.
+the `along` dimension.
 
 ### What a set is written out as
 

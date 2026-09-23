@@ -1039,7 +1039,7 @@ def test_a_set_is_labelled_by_the_block_that_declares_it(name: FormatName, fmt: 
         DISPATCH_MODEL,
         **{
             'variables.p.bounds': {'lower': 0, 'upper': 10},
-            'sos': {'pick': {'variable': 'p', 'over': 'generator', 'type': 1}},
+            'sos': {'pick': {'variable': 'p', 'along': 'generator', 'type': 1}},
         },
     )
     text = typeset(picked, name)

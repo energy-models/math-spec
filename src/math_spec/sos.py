@@ -108,7 +108,7 @@ def emit(raw: dict[str, object], name: str) -> None:
     sets = section(raw, 'sos')
     block = sets.pop(name)
     assert isinstance(block, dict), 'a validated model carries each set as a mapping'
-    variable, over, order = block['variable'], block['over'], block['type']
+    variable, over, order = block['variable'], block['along'], block['type']
     member = section(raw, 'variables')[variable]
     assert isinstance(member, dict), 'a validated model carries each variable as a mapping'
     dims = list(member['dims'])

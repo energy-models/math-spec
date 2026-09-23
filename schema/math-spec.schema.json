@@ -563,8 +563,12 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. A consumer with the concept takes the set as\none; :meth:`Spec.expand` states it as binaries instead, and the rows it\nwrites multiply by the member's own ``bounds``, which is why a member\nneeds both.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``along``; the\nmembers are the variable's *existing* coordinates along ``along``, in that\ndimension's declared order.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. A consumer with the concept takes the set as\none; :meth:`Spec.expand` states it as binaries instead, and the rows it\nwrites multiply by the member's own ``bounds``, which is why a member\nneeds both.",
       "properties": {
+        "along": {
+          "title": "Along",
+          "type": "string"
+        },
         "description": {
           "anyOf": [
             {
@@ -576,10 +580,6 @@
           ],
           "default": null,
           "title": "Description"
-        },
-        "over": {
-          "title": "Over",
-          "type": "string"
         },
         "type": {
           "enum": [
@@ -596,7 +596,7 @@
       },
       "required": [
         "variable",
-        "over",
+        "along",
         "type"
       ],
       "title": "SosBlock",

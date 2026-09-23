@@ -1351,7 +1351,7 @@ at most two adjacent members nonzero, one set per snapshot
 ```yaml
 adjacent:
   variable: weight
-  over: generator
+  along: generator
   type: 2
 ```
 

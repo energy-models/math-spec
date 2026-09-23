@@ -27,7 +27,7 @@ constraints:
 sos:
   curve:
     variable: curve_lam
-    over: bp
+    along: bp
     type: 2
 
 assumptions:

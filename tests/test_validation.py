@@ -1059,48 +1059,48 @@ class TestRulesDecidedWithoutData:
                 id='an-unknown-name-in-a-where',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'z', 'type': 1}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'z', 'type': 1}}},
                 ("undeclared dimension 'z'",),
-                id='sos-over-undeclared',
+                id='sos-along-undeclared',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'c', 'over': 'g', 'type': 1}}},
+                {'sos': {'s': {'variable': 'c', 'along': 'g', 'type': 1}}},
                 ("'c' is not a declared variable",),
                 id='sos-over-a-parameter',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'h', 'type': 1}}},
-                ("over 'h' is not a dim of variable 'p'",),
+                {'sos': {'s': {'variable': 'p', 'along': 'h', 'type': 1}}},
+                ("along 'h' is not a dim of variable 'p'",),
                 id='sos-along-a-dim-the-variable-lacks',
             ),
             pytest.param(
                 {
                     'sos': {
-                        's': {'variable': 'p', 'over': 'g', 'type': 1},
-                        't': {'variable': 'p', 'over': 'g', 'type': 2},
+                        's': {'variable': 'p', 'along': 'g', 'type': 1},
+                        't': {'variable': 'p', 'along': 'g', 'type': 2},
                     }
                 },
                 ("already carries the set declared by 's'",),
                 id='two-sets-on-one-variable',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 3}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 3}}},
                 ('sos type must be 1 or 2, got 3',),
                 id='sos-of-order-three',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}}, 'variables.p.bounds': {'lower': 0}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1}}, 'variables.p.bounds': {'lower': 0}},
                 ("variable 'p' has no upper bound", 'Declare bounds.upper'),
                 id='sos-over-a-member-with-no-coefficient',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}}, 'variables.p.bounds': {'upper': 10}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1}}, 'variables.p.bounds': {'upper': 10}},
                 ("variable 'p' has no lower bound", 'Declare bounds.lower'),
                 id='sos-over-a-member-with-no-floor',
             ),
             pytest.param(
                 {
-                    'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1}},
+                    'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1}},
                     'variables.p.bounds': {'lower': 0, 'upper': 10},
                     'variables.s_seg': {'dims': ['g'], 'domain': 'binary'},
                 },
@@ -1388,17 +1388,17 @@ class TestRulesDecidedWithoutData:
                 id='a-mask-naming-its-own-variable',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': [1]}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': [1]}}},
                 ('sos type must be 1 or 2, got [1]',),
                 id='sos-type-a-list',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': True}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': True}}},
                 ('sos type must be 1 or 2, got True',),
                 id='sos-type-a-boolean',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1.0}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1.0}}},
                 ('sos type must be 1 or 2, got 1.0',),
                 id='sos-type-a-float',
             ),
@@ -1974,7 +1974,7 @@ class TestADeclarationIsNamed:
             'macros': {'args': ['x'], 'template': 'x * 2'},
             'constraints': {'dims': ['g'], 'expression': 'p <= c'},
             'piecewise': {'over': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
-            'sos': {'variable': 'p', 'over': 'g', 'type': 1},
+            'sos': {'variable': 'p', 'along': 'g', 'type': 1},
         }
         model = copy.deepcopy(SMALL_MODEL)
         model.setdefault(section, {})[name] = declarations[section]
