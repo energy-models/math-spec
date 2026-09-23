@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, get_args
 
 import pytest
 
-from math_spec import LanguageError, UnexpandedCurveError, advice, to_spec
+from math_spec import LanguageError, advice, to_spec
 from math_spec.errors import AdviceKind
 from tests.fixtures import SMALL_MODEL, override
 
@@ -119,11 +119,6 @@ def test_a_curve_left_as_written_is_refused_however_the_model_arrives():
         'the expansion is what advice reads, with or without its sets'
     )
     for arrived in (CURVED, to_spec(CURVED), to_spec(CURVED).program):
-        with pytest.raises(
-            UnexpandedCurveError, match="piecewise: 'curve' states rows rather than being one"
-        ) as refusal:
+        with pytest.raises(LanguageError, match="piecewise: 'curve' states rows rather than being one") as refusal:
             advice(arrived)
-        assert refusal.value.blocks == ('curve',) and "expand('piecewise')" in str(refusal.value), (
-            'the refusal names the block and the expansion to pass'
-        )
-    assert isinstance(refusal.value, LanguageError), "a consumer catching the language's refusals catches this one"
+        assert "expand('piecewise')" in str(refusal.value), 'the refusal names the block and the expansion to pass'

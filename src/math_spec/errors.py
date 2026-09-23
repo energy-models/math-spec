@@ -59,31 +59,6 @@ class DimensionError(LanguageError):
     """A dim-set rule was violated. Raised at load time, before any data."""
 
 
-class UnexpandedCurveError(LanguageError):
-    """A program still carries a ``piecewise:`` block, and the consumer raising this builds rows.
-
-    The one sentence for that refusal, so every consumer says it in the
-    language's words: ``if program.piecewise: raise
-    UnexpandedCurveError(program.piecewise)``. The language does not raise it
-    at load — a model with a curve is a model like any other, printed and
-    edited as written — because only a consumer building rows knows it wants
-    the rows.
-    """
-
-    def __init__(self, blocks: Iterable[str]) -> None:
-        self.blocks = tuple(blocks)
-        named = ', '.join(f"'{block}'" for block in self.blocks)
-        super().__init__(
-            f'piecewise: {named} states rows rather than being one, and a program holds the rows. Pass '
-            f"spec.expand('piecewise').program, which writes each block out as the variables and constraints "
-            f'it states and keeps every sos: block for a consumer that takes a set — or spec.expand().program, '
-            f'which writes the sets out as binaries and linking rows too.'
-        )
-
-    def __reduce__(self) -> tuple[type[UnexpandedCurveError], tuple[tuple[str, ...]]]:
-        return type(self), (self.blocks,)
-
-
 def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') -> str:
     """The repair clause for an unrecognised name: the near miss, or the set."""
     candidates = sorted(known)
