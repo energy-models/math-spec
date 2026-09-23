@@ -49,6 +49,7 @@ from math_spec.program import (
     Variable,
     VariableDefined,
     WindowSum,
+    children,
 )
 
 if TYPE_CHECKING:
@@ -81,7 +82,7 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
         return frozenset().union(*(dims_of(region.value, schema, context) for region in node.regions))
 
     if isinstance(node, Negate | Add | Multiply | Power | Divide):
-        return frozenset().union(*(dims_of(child, schema, context) for child in _operands(node)))
+        return frozenset().union(*(dims_of(child, schema, context) for child in children(node)))
 
     inner = dims_of(node.operand, schema, context)
     if isinstance(node, Sum):
@@ -94,16 +95,6 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
         return _translation_dims(node, inner, schema, context)
 
     assert_never(node)
-
-
-def _operands(node: Negate | Add | Multiply | Power | Divide) -> tuple[Expression, ...]:
-    if isinstance(node, Negate):
-        return (node.operand,)
-    if isinstance(node, Add | Multiply):
-        return (node.left, node.right)
-    if isinstance(node, Power):
-        return (node.base, node.exponent)
-    return (node.numerator, node.divisor)
 
 
 def _named_dims(node: Named, schema: Spec, context: str) -> frozenset[str]:
@@ -238,19 +229,12 @@ def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], 
 def _check_named_amount(
     node: Translate | WindowSum, verb: str, inner: frozenset[str], schema: Spec, context: str
 ) -> None:
-    """The rules that hold of an ``offset=`` or ``window=`` naming a parameter; a literal breaks none of them."""
+    """The two rules of an ``offset=`` or ``window=`` naming a parameter that need the operand's dims; resolution holds it to its dtype."""
     kwarg, amount = ('offset', node.offset) if isinstance(node, Translate) else ('window', node.width)
     if not isinstance(amount, str):
         return
     words = AMOUNTS[verb]
     declared = schema.parameters[amount]
-    if declared.dtype != 'int':
-        raise DimensionError(
-            f'{context}: {verb}({kwarg}={amount}) counts positions along '
-            f"'{node.along}', but '{amount}' is declared dtype: {declared.dtype}. A count of "
-            f'positions is integral — declare it dtype: int, which binds only an integer '
-            f'column, so a fractional {words.noun} has nowhere to arrive from.'
-        )
     if node.along in declared.dims:
         raise DimensionError(
             f'{context}: {verb}({kwarg}={amount}) steps along '

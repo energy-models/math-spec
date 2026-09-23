@@ -119,7 +119,7 @@ UnresolvedWhereNode = NameNode | UnresolvedComparisonNode | UnresolvedPredicateC
 #: Every node a parsed where string is built of: the connectives and literals,
 #: the unresolved leaves, and the arithmetic and the two side nodes under a
 #: comparison. What the depth measurement walks.
-_ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | KeywordNode
+ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | KeywordNode
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ _DEEP_REWRITE = (
 )
 
 
-def _nested(node: _ParsedWhere) -> tuple[_ParsedWhere, ...]:
+def nested(node: ParsedWhere) -> tuple[ParsedWhere, ...]:
     """What a where string nests through: a connective's operands, a comparison's sides, and a call's predicate."""
     if isinstance(node, UnresolvedCountNode):
         return (node.call, node.value)
@@ -284,5 +284,5 @@ def parse_where(text: str) -> Predicate | UnresolvedWhereNode:
     """
     return cast(
         'Predicate | UnresolvedWhereNode',
-        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, _nested, _DEEP_REWRITE),
+        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, nested, _DEEP_REWRITE),
     )

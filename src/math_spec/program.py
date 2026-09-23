@@ -392,12 +392,16 @@ Expression = (
 )
 
 
-def fan_in(expression: Expression) -> FanIn:
+def fan_in(expression: Expression | Named) -> FanIn:
     """How *expression*'s output rows relate to its input slots.
 
     For the absence rules, both classes other than ``'one-to-one'`` sum
-    several input slots into an output row.
+    several input slots into an output row. A :class:`Named` answers as its
+    body does, so a :attr:`~math_spec.model.Spec.resolved` tree is asked as a
+    program's is.
     """
+    if isinstance(expression, Named):
+        return fan_in(expression.body)
     if isinstance(expression, (Sum, GroupSum)):
         return 'many-to-one'
     if isinstance(expression, WindowSum):

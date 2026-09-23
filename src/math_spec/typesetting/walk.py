@@ -57,7 +57,6 @@ from math_spec.program import (
     VariableDefined,
     WindowSum,
 )
-from math_spec.resolution import remainder
 from math_spec.typesetting.format import Entry, Line, OperatorName
 
 if TYPE_CHECKING:
@@ -792,15 +791,13 @@ class Walk:
         """Each region as its value and the words saying where it applies.
 
         Which region is the fallback is a fact about the math, so the *walk*
-        chooses between "if" and "otherwise" and a Format only stacks the
-        rows: the last region is the ``otherwise`` where its mask is the
-        remainder of the others, which is how resolution builds it.
+        says "if" or "otherwise" and a Format only stacks the rows: the last
+        region is the ``otherwise``, since resolution builds it as the
+        remainder of the others, and its mask is never printed.
         """
         *stated, last = node.regions
         arms = [(self._expression(region.value, ctx), self._arm_condition(region.when, ctx)) for region in stated]
-        left_over = bool(stated) and last.when == remainder(region.when for region in stated)
-        when = self.format.prose('otherwise') if left_over else self._arm_condition(last.when, ctx)
-        return [*arms, (self._expression(last.value, ctx), when)]
+        return [*arms, (self._expression(last.value, ctx), self.format.prose('otherwise'))]
 
     def _arm_condition(self, when: Mask, ctx: _Context) -> str:
         return f'{self.format.prose("if ")} {self._predicate(when.root, ctx, need=_WHERE_PRECEDENCE["and"])}'

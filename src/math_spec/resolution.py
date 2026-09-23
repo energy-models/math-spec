@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
 import math_spec.degree as degree
 from math_spec._expression_parser import (
+    MAX_DEPTH,
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -29,6 +30,7 @@ from math_spec._expression_parser import (
     NameNode,
     NumberNode,
     UnaryOperatorNode,
+    depth,
     nodes,
     shown,
 )
@@ -38,6 +40,7 @@ from math_spec._where_parser import (
     UnresolvedCountNode,
     UnresolvedPredicateCallNode,
     UnresolvedWhereNode,
+    nested,
     parse_where,
 )
 from math_spec.dimensions import dims_of, pulled_back_dims
@@ -100,13 +103,15 @@ from math_spec.program import (
     VariableDefined,
     WindowSum,
     carries_variable,
+    children,
     walk,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from math_spec._expression_parser import ComparisonOperator
+    from math_spec._expression_parser import ComparisonOperator, ParsedNode
+    from math_spec._where_parser import ParsedWhere
     from math_spec.model import DeclaredDtype, ExpressionBlock, Spec
 
 
@@ -118,6 +123,12 @@ DeclarationKind = Literal['variable', 'parameter', 'dimension', 'relation']
 #: An ``edge=`` as a translation carries it: whether it wraps, and the number
 #: the vacated positions contribute where it does not.
 _Edge = tuple[bool, float | None]
+
+#: How deep a resolved tree may be with every named expression it reads
+#: written in — the tree every pass after resolution recurses over. Three
+#: times what one text may nest, since a text reads other texts: a chain of
+#: 200 entries survived every pass on a default stack and 250 did not.
+MAX_RESOLVED_DEPTH = 3 * MAX_DEPTH
 
 
 class Namespace:
@@ -171,7 +182,8 @@ class Namespace:
         #: named expression -> its resolved node, or ``None``, and its refusals;
         #: filled the first time anything reads the name.
         self._named: dict[str, tuple[Named | None, tuple[str, ...]]] = {}
-        #: The named expressions being resolved, outermost first — a cycle's chain.
+        #: The named expressions waiting to be resolved, the one asked for
+        #: first — each above the entries it reads, so it is a cycle's chain.
         self._loading: list[str] = []
 
     def named(self, name: str, context: str) -> Named:
@@ -183,27 +195,77 @@ class Namespace:
         Raises:
             SchemaError: The entry reads itself, or does not load.
         """
-        if name in self._loading:
-            chain = ' -> '.join([*self._loading[self._loading.index(name) :], name])
-            msg = f'{context}: circular expression reference: {chain}'
-            raise SchemaError(msg)
+        if (refusal := self.cycle(name, context)) is not None:
+            raise SchemaError(refusal)
         node, _ = self.named_entry(name)
         if node is None:
             msg = f"{context}: named expression '{name}' does not load. Its refusal is listed with it."
             raise SchemaError(msg)
         return node
 
+    def cycle(self, name: str, context: str, through: Iterable[str] = ()) -> str | None:
+        """The refusal for reading *name* while it is being resolved, or ``None``; *through* names the macros the read went through."""
+        if name not in self._loading:
+            return None
+        chain = ' -> '.join([*self._loading[self._loading.index(name) :], *through, name])
+        return f'{context}: circular expression reference: {chain}'
+
     def named_entry(self, name: str) -> tuple[Named | None, tuple[str, ...]]:
-        """The ``expressions:`` entry *name* resolved, or ``None``, with every refusal it earned."""
-        if name not in self._named:
-            errors: list[str] = []
-            self._loading.append(name)
-            try:
-                node = _named(name, self.schema.expressions[name], self, errors)
-            finally:
+        """The ``expressions:`` entry *name* resolved, or ``None``, with every refusal it earned.
+
+        The entries it reads are resolved before it, walked from a stack that
+        holds the path of reads from *name* rather than by recursing into
+        each, so a chain of entries however long costs no stack. An entry
+        that reads one on the path is a cycle, which :meth:`named` refuses
+        with that path when the resolution reaches the read.
+        """
+        base = len(self._loading)
+        self._loading.append(name)
+        while len(self._loading) > base:
+            top = self._loading[-1]
+            if top in self._named:
                 self._loading.pop()
-            self._named[name] = (node, tuple(errors))
+                continue
+            waiting = [n for n in self._references(top) if n not in self._named and n not in self._loading]
+            if waiting:
+                self._loading.append(waiting[0])
+                continue
+            errors: list[str] = []
+            node = _named(top, self.schema.expressions[top], self, errors)
+            self._named[top] = (node, tuple(errors))
+            self._loading.pop()
         return self._named[name]
+
+    def _references(self, name: str) -> tuple[str, ...]:
+        """The ``expressions:`` entries the texts of entry *name* read, macros expanded, in first-mention order.
+
+        A text that does not parse or expand reads nothing here: the
+        resolution that follows reports it.
+        """
+        block, context = self.schema.expressions[name], f"Named expression '{name}'"
+        arithmetic: list[ParsedNode] = []
+        for text in (block.expression, *(case.expression for case in (block.cases or {}).values()), block.otherwise):
+            if text is not None:
+                try:
+                    arithmetic.append(parse_and_expand(text, self, context))
+                except ValueError:
+                    continue
+        for case in (block.cases or {}).values():
+            try:
+                pending: list[ParsedWhere] = [parse_where(case.when)]
+            except ValueError:
+                continue
+            while pending:
+                node = pending.pop()
+                if isinstance(node, ArithmeticNode):
+                    try:
+                        arithmetic.append(expand(node, self, context))
+                    except ValueError:
+                        continue
+                else:
+                    pending.extend(nested(node))
+        names = (n.name for n in nodes(*arithmetic) if isinstance(n, NameNode) and n.name in self.schema.expressions)
+        return tuple(dict.fromkeys(names))
 
     def kind(self, name: str) -> DeclarationKind | None:
         """What *name* was declared as, or ``None`` where the file declares it nowhere."""
@@ -357,9 +419,10 @@ def resolve_expression(
         where a name in *formals* stands under *node*: a macro template is
         checked by the rules a call site is before anything calls it, and
         only the call site that binds its formals has a tree to build.
+
     """
     before = len(errors)
-    resolved = _Resolver(ns, context, errors, formals=formals).arith(node)
+    resolved = _Resolver(ns, context, errors, formals=formals).build(node)
     return None if len(errors) > before else resolved
 
 
@@ -451,7 +514,7 @@ def resolve_constraint_text(
         return None
     found = len(errors)
     resolver = _Resolver(ns, context, errors)
-    left, right = resolver.arith(ast.left), resolver.arith(ast.right)
+    left, right = resolver.build(ast.left), resolver.build(ast.right)
     if len(errors) > found or left is None or right is None:
         return None
     if any(_over_the_ceiling(side, context, errors, ceiling=2) for side in (left, right)):
@@ -566,6 +629,24 @@ class _Resolver:
         return isinstance(value, NameNode) and value.name in self.formals
 
     # -- expressions -------------------------------------------------------
+
+    def build(self, node: ArithmeticNode) -> Expression | None:
+        """The program tree *node* stands for, held to :data:`MAX_RESOLVED_DEPTH` before anything walks it.
+
+        The depth is measured with every named expression written in, since
+        that is the tree every later pass recurses over, and measured with an
+        explicit stack, since a recursion would be the crash it prevents.
+        """
+        resolved = self.arith(node)
+        if resolved is None or (found := depth(resolved, children)) <= MAX_RESOLVED_DEPTH:
+            return resolved
+        self.errors.append(
+            f'{self.context}: the expression nests {found} deep with every named expression it reads written in, '
+            f'past the {MAX_RESOLVED_DEPTH} levels the language admits. Reduce over a dimension with sum() rather '
+            f'than writing the terms out, or precompute the deepest part as a parameter — a named expression '
+            f'stands inline where it is read, so naming a part does not make the tree shallower.'
+        )
+        return None
 
     def arith(self, node: ArithmeticNode) -> Expression | None:
         """The program node *node* stands for, or ``None``.
@@ -686,7 +767,8 @@ class _Resolver:
         args = [self.arith(a) for a in node.args]
         with_relation = any(k in node.kwargs for k in builtin.relation_kwargs)
         roles = {k: v for k, v in node.kwargs.items() if builtin.kind_of(k, with_relation=with_relation) == 'role'}
-        if roles and 'by' not in node.kwargs:
+        unrelated = bool(roles) and 'by' not in node.kwargs
+        if unrelated:
             self.errors.append(
                 f'{self.context}: {node.name}({", ".join(f"{k}=" for k in roles)}) names a column of a relation, '
                 f'and no by= names the relation. Write {builtin.usage}'
@@ -709,6 +791,7 @@ class _Resolver:
             read = self._relation_ref(node.kwargs['by'], node.name, 'by', roles, dims.get('along'))
         unread = (
             shape_error is not None
+            or unrelated
             or not args
             or args[0] is None
             or None in dims.values()
@@ -831,6 +914,13 @@ class _Resolver:
         if self.ns.kind(bare.name) != 'parameter':
             if self._name(bare) is not None:
                 self.errors.append(f'{self.context}: {operator}({key}=...) {words.form}')
+            return None
+        if (dtype := self.ns.dtypes[bare.name]) != 'int':
+            self.errors.append(
+                f"{self.context}: {operator}({key}={bare.name}) counts positions, but '{bare.name}' is declared "
+                f'dtype: {dtype}. A count of positions is integral — declare it dtype: int, which binds only an '
+                f'integer column, so a fractional {words.noun} has nowhere to arrive from.'
+            )
             return None
         if isinstance(value, UnaryOperatorNode) and value.op == '-':
             self.errors.append(
@@ -1358,7 +1448,7 @@ class _Resolver:
             except ValueError as e:
                 self.errors.append(prefixed(context, e))
                 continue
-            if (resolved := self.arith(expanded)) is not None:
+            if (resolved := self.build(expanded)) is not None:
                 sides.append(resolved)
         if len(self.errors) > found:
             return node

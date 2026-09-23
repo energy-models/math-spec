@@ -22,6 +22,7 @@ from math_spec.program import (
     Mask,
     ObjectiveDeclaration,
     VariableDefined,
+    carries_variable,
 )
 from math_spec.resolution import (
     Namespace,
@@ -34,10 +35,11 @@ from math_spec.resolution import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
-    from math_spec.model import AssumptionBlock
-    from math_spec.program import Named
+    from math_spec.model import AssumptionBlock, PiecewiseBlock
+    from math_spec.program import Expression, Named
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -121,8 +123,6 @@ def validate_expressions(schema: Spec) -> Resolved:
         errors.extend(refusals)
         if node is not None:
             expressions[ename] = node
-    if errors:
-        raise SchemaError('\n'.join(errors))
 
     variables = {
         vname: mask_of(resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname))
@@ -159,8 +159,12 @@ def validate_expressions(schema: Spec) -> Resolved:
             resolve_expression_text(link.expression, ns, f"piecewise '{pname}' link {i}", errors, ceiling=1)
             for i, link in enumerate(pdef.links)
         ]
-        if all(link is not None for link in links):
-            piecewise[pname] = tuple(link for link in links if link is not None)
+        if any(link is None for link in links):
+            continue
+        typed = tuple(link for link in links if link is not None)
+        if pdef.method == 'lp':
+            errors.extend(_domain_decides_nothing(pname, pdef, typed))
+        piecewise[pname] = typed
 
     if errors:
         raise SchemaError('\n'.join(errors))
@@ -170,6 +174,26 @@ def validate_expressions(schema: Spec) -> Resolved:
     for pname, pdef in schema.piecewise.items():
         curve_frame(schema, pname, pdef, resolved.piecewise[pname])
     return resolved
+
+
+def _domain_decides_nothing(name: str, pw: PiecewiseBlock, links: tuple[Expression, ...]) -> Iterator[str]:
+    """The refusal for a ``method: lp`` curve whose x-link carries no variable.
+
+    The method bounds the curve's domain with two rows comparing the x-link
+    against the first and the last breakpoint, and a row with no variable
+    decides nothing. Decided here, on the link the file wrote, rather than on
+    the row the expansion would write under a name the file never declared.
+    """
+    x = pw.curve[0]
+    i = next(i for i, link in enumerate(pw.links) if link is x)
+    if carries_variable(links[i]):
+        return
+    yield (
+        f"piecewise '{name}' link {i}: method: lp bounds the curve's domain by rows comparing this link's expression "
+        f'against its first and last breakpoint, and {x.expression!r} carries no variable, so those rows decide '
+        f'nothing. Name a variable in the link, or use method: convex, sos2 or adjacency, whose weights pin the '
+        f'domain themselves.'
+    )
 
 
 def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:
