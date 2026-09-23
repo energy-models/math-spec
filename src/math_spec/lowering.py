@@ -296,7 +296,7 @@ class _Lowering:
         return program.Mask(self._predicate(mask.root))
 
     def _predicate(self, node: program.Predicate) -> program.Predicate:
-        if isinstance(node, program.ArithmeticComparison):
+        if isinstance(node, program.ExpressionComparison):
             return program.ExpressionComparison(self.expr(node.left), node.op, self.expr(node.right), node.dims)
         if isinstance(node, program.CountComparison):
             return replace(node, predicate=self._mask(node.predicate))

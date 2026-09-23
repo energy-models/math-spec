@@ -41,7 +41,6 @@ from math_spec._expression_parser import (
 from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
 from math_spec.program import (
-    ArithmeticComparison,
     CountComparison,
     DimensionComparison,
     DimensionPosition,
@@ -561,7 +560,7 @@ def _check_where_dims(
                 leaf = f"where-dimension '{atom.name}'"
             case RelationComparison() | RelationPairComparison() | RelationDefined():
                 leaf = f"where-relation '{atom.name}'"
-            case ArithmeticComparison() | ExpressionComparison():
+            case ExpressionComparison():
                 leaf = 'a where-comparison of expressions'
             case CountComparison():
                 leaf = f"a where-count over '{atom.over}'"

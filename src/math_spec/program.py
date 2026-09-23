@@ -34,15 +34,12 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterator
 
-    from math_spec._expression_parser import ArithmeticNode
-
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'And',
-    'ArithmeticComparison',
     'Assumption',
     'BooleanLiteral',
     'Cases',
@@ -1056,34 +1053,22 @@ class ParameterComparison:
 
 
 @dataclass(frozen=True)
-class ExpressionComparison:
+class ExpressionComparison[Side]:
     """Compare two variable-free expressions, coordinate by coordinate — ``p_min <= 0.5 * p_max``.
 
     ``dims`` is every dim either side carries. A side whose value is absent at
     a coordinate — a parameter row missing, a translation that vacated it —
     makes the comparison false there, as a null does in every other
     comparison; under a summing operator the absent term is one fewer.
+
+    In a program each side is an :data:`Expression`. Before lowering, the
+    readers of the file — the typesetter, the dim rules, the exclusivity
+    check — see the same node with its sides in the core syntax tree.
     """
 
-    left: Expression
+    left: Side
     op: PredicateOperator
-    right: Expression
-    dims: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class ArithmeticComparison:
-    """The same comparison as resolution types it, its sides in the core syntax tree.
-
-    What the spec-side readers walk — the typesetter, the dim rules, the
-    exclusivity check. :func:`~math_spec.lowering.lower_program` rebuilds
-    every mask with an :class:`ExpressionComparison` in its place, so a
-    program never carries one.
-    """
-
-    left: ArithmeticNode
-    op: PredicateOperator
-    right: ArithmeticNode
+    right: Side
     dims: tuple[str, ...]
 
 
@@ -1227,8 +1212,8 @@ class Or:
 #: decide about them.
 TypedPredicate = (
     ParameterComparison
+    # pyrefly: ignore[implicit-any-type-argument]  # the union is an isinstance target, which takes no parameterized class
     | ExpressionComparison
-    | ArithmeticComparison
     | ParameterDefined
     | VariableDefined
     | DimensionComparison
@@ -1247,10 +1232,7 @@ TypedPredicate = (
 #: tree shares them — the transient impurity resolution normalizes away.
 Connective = Not | And | Or
 
-#: Every resolved predicate node. A lowered mask's ``root`` holds every member
-#: but :class:`ArithmeticComparison`, which lowering rewrites into an
-#: :class:`ExpressionComparison`, so a consumer walking a program never meets
-#: one. The parser's ``Unresolved*`` nodes are not members: they live with the
+#: Every resolved predicate node. The parser's ``Unresolved*`` nodes are not members: they live with the
 #: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
 #: before anything here is asked.
 Predicate = BooleanLiteral | TypedPredicate | Connective
@@ -1304,7 +1286,6 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
         case (
             ParameterComparison()
             | ExpressionComparison()
-            | ArithmeticComparison()
             | ParameterDefined()
             | VariableDefined()
             | CountComparison()
@@ -1341,9 +1322,6 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
             return frozenset({atom.name, atom.other})
         case ExpressionComparison():
             return _names_under(atom.left, atom.right)
-        case ArithmeticComparison():
-            msg = 'a resolved mask is asked what it reads; lowering rebuilds it first, and the program mask answers.'
-            raise AssertionError(msg)
         case CountComparison():
             return atom.predicate.names_read
         case TranslatedPredicate():

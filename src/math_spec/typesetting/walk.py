@@ -37,7 +37,6 @@ from math_spec._expression_parser import (
 from math_spec.dimensions import dims_of
 from math_spec.program import (
     And,
-    ArithmeticComparison,
     BooleanLiteral,
     CountComparison,
     DimensionComparison,
@@ -82,7 +81,8 @@ _WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
 #: align on the way it aligns a constraint.
 AlignedComparison = (
     ParameterComparison
-    | ArithmeticComparison
+    # pyrefly: ignore[implicit-any-type-argument]  # the union is an isinstance target, which takes no parameterized class
+    | ExpressionComparison
     | CountComparison
     | DimensionComparison
     | DimensionPosition
@@ -602,10 +602,6 @@ class Walk:
             left, right = self.sides(node, ctx)
             return f'{left} {right}', comparison
 
-        if isinstance(node, ExpressionComparison):
-            msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
-            raise AssertionError(msg)
-
         if isinstance(node, TranslatedPredicate):
             moved = ctx.translated(node.along, _Step(node.offset, 'plain'))
             return self._where(node.operand.root, moved)
@@ -642,7 +638,7 @@ class Walk:
         """
         if isinstance(node, ParameterComparison):
             left, right = ctx.indexed(self.symbols.name[node.name], list(node.dims)), self._literal(node.value)
-        elif isinstance(node, ArithmeticComparison):
+        elif isinstance(node, ExpressionComparison):
             left, right = self._expression(node.left, ctx), self._expression(node.right, ctx)
         elif isinstance(node, DimensionComparison):
             if isinstance(node.value, int | float):
