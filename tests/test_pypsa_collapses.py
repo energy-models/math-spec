@@ -27,6 +27,7 @@ ALL = to_spec(str(EXAMPLES / 'pypsa.yaml'))
 #: capacity is chosen once, before the future is known, so it spans no scenario
 SCENARIO_FREE_VARIABLES = {
     'Generator_n_mod',
+    'Link_n_mod',
     'Generator_p_nom_ext',
     'Link_p_nom_ext',
     'StorageUnit_p_nom_ext',

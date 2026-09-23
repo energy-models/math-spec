@@ -201,6 +201,70 @@ parameters:
   Link_marginal_cost_quadratic:
     description: cost of the square of one unit of flow
     dims: [snapshot, link]
+  Link_committable:
+    description: whether flow is gated by an on/off status decision
+    dims: [link]
+    dtype: bool
+  Link_ramp_limit_start_up:
+    description: most flow in the snapshot a link starts, per unit of nominal power
+    dims: [link]
+  Link_ramp_limit_shut_down:
+    description: most flow in the snapshot before a link stops, per unit of nominal power
+    dims: [link]
+  Link_min_up_time:
+    description: least snapshots a link stays on once started
+    dims: [link]
+    dtype: int
+  Link_min_down_time:
+    description: least snapshots a link stays off once stopped
+    dims: [link]
+    dtype: int
+  Link_status_initial:
+    description: one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
+    dims: [link]
+    dtype: int
+  Link_must_stay_up:
+    description: >-
+      true while the up time a link brought into the horizon still binds —
+      data prep, since `position()` compares against a literal rather than a
+      parameter
+    dims: [snapshot, link]
+    dtype: bool
+  Link_must_stay_down:
+    description: >-
+      true while the down time a link brought into the horizon still binds —
+      PyPSA's `min_down_time - down_time_before` snapshots, where
+      `down_time_before > 0`, data prep for the same reason
+    dims: [snapshot, link]
+    dtype: bool
+  Link_start_up_cost:
+    description: cost of one start
+    dims: [link]
+  Link_shut_down_cost:
+    description: cost of one stop
+    dims: [link]
+  Link_stand_by_cost:
+    description: cost of one snapshot spent on
+    dims: [snapshot, link]
+  Link_p_nom_mod:
+    description: the module size a build comes in whole numbers of; no value means the build is continuous
+    dims: [link]
+  Link_modules_installed:
+    description: >-
+      how many whole modules a committable build has in place: `Link_p_nom
+      / Link_p_nom_mod` where a fixed build is modular, one where it is
+      not, data prep. PyPSA refuses a fixed modular build whose nominal power
+      is not a whole number of modules
+    dims: [link]
+  Link_big_m:
+    description: a bound safely above any feasible flow — the build cap at full availability, data prep
+    dims: [link]
+  Link_p_min_pu_nonneg:
+    description: >-
+      true where none of the link's own minimums-per-unit is negative —
+      PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
+    dims: [link]
+    dtype: bool
   Process_p_nom:
     description: nominal internal power
     dims: [process]
@@ -880,6 +944,37 @@ variables:
     domain: integer
     bounds:
       lower: 0
+  Link_n_mod:
+    description: "`Link-n_mod` — how many modules of an extendable modular build"
+    dims: [link]
+    where: Link_p_nom_extendable AND Link_p_nom_mod > 0
+    domain: integer
+    bounds:
+      lower: 0
+  Link_status:
+    description: >-
+      `Link-status` — how much of a committable link is on: an integer
+      the rows below cap at one, or at the module count where the build is
+      modular
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    domain: integer
+    bounds:
+      lower: 0
+  Link_start_up:
+    description: "`Link-start_up` — how much of a committable link turns on this snapshot, capped as the status is"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    domain: integer
+    bounds:
+      lower: 0
+  Link_shut_down:
+    description: "`Link-shut_down` — how much of a committable link turns off this snapshot, capped as the status is"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    domain: integer
+    bounds:
+      lower: 0
   Line_s:
     description: >-
       `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a
@@ -1037,6 +1132,51 @@ expressions:
     cases:
       extendable: { when: Link_p_nom_extendable, expression: Link_p_nom_ext }
     otherwise: Link_p_nom
+  Link_previous_status:
+    description: >-
+      the commitment state a link carries into a snapshot — the state it
+      brought into the horizon at the first, the previous snapshot's after that
+    dims: [scenario, snapshot, link]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: Link_status_initial }
+    otherwise: shift(Link_status, along=snapshot, offset=1)
+  Link_previous_p:
+    description: >-
+      the flow a link carries into a snapshot — nothing at the start of
+      the horizon, which is why a link that came in running carries no ramp row
+      there
+    dims: [scenario, snapshot, link]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: 0 }
+    otherwise: shift(Link_p, along=snapshot, offset=1)
+  Link_ramp_up_allowance:
+    description: >-
+      how far a link may raise flow between two snapshots — its ramp
+      limit of the build while it stays on, plus its start-up ramp in the
+      snapshot it turns on
+    dims: [scenario, snapshot, link]
+    cases:
+      committed:
+        when: Link_committable
+        expression: >-
+          Link_ramp_limit_up * Link_p_nom * Link_previous_status
+          + Link_ramp_limit_start_up * Link_p_nom
+          * (Link_status - Link_previous_status)
+    otherwise: Link_ramp_limit_up * Link_p_nom_effective
+  Link_ramp_down_allowance:
+    description: >-
+      how far a link may lower flow between two snapshots — its ramp
+      limit of the build while it stays on, plus its shut-down ramp in the
+      snapshot it turns off
+    dims: [scenario, snapshot, link]
+    cases:
+      committed:
+        when: Link_committable
+        expression: >-
+          Link_ramp_limit_down * Link_p_nom * Link_status
+          + Link_ramp_limit_shut_down * Link_p_nom
+          * (Link_previous_status - Link_status)
+    otherwise: Link_ramp_limit_down * Link_p_nom_effective
   Process_p_nom_effective:
     description: the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise
     dims: [process]
@@ -1153,6 +1293,9 @@ expressions:
       + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_start_up * Generator_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_shut_down * Generator_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+      + sum(sum(Link_status * Link_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+      + sum(sum(Link_start_up * Link_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+      + sum(sum(Link_shut_down * Link_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
   Carrier_additions:
     description: >-
       what a carrier adds in a period — every extendable component of that
@@ -1182,12 +1325,12 @@ constraints:
   Link_fix_p_lower:
     description: "`Link-fix-p-lower` — a fixed link carries at least its minimum, negative for the other way"
     dims: [scenario, snapshot, link]
-    where: not Link_p_nom_extendable AND Link_active
+    where: not Link_p_nom_extendable AND not Link_committable AND Link_active
     expression: Link_p >= Link_p_min_pu * Link_p_nom
   Link_fix_p_upper:
     description: "`Link-fix-p-upper` — a fixed link carries at most its nominal power"
     dims: [scenario, snapshot, link]
-    where: not Link_p_nom_extendable AND Link_active
+    where: not Link_p_nom_extendable AND not Link_committable AND Link_active
     expression: Link_p <= Link_p_max_pu * Link_p_nom
   Generator_ext_p_lower:
     description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
@@ -1227,12 +1370,12 @@ constraints:
   Link_ext_p_lower:
     description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
     dims: [scenario, snapshot, link]
-    where: Link_p_nom_extendable AND Link_active
+    where: Link_p_nom_extendable AND not Link_committable AND Link_active
     expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
   Link_ext_p_upper:
     description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
     dims: [scenario, snapshot, link]
-    where: Link_p_nom_extendable AND Link_active
+    where: Link_p_nom_extendable AND not Link_committable AND Link_active
     expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
   Link_ext_p_nom_lower:
     description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
@@ -1506,6 +1649,196 @@ constraints:
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0 AND Generator_active
     expression: Generator_shut_down <= Generator_n_mod
+  Link_com_p_lower:
+    description: "`Link-com-p-lower` — a committed link flows at least its minimum; off, at least nothing"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND not Link_p_nom_extendable AND Link_active
+    expression: Link_p >= Link_p_min_pu * Link_p_nom * Link_status
+  Link_com_p_upper:
+    description: "`Link-com-p-upper` — a committed link flows at most what is available; off, at most nothing"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND not Link_p_nom_extendable AND Link_active
+    expression: Link_p <= Link_p_max_pu * Link_p_nom * Link_status
+  Link_com_transition_start_up:
+    description: "`Link-com-transition-start-up` — turning on is a start, counted against the state the link carried into the snapshot"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    expression: Link_start_up >= Link_status - Link_previous_status
+  Link_com_transition_shut_down:
+    description: "`Link-com-transition-shut-down` — turning off is a stop, counted against the state the link carried into the snapshot"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    expression: Link_shut_down >= Link_previous_status - Link_status
+  Link_com_up_time:
+    description: >-
+      `Link-com-up-time` — a link started within its own minimum up time
+      is still on. The first snapshot's share of the window is the brought-in
+      up time's, which the must-stay-up mask carries
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_min_up_time > 0 AND position(snapshot) > 0 AND Link_active
+    expression: sum_back(Link_start_up, along=snapshot, window=Link_min_up_time) <= Link_status
+  Link_com_down_time:
+    description: >-
+      `Link-com-down-time` — a link stopped within its own minimum down
+      time is still off. The first snapshot's share of the window is the
+      brought-in down time's, which the must-stay-down mask carries
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_min_down_time > 0 AND position(snapshot) > 0 AND Link_active
+    expression: sum_back(Link_shut_down, along=snapshot, window=Link_min_down_time) <= 1 - Link_status
+  Link_com_status_must_stay_up:
+    description: "`Link-com-status-min_up_time_must_stay_up` — a link still serving the up time it brought in stays on"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_must_stay_up AND Link_active
+    expression: Link_status == 1
+  Link_com_status_must_stay_down:
+    description: >-
+      `Link-com-status-min_down_time_must_stay_up` — a link still serving
+      the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_must_stay_down AND Link_active
+    expression: Link_status == 0
+  Link_p_ramp_limit_up_run_big_m:
+    description: >-
+      `Link-p-ramp_limit_up-run-bigM` — a committed extendable link
+      raises flow no faster than its limit of the chosen build; the big M
+      releases the row in the snapshot it turns on
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    expression: >-
+      Link_p - Link_previous_p <=
+      Link_ramp_limit_up * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_previous_status
+  Link_p_ramp_limit_up_start_big_m:
+    description: >-
+      `Link-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
+      committed extendable link ramps no further than its start-up ramp of
+      the chosen build; the big M releases the row everywhere else
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    expression: >-
+      Link_p - Link_previous_p <=
+      Link_ramp_limit_start_up * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_start_up
+  Link_p_ramp_limit_down_run_big_m:
+    description: >-
+      `Link-p-ramp_limit_down-run-bigM` — a committed extendable link
+      lowers flow no faster than its limit of the chosen build; the big M
+      releases the row in the snapshot it turns off
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    expression: >-
+      Link_previous_p - Link_p <=
+      Link_ramp_limit_down * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_status
+  Link_p_ramp_limit_down_shut_big_m:
+    description: >-
+      `Link-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
+      a committed extendable link ramps no further than its shut-down ramp of
+      the chosen build; the big M releases the row everywhere else
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    expression: >-
+      Link_previous_p - Link_p <=
+      Link_ramp_limit_shut_down * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_shut_down
+  Link_p_nom_modularity:
+    description: "`Link-p_nom_modularity` — the chosen build is a whole number of modules"
+    dims: [link]
+    where: Link_p_nom_extendable AND Link_p_nom_mod > 0
+    expression: Link_p_nom_ext == Link_p_nom_mod * Link_n_mod
+  Link_com_ext_p_upper_cap:
+    description: >-
+      `Link-com-ext-p-upper-cap` — a committed extendable link flows
+      at most what is available of the chosen build, whatever its status
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+  Link_com_ext_p_upper_big_m:
+    description: "`Link-com-ext-p-upper-bigM` — off, a link flows nothing; on, the big M is no bound"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: Link_p <= Link_big_m * Link_status
+  Link_com_ext_p_lower:
+    description: >-
+      `Link-com-ext-p-lower` — a committed extendable link flows at
+      least its minimum of the chosen build; off, the big M releases the row
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: >-
+      Link_p >=
+      Link_p_min_pu * Link_p_nom_ext
+      + Link_big_m * Link_status - Link_big_m
+  Link_com_ext_p_lower_nonneg:
+    description: >-
+      `Link-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+      negative, flow is also plainly non-negative, a row the big-M lower
+      cannot assert while the link is off
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable
+      AND Link_p_min_pu_nonneg AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: Link_p >= 0
+  Link_com_mod_p_lower:
+    description: >-
+      `Link-com-mod-p-lower` — a committed modular link flows at least
+      its minimum of one module, whether the build is fixed or a decision
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_p >= Link_p_min_pu * Link_p_nom_mod * Link_status
+  Link_com_mod_p_upper:
+    description: >-
+      `Link-com-mod-p-upper` — a committed modular link flows at most
+      one module's share, whether the build is fixed or a decision
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_p <= Link_p_max_pu * Link_p_nom_mod * Link_status
+  Link_status_p_fixed_upper:
+    description: >-
+      `Link-status-p-fixed-upper` — a status is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_status <= Link_modules_installed
+  Link_start_up_p_fixed_upper:
+    description: >-
+      `Link-start_up-p-fixed-upper` — a start is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_start_up <= Link_modules_installed
+  Link_shut_down_p_fixed_upper:
+    description: >-
+      `Link-shut_down-p-fixed-upper` — a stop is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_shut_down <= Link_modules_installed
+  Link_status_p_nom_variable_upper:
+    description: "`Link-status-p_nom-variable-upper` — a modular link is on only where a module is built"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_status <= Link_n_mod
+  Link_start_up_p_nom_variable_upper:
+    description: "`Link-start_up-p_nom-variable-upper` — a modular link starts only where a module is built"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_start_up <= Link_n_mod
+  Link_shut_down_p_nom_variable_upper:
+    description: "`Link-shut_down-p_nom-variable-upper` — a modular link stops only where a module is built"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_shut_down <= Link_n_mod
   Line_fix_s_lower:
     description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating, the loss counted against it"
     dims: [scenario, snapshot, line]
@@ -1669,17 +2002,30 @@ constraints:
     expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
   Link_p_ramp_limit_up:
     description: >-
-      `Link-p-ramp_limit_up` — a link raises flow no faster than its limit of
-      the build. The translated term vacates the first snapshot, where a plain
-      optimize builds no row either
+      `Link-p-ramp_limit_up` — a link raises flow no faster than
+      its ramp limit of the build, and a committed one no further than its
+      start-up ramp in the snapshot it turns on. A link that came into the
+      horizon running brought an unknown flow, so it carries no row at the
+      first snapshot — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
-    where: Link_ramp_limit_up AND Link_active
-    expression: Link_p - shift(Link_p, along=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
+    where: >-
+      Link_ramp_limit_up
+      AND NOT (Link_committable AND Link_p_nom_extendable)
+      AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+    expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
   Link_p_ramp_limit_down:
-    description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
+    description: >-
+      `Link-p-ramp_limit_down` — a link lowers flow no faster than
+      its ramp limit of the build, and a committed one no further than its
+      shut-down ramp in the snapshot it turns off. A link that came into the
+      horizon running brought an unknown flow, so it carries no row at the
+      first snapshot — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
-    where: Link_ramp_limit_down AND Link_active
-    expression: shift(Link_p, along=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
+    where: >-
+      Link_ramp_limit_down
+      AND NOT (Link_committable AND Link_p_nom_extendable)
+      AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+    expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
   Process_p_ramp_limit_up:
     description: >-
       `Process-p-ramp_limit_up` — a process raises internal power no faster than

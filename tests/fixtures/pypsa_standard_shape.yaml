@@ -169,6 +169,48 @@ constraints:
   Line_s_set:
     - snapshot
     - line
+  Link_com_down_time:
+    - snapshot
+    - link
+  Link_com_ext_p_lower:
+    - snapshot
+    - link
+  Link_com_ext_p_lower_nonneg:
+    - snapshot
+    - link
+  Link_com_ext_p_upper_big_m:
+    - snapshot
+    - link
+  Link_com_ext_p_upper_cap:
+    - snapshot
+    - link
+  Link_com_mod_p_lower:
+    - snapshot
+    - link
+  Link_com_mod_p_upper:
+    - snapshot
+    - link
+  Link_com_p_lower:
+    - snapshot
+    - link
+  Link_com_p_upper:
+    - snapshot
+    - link
+  Link_com_status_must_stay_down:
+    - snapshot
+    - link
+  Link_com_status_must_stay_up:
+    - snapshot
+    - link
+  Link_com_transition_shut_down:
+    - snapshot
+    - link
+  Link_com_transition_start_up:
+    - snapshot
+    - link
+  Link_com_up_time:
+    - snapshot
+    - link
   Link_ext_p_lower:
     - snapshot
     - link
@@ -185,15 +227,47 @@ constraints:
   Link_fix_p_upper:
     - snapshot
     - link
+  Link_p_nom_modularity:
+    - link
   Link_p_nom_set:
     - link
   Link_p_ramp_limit_down:
     - snapshot
     - link
+  Link_p_ramp_limit_down_run_big_m:
+    - snapshot
+    - link
+  Link_p_ramp_limit_down_shut_big_m:
+    - snapshot
+    - link
   Link_p_ramp_limit_up:
     - snapshot
     - link
+  Link_p_ramp_limit_up_run_big_m:
+    - snapshot
+    - link
+  Link_p_ramp_limit_up_start_big_m:
+    - snapshot
+    - link
   Link_p_set:
+    - snapshot
+    - link
+  Link_shut_down_p_fixed_upper:
+    - snapshot
+    - link
+  Link_shut_down_p_nom_variable_upper:
+    - snapshot
+    - link
+  Link_start_up_p_fixed_upper:
+    - snapshot
+    - link
+  Link_start_up_p_nom_variable_upper:
+    - snapshot
+    - link
+  Link_status_p_fixed_upper:
+    - snapshot
+    - link
+  Link_status_p_nom_variable_upper:
     - snapshot
     - link
   Process_ext_p_lower:
@@ -327,6 +401,10 @@ expressions:
   - Generator_ramp_up_allowance
   - Link_output_arrival
   - Link_p_nom_effective
+  - Link_previous_p
+  - Link_previous_status
+  - Link_ramp_down_allowance
+  - Link_ramp_up_allowance
   - Process_output_arrival
   - Process_p_nom_effective
   - StorageUnit_charge_carried_in
@@ -461,7 +539,11 @@ parameters:
   Line_volume_weight:
     - global_constraint
     - line
+  Link_big_m:
+    - link
   Link_capital_cost:
+    - link
+  Link_committable:
     - link
   Link_efficiency:
     - link_output
@@ -474,6 +556,18 @@ parameters:
   Link_marginal_cost_quadratic:
     - snapshot
     - link
+  Link_min_down_time:
+    - link
+  Link_min_up_time:
+    - link
+  Link_modules_installed:
+    - link
+  Link_must_stay_down:
+    - snapshot
+    - link
+  Link_must_stay_up:
+    - snapshot
+    - link
   Link_output_cyclic_delay:
     - link_output
   Link_output_delay:
@@ -484,6 +578,8 @@ parameters:
   Link_p_min_pu:
     - snapshot
     - link
+  Link_p_min_pu_nonneg:
+    - link
   Link_p_nom:
     - link
   Link_p_nom_extendable:
@@ -492,6 +588,8 @@ parameters:
     - link
   Link_p_nom_min:
     - link
+  Link_p_nom_mod:
+    - link
   Link_p_nom_set:
     - link
   Link_p_set:
@@ -499,7 +597,20 @@ parameters:
     - link
   Link_ramp_limit_down:
     - link
+  Link_ramp_limit_shut_down:
+    - link
+  Link_ramp_limit_start_up:
+    - link
   Link_ramp_limit_up:
+    - link
+  Link_shut_down_cost:
+    - link
+  Link_stand_by_cost:
+    - snapshot
+    - link
+  Link_start_up_cost:
+    - link
+  Link_status_initial:
     - link
   Link_tech_capacity_weight:
     - global_constraint
@@ -747,10 +858,21 @@ variables:
     - line
   Line_s_nom_ext:
     - line
+  Link_n_mod:
+    - link
   Link_p:
     - snapshot
     - link
   Link_p_nom_ext:
+    - link
+  Link_shut_down:
+    - snapshot
+    - link
+  Link_start_up:
+    - snapshot
+    - link
+  Link_status:
+    - snapshot
     - link
   Process_p:
     - snapshot

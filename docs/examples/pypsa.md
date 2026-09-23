@@ -596,7 +596,7 @@ def build():
 
 | PyPSA                                        | status | note                                                          |
 | -------------------------------------------- | ------ | ------------------------------------------------------------- |
-| [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; a committable link is not taken up here |
+| [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; Link in rung 25 |
 | [`{c}-com-p-lower/upper`](#generator-com-p-lower) | done |                                                          |
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
 | [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
@@ -2023,6 +2023,134 @@ def build():
 </details>
 <!-- reference:rung_24_must_stay_down:end -->
 
+### Rung 25 — committable links
+
+A committable link carries the generator's whole unit commitment over its flow.
+PyPSA builds the same status, transition, up time, down time, must-stay,
+big-M, modular and ramp rows for a `Link` as for a `Generator`, and prices its
+starts, stops and stand-by snapshots the same way. Here an east bus is served
+only by committable links. `hvdc` brought one snapshot of a three-snapshot up
+time into the horizon, so it stays on for two snapshots although a cheaper link
+could carry the load. `cold_tie` brought one snapshot of a three-snapshot down
+time, so it stays off for two snapshots. Its own two-snapshot up time would
+then hold it on into the last snapshot, where the load is below its minimum, so
+it does not start at all. The other links are committable builds that are
+extendable, modular, or both.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Link-status`, `-start_up`, `-shut_down`, `-n_mod`](#variable-domains) | done | as the generator's, rung 7 and 8 |
+| [`Link-com-p-*`, `-com-mod-p-*`, `-com-ext-p-*`](#link-com-p-lower) | done | a committable link leaves the `Link-fix-p-*` and `Link-ext-p-*` rows, as a generator does |
+| [`Link-*-p-fixed-upper`, `-*-p_nom-variable-upper`](#link-status-p-fixed-upper) | done | |
+| [`Link-com-transition-*`, `-com-up-time`, `-com-down-time`](#link-com-transition-start-up) | done | |
+| [`Link-com-status-min_up_time_must_stay_up`, `-min_down_time_must_stay_up`](#link-com-status-min_up_time_must_stay_up) | done | prep masks, as the generator's |
+| [`Link-p-ramp_limit_*`, `-*-bigM`](#link-p-ramp_limit_up) | done | the generator's cased allowance and big-M rows over flow |
+| [`Link-p_nom_modularity`](#link-p_nom_modularity) | done | |
+| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done | |
+
+<!-- reference:rung_25_committable_link:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `14013.0`, 235 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_25_committable_link.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 25: committable links — a link held on by the up time it brought in, one held off by its down time, one kept on by its own up time, and committable builds that are extendable, modular or both."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus an east bus that only committable links serve."""
+    n = spine.build()
+    n.add('Bus', 'east')
+    n.add(
+        'Link',
+        'hvdc',
+        bus0='north',
+        bus1='east',
+        committable=True,
+        p_nom=60,
+        p_min_pu=0.3,
+        marginal_cost=8,
+        min_up_time=3,
+        min_down_time=2,
+        up_time_before=1,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+        ramp_limit_start_up=0.6,
+        ramp_limit_shut_down=0.6,
+        start_up_cost=100,
+        shut_down_cost=50,
+        stand_by_cost=5,
+    )
+    n.add(
+        'Link',
+        'cold_tie',
+        bus0='north',
+        bus1='east',
+        committable=True,
+        p_nom=40,
+        p_min_pu=0.2,
+        min_up_time=2,
+        min_down_time=3,
+        up_time_before=0,
+        down_time_before=1,
+        start_up_cost=20,
+    )
+    n.add(
+        'Link',
+        'ext_tie',
+        bus0='north',
+        bus1='east',
+        committable=True,
+        p_nom_extendable=True,
+        p_nom_max=30,
+        capital_cost=5,
+        p_min_pu=0.2,
+        marginal_cost=2,
+        up_time_before=0,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+    )
+    n.add(
+        'Link',
+        'mod_tie',
+        bus0='south',
+        bus1='east',
+        committable=True,
+        p_nom_extendable=True,
+        p_nom_mod=10,
+        p_nom_max=40,
+        capital_cost=3,
+        p_min_pu=0.5,
+    )
+    n.add(
+        'Link',
+        'mod_fix',
+        bus0='north',
+        bus1='east',
+        committable=True,
+        p_nom=20,
+        p_nom_mod=10,
+        p_min_pu=0.5,
+        marginal_cost=1,
+    )
+    n.add('Load', 'east_load', bus='east', p_set=[20, 70, 60, 5])
+    return n
+```
+
+</details>
+<!-- reference:rung_25_committable_link:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2110,6 +2238,21 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
 | $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
+| $`\mathrm{com}^{f}`$ | `Link_committable` over $`\mathcal{L}`$ — whether flow is gated by an on/off status decision |
+| $`\mathrm{ru}^{f,\mathrm{up}}`$ | `Link_ramp_limit_start_up` over $`\mathcal{L}`$ — most flow in the snapshot a link starts, per unit of nominal power |
+| $`\mathrm{rd}^{f,\mathrm{dn}}`$ | `Link_ramp_limit_shut_down` over $`\mathcal{L}`$ — most flow in the snapshot before a link stops, per unit of nominal power |
+| $`\mathrm{UT}^{f}`$ | `Link_min_up_time` over $`\mathcal{L}`$ — least snapshots a link stays on once started |
+| $`\mathrm{DT}^{f}`$ | `Link_min_down_time` over $`\mathcal{L}`$ — least snapshots a link stays off once stopped |
+| $`\mathrm{u}^{f,0}`$ | `Link_status_initial` over $`\mathcal{L}`$ — one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $`\mathrm{hold}^{f}`$ | `Link_must_stay_up` over $`\mathcal{T} \times \mathcal{L}`$ — true while the up time a link brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}^{f}`$ | `Link_must_stay_down` over $`\mathcal{T} \times \mathcal{L}`$ — true while the down time a link brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
+| $`\mathrm{c}^{f,\mathrm{up}}`$ | `Link_start_up_cost` over $`\mathcal{L}`$ — cost of one start |
+| $`\mathrm{c}^{f,\mathrm{dn}}`$ | `Link_shut_down_cost` over $`\mathcal{L}`$ — cost of one stop |
+| $`\mathrm{c}^{f,\mathrm{on}}`$ | `Link_stand_by_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one snapshot spent on |
+| $`\mathrm{f}^{\mathrm{mod}}`$ | `Link_p_nom_mod` over $`\mathcal{L}`$ — the module size a build comes in whole numbers of; no value means the build is continuous |
+| $`\mathrm{N}^{f,\mathrm{fix}}`$ | `Link_modules_installed` over $`\mathcal{L}`$ — how many whole modules a committable build has in place: `Link_p_nom / Link_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
+| $`\mathrm{M}^{f}`$ | `Link_big_m` over $`\mathcal{L}`$ — a bound safely above any feasible flow — the build cap at full availability, data prep |
+| $`\mathrm{nonneg}^{f}`$ | `Link_p_min_pu_nonneg` over $`\mathcal{L}`$ — true where none of the link's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
 | $`\mathrm{z}^{\mathrm{nom}}`$ | `Process_p_nom` over $`\mathcal{J}`$ — nominal internal power |
 | $`\mathrm{ext}^{z}`$ | `Process_p_nom_extendable` over $`\mathcal{J}`$ — whether the nominal internal power is a decision |
 | $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
@@ -2269,6 +2412,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`u`$ | `Generator_status` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-status` — how much of a committable unit is on: an integer the rows below cap at one, or at the module count where the build is modular |
 | $`\mathit{up}`$ | `Generator_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
 | $`\mathit{dn}`$ | `Generator_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
+| $`N^{f}`$ | `Link_n_mod` over $`\mathcal{L}`$ — `Link-n_mod` — how many modules of an extendable modular build |
+| $`u^{f}`$ | `Link_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-status` — how much of a committable link is on: an integer the rows below cap at one, or at the module count where the build is modular |
+| $`\mathit{up}^{f}`$ | `Link_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-start_up` — how much of a committable link turns on this snapshot, capped as the status is |
+| $`\mathit{dn}^{f}`$ | `Link_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-shut_down` — how much of a committable link turns off this snapshot, capped as the status is |
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the cuts; absent, and zero in the balance, where the network is lossless |
 | $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
@@ -2295,6 +2442,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\Delta^{+}`$ | `Generator_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{-}`$ | `Generator_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_effective` over $`\mathcal{L}`$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\overleftarrow{u}^{f}`$ | `Link_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the commitment state a link carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
+| $`\overleftarrow{f}`$ | `Link_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the flow a link carries into a snapshot — nothing at the start of the horizon, which is why a link that came in running carries no ramp row there |
+| $`\Delta^{f,+}`$ | `Link_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may raise flow between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
+| $`\Delta^{f,-}`$ | `Link_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may lower flow between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_effective` over $`\mathcal{J}`$ — the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
@@ -2378,12 +2529,12 @@ p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a fixed link carries at least its minimum, negative for the other way"
   dims: [scenario, snapshot, link]
-  where: not Link_p_nom_extendable AND Link_active
+  where: not Link_p_nom_extendable AND not Link_committable AND Link_active
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-fix-p-upper`
@@ -2394,12 +2545,12 @@ f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l}
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a fixed link carries at most its nominal power"
   dims: [scenario, snapshot, link]
-  where: not Link_p_nom_extendable AND Link_active
+  where: not Link_p_nom_extendable AND not Link_committable AND Link_active
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Generator-ext-p-lower`
@@ -2522,12 +2673,12 @@ Generator_e_sum_max:
 Link_ext_p_lower:
   description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
   dims: [scenario, snapshot, link]
-  where: Link_p_nom_extendable AND Link_active
+  where: Link_p_nom_extendable AND not Link_committable AND Link_active
   expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-ext-p-upper`
@@ -2538,12 +2689,12 @@ f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \i
 Link_ext_p_upper:
   description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
   dims: [scenario, snapshot, link]
-  where: Link_p_nom_extendable AND Link_active
+  where: Link_p_nom_extendable AND not Link_committable AND Link_active
   expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-ext-p_nom-lower`
@@ -3269,6 +3420,471 @@ Generator_shut_down_p_nom_variable_upper:
 \mathit{dn}_{\xi,t,g} \le N_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
+### `Link-com-p-lower`
+
+`Link_com_p_lower`
+
+```yaml
+Link_com_p_lower:
+  description: "`Link-com-p-lower` — a committed link flows at least its minimum; off, at least nothing"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND not Link_p_nom_extendable AND Link_active
+  expression: Link_p >= Link_p_min_pu * Link_p_nom * Link_status
+```
+
+```math
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-p-upper`
+
+`Link_com_p_upper`
+
+```yaml
+Link_com_p_upper:
+  description: "`Link-com-p-upper` — a committed link flows at most what is available; off, at most nothing"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND not Link_p_nom_extendable AND Link_active
+  expression: Link_p <= Link_p_max_pu * Link_p_nom * Link_status
+```
+
+```math
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-transition-start-up`
+
+`Link_com_transition_start_up`
+
+```yaml
+Link_com_transition_start_up:
+  description: "`Link-com-transition-start-up` — turning on is a start, counted against the state the link carried into the snapshot"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_active
+  expression: Link_start_up >= Link_status - Link_previous_status
+```
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \ge u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-transition-shut-down`
+
+`Link_com_transition_shut_down`
+
+```yaml
+Link_com_transition_shut_down:
+  description: "`Link-com-transition-shut-down` — turning off is a stop, counted against the state the link carried into the snapshot"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_active
+  expression: Link_shut_down >= Link_previous_status - Link_status
+```
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \ge \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-up-time`
+
+`Link_com_up_time`
+
+```yaml
+Link_com_up_time:
+  description: >-
+    `Link-com-up-time` — a link started within its own minimum up time
+    is still on. The first snapshot's share of the window is the brought-in
+    up time's, which the must-stay-up mask carries
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_min_up_time > 0 AND position(snapshot) > 0 AND Link_active
+  expression: sum_back(Link_start_up, along=snapshot, window=Link_min_up_time) <= Link_status
+```
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{f}} \mathit{up}^{f}_{\xi,t',l} \le u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{UT}^{f}_{l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-down-time`
+
+`Link_com_down_time`
+
+```yaml
+Link_com_down_time:
+  description: >-
+    `Link-com-down-time` — a link stopped within its own minimum down
+    time is still off. The first snapshot's share of the window is the
+    brought-in down time's, which the must-stay-down mask carries
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_min_down_time > 0 AND position(snapshot) > 0 AND Link_active
+  expression: sum_back(Link_shut_down, along=snapshot, window=Link_min_down_time) <= 1 - Link_status
+```
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{f}} \mathit{dn}^{f}_{\xi,t',l} \le 1 - u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{DT}^{f}_{l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-status-min_up_time_must_stay_up`
+
+`Link_com_status_must_stay_up`
+
+```yaml
+Link_com_status_must_stay_up:
+  description: "`Link-com-status-min_up_time_must_stay_up` — a link still serving the up time it brought in stays on"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_must_stay_up AND Link_active
+  expression: Link_status == 1
+```
+
+```math
+u^{f}_{\xi,t,l} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{hold}^{f}_{t,l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-status-min_down_time_must_stay_up`
+
+`Link_com_status_must_stay_down`
+
+```yaml
+Link_com_status_must_stay_down:
+  description: >-
+    `Link-com-status-min_down_time_must_stay_up` — a link still serving
+    the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_must_stay_down AND Link_active
+  expression: Link_status == 0
+```
+
+```math
+u^{f}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{rest}^{f}_{t,l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-p-ramp_limit_up-run-bigM`
+
+`Link_p_ramp_limit_up_run_big_m`
+
+```yaml
+Link_p_ramp_limit_up_run_big_m:
+  description: >-
+    `Link-p-ramp_limit_up-run-bigM` — a committed extendable link
+    raises flow no faster than its limit of the chosen build; the big M
+    releases the row in the snapshot it turns on
+  dims: [scenario, snapshot, link]
+  where: >-
+    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+  expression: >-
+    Link_p - Link_previous_p <=
+    Link_ramp_limit_up * Link_p_nom_ext
+    + Link_big_m - Link_big_m * Link_previous_status
+```
+
+```math
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \mathrm{ru}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-p-ramp_limit_up-start-bigM`
+
+`Link_p_ramp_limit_up_start_big_m`
+
+```yaml
+Link_p_ramp_limit_up_start_big_m:
+  description: >-
+    `Link-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
+    committed extendable link ramps no further than its start-up ramp of
+    the chosen build; the big M releases the row everywhere else
+  dims: [scenario, snapshot, link]
+  where: >-
+    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_up
+    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+  expression: >-
+    Link_p - Link_previous_p <=
+    Link_ramp_limit_start_up * Link_p_nom_ext
+    + Link_big_m - Link_big_m * Link_start_up
+```
+
+```math
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \mathrm{ru}^{f,\mathrm{up}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-p-ramp_limit_down-run-bigM`
+
+`Link_p_ramp_limit_down_run_big_m`
+
+```yaml
+Link_p_ramp_limit_down_run_big_m:
+  description: >-
+    `Link-p-ramp_limit_down-run-bigM` — a committed extendable link
+    lowers flow no faster than its limit of the chosen build; the big M
+    releases the row in the snapshot it turns off
+  dims: [scenario, snapshot, link]
+  where: >-
+    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+  expression: >-
+    Link_previous_p - Link_p <=
+    Link_ramp_limit_down * Link_p_nom_ext
+    + Link_big_m - Link_big_m * Link_status
+```
+
+```math
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \mathrm{rd}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-p-ramp_limit_down-shut-bigM`
+
+`Link_p_ramp_limit_down_shut_big_m`
+
+```yaml
+Link_p_ramp_limit_down_shut_big_m:
+  description: >-
+    `Link-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
+    a committed extendable link ramps no further than its shut-down ramp of
+    the chosen build; the big M releases the row everywhere else
+  dims: [scenario, snapshot, link]
+  where: >-
+    Link_committable AND Link_p_nom_extendable AND Link_ramp_limit_down
+    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+  expression: >-
+    Link_previous_p - Link_p <=
+    Link_ramp_limit_shut_down * Link_p_nom_ext
+    + Link_big_m - Link_big_m * Link_shut_down
+```
+
+```math
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \mathrm{rd}^{f,\mathrm{dn}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-p_nom_modularity`
+
+`Link_p_nom_modularity`
+
+```yaml
+Link_p_nom_modularity:
+  description: "`Link-p_nom_modularity` — the chosen build is a whole number of modules"
+  dims: [link]
+  where: Link_p_nom_extendable AND Link_p_nom_mod > 0
+  expression: Link_p_nom_ext == Link_p_nom_mod * Link_n_mod
+```
+
+```math
+F_{l} = \mathrm{f}^{\mathrm{mod}}_{l} \cdot N^{f}_{l} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0
+```
+
+### `Link-com-ext-p-upper-cap`
+
+`Link_com_ext_p_upper_cap`
+
+```yaml
+Link_com_ext_p_upper_cap:
+  description: >-
+    `Link-com-ext-p-upper-cap` — a committed extendable link flows
+    at most what is available of the chosen build, whatever its status
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+  expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+```
+
+```math
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-ext-p-upper-bigM`
+
+`Link_com_ext_p_upper_big_m`
+
+```yaml
+Link_com_ext_p_upper_big_m:
+  description: "`Link-com-ext-p-upper-bigM` — off, a link flows nothing; on, the big M is no bound"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+  expression: Link_p <= Link_big_m * Link_status
+```
+
+```math
+f_{\xi,t,l} \le \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-ext-p-lower`
+
+`Link_com_ext_p_lower`
+
+```yaml
+Link_com_ext_p_lower:
+  description: >-
+    `Link-com-ext-p-lower` — a committed extendable link flows at
+    least its minimum of the chosen build; off, the big M releases the row
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+  expression: >-
+    Link_p >=
+    Link_p_min_pu * Link_p_nom_ext
+    + Link_big_m * Link_status - Link_big_m
+```
+
+```math
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} + \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} - \mathrm{M}^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-ext-p-lower-nonneg`
+
+`Link_com_ext_p_lower_nonneg`
+
+```yaml
+Link_com_ext_p_lower_nonneg:
+  description: >-
+    `Link-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+    negative, flow is also plainly non-negative, a row the big-M lower
+    cannot assert while the link is off
+  dims: [scenario, snapshot, link]
+  where: >-
+    Link_committable AND Link_p_nom_extendable
+    AND Link_p_min_pu_nonneg AND NOT (Link_p_nom_mod > 0) AND Link_active
+  expression: Link_p >= 0
+```
+
+```math
+f_{\xi,t,l} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{nonneg}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-mod-p-lower`
+
+`Link_com_mod_p_lower`
+
+```yaml
+Link_com_mod_p_lower:
+  description: >-
+    `Link-com-mod-p-lower` — a committed modular link flows at least
+    its minimum of one module, whether the build is fixed or a decision
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
+  expression: Link_p >= Link_p_min_pu * Link_p_nom_mod * Link_status
+```
+
+```math
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-com-mod-p-upper`
+
+`Link_com_mod_p_upper`
+
+```yaml
+Link_com_mod_p_upper:
+  description: >-
+    `Link-com-mod-p-upper` — a committed modular link flows at most
+    one module's share, whether the build is fixed or a decision
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
+  expression: Link_p <= Link_p_max_pu * Link_p_nom_mod * Link_status
+```
+
+```math
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-status-p-fixed-upper`
+
+`Link_status_p_fixed_upper`
+
+```yaml
+Link_status_p_fixed_upper:
+  description: >-
+    `Link-status-p-fixed-upper` — a status is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+  expression: Link_status <= Link_modules_installed
+```
+
+```math
+u^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-start_up-p-fixed-upper`
+
+`Link_start_up_p_fixed_upper`
+
+```yaml
+Link_start_up_p_fixed_upper:
+  description: >-
+    `Link-start_up-p-fixed-upper` — a start is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+  expression: Link_start_up <= Link_modules_installed
+```
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-shut_down-p-fixed-upper`
+
+`Link_shut_down_p_fixed_upper`
+
+```yaml
+Link_shut_down_p_fixed_upper:
+  description: >-
+    `Link-shut_down-p-fixed-upper` — a stop is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+  expression: Link_shut_down <= Link_modules_installed
+```
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-status-p_nom-variable-upper`
+
+`Link_status_p_nom_variable_upper`
+
+```yaml
+Link_status_p_nom_variable_upper:
+  description: "`Link-status-p_nom-variable-upper` — a modular link is on only where a module is built"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+  expression: Link_status <= Link_n_mod
+```
+
+```math
+u^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-start_up-p_nom-variable-upper`
+
+`Link_start_up_p_nom_variable_upper`
+
+```yaml
+Link_start_up_p_nom_variable_upper:
+  description: "`Link-start_up-p_nom-variable-upper` — a modular link starts only where a module is built"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+  expression: Link_start_up <= Link_n_mod
+```
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+### `Link-shut_down-p_nom-variable-upper`
+
+`Link_shut_down_p_nom_variable_upper`
+
+```yaml
+Link_shut_down_p_nom_variable_upper:
+  description: "`Link-shut_down-p_nom-variable-upper` — a modular link stops only where a module is built"
+  dims: [scenario, snapshot, link]
+  where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+  expression: Link_shut_down <= Link_n_mod
+```
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
 ### `Line-fix-s-lower`
 
 `Line_fix_s_lower`
@@ -3712,16 +4328,21 @@ Generator_p_ramp_limit_down:
 ```yaml
 Link_p_ramp_limit_up:
   description: >-
-    `Link-p-ramp_limit_up` — a link raises flow no faster than its limit of
-    the build. The translated term vacates the first snapshot, where a plain
-    optimize builds no row either
+    `Link-p-ramp_limit_up` — a link raises flow no faster than
+    its ramp limit of the build, and a committed one no further than its
+    start-up ramp in the snapshot it turns on. A link that came into the
+    horizon running brought an unknown flow, so it carries no row at the
+    first snapshot — nor does any link a big M releases instead
   dims: [scenario, snapshot, link]
-  where: Link_ramp_limit_up AND Link_active
-  expression: Link_p - shift(Link_p, along=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
+  where: >-
+    Link_ramp_limit_up
+    AND NOT (Link_committable AND Link_p_nom_extendable)
+    AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+  expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
 ```
 
 ```math
-f_{\xi,t,l} - f_{\xi,t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ru}^{f}_{l} \text{ is defined} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down`
@@ -3730,14 +4351,22 @@ f_{\xi,t,l} - f_{\xi,t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f
 
 ```yaml
 Link_p_ramp_limit_down:
-  description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
+  description: >-
+    `Link-p-ramp_limit_down` — a link lowers flow no faster than
+    its ramp limit of the build, and a committed one no further than its
+    shut-down ramp in the snapshot it turns off. A link that came into the
+    horizon running brought an unknown flow, so it carries no row at the
+    first snapshot — nor does any link a big M releases instead
   dims: [scenario, snapshot, link]
-  where: Link_ramp_limit_down AND Link_active
-  expression: shift(Link_p, along=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
+  where: >-
+    Link_ramp_limit_down
+    AND NOT (Link_committable AND Link_p_nom_extendable)
+    AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+  expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
 ```
 
 ```math
-f_{\xi,t - 1,l} - f_{\xi,t,l} \le \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{rd}^{f}_{l} \text{ is defined} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Process-p-ramp_limit_up`
@@ -4615,6 +5244,87 @@ Link_p_nom_effective:
 \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} = \begin{cases} F_{l} & \text{if } \mathrm{ext}^{f}_{l} \\ \mathrm{f}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
 ```
 
+### `Link_previous_status`
+
+```yaml
+Link_previous_status:
+  description: >-
+    the commitment state a link carries into a snapshot — the state it
+    brought into the horizon at the first, the previous snapshot's after that
+  dims: [scenario, snapshot, link]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: Link_status_initial }
+  otherwise: shift(Link_status, along=snapshot, offset=1)
+```
+
+```math
+\overleftarrow{u}^{f}_{\xi,t,l} = \begin{cases} \mathrm{u}^{f,0}_{l} & \text{if } \mathrm{pos}(t) = 0 \\ u^{f}_{\xi,t - 1,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
+
+### `Link_previous_p`
+
+```yaml
+Link_previous_p:
+  description: >-
+    the flow a link carries into a snapshot — nothing at the start of
+    the horizon, which is why a link that came in running carries no ramp row
+    there
+  dims: [scenario, snapshot, link]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: 0 }
+  otherwise: shift(Link_p, along=snapshot, offset=1)
+```
+
+```math
+\overleftarrow{f}_{\xi,t,l} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ f_{\xi,t - 1,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
+
+### `Link_ramp_up_allowance`
+
+```yaml
+Link_ramp_up_allowance:
+  description: >-
+    how far a link may raise flow between two snapshots — its ramp
+    limit of the build while it stays on, plus its start-up ramp in the
+    snapshot it turns on
+  dims: [scenario, snapshot, link]
+  cases:
+    committed:
+      when: Link_committable
+      expression: >-
+        Link_ramp_limit_up * Link_p_nom * Link_previous_status
+        + Link_ramp_limit_start_up * Link_p_nom
+        * (Link_status - Link_previous_status)
+  otherwise: Link_ramp_limit_up * Link_p_nom_effective
+```
+
+```math
+\Delta^{f,+}_{\xi,t,l} = \begin{cases} \mathrm{ru}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} + \mathrm{ru}^{f,\mathrm{up}}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
+
+### `Link_ramp_down_allowance`
+
+```yaml
+Link_ramp_down_allowance:
+  description: >-
+    how far a link may lower flow between two snapshots — its ramp
+    limit of the build while it stays on, plus its shut-down ramp in the
+    snapshot it turns off
+  dims: [scenario, snapshot, link]
+  cases:
+    committed:
+      when: Link_committable
+      expression: >-
+        Link_ramp_limit_down * Link_p_nom * Link_status
+        + Link_ramp_limit_shut_down * Link_p_nom
+        * (Link_previous_status - Link_status)
+  otherwise: Link_ramp_limit_down * Link_p_nom_effective
+```
+
+```math
+\Delta^{f,-}_{\xi,t,l} = \begin{cases} \mathrm{rd}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot u^{f}_{\xi,t,l} + \mathrm{rd}^{f,\mathrm{dn}}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
+
 ### `Process_p_nom_effective`
 
 ```yaml
@@ -4824,10 +5534,13 @@ scenario_opex:
     + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
     + sum(sum(Generator_start_up * Generator_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
     + sum(sum(Generator_shut_down * Generator_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum(Link_status * Link_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(Link_start_up * Link_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(Link_shut_down * Link_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
 ```
 
 ```math
-\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
 ```
 
 ### `Carrier_additions`
@@ -4931,6 +5644,30 @@ u_{\xi,t,g} \ge 0, u_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \
 
 ```math
 \mathit{dn}_{\xi,t,g} \ge 0, \mathit{dn}_{\xi,t,g} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
+```
+
+**`Link_n_mod`**
+
+```math
+N^{f}_{l} \ge 0, N^{f}_{l} \in \mathbb{Z} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0
+```
+
+**`Link_status`**
+
+```math
+u^{f}_{\xi,t,l} \ge 0, u^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_start_up`**
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \ge 0, \mathit{up}^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_shut_down`**
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \ge 0, \mathit{dn}^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 **`Line_s`**
