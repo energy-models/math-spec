@@ -147,6 +147,6 @@ def test_a_curve_holds_its_variables_through_the_rows_it_emits():
         'dimensions.bp': {'dtype': 'int'},
         'parameters.bx': {'dims': ['bp']},
         'parameters.by': {'dims': ['bp']},
-        'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bx'], ['w', 'by']]}},
+        'piecewise': {'curve': {'along': 'bp', 'dims': ['g'], 'links': {'v': ['v', 'bx'], 'w': ['w', 'by']}}},
     }
     assert _notes(**curve) == [], 'the emitted link rows pin v and w, so neither is unopposed'

@@ -947,7 +947,9 @@ _CURVE = {
         'on': {'dims': ['snapshot'], 'domain': 'binary'},
         'warm': {'dims': ['snapshot'], 'domain': 'binary', 'where': 'committable'},
     },
-    'piecewise': {'curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]}},
+    'piecewise': {
+        'curve': {'along': 'bp', 'dims': ['snapshot'], 'links': {'p': ['p', 'bp_x'], 'op_cost': ['op_cost', 'bp_y']}}
+    },
     'objective': {'sense': 'minimize', 'expression': 'sum(op_cost, over=snapshot)'},
 }
 
@@ -967,15 +969,31 @@ _CURVE = {
             id='the-convex-method-relaxes-it-onto-the-hull',
         ),
         pytest.param(
-            {'piecewise.curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']], 'piecewise.curve.method': 'lp'},
+            {
+                'piecewise.curve.links': {'p': ['p', 'bp_x'], 'op_cost': ['op_cost', 'bp_y', '>=']},
+                'piecewise.curve.method': 'lp',
+            },
             r'\mathit{op\_cost}_{t} \ge \mathrm{pwl}_{b \in \mathcal{B}}'
             r'(\mathrm{bp\_x}_{b},\ \mathrm{bp\_y}_{b})(p_{t})',
             id='a-bounded-link-states-one-side-of-the-curve',
         ),
         pytest.param(
-            {'piecewise.curve.points': 'reaches'},
+            {
+                'piecewise.curve.links': {
+                    'p': ['p', 'bp_x'],
+                    'op_cost': ['op_cost', 'bp_y', '>='],
+                    'twice': ['p * 2', 'bp_x', '<='],
+                },
+            },
+            r'\left( p_{t},\ \mathit{op\_cost}_{t},\ p_{t} \cdot 2 \right) \in \mathrm{pwl}_{b \in \mathcal{B}}'
+            r'(\mathrm{bp\_x}_{b},\ \mathrm{bp\_y}_{b},\ \mathrm{bp\_x}_{b}) + \{0\} \times \mathbb{R}_{\ge 0} '
+            r'\times \mathbb{R}_{\le 0}',
+            id='bounded-links-beside-more-than-one-other-add-the-cone-their-signs-span',
+        ),
+        pytest.param(
+            {'piecewise.curve.where': 'reaches'},
             r'\mathrm{pwl}_{b \in \mathcal{B} \,:\, \mathrm{reaches}_{b}}',
-            id='points-narrows-the-breakpoints-to-the-ones-it-admits',
+            id='a-ragged-where-narrows-the-breakpoints-to-the-ones-it-admits',
         ),
         pytest.param(
             {'piecewise.curve.activity': 'on'},
@@ -1004,11 +1022,12 @@ def test_a_gate_that_does_not_exist_everywhere_prints_the_two_arms_the_expansion
 
 
 def test_a_curve_prints_over_the_frame_its_expansion_builds_one_per_coordinate_of():
-    """Two homes for one union, so the line's quantifier is held to the rows the expansion emits."""
+    """The quantifier is the block's `dims:`, as the rows the expansion emits are."""
     model = override(
         _CURVE,
         **{
             'dimensions.generator': {'dtype': 'str'},
+            'piecewise.curve.dims': ['snapshot', 'generator'],
             'parameters.bp_x.dims': ['generator', 'bp'],
             'parameters.bp_y.dims': ['generator', 'bp'],
             'variables.p.dims': ['snapshot', 'generator'],
@@ -1017,11 +1036,23 @@ def test_a_curve_prints_over_the_frame_its_expansion_builds_one_per_coordinate_o
         },
     )
     spec = to_spec(model)
-    emitted = spec.expand('piecewise').constraints['curve_link0'].dims
+    emitted = spec.expand('piecewise').constraints['curve_p'].dims
 
     printed = typeset_declaration(spec, 'curve', 'latex')
     assert printed.endswith(r'\forall\, t \in \mathcal{T},\ g \in \mathcal{G}')
     assert emitted == ['snapshot', 'generator'], 'the quantifier above is that frame, in that order'
+
+
+def test_a_walked_link_prints_as_the_family_of_rows_that_read_one_curve():
+    """Printed off the union of the links' dims, every flow sat on every converter's curve and no relation showed."""
+    printed = typeset_declaration(to_spec(EXAMPLES / 'piecewise_coupling.yaml'), 'operating_point', 'latex')
+
+    family = r'_{f \in \mathcal{F} \,:\, \mathrm{converter\_of}(f) = c}'
+    assert printed.startswith(rf'\left( \mathit{{rate}}_{{f,t}} \right){family} \in'), 'a converter ties its own flows'
+    assert rf'(\left( \mathrm{{bp\_rate}}_{{f,b}} \right){family})' in printed, 'each flow reads its own breakpoints'
+    assert printed.endswith(r'\forall\, c \in \mathcal{C},\ t \in \mathcal{T} \,:\, \mathrm{has\_curve}_{c}'), (
+        'one curve per converter that has one, not per flow'
+    )
 
 
 def test_the_expansion_prints_the_rows_the_block_states():

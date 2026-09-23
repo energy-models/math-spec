@@ -35,7 +35,14 @@ CURVE = {
         'p': {'dims': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}},
         'op_cost': {'dims': ['snapshot'], 'bounds': {'lower': 0}},
     },
-    'piecewise': {'cost_curve': {'over': 'bp', 'method': 'sos2', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]}},
+    'piecewise': {
+        'cost_curve': {
+            'along': 'bp',
+            'dims': ['snapshot'],
+            'method': 'sos2',
+            'links': {'p': ['p', 'bp_x'], 'op_cost': ['op_cost', 'bp_y']},
+        }
+    },
     'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'p == load'}},
     'objective': {'sense': 'minimize', 'expression': 'sum(op_cost, over=snapshot)'},
 }

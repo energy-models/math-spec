@@ -1127,10 +1127,11 @@ names:
 
 ```yaml
 economies_of_scale:
-  over: bp
+  along: bp
+  dims: [plant, market]
   links:
-    - [shipment, bp_x]
-    - [scaled, bp_y]
+    shipment: [shipment, bp_x]
+    scaled: [scaled, bp_y]
 ```
 
 ```math
@@ -1188,10 +1189,11 @@ names:
 
 ```yaml
 cost_curve:
-  over: bp
+  along: bp
+  dims: [snapshot, generator]
   links:
-    - [dispatch, bp_x]
-    - [op_cost, bp_y]
+    dispatch: [dispatch, bp_x]
+    op_cost: [op_cost, bp_y]
   method: sos2
 ```
 
@@ -1242,10 +1244,11 @@ names:
 
 ```yaml
 cost_curve:
-  over: bp
+  along: bp
+  dims: [snapshot, generator]
   links:
-    - [dispatch, bp_x]
-    - [op_cost, bp_y]
+    dispatch: [dispatch, bp_x]
+    op_cost: [op_cost, bp_y]
   method: convex
 ```
 
@@ -1299,10 +1302,11 @@ names:
 
 ```yaml
 cost_curve:
-  over: bp
+  along: bp
+  dims: [snapshot, generator]
   links:
-    - [dispatch, bp_x]
-    - [op_cost, bp_y, ">="]
+    dispatch: [dispatch, bp_x]
+    op_cost: [op_cost, bp_y, ">="]
   method: lp
 ```
 

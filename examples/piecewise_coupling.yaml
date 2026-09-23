@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A heat and power system whose converters mix. A CHP unit runs on one
+  piecewise curve that ties all of its flows, and a boiler turns gas into heat
+  at a fixed ratio. The curve reads `has_curve` through `converter_of`, so a
+  boiler flow has no row on it, and the fixed-ratio row reads the same mask
+  negated. How many flows a converter ties is a row in `converter_of`, not a
+  line here.
+
+dimensions:
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  converter:
+    description: units that turn one carrier into others
+    dtype: str
+  flow:
+    description: one carrier entering or leaving one converter
+    dtype: str
+  carrier:
+    description: what a flow carries — gas, heat, electricity
+    dtype: str
+  bp:
+    description: breakpoints of the operating curve
+    dtype: int
+
+relations:
+  converter_of:
+    description: which converter each flow belongs to
+    key: flow
+    values: converter
+  carrier_of:
+    description: what each flow carries
+    key: flow
+    values: carrier
+
+parameters:
+  demand:
+    description: what each carrier has to deliver in each period
+    dims: [carrier, snapshot]
+  price:
+    description: what a unit bought on the market costs
+    dims: [carrier]
+  has_curve:
+    description: whether a converter runs on an operating curve rather than at a fixed ratio
+    dims: [converter]
+    dtype: bool
+  bp_rate:
+    description: >-
+      the rate of each flow at each corner of its converter's curve — the
+      table that says a CHP's fuel, heat and power move together
+    dims: [flow, bp]
+  ratio:
+    description: the rate of each flow of a fixed-ratio converter per unit of the level it runs at
+    dims: [flow]
+
+variables:
+  rate:
+    description: >-
+      how much of each flow runs in each period, positive where the flow leaves
+      its converter and negative where it enters
+    dims: [flow, snapshot]
+  level:
+    description: how hard a converter with no curve runs
+    dims: [converter, snapshot]
+    where: NOT has_curve
+    bounds:
+      lower: 0
+  bought:
+    description: what the market supplies where the converters do not
+    dims: [carrier, snapshot]
+    bounds:
+      lower: 0
+
+piecewise:
+  operating_point:
+    description: >-
+      every flow of a converter with a curve is read off that curve at one
+      operating point, so the converter's flows move together
+    along: bp
+    dims: [converter, snapshot]
+    where: has_curve
+    links:
+      rate:
+        expression: rate
+        values: bp_rate
+        by: converter_of
+        over: converter
+        into: flow
+    method: sos2
+
+constraints:
+  fixed_ratio:
+    description: every flow of a converter with no curve runs in proportion to that converter's level
+    dims: [flow, snapshot]
+    where: NOT at(has_curve, by=converter_of, over=converter, into=flow)
+    expression: rate == ratio * at(level, by=converter_of, over=converter, into=flow)
+  balance:
+    description: every carrier is delivered by the converters, or bought
+    dims: [carrier, snapshot]
+    expression: sum(rate, by=carrier_of, over=flow, into=carrier) + bought == demand
+
+objective:
+  sense: minimize
+  description: what the market supplies, priced by carrier
+  expression: sum(bought * price)

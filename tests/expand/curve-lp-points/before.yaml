@@ -11,9 +11,10 @@ variables:
 
 piecewise:
   curve:
-    over: bp
+    along: bp
+    dims: []
     method: lp
-    points: x_bp
+    where: x_bp
     links:
-      - [x, x_bp]
-      - [y, y_bp, ">="]
+      x: [x, x_bp]
+      y: [y, y_bp, ">="]

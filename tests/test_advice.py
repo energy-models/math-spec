@@ -40,7 +40,7 @@ CURVED = override(
     dimensions={'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}, 'bp': {'dtype': 'int'}},
     parameters={'c': {'dims': ['g']}, 'bp_x': {'dims': ['bp']}, 'bp_y': {'dims': ['bp']}},
     variables={'p': {'dims': ['g']}, 'cost': {'dims': ['g']}},
-    piecewise={'curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['cost', 'bp_y']]}},
+    piecewise={'curve': {'along': 'bp', 'dims': ['g'], 'links': {'p': ['p', 'bp_x'], 'cost': ['cost', 'bp_y']}}},
 )
 
 
