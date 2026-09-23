@@ -35,6 +35,10 @@ def _ast(text: str):
         pytest.param('k ** c', id='a-parameter-exponent'),
         pytest.param('sum(p * c, over=g)', id='a-reduction-of-affine-terms'),
         pytest.param('p + q', id='a-sum-of-variables'),
+        pytest.param('p * (c + 1) ** 2', id='a-sum-as-a-base'),
+        pytest.param('p * k ** (c + 1)', id='a-sum-as-an-exponent'),
+        pytest.param('p / (c + 1)', id='a-divisor-that-adds'),
+        pytest.param('p / sum(c + k, over=g)', id='an-addition-under-a-reduction-divisor'),
     ],
 )
 def test_an_affine_expression_passes_everywhere(text):
@@ -48,13 +52,7 @@ def test_an_affine_expression_passes_everywhere(text):
         pytest.param('p * (c * q)', 'which is degree 2', id='a-variable-under-each-factor'),
         pytest.param('p ** 2', '`**` is not in the language over variables', id='a-variable-base'),
         pytest.param('k ** p', '`**` is not in the language over variables', id='a-variable-exponent'),
-        pytest.param('(c + 1) ** 2', 'not a sum', id='a-sum-as-a-base'),
-        pytest.param('k ** (c + 1)', 'not a sum', id='a-sum-as-an-exponent'),
         pytest.param('p / q', 'the divisor contains variables', id='a-variable-divisor'),
-        pytest.param('p / (c + 1)', 'a divisor must be a single Constant/Parameter factor', id='a-divisor-that-adds'),
-        pytest.param(
-            'p / sum(c + k, over=g)', 'a divisor must be a single', id='an-addition-under-a-reduction-divisor'
-        ),
     ],
 )
 def test_the_affine_ceiling_refuses_and_names_the_rewrite(text, fragment):

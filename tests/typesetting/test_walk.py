@@ -238,6 +238,20 @@ def test_a_negation_under_a_plus_is_the_subtraction_it_means(name: FormatName, f
 
 
 @EVERY_FORMAT
+def test_a_base_that_adds_is_bracketed_and_a_divisor_that_adds_is_not(name: FormatName, fmt: Format):
+    """A superscript binds tighter than a plus, and a fraction's bar already groups its denominator."""
+    model = override(DISPATCH_MODEL, **{'objective.expression': 'sum(p * (1 + cost) ** 2 + p / (cost + p_max))'})
+    text = typeset(model, name, legend=False)
+    opener = fmt.parenthesise(f'1 {fmt.operators["plus"]} BASE').split('BASE')[0]
+    closer = fmt.superscript(fmt.parenthesise('BASE'), '2').split('BASE')[1]
+    assert opener in text, 'the base opens its bracket before the sum'
+    assert closer in text, 'the bracket closes before the exponent'
+    bar = fmt.fraction('TOP', 'BOTTOM').split('TOP')[1].split('BOTTOM')[0]
+    assert bar in text, 'the quotient prints as a fraction'
+    assert bar + fmt.parenthesise('BOTTOM').split('BOTTOM')[0] not in text, 'the denominator needs no bracket'
+
+
+@EVERY_FORMAT
 def test_a_mask_that_is_only_true_prints_no_condition(name: FormatName, fmt: Format):
     """The language says `True` is the same as no `where`, so a `\\top` on the
     quantifier would put a condition on the page that reads as one and is not.

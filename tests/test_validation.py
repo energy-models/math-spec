@@ -646,6 +646,8 @@ class TestAWhereSideIsReadInResolution:
         ('patch', 'where'),
         [
             pytest.param({}, 'c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param({}, 'c / (k + 1) > 0', id='a-divisor-that-adds'),
+            pytest.param({}, '(1 + k) ** c > 1', id='a-base-that-adds'),
             pytest.param({}, 'c > k', id='two-parameters'),
             pytest.param({}, '2 < c', id='a-literal-on-the-left'),
             pytest.param({'macros.half': {'args': ['x'], 'template': 'x / 2'}}, 'c <= half(k)', id='a-macro'),
@@ -693,11 +695,6 @@ class TestAWhereSideIsReadInResolution:
                 {'variables.p.where': 'c > flag'},
                 ("'flag' is declared dtype: bool, and an expression is arithmetic",),
                 id='a-flag-against-a-parameter',
-            ),
-            pytest.param(
-                {'variables.p.where': 'c / (k + 1) > 0'},
-                ('a divisor must be a single Constant/Parameter factor',),
-                id='a-divisor-that-adds',
             ),
             pytest.param(
                 {'variables.p.where': 'shift(c, along=g, offset=1) <= k'},

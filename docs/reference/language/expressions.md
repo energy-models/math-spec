@@ -48,11 +48,29 @@ A [named expression](named.md) is held to the limit of the place that reads
 it. One that nothing in the math reads is [reported](named.md#reported-expressions),
 and no degree limit applies to it.
 
-`/` needs a divisor that carries no variable and is a single factor.
+`/` needs a divisor that carries no variable. `**` needs a base and an exponent
+that carry no variable. Any arithmetic over numbers and parameters is allowed in
+those places, so a discount factor is written where it is used:
 
-`**` needs a base and an exponent that both carry no variable and neither of
-which adds. `growth ** period` is allowed, and `(1 + rate) ** period` is
-refused: bind the factor itself as a parameter. Write `x * x` for a square.
+```yaml
+dimensions:
+  period: { dtype: int }
+parameters:
+  rate: { dims: [] }
+  years: { dims: [period] }
+  price: { dims: [period] }
+variables:
+  build: { dims: [period], bounds: { lower: 0 } }
+constraints:
+  enough: { dims: [], expression: "sum(build, over=period) >= 1" }
+objective:
+  sense: minimize
+  expression: sum(build * price / (1 + rate) ** years, over=period)
+```
+
+`years` is a parameter over `period`. The exponent cannot be `period` itself,
+because an expression reads no [dimension](#name-resolution). Write `x * x` for
+a square.
 
 ## Name resolution
 

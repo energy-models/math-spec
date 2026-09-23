@@ -16,7 +16,7 @@ file of its own. Its network is the spine plus the script's own additions.
 | [`Generator-fix-p-*`, `-ext-p-*`, `Link-fix-p-*`, `Bus-nodal_balance`](#generator-fix-p-lower) | done | rungs 1 and 3, over `scenario` |
 | [`CVaR-a`, `CVaR-theta`, `CVaR`](#variable-domains) | done | |
 | [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names a row per scenario; one block over the dimension |
-| [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` is data prep |
+| [`CVaR-def`](#cvar-def) | done | |
 | [objective](#objective) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
 
 <!-- reference:rung_14_stochastic:begin -->
@@ -81,7 +81,7 @@ The two-stage class of a plain `n.optimize()`: a network with scenarios, stated 
 |---|---|
 | $`\pi`$ | `scenario_weight` over $`\mathcal{S}`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of the operating cost priced at the tail rather than in expectation |
-| $`\mathrm{v}`$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
+| $`\alpha`$ | `CVaR_alpha` (scalar) — PyPSA's `risk_preference['alpha']` — the confidence level; the tail holds the other `1 - alpha` of the probability |
 | $`\mathrm{w}`$ | `snapshot_weightings_objective` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
 | $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\mathcal{G}`$ — nominal power |
 | $`\mathrm{ext}`$ | `Generator_p_nom_extendable` over $`\mathcal{G}`$ — whether the nominal power is a decision |
@@ -302,11 +302,11 @@ a_{s} - \mathit{scenario\_opex}_{s} + \theta \ge 0 \qquad \forall\, s \in \mathc
 CVaR_def:
   description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
   dims: []
-  expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+  expression: CVaR_theta + 1 / (1 - CVaR_alpha) * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
 ```
 
 ```math
-\theta + \mathrm{v} \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot a_{s} \right) \le CVaR
+\theta + \frac{1}{1 - \alpha} \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot a_{s} \right) \le CVaR
 ```
 
 ### `scenario_opex`
