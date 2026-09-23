@@ -29,7 +29,6 @@ from math_spec.program import (
     Divide,
     Dual,
     Expression,
-    Join,
     Multiply,
     Power,
     Sum,
@@ -178,7 +177,7 @@ def _joins_terms(node: Expression) -> bool:
     A lookup and a translation re-index and are not reductions: they move a
     term, leaving one term where there was one.
     """
-    if isinstance(node, Sum | WindowSum) or (isinstance(node, Join) and not node.columns.one_row_per_group):
+    if isinstance(node, Sum | WindowSum):
         return carries_variable(node.operand)
     return isinstance(node, Add) and carries_variable(node.left) and carries_variable(node.right)
 

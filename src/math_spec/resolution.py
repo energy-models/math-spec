@@ -732,7 +732,7 @@ class _Resolver:
         if operator == 'sum':
             if read is not None:
                 assert isinstance(read, JoinColumns), 'a sum joins its relation'
-                return Join(operand, read)
+                return Sum(Join(operand, read), read.axes)
             if (over := dims.get('over')) is not None:
                 return Sum(operand, (over,))
             return self._bare_sum(operand)

@@ -578,13 +578,13 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-sums-away-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk, over=g, into=h)',
-            Join(Variable('p'), LK_JOIN),
-            id='a-grouped-sum-is-a-join-grouped-by-the-into-column',
+            Sum(Join(Variable('p'), LK_JOIN), ('lk.g',)),
+            id='a-grouped-sum-is-a-sum-over-the-axis-its-join-opens',
         ),
         pytest.param(
             'at(r, by=lk, over=h, into=g)',
             Join(Variable('r'), JoinColumns('lk', LK, ('h',), ('g',))),
-            id='an-at-is-the-same-join-the-other-way-grouped-by-the-key',
+            id='an-at-is-the-same-join-the-other-way-with-no-sum-over-it',
         ),
         pytest.param(
             "shift(p, along=g, offset=1, edge='wrap')",
@@ -712,27 +712,28 @@ def test_a_relation_lowers_with_the_join_each_call_names():
     assert program.relations == {'zone_of': declared}, 'the relation sits once in the program, under its name'
     zonal = program.constraints['zonal'].lhs
     columns = JoinColumns('zone_of', declared, ('generator', 'snapshot'), ('zone', 'snapshot'))
-    assert zonal == Join(Variable('p'), columns), (
-        'a grouped sum is a join: it names the over= column and the unnamed key column as joined on, '
-        'and the into= column and that key column as grouped by'
+    assert zonal == Sum(Join(Variable('p'), columns), ('zone_of.generator',)), (
+        'a grouped sum is a sum over a join: the join names the over= column and the unnamed key column as joined '
+        'on, the into= column and that key column as grouped by, and the sum stands over the axis the join opens '
+        'for the column it drops'
     )
-    assert isinstance(zonal, Join)
-    assert (zonal.columns.dropped_dims, zonal.columns.added_dims, zonal.columns.kept) == (
+    assert isinstance(zonal, Sum) and isinstance(zonal.operand, Join)
+    assert (zonal.operand.columns.dropped_dims, zonal.operand.columns.added_dims, zonal.operand.columns.kept) == (
         ('generator',),
         ('zone',),
         ('snapshot',),
     ), 'the dims a consumer reads are read off the join: dropped, added, and the key columns kept'
-    assert not zonal.columns.one_row_per_group, 'grouping by zone and snapshot leaves several generators in a group'
-    assert zonal.columns.relation is program.relations['zone_of'], (
+    assert zonal.operand.columns.relation is program.relations['zone_of'], (
         'the join holds the one declaration the program holds, not an equal copy built again'
     )
-    assert program.constraints['history'].lhs == Join(
-        Variable('p'), JoinColumns('zone_of', declared, ('snapshot', 'generator'), ('zone', 'generator'))
+    assert program.constraints['history'].lhs == Sum(
+        Join(Variable('p'), JoinColumns('zone_of', declared, ('snapshot', 'generator'), ('zone', 'generator'))),
+        ('zone_of.snapshot',),
     ), 'the same table joined on its other key column'
     priced = program.constraints['priced'].rhs
     assert priced == Join(
         Parameter('price'), JoinColumns('zone_of', declared, ('zone', 'snapshot'), ('generator', 'snapshot'))
-    ), 'and an at is the same node, joined on the value column and grouped by the key columns'
+    ), 'and an at is the bare join, on the value column, grouped by the key columns'
     assert isinstance(priced, Join)
     assert (priced.columns.dropped_dims, priced.columns.added_dims, priced.columns.kept) == (
         ('zone',),
@@ -836,7 +837,7 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    Join(Variable('p'), JoinColumns('at_bus', AT_BUS, ('g',), ('bus',))): 'many-to-one',
+    Sum(Join(Variable('p'), JoinColumns('at_bus', AT_BUS, ('g',), ('bus',))), ('at_bus.g',)): 'many-to-one',
     Join(Variable('p'), JoinColumns('at_bus', AT_BUS, ('bus',), ('g',))): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',

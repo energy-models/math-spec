@@ -239,6 +239,10 @@ def test_a_grouping_that_sums_the_axis_away_couples_it():
     )
     verdict = program.separability['u']
     assert not verdict.windowable, 'the grouping sums u away, so a window of u is a different sum'
+    assert verdict.coupled == {
+        "constraint 'z'": 'groups u into zone — window that dimension instead, or cut only at the group edges'
+    }, 'the sum over the join is the grouping, reported once'
+    assert not verdict.undecided, 'the join under the sum is not also a lookup waiting on the relation'
 
 
 def test_every_declared_axis_has_a_verdict_and_nothing_else_does():

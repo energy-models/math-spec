@@ -97,25 +97,26 @@ def separabilities(program: Program) -> dict[str, Separability]:
             if isinstance(node, Cases):
                 masks.extend(region.when for region in node.regions)
             elif isinstance(node, Sum):
-                if reductions_couple:
-                    for dimension in node.over:
+                join = node.operand.columns if isinstance(node.operand, Join) and node.operand.columns.axes else None
+                grouped = dict(zip(join.axes, join.dropped_dims, strict=True)) if join is not None else {}
+                for name in node.over:
+                    if join is not None and name in grouped:
                         report(
                             'coupled',
-                            dimension,
+                            grouped[name],
                             label,
-                            f'sums over {dimension} — a rolling sum_back(window=n) windows, a total over the horizon does not',
+                            f'groups {grouped[name]} into {", ".join(join.added_dims)} — window that dimension instead, or cut only at the group edges',
                         )
-            elif isinstance(node, Join) and node.columns.one_row_per_group:
+                    elif reductions_couple:
+                        report(
+                            'coupled',
+                            name,
+                            label,
+                            f'sums over {name} — a rolling sum_back(window=n) windows, a total over the horizon does not',
+                        )
+            elif isinstance(node, Join) and not node.columns.axes:
                 for dimension in node.columns.dropped_dims:
                     waits_on(dimension, label, node.columns.name, 'coordinate')
-            elif isinstance(node, Join):
-                for dimension in node.columns.dropped_dims:
-                    report(
-                        'coupled',
-                        dimension,
-                        label,
-                        f'groups {dimension} into {", ".join(node.columns.added_dims)} — window that dimension instead, or cut only at the group edges',
-                    )
             elif isinstance(node, (Translate, WindowSum)):
                 dimension = node.along
                 if node.wrap:

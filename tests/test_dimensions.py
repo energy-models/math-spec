@@ -12,7 +12,7 @@ import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
 from math_spec.errors import LanguageError
-from math_spec.program import Mask, RelationPairComparison
+from math_spec.program import Join, Mask, RelationPairComparison, Sum
 from math_spec.resolution import Namespace
 from math_spec.validation import to_spec
 from tests.fixtures import expression_of, override, schema_of, where_of
@@ -226,6 +226,23 @@ def test_a_lookup_carries_the_whole_key_and_what_the_operand_brings_beside_it():
     result keeps it.
     """
     assert _dims('at(zone_load, by=gen_bz, over=zone, into=generator)') == {'generator', 'snapshot'}
+
+
+def test_a_join_opens_an_axis_for_the_column_it_drops_and_the_sum_over_it_closes_it():
+    """A map into its own dimension drops and adds one dimension, so the join names the dropped column for the relation.
+
+    Named for its dimension, the column the join drops and the column it
+    groups by are one name, and the sum over the join takes away the dim the
+    row keeps.
+    """
+    s = _schema()
+    node = expression_of('sum(p, by=rep_of, over=snapshot, into=rep)', Namespace(s), 't')
+    assert isinstance(node, Sum) and isinstance(node.operand, Join)
+    assert node.over == ('rep_of.snapshot',), 'the sum stands over the axis the join opens'
+    assert dims_of(node.operand, s, 't') == {'generator', 'snapshot', 'rep_of.snapshot'}, (
+        'the join keeps the dropped column beside the dimension it groups by'
+    )
+    assert dims_of(node, s, 't') == {'generator', 'snapshot'}, 'and the sum over it leaves the frame the row keeps'
 
 
 def test_a_sum_joins_on_a_key_column_and_a_value_column_together():

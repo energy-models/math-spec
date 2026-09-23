@@ -424,7 +424,9 @@ class Walk:
         return self.format.joined([left, right], self._op(names[op])), precedence
 
     def _sum(self, node: Sum, ctx: _Context) -> tuple[str, int]:
-        """A reduction over named dims: one dummy index per dim, in declaration order."""
+        """A reduction over named dims: one dummy index per dim, in declaration order, or the group-by over a join."""
+        if isinstance(node.operand, Join) and node.operand.columns.axes:
+            return self._grouped_sum(node.operand, ctx)
         memberships = []
         inner = ctx
         for d in self._sorted(frozenset(node.over)):
@@ -433,16 +435,9 @@ class Walk:
         domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.operand, inner)), _PRECEDENCE['+']
 
-    def _join(self, node: Join, ctx: _Context) -> tuple[str, int]:
-        """A join through a relation: a lookup re-indexes the operand, and a grouped sum sums the rows each group joins.
-
-        A lookup emits no operator of its own, so the read shows at the leaves.
-        A grouped sum takes a dummy per dim it drops, and the row it joins on
-        as the domain's condition.
-        """
-        columns = node.columns
-        if columns.one_row_per_group:
-            return self._arithmetic(node.operand, self._looked_up(columns, ctx))
+    def _grouped_sum(self, join: Join, ctx: _Context) -> tuple[str, int]:
+        """A sum over the axes a join opens: a dummy per dim it drops, and the row it joins on as the domain's condition."""
+        columns = join.columns
         dummies: dict[str, str] = {}
         inner = ctx
         for d in columns.dropped_dims:
@@ -452,7 +447,11 @@ class Walk:
             f'{self.format.joined([self._membership(d, dummies[d]) for d in columns.dropped_dims], "")} '
             f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
         )
-        return self.format.summation(domain, self._reduction_body(node.operand, inner)), _PRECEDENCE['+']
+        return self.format.summation(domain, self._reduction_body(join.operand, inner)), _PRECEDENCE['+']
+
+    def _join(self, node: Join, ctx: _Context) -> tuple[str, int]:
+        """``at`` emits no operator of its own: it re-indexes the operand, so the lookup shows at the leaves."""
+        return self._arithmetic(node.operand, self._looked_up(node.columns, ctx))
 
     def _translate(self, node: Translate, ctx: _Context) -> tuple[str, int]:
         """``shift`` emits no operator of its own: it re-indexes the operand, so the translation shows at the leaves.

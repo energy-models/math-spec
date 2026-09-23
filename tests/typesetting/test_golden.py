@@ -178,7 +178,7 @@ def test_the_golden_model_calls_every_operator_in_the_language():
     verbs = {Sum: 'sum', Translate: 'shift', WindowSum: 'sum_back', Dual: 'dual'}
     nodes = [node for tree in _rendered_trees() for node in _nodes(tree)]
     calls = {verb for node in nodes for kind, verb in verbs.items() if isinstance(node, kind)}
-    calls |= {'at' if node.columns.one_row_per_group else 'sum' for node in nodes if isinstance(node, Join)}
+    calls |= {'at' for node in nodes if isinstance(node, Join) and not node.columns.axes}
     assert calls == BUILTIN_NAMES, (
         f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'

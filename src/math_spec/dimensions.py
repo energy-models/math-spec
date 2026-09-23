@@ -128,10 +128,12 @@ def _sum_dims(node: Sum, inner: frozenset[str], context: str) -> frozenset[str]:
 
 
 def join_dims(columns: JoinColumns, inner: frozenset[str], context: str, operand: str) -> frozenset[str]:
-    """The dims *inner* has once *columns* joins it and sums each group, an expression's or a predicate's alike.
+    """The dims *inner* has once *columns* joins it, an expression's or a predicate's alike.
 
-    The dims joined on go and the dims grouped by arrive, so a column both
-    joined on and grouped by keeps its dim. The call a refusal quotes is
+    The dims joined on go, the dims grouped by arrive, and each column joined
+    on and not grouped by opens its own axis (:attr:`JoinColumns.axes`), which
+    the :class:`~math_spec.program.Sum` over the join takes away. A column
+    both joined on and grouped by keeps its dim. The call a refusal quotes is
     ``at`` where each group is one row, and ``sum`` otherwise.
 
     Raises:
@@ -159,7 +161,7 @@ def join_dims(columns: JoinColumns, inner: frozenset[str], context: str, operand
             f'or group by a column over another dimension.'
         )
     _check_joined(call, columns, inner, context)
-    return (inner - set(columns.joined_dims)) | set(columns.grouped_dims)
+    return (inner - set(columns.joined_dims)) | set(columns.grouped_dims) | set(columns.axes)
 
 
 #: The verb a file writes each translation with, which its refusals quote.

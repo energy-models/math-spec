@@ -234,7 +234,14 @@ class Divide:
 
 @dataclass(frozen=True)
 class Sum:
-    """Sum ``operand`` over the named dims, removing them from the result."""
+    """Sum ``operand`` over the named dims, removing them from the result.
+
+    A name in ``over`` is a dimension, or one of the axes a :class:`Join`
+    under it opens (:attr:`JoinColumns.axes`): ``sum(x, by=relation, over=a,
+    into=b)`` lowers to a ``Sum`` over a ``Join``, over the axis of each column
+    the join does not group by. The join is the join, and this node is the
+    group-by that follows it.
+    """
 
     operand: Expression
     over: tuple[str, ...]
@@ -242,19 +249,19 @@ class Sum:
 
 @dataclass(frozen=True)
 class Join:
-    """Join ``operand`` to a relation on the columns ``columns`` joins on, and sum each group of the columns it groups by.
+    """Join ``operand`` to a relation on the columns ``columns`` joins on, one row per matching row of the relation.
 
     The operand carries every dim joined on. The result has the operand's
-    dims, less the dims joined on, plus the dims grouped by: the join and the
-    sum over each group are one contraction, and this node is both.
-    ``sum(x, by=relation, over=a, into=b)`` and ``at(x, by=relation, over=a,
-    into=b)`` both lower to a ``Join``. Where the grouped columns hold the
-    relation's whole key (:attr:`JoinColumns.one_row_per_group`), each group
-    is one row and the node is ``at``'s lookup: one value per row of the
-    result, fanned out where several key tuples share the values joined on.
-    Elsewhere each group sums several rows, which is ``sum``'s. The loader
-    refuses a ``sum`` of the first shape and an ``at`` of the second, so
-    :func:`fan_in` reads which one a node is off its columns.
+    dims, less the dims joined on, plus the dims grouped by, plus one axis
+    per column joined on and not grouped by (:attr:`JoinColumns.axes`), named
+    for the relation's column and not for its dimension. So a column dropped
+    and a column added over one dimension stay two axes. A :class:`Sum` over
+    those axes is the group-by that follows the join, which is how
+    ``sum(x, by=relation, over=a, into=b)`` lowers. Where the grouped columns
+    hold the relation's whole key, they determine every other column, the
+    join opens no axis, and the bare ``Join`` is ``at(x, by=relation,
+    over=a, into=b)``: one value per row of the result, fanned out where
+    several key tuples share the values joined on.
     """
 
     operand: Expression
@@ -392,13 +399,11 @@ def fan_in(expression: Expression) -> FanIn:
     """
     if isinstance(expression, Sum):
         return 'many-to-one'
-    if isinstance(expression, Join):
-        return 'one-to-one' if expression.columns.one_row_per_group else 'many-to-one'
     if isinstance(expression, WindowSum):
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Join, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -537,6 +542,18 @@ class JoinColumns:
     def one_row_per_group(self) -> bool:
         """Whether the grouped columns hold the relation's whole key, so each group is one row: a lookup, not a sum."""
         return set(self.relation.key) <= set(self.grouped)
+
+    @property
+    def axes(self) -> tuple[str, ...]:
+        """The axis the join opens for each column it drops, ``relation.column``, empty where each group is one row.
+
+        A dimension's name holds no dot, so an axis never meets one. A column
+        the grouped columns determine opens none: in a lookup they hold the
+        key, and the key determines every column.
+        """
+        if self.one_row_per_group:
+            return ()
+        return tuple(f'{self.name}.{role}' for role in self.dropped)
 
 
 @dataclass(frozen=True)
