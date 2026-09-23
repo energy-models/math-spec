@@ -83,9 +83,7 @@ def test_check_writes_no_curve_out_unasked(capsys):
     """
     assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 1, 'a curve left as written is a refusal'
     captured = capsys.readouterr()
-    assert captured.out == '' and 'states rows rather than being one' in captured.err, (
-        'the refusal goes to stderr and names the block'
-    )
+    assert captured.out == '' and 'is still a curve' in captured.err, 'the refusal goes to stderr and names the block'
     assert front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand']) == 0, 'asked for, the rows are checked'
 
 

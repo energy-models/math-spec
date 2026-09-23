@@ -119,6 +119,6 @@ def test_a_curve_left_as_written_is_refused_however_the_model_arrives():
         'the expansion is what advice reads, with or without its sets'
     )
     for arrived in (CURVED, to_spec(CURVED), to_spec(CURVED).program):
-        with pytest.raises(LanguageError, match="piecewise: 'curve' states rows rather than being one") as refusal:
+        with pytest.raises(LanguageError, match="piecewise: 'curve' is still a curve") as refusal:
             advice(arrived)
         assert "expand('piecewise')" in str(refusal.value), 'the refusal names the block and the expansion to pass'

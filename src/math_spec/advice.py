@@ -44,10 +44,10 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
     program = model if isinstance(model, Program) else to_spec(model).program
     if program.piecewise:
         named = ', '.join(f"'{name}'" for name in program.piecewise)
+        still = 'is still a curve' if len(program.piecewise) == 1 else 'are still curves'
         msg = (
-            f'piecewise: {named} states rows rather than being one, and advice reads the rows. Pass '
-            f"spec.expand('piecewise'), which writes each block out as the variables and constraints it states "
-            f'and keeps every sos: block — or spec.expand(), which writes the sets out as binaries too.'
+            f'piecewise: {named} {still}, and advice reads the rows a curve is expanded into. Expand first: '
+            f"spec.expand('piecewise') keeps every sos: block, and spec.expand() expands the sets into binaries too."
         )
         raise LanguageError(msg)
     return tuple(_never_an_axis(program) + unbounded_notes(program))
