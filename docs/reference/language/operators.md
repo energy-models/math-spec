@@ -15,7 +15,7 @@ in a reported expression, are all of them. A composition of them goes in
 | `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                                            |
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                                         |
 | `sum(array, by=relation, over=a, into=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                                    |
-| `sum(array, by=relation, over=[a, …], into=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                                              |
+| `sum(array, by=relation, over=[a, …], into=[b, …])`    | The same with several columns on either side: joined on together, grouped by a product                                                                             |
 | `at(array, by=relation, over=a, into=b)`               | Column `a` is replaced by column `b`, one value per coordinate. Either may be a list                                                                               |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                                        |
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                                        |
@@ -41,8 +41,8 @@ result is a scalar.
 An operand that is already scalar, and an `over=` naming a dimension the
 operand does not carry, are both errors.
 
-`sum(x, by=l, over=a, into=b)` sums through a [relation](relations.md),
-consuming column `a` and landing the result on column `b`. A nodal balance is
+`sum(x, by=l, over=a, into=b)` sums through a [relation](relations.md): it
+joins on column `a` and groups by column `b`. A nodal balance is
 one `sum(by=)` per kind of component:
 
 ```yaml
@@ -78,9 +78,10 @@ is null belongs to no group.
 
 ## `at`
 
-`at(x, by=l, over=a, into=b)` reads the relation the other way. It consumes a
-value column and produces the key, so it reads one coarse value once for each
-fine label that points at it ([reads](relations.md#aggregates-and-reads)).
+`at(x, by=l, over=a, into=b)` joins the relation the other way, with no
+group-by. It joins on a value column and groups by the key, so every group is
+one row, and it reads one coarse value once for each fine label that points at
+it ([joins](relations.md#joins-and-group-bys)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus, over=bus, into=line)`.

@@ -52,7 +52,7 @@ relations:
   zone_of: { key: bus, values: zone }
   area_of: { key: bus, values: zone } # a second map into the same set, to compare against
   season_of: { key: snapshot, values: season }
-  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call consumes one and joins on the other
+  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call sums one away and joins on the other
   rep_of: { key: snapshot, values: { rep: snapshot } } # a map into its own dimension: the representative snapshot
   connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, read only by sum with both ends named
   gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, read to both at once
@@ -381,12 +381,12 @@ seasonal_window:
 \sum_{t' \in \mathcal{T} \,:\, 0 \le t -^{\mathrm{season\_of}(t)} t' < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
-#### `pullback`
+#### `lookup`
 
 at(), which re-indexes through a relation instead of an offset
 
 ```yaml
-pullback:
+lookup:
   dims: [snapshot, bus]
   expression: spill <= at(zone_cap, by=zone_of, over=zone, into=bus)
 ```
@@ -409,12 +409,12 @@ grouped_once:
 \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bt.bus}(g) = b \wedge \mathrm{gen\_bt.technology}(g) = e} p_{t,g} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}
 ```
 
-#### `pulled_back_once`
+#### `looked_up_once`
 
-its adjoint, reading one slot through two columns of one table
+the same table joined the other way, reading one slot through two columns
 
 ```yaml
-pulled_back_once:
+looked_up_once:
   dims: [generator]
   expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology], into=generator)
 ```
@@ -483,7 +483,7 @@ representative:
 
 #### `zonal`
 
-a grouping through a two-key map, consuming one key: the condition reads the other, and the row keeps it
+a grouping through a two-key map, summing one key away: the condition reads the other, and the row keeps it
 
 ```yaml
 zonal:
@@ -497,7 +497,7 @@ zonal:
 
 #### `zonal_history`
 
-the same table consuming its other key
+the same table summing its other key away
 
 ```yaml
 zonal_history:
@@ -523,12 +523,12 @@ zonal_membership:
 \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} \mathit{units}_{g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
 ```
 
-#### `zonal_pullback`
+#### `zonal_lookup`
 
-its adjoint, reading the slot the row's own snapshot puts the generator in
+the same table joined the other way, reading the slot the row's own snapshot puts the generator in
 
 ```yaml
-zonal_pullback:
+zonal_lookup:
   dims: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone, within=zone) == 0"
   expression: p <= at(spill * zone_cap, by=gen_zone, into=generator, over=zone)

@@ -38,7 +38,7 @@ constraints:
   grouped:
     dims: [t, zone]
     expression: "sum(p, by=zone_of, over=g, into=zone) - q <= load"
-  pulled_back:
+  looked_up:
     dims: [t, g]
     expression: "p - at(q, by=zone_of, over=zone, into=g) <= 0"
   translated:

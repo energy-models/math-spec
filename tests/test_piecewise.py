@@ -448,7 +448,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
 @pytest.mark.parametrize(
     ('activity', 'match'),
     [
-        pytest.param('at(u_unit, by=unit_of)', 'is not a declared variable', id='a-pullback-through-a-relation'),
+        pytest.param('at(u_unit, by=unit_of)', 'is not a declared variable', id='a-lookup-through-a-relation'),
         pytest.param('shift(u, along=snapshot, offset=1)', 'is not a declared variable', id='a-shifted-gate'),
         pytest.param('u * 2', 'is not a declared variable', id='an-arithmetic-gate'),
     ],

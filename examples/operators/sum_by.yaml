@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The membership reduction — `sum(array, by=relation, over=a, into=b)` lands the result on the
+  The membership reduction — `sum(array, by=relation, over=a, into=b)` groups the result by the
   column the relation is read to, which is what makes topology data rather than
   structure.
 

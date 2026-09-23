@@ -107,13 +107,13 @@ suffix says which layer:
 A node names the operation, not the verb a file writes. One verb can resolve
 to two nodes, so the file's spelling cannot decide the name.
 
-| File verb          | Node        | What the node names            |
-| ------------------ | ----------- | ------------------------------ |
-| `sum(over=)`       | `Sum`       | dims removed from the result   |
-| `sum(by=)`         | `GroupSum`  | a sum through a relation       |
-| `at(by=)`          | `Pullback`  | a read through a relation      |
-| `shift(along=)`    | `Translate` | a re-index along one dimension |
-| `sum_back(along=)` | `WindowSum` | a sum over a trailing window   |
+| File verb          | Node                | What the node names                                  |
+| ------------------ | ------------------- | ---------------------------------------------------- |
+| `sum(over=)`       | `Sum`               | dims removed from the result                         |
+| `sum(by=)`         | `Sum` over a `Join` | a join, and the sum over the axes it opens           |
+| `at(by=)`          | `Join`              | a join whose groups are one row, with no sum over it |
+| `shift(along=)`    | `Translate`         | a re-index along one dimension                       |
+| `sum_back(along=)` | `WindowSum`         | a sum over a trailing window                         |
 
 Nothing is abbreviated.
 

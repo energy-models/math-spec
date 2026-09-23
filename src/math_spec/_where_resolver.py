@@ -36,7 +36,7 @@ from math_spec._where_parser import (
     UnresolvedPredicateCallNode,
     UnresolvedWhereNode,
 )
-from math_spec.dimensions import dims_of, pulled_back_dims
+from math_spec.dimensions import dims_of, join_dims
 from math_spec.errors import DimensionError, LanguageError, did_you_mean, prefixed
 from math_spec.expansion import expand
 from math_spec.operators import (
@@ -50,10 +50,10 @@ from math_spec.program import (
     CountComparison,
     DimensionComparison,
     DimensionPosition,
-    Direction,
     Divide,
     Expression,
     ExpressionComparison,
+    JoinColumns,
     Mask,
     Multiply,
     Negate,
@@ -235,10 +235,10 @@ class WhereResolver:
         found = len(self.errors)
         roles = {key: node.kwargs[key] for key in ('over', 'into')}
         by = self._expressions.relation_ref(node.kwargs['by'], 'at', 'by', roles, None)
-        if len(self.errors) > found or not isinstance(by, Direction):
+        if len(self.errors) > found or not isinstance(by, JoinColumns):
             return node
         try:
-            dims = pulled_back_dims(by, mask.dims, context, 'the predicate')
+            dims = join_dims(by, mask.dims, context, 'the predicate')
         except DimensionError as refusal:
             self.errors.append(str(refusal))
             return node

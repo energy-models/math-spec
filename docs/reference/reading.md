@@ -190,7 +190,7 @@ Three predicates read another predicate rather than a declaration. A
 `CountComparison` carries the mask it counts and the dimension it counts away.
 A `TranslatedPredicate` carries the mask it reads at a neighbouring
 coordinate. A `PulledBackPredicate` carries the mask it reads through a
-relation, and the `Direction` it reads in. Each holds that mask as a `Mask`,
+relation, and the `JoinColumns` it joins on and groups by. Each holds that mask as a `Mask`,
 where a connective holds a bare predicate: the walk recurses through a
 connective and stops at these, so read the field where you need what is
 inside. `.names_read` and `.dims` already see through all three, and the
@@ -241,7 +241,7 @@ Every declared axis has an entry. A coupling that a `piecewise:` expansion
 introduced is named under the declaration the expansion emitted.
 
 - `coupled` names each declaration that ties the whole axis together: a sum
-  over the axis in a constraint, a grouping that consumes the axis, a wrapped
+  over the axis in a constraint, a grouping that sums the axis away, a wrapped
   shift, or a set. After the dash, each entry names the one change that would
   remove the tie.
 - `undecided` lists each read whose reach only the data can say, as a `Reach`:

@@ -53,7 +53,6 @@ __all__ = [
     'DimensionDeclaration',
     'DimensionDtype',
     'DimensionPosition',
-    'Direction',
     'Divide',
     'Dual',
     'Expression',
@@ -61,7 +60,8 @@ __all__ = [
     'ExpressionDeclaration',
     'FanIn',
     'Footprint',
-    'GroupSum',
+    'Join',
+    'JoinColumns',
     'Link',
     'Mask',
     'Multiply',
@@ -83,7 +83,6 @@ __all__ = [
     'Predicate',
     'PredicateOperator',
     'Program',
-    'Pullback',
     'PulledBackPredicate',
     'QuadraticPosition',
     'Reach',
@@ -260,37 +259,38 @@ class Divide:
 
 @dataclass(frozen=True)
 class Sum:
-    """Sum ``operand`` over the named dims, removing them from the result."""
+    """Sum ``operand`` over the named dims, removing them from the result.
+
+    A name in ``over`` is a dimension, or one of the axes a :class:`Join`
+    under it opens (:attr:`JoinColumns.axes`): ``sum(x, by=relation, over=a,
+    into=b)`` lowers to a ``Sum`` over a ``Join``, over the axis of each column
+    the join does not group by. The join is the join, and this node is the
+    group-by that follows it.
+    """
 
     operand: Expression
     over: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class GroupSum:
-    """Sum ``operand`` through a relation: the dims ``direction`` consumes go, the dims it produces arrive, the dims it joins on stay.
+class Join:
+    """Join ``operand`` to a relation on the columns ``columns`` joins on, one row per matching row of the relation.
 
-    The join keys on the consumed columns and every joined column, and the
-    operand carries every dim consumed or joined on.
+    The operand carries every dim joined on. The result has the operand's
+    dims, less the dims joined on, plus the dims grouped by, plus one axis
+    per column joined on and not grouped by (:attr:`JoinColumns.axes`), named
+    for the relation's column and not for its dimension. So a column dropped
+    and a column added over one dimension stay two axes. A :class:`Sum` over
+    those axes is the group-by that follows the join, which is how
+    ``sum(x, by=relation, over=a, into=b)`` lowers. Where the grouped columns
+    hold the relation's whole key, they determine every other column, the
+    join opens no axis, and the bare ``Join`` is ``at(x, by=relation,
+    over=a, into=b)``: one value per row of the result, fanned out where
+    several key tuples share the values joined on.
     """
 
     operand: Expression
-    direction: Direction
-
-
-@dataclass(frozen=True)
-class Pullback:
-    """Read ``operand`` through a relation — the adjoint of :class:`GroupSum`.
-
-    The dims ``direction`` consumes go and the dims it produces arrive, one
-    value per coordinate because the read takes value columns at a key the
-    result fixes, which the loader checks. The join fans out, many
-    produced tuples sharing one consumed tuple — at each coordinate of the
-    joined columns, which the operand carries and the result keeps.
-    """
-
-    operand: Expression
-    direction: Direction
+    columns: JoinColumns
 
 
 @dataclass(frozen=True)
@@ -408,8 +408,7 @@ Expression = (
     | Power
     | Divide
     | Sum
-    | GroupSum
-    | Pullback
+    | Join
     | Translate
     | WindowSum
     | Cases
@@ -426,13 +425,13 @@ def fan_in(expression: Expression) -> FanIn:
     """
     if isinstance(expression, Named):
         return fan_in(expression.body)
-    if isinstance(expression, (Sum, GroupSum)):
+    if isinstance(expression, Sum):
         return 'many-to-one'
     if isinstance(expression, WindowSum):
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Pullback, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Join, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -450,7 +449,7 @@ def children(expression: Expression) -> tuple[Expression, ...]:
         return (expression.numerator, expression.divisor)
     if isinstance(expression, Power):
         return (expression.base, expression.exponent)
-    if isinstance(expression, (Sum, GroupSum, Pullback, Translate, WindowSum)):
+    if isinstance(expression, (Sum, Join, Translate, WindowSum)):
         return (expression.operand,)
     if isinstance(expression, Cases):
         return tuple(region.value for region in expression.regions)
@@ -505,59 +504,105 @@ class RelationDeclaration:
 
 
 @dataclass(frozen=True)
-class Direction:
-    """One relation as one call reads it — which columns are consumed, which produced, which joined on.
+class JoinColumns:
+    """One relation as one call joins it: the columns joined on, and the columns grouped by.
 
     The declaration fixes no direction; the call does, and this is the one it
     named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
-    ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
-    ``relation``, which binds every role to its dimension and names the key.
-    ``joined`` is the key roles the call did not name (every role, for a bare
-    relation): the join keys on them, and a value role left unnamed is not
-    read.
+    ``joined`` and ``grouped`` are *roles* — column names of ``relation``,
+    which binds every role to its dimension and names the key. ``joined`` is
+    every column the join matches the operand on: the ``over=`` columns, then
+    every key column the call did not name. ``grouped`` is every column of the
+    relation the result keeps: the ``into=`` columns, then the same unnamed
+    key columns. A column in neither is not read, so a relation may gain a
+    value column without changing what a call means.
+
+    A column both joined on and grouped by stays in the frame. One joined on
+    and not grouped by is :attr:`dropped`, and one grouped by and not joined
+    on is :attr:`added`, so the frame after the call is the operand's dims,
+    less the dims joined on, plus the dims grouped by.
     """
 
     name: str
     relation: RelationDeclaration
-    consumed: tuple[str, ...]
-    produced: tuple[str, ...]
     joined: tuple[str, ...]
+    grouped: tuple[str, ...]
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
         return self.relation.dim(role)
 
     @property
-    def consumed_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.consumed)
+    def dropped(self) -> tuple[str, ...]:
+        """The roles joined on and not grouped by: what the call sums away or looks up."""
+        return tuple(role for role in self.joined if role not in self.grouped)
 
     @property
-    def produced_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.produced)
+    def added(self) -> tuple[str, ...]:
+        """The roles grouped by and not joined on: what the call brings into the frame."""
+        return tuple(role for role in self.grouped if role not in self.joined)
+
+    @property
+    def kept(self) -> tuple[str, ...]:
+        """The roles both joined on and grouped by: the key columns the call did not name."""
+        return tuple(role for role in self.joined if role in self.grouped)
 
     @property
     def joined_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.joined)
 
+    @property
+    def grouped_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.grouped)
+
+    @property
+    def dropped_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.dropped)
+
+    @property
+    def added_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.added)
+
+    @property
+    def kept_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.kept)
+
+    @property
+    def one_row_per_group(self) -> bool:
+        """Whether the grouped columns hold the relation's whole key, so each group is one row: a lookup, not a sum."""
+        return set(self.relation.key) <= set(self.grouped)
+
+    @property
+    def axes(self) -> tuple[str, ...]:
+        """The axis the join opens for each column it drops, ``relation.column``, empty where each group is one row.
+
+        A dimension's name holds no dot, so an axis never meets one. A column
+        the grouped columns determine opens none: in a lookup they hold the
+        key, and the key determines every column.
+        """
+        if self.one_row_per_group:
+            return ()
+        return tuple(f'{self.name}.{role}' for role in self.dropped)
+
 
 @dataclass(frozen=True)
 class Partition:
-    """One relation as a partition steps along it — the key column stepped along, the group columns, and the key columns joined on.
+    """One relation as a partition steps along it — the key column stepped along, the columns partitioned by, and the key columns joined on.
 
     ``name`` is the relation's, as :attr:`Program.relations` keys it.
-    ``along``, ``group`` and ``joined`` are *roles* — column names of
+    ``along``, ``grouped`` and ``joined`` are *roles* — column names of
     ``relation``, which binds every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
-    the frame keeps it. ``group`` is the value columns ``within=`` named,
-    read at the row's key. ``joined`` is the other key columns, whose
-    dimensions the frame carries. Nothing is consumed and nothing is
-    produced: the frame does not change.
+    the frame keeps it. ``grouped`` is the value columns ``within=`` named,
+    read at the row's key: the partition's group. ``joined`` is the other key
+    columns, whose dimensions the frame carries. No column is dropped and
+    none is added: the frame does not change.
     """
 
     name: str
     relation: RelationDeclaration
     along: str
-    group: tuple[str, ...]
+    grouped: tuple[str, ...]
     joined: tuple[str, ...]
 
     def dim(self, role: str) -> str:
@@ -824,7 +869,7 @@ class Separability:
             is pointwise; a ``shift`` of ``-2`` is ``2``.
         coupled: Each declaration that ties the axis together, to what ties it
             and the one modelling change that would not: a sum over the axis
-            in a constraint, a grouping that consumes it, a wrapped
+            in a constraint, a grouping that sums it away, a wrapped
             translation, a set. No window satisfies these, and no rewrite here
             would keep the model's meaning, so the remedy is named rather than
             applied.
@@ -1266,12 +1311,13 @@ class PulledBackPredicate:
 
     True at a coordinate where the relation has a row and *operand* holds at
     the coordinate that row reads. False where the relation has no row, which
-    is what a missing row already means in a mask. The dims ``direction``
-    consumes go and the dims it produces arrive, as :class:`Pullback`'s do.
+    is what a missing row already means in a mask. The dims ``columns``
+    joins on go and the dims it groups by arrive, as a lookup
+    :class:`Join`'s do.
     """
 
     operand: Mask
-    direction: Direction
+    columns: JoinColumns
     dims: tuple[str, ...]
 
 
@@ -1411,7 +1457,7 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
         case TranslatedPredicate():
             return atom.operand.names_read
         case PulledBackPredicate():
-            return atom.operand.names_read | {atom.direction.name}
+            return atom.operand.names_read | {atom.columns.name}
         case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:
@@ -1431,8 +1477,8 @@ def _names_under(*expressions: Expression) -> frozenset[str]:
     for node in walk(*expressions):
         if isinstance(node, Cases):
             names.update(*(region.when.names_read for region in node.regions))
-        elif isinstance(node, (GroupSum, Pullback)):
-            names.add(node.direction.name)
+        elif isinstance(node, Join):
+            names.add(node.columns.name)
         elif isinstance(node, (Translate, WindowSum)):
             if node.partition is not None:
                 names.add(node.partition.name)
