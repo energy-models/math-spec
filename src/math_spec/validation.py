@@ -15,12 +15,12 @@ from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
 from math_spec.model import Spec
 from math_spec.piecewise import assumptions_of, curve_frame
-from math_spec.program import BooleanLiteral, Holds, Mask, VariableDefined
+from math_spec.program import BooleanLiteral, ConstraintDeclaration, Holds, Mask, ObjectiveDeclaration, VariableDefined
 from math_spec.resolution import (
     Namespace,
     Resolved,
-    ResolvedConstraint,
     mask_of,
+    resolve_constraint_text,
     resolve_expression,
     resolve_expression_text,
     resolve_where_text,
@@ -29,8 +29,8 @@ from math_spec.resolution import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from math_spec._expression_parser import CasesNode, DefinitionNode
     from math_spec.model import AssumptionBlock
+    from math_spec.program import Named
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -96,7 +96,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         context = f"Macro '{mname}'"
         formals = frozenset((*macro.args, *macro.kwargs))
         try:
-            body_ast = expand(parse_template(mname, macro, context), ns, context, shadow=formals)
+            body_ast = expand(parse_template(mname, macro, context), ns, context)
         except ValueError as e:
             errors.append(prefixed(context, e))
             continue
@@ -108,7 +108,7 @@ def validate_expressions(schema: Spec) -> Resolved:
         )
         resolve_expression(body_ast, ns, context, errors, formals=formals)
 
-    expressions: dict[str, CasesNode | DefinitionNode] = {}
+    expressions: dict[str, Named] = {}
     for ename in schema.expressions:
         node, refusals = ns.named_entry(ename)
         errors.extend(refusals)
@@ -122,19 +122,19 @@ def validate_expressions(schema: Spec) -> Resolved:
         for vname, vdef in schema.variables.items()
     }
 
-    constraints: dict[str, ResolvedConstraint] = {}
+    constraints: dict[str, ConstraintDeclaration] = {}
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         where = resolve_where_text(cdef.where, ns, context, errors)
-        expression = resolve_expression_text(cdef.expression, ns, context, errors, comparison=True, ceiling=2)
-        if expression is not None:
-            constraints[cname] = ResolvedConstraint(expression, mask_of(where))
+        if (sides := resolve_constraint_text(cdef.expression, ns, context, errors)) is not None:
+            lhs, sense, rhs = sides
+            constraints[cname] = ConstraintDeclaration(tuple(cdef.dims), lhs, sense, rhs, mask_of(where))
 
     objective = None
     if schema.objective is not None:
-        objective = resolve_expression_text(
-            schema.objective.expression, ns, 'The objective', errors, comparison=False, ceiling=2
-        )
+        expression = resolve_expression_text(schema.objective.expression, ns, 'The objective', errors, ceiling=2)
+        if expression is not None:
+            objective = ObjectiveDeclaration(schema.objective.sense, expression)
 
     assumptions: dict[str, Holds] = {}
     for aname, adef in schema.assumptions.items():
@@ -149,9 +149,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     piecewise = {}
     for pname, pdef in schema.piecewise.items():
         links = [
-            resolve_expression_text(
-                link.expression, ns, f"piecewise '{pname}' link {i}", errors, comparison=False, ceiling=1
-            )
+            resolve_expression_text(link.expression, ns, f"piecewise '{pname}' link {i}", errors, ceiling=1)
             for i, link in enumerate(pdef.links)
         ]
         if all(link is not None for link in links):

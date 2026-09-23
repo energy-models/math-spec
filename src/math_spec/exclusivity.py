@@ -21,17 +21,19 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from math_spec._expression_parser import NumberNode, ParameterNode, UnaryOperatorNode
 from math_spec.program import (
     And,
     BooleanLiteral,
+    Constant,
     CountComparison,
     DimensionComparison,
     DimensionPosition,
     ExpressionComparison,
     Mask,
+    Negate,
     Not,
     Or,
+    Parameter,
     ParameterComparison,
     ParameterDefined,
     PulledBackPredicate,
@@ -46,9 +48,8 @@ from math_spec.program import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
-    from math_spec._expression_parser import ArithmeticNode
     from math_spec.model import DeclaredDtype
-    from math_spec.program import Predicate, PredicateOperator
+    from math_spec.program import Expression, Predicate, PredicateOperator
 
 #: The most cells one pair may multiply out to; a pair past it is several expressions.
 CELL_BUDGET = 8192
@@ -228,7 +229,7 @@ def _undecided(mask: Predicate) -> str | None:
     return None
 
 
-def _expression_rewrite(node: ExpressionComparison[ArithmeticNode]) -> str:
+def _expression_rewrite(node: ExpressionComparison) -> str:
     """Why a comparison of expressions is not decided, and what to write instead.
 
     A parameter against a literal is decided, and the same test with its sides
@@ -238,18 +239,25 @@ def _expression_rewrite(node: ExpressionComparison[ArithmeticNode]) -> str:
     never reaches here, and a quoted label cannot stand on the left at all.
     """
     left, right = node.left, node.right
-    number = isinstance(left, NumberNode) or (
-        isinstance(left, UnaryOperatorNode) and isinstance(left.operand, NumberNode)
-    )
-    if number and isinstance(right, ParameterNode):
+    number = _signed_literal(left)
+    if number is not None and isinstance(right, Parameter):
         return (
             f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
-            f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {left}'
+            f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {number:g}'
         )
     return (
         'it compares expressions, whose values only the data decides — compare one parameter against a '
         'literal, or precompute the test as a boolean parameter and test that'
     )
+
+
+def _signed_literal(node: Expression) -> float | None:
+    """The number *node* is, its sign folded in — ``None`` where it is not a literal."""
+    if isinstance(node, Constant):
+        return node.value
+    if isinstance(node, Negate) and isinstance(node.operand, Constant):
+        return -node.operand.value
+    return None
 
 
 def _observe(

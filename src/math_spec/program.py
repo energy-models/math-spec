@@ -63,6 +63,7 @@ __all__ = [
     'Holds',
     'Mask',
     'Multiply',
+    'Named',
     'Negate',
     'Not',
     'ObjectiveDeclaration',
@@ -346,6 +347,22 @@ class Cases:
     regions: tuple[Region, ...]
 
 
+@dataclass(frozen=True)
+class Named:
+    """A use of an ``expressions:`` entry, standing where its name was written, with the entry's body under it.
+
+    Only a :attr:`~math_spec.model.Spec.resolved` tree holds one: it is what
+    lets the typesetter print the symbol where the name stood and define it
+    once, and what ``in_math`` is read off. Lowering inlines every one, so no
+    :class:`Program` carries it and :data:`Expression` does not name it. Every
+    use of one entry holds the one node resolution built for it, and a walk
+    steps through it.
+    """
+
+    name: str
+    body: Expression
+
+
 #: Every expression node, as one type — what a walk takes. The set is
 #: *closed*: nothing registers into it, so a consumer that walks it ends in
 #: ``assert_never`` and a node added without a branch is a type error at the
@@ -395,6 +412,8 @@ def fan_in(expression: Expression) -> FanIn:
 
 def children(expression: Expression) -> tuple[Expression, ...]:
     """The sub-expressions of *expression* — what every walk recurses through."""
+    if isinstance(expression, Named):
+        return (expression.body,)
     if isinstance(expression, Negate):
         return (expression.operand,)
     if isinstance(expression, (Add, Multiply)):
@@ -1044,22 +1063,18 @@ class ParameterComparison:
 
 
 @dataclass(frozen=True)
-class ExpressionComparison[Side]:
+class ExpressionComparison:
     """Compare two variable-free expressions, coordinate by coordinate — ``p_min <= 0.5 * p_max``.
 
     ``dims`` is every dim either side carries. A side whose value is absent at
     a coordinate — a parameter row missing, a translation that vacated it —
     makes the comparison false there, as a null does in every other
     comparison; under a summing operator the absent term is one fewer.
-
-    In a program each side is an :data:`Expression`. Before lowering, the
-    readers of the file — the typesetter, the dim rules, the exclusivity
-    check — see the same node with its sides in the core syntax tree.
     """
 
-    left: Side
+    left: Expression
     op: PredicateOperator
-    right: Side
+    right: Expression
     dims: tuple[str, ...]
 
 
@@ -1203,7 +1218,6 @@ class Or:
 #: decide about them.
 TypedPredicate = (
     ParameterComparison
-    # pyrefly: ignore[implicit-any-type-argument]  # the union is an isinstance target, which takes no parameterized class
     | ExpressionComparison
     | ParameterDefined
     | VariableDefined

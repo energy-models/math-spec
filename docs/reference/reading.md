@@ -138,6 +138,10 @@ node's operands, and `where_children()` walks a predicate's. `walk()` yields
 every node under an expression, parents first. `walk_regions()` yields each node
 with the `cases:` regions it stands inside, outermost first.
 
+`Named` is the one node no program carries. A `Spec.resolved` tree holds it
+where an `expressions:` entry is used, and lowering inlines the entry's body
+there before the program is built, so `Expression` does not name it.
+
 Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate. The
 mask also answers four questions:
 
