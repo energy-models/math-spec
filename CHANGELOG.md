@@ -19,6 +19,21 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.119](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.118...v0.0.0-alpha.119) (2026-09-23)
+
+
+### Bug Fixes
+
+* **language:** a long chain of named expressions loads, a typo beside a formal is refused, and a fault in an entry hides no other ([#643](https://github.com/energy-models/math-spec/issues/643)) ([1e010ca](https://github.com/energy-models/math-spec/commit/1e010ca0f29994bd4b31099885d2696e3f7e979f))
+* **language:** a macro template nothing calls is held to every rule a call site is ([#628](https://github.com/energy-models/math-spec/issues/628)) ([ffab0ff](https://github.com/energy-models/math-spec/commit/ffab0ffe2dbc1cf9a4711954c6ae3c5372f4b8b8))
+
+
+### Refactoring
+
+* **language:** an expression resolves straight into the program's own nodes ([#638](https://github.com/energy-models/math-spec/issues/638)) ([b3cee88](https://github.com/energy-models/math-spec/commit/b3cee8879dd38306fa86f0db93211ea88b437477))
+* **language:** each named expression is resolved once, and every use reads that node ([#632](https://github.com/energy-models/math-spec/issues/632)) ([ceecf69](https://github.com/energy-models/math-spec/commit/ceecf694316a3af17cbb570b28c5c40585b6cc25))
+* **program:** a comparison of expressions is one node before and after lowering ([#631](https://github.com/energy-models/math-spec/issues/631)) ([f723602](https://github.com/energy-models/math-spec/commit/f7236025a70ce0958512b326e3ae789b56eed986))
+
 ## [0.0.0-alpha.118](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.117...v0.0.0-alpha.118) (2026-09-23)
 
 
