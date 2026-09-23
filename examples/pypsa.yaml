@@ -320,6 +320,24 @@ parameters:
   Generator_first_active:
     description: one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
     dims: [period, generator]
+  Link_first_active:
+    description: one in the first period a link stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
+    dims: [period, link]
+  StorageUnit_first_active:
+    description: one in the first period a storage unit stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
+    dims: [period, storage_unit]
+  Store_first_active:
+    description: one in the first period a store stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
+    dims: [period, store]
+  Line_first_active:
+    description: one in the first period a line stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
+    dims: [period, line]
+  Process_first_active:
+    description: one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
+    dims: [period, process]
+  Transformer_first_active:
+    description: one in the first period a transformer stands in, zero elsewhere — the spec extends the carrier growth limit to transformers, which PyPSA does not, so PyPSA has no counterpart, data prep
+    dims: [period, transformer]
   Carrier_max_growth:
     description: most capacity of a carrier that may be added in a period; no value means no limit
     dims: [carrier]
@@ -678,6 +696,10 @@ relations:
     description: the bus a generator sits on
     key: generator
     values: bus
+  Link_carrier:
+    description: the carrier a link converts from
+    key: link
+    values: carrier
   Link_bus0:
     description: the bus a link leaves
     key: link
@@ -693,6 +715,10 @@ relations:
       relation, so the file states any number of them
     key: link_output
     values: bus
+  Process_carrier:
+    description: the carrier a process converts from
+    key: process
+    values: carrier
   Process_output_process:
     description: the process a port belongs to
     key: process_output
@@ -708,10 +734,18 @@ relations:
     description: the bus a load sits on
     key: load
     values: bus
+  StorageUnit_carrier:
+    description: the carrier a storage unit converts from
+    key: storage_unit
+    values: carrier
   StorageUnit_bus:
     description: the bus a storage unit sits on
     key: storage_unit
     values: bus
+  Line_carrier:
+    description: the carrier a line carries
+    key: line
+    values: carrier
   Line_bus0:
     description: the bus a line's flow is measured at
     key: line
@@ -720,10 +754,18 @@ relations:
     description: the bus at a line's other end
     key: line
     values: bus
+  Store_carrier:
+    description: the carrier a store holds
+    key: store
+    values: carrier
   Store_bus:
     description: the bus a store sits on
     key: store
     values: bus
+  Transformer_carrier:
+    description: the carrier a transformer carries
+    key: transformer
+    values: carrier
   Transformer_bus0:
     description: the bus a transformer's flow is measured at
     key: transformer
@@ -1077,6 +1119,20 @@ expressions:
       + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_start_up * Generator_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_shut_down * Generator_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+  Carrier_additions:
+    description: >-
+      what a carrier adds in a period — every extendable component of that
+      carrier, counting each build in the first period it stands in. PyPSA sums
+      the components that carry a carrier attribute; the transformer term is the
+      spec's own extension, since PyPSA gives a transformer no carrier
+    expression: >-
+      sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
+      + sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
+      + sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
+      + sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
+      + sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
+      + sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
+      + sum(Transformer_s_nom_ext * Transformer_first_active, by=Transformer_carrier, over=transformer, into=carrier)
 
 constraints:
   Generator_fix_p_lower:
@@ -1808,15 +1864,15 @@ constraints:
       == sum(Load_p_set, by=Load_bus, over=load, into=bus)
   Carrier_growth_limit:
     description: >-
-      `Carrier-growth_limit` — what a carrier adds in a period, counting each build in the first
-      period it stands in, is at most its allowance plus a share of what it added the period before;
-      the first period has no predecessor, so `edge=0` leaves it the bare allowance
+      `Carrier-growth_limit` — what a carrier adds across its extendable components in a period,
+      counting each build in the first period it stands in, is at most its allowance plus a share of
+      what it added the period before; the first period has no predecessor, so `edge=0` leaves it the
+      bare allowance
     dims: [carrier, period]
     where: Carrier_max_growth
     expression: >-
-      sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-      - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier), along=period, offset=1, edge=0)
-      * Carrier_max_relative_growth
+      Carrier_additions
+      - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_max_relative_growth
       <= Carrier_max_growth
   CVaR_excess:
     description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"

@@ -205,7 +205,7 @@ def build():
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `7633.908502024291`, 184 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7633.908502024292`, 184 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -419,10 +419,10 @@ each type is three blocks by sense.
 | [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
 | `Bus-nom_min/max_{carrier}`           | out         | deprecated in PyPSA                               |
-| [`Carrier-growth_limit`](#carrier-growth_limit) | done | rung 15, below |
+| [`Carrier-growth_limit`](#carrier-growth_limit) | done | generators in rung 15, every extendable component in rung 21, below |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333332`, 102 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333334`, 102 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -1354,7 +1354,7 @@ own dimensions.
 | --- | --- | --- |
 | [`Generator-p`](#variable-domains) | done | where the generator stands in the snapshot's period — `active`, data prep |
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
-| [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
+| [`Carrier-growth_limit`](#carrier-growth_limit) | done | every extendable component of the carrier, counted in the first period a build stands in; `edge=0` at the first period |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
 | `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period, within=period)` has them; a later rung |
 
@@ -1762,6 +1762,99 @@ def build():
 </details>
 <!-- reference:rung_20_phase_shifter:end -->
 
+### Rung 21 — carrier growth
+
+A carrier's `max_growth` caps what it adds in an investment period, across every
+extendable component of that carrier, not the generators alone. Here a battery
+carrier caps a storage unit and a store built in the first period, and the two
+builds fill the cap together. A store built in the later period adds its
+allowance plus half of what the carrier added before. PyPSA counts the
+components that carry a carrier attribute; the spec extends the same limit to
+transformers, which PyPSA leaves out.
+
+<!-- reference:rung_21_carrier_growth:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `8452.5`, 74 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_21_carrier_growth.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 21: a carrier's growth limit binds its non-generator builds — a storage unit and two stores over two periods."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def build():
+    """A whole network, not the spine: cheap solar only at the first snapshot of each period, so battery capacity pays off but its growth is capped."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(2)] + [(2030, datetime(2030, 1, 1, t)) for t in range(2)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', 'grid')
+    n.add('Carrier', 'solar')
+    n.add('Carrier', 'gas')
+    n.add('Carrier', 'battery', max_growth=20, max_relative_growth=0.5)
+    n.add('Generator', 'solar', bus='grid', carrier='solar', p_nom=100, marginal_cost=1, p_max_pu=[1, 0, 1, 0])
+    n.add('Generator', 'backup', bus='grid', carrier='gas', p_nom=200, marginal_cost=80)
+    n.add(
+        'StorageUnit',
+        'bat20',
+        bus='grid',
+        carrier='battery',
+        p_nom_extendable=True,
+        p_nom_max=100,
+        max_hours=4,
+        capital_cost=50,
+        build_year=2020,
+        lifetime=30,
+    )
+    n.add(
+        'Store',
+        'tank20',
+        bus='grid',
+        carrier='battery',
+        e_nom_extendable=True,
+        e_nom_max=10,
+        capital_cost=10,
+        build_year=2020,
+        lifetime=30,
+    )
+    n.add(
+        'Store',
+        'tank30',
+        bus='grid',
+        carrier='battery',
+        e_nom_extendable=True,
+        e_nom_max=100,
+        capital_cost=8,
+        build_year=2030,
+        lifetime=30,
+    )
+    n.add('Load', 'town', bus='grid', p_set=[40, 60, 40, 80])
+    return n
+```
+
+</details>
+<!-- reference:rung_21_carrier_growth:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -1795,20 +1888,20 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — dispatch periods |
 | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Process\_output\_bus}: \mathcal{R} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_carrier}: \mathcal{L} \to \mathcal{I},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
-| $`\mathcal{J}`$ | index $`j`$ — `process` with $`\mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J}`$ — generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate |
+| $`\mathcal{J}`$ | index $`j`$ — `process` with $`\mathrm{Process\_carrier}: \mathcal{J} \to \mathcal{I},\ \mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J}`$ — generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate |
 | $`\mathcal{R}`$ | index $`r`$ — `process_output` with $`\mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J},\ \mathrm{Process\_output\_bus}: \mathcal{R} \to \mathcal{N}`$ — a process's ports, one label per port a process declares — PyPSA's `bus0`, `bus1`, … each carry a signed `rate`, so a process of any number of ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
-| $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
-| $`\mathcal{V}`$ | index $`v`$ — `store` with $`\mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — pure energy stores, each on one bus |
-| $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
-| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised |
+| $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_carrier}: \mathcal{S} \to \mathcal{I},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
+| $`\mathcal{V}`$ | index $`v`$ — `store` with $`\mathrm{Store\_carrier}: \mathcal{V} \to \mathcal{I},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — pure energy stores, each on one bus |
+| $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_carrier}: \mathcal{K} \to \mathcal{I},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
+| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_carrier}: \mathcal{M} \to \mathcal{I},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
 | $`\mathcal{B}`$ | index $`b`$ — `segment` — the cuts a line's loss curve is held above — PyPSA's tangents, as many as its `segments` count, or its secants, as many as its tolerance loop places; none in a lossless run |
 | $`\mathcal{I}`$ | index $`i`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 | $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
-| $`\mathcal{I}`$ | index $`i`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I}`$ — energy carriers, what a growth limit is set per |
+| $`\mathcal{I}`$ | index $`i`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Link\_carrier}: \mathcal{L} \to \mathcal{I},\ \mathrm{Process\_carrier}: \mathcal{J} \to \mathcal{I},\ \mathrm{StorageUnit\_carrier}: \mathcal{S} \to \mathcal{I},\ \mathrm{Line\_carrier}: \mathcal{K} \to \mathcal{I},\ \mathrm{Store\_carrier}: \mathcal{V} \to \mathcal{I},\ \mathrm{Transformer\_carrier}: \mathcal{M} \to \mathcal{I}`$ — energy carriers, what a growth limit is set per |
 
 #### Parameters
 
@@ -1883,6 +1976,12 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{W}^{z}`$ | `Process_capital_weight` over $`\mathcal{J}`$ — the sum of period weights a process stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{\sigma}`$ | `Transformer_capital_weight` over $`\mathcal{M}`$ — the sum of period weights a transformer stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}^{f}`$ | `Link_first_active` over $`\mathcal{Y} \times \mathcal{L}`$ — one in the first period a link stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}^{h}`$ | `StorageUnit_first_active` over $`\mathcal{Y} \times \mathcal{S}`$ — one in the first period a storage unit stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}^{\sigma}`$ | `Transformer_first_active` over $`\mathcal{Y} \times \mathcal{M}`$ — one in the first period a transformer stands in, zero elsewhere — the spec extends the carrier growth limit to transformers, which PyPSA does not, so PyPSA has no counterpart, data prep |
 | $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit |
 | $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top |
 | $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
@@ -2034,6 +2133,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
+| $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$ — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. PyPSA sums the components that carry a carrier attribute; the transformer term is the spec's own extension, since PyPSA gives a transformer no carrier |
 
 Upright is what the model is given — a parameter such as $`\mathrm{Transformer\_phase\_shift\_varying}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{Transformer\_phase\_shift}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
@@ -4108,20 +4208,20 @@ Bus_nodal_balance:
 ```yaml
 Carrier_growth_limit:
   description: >-
-    `Carrier-growth_limit` — what a carrier adds in a period, counting each build in the first
-    period it stands in, is at most its allowance plus a share of what it added the period before;
-    the first period has no predecessor, so `edge=0` leaves it the bare allowance
+    `Carrier-growth_limit` — what a carrier adds across its extendable components in a period,
+    counting each build in the first period it stands in, is at most its allowance plus a share of
+    what it added the period before; the first period has no predecessor, so `edge=0` leaves it the
+    bare allowance
   dims: [carrier, period]
   where: Carrier_max_growth
   expression: >-
-    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier), along=period, offset=1, edge=0)
-    * Carrier_max_relative_growth
+    Carrier_additions
+    - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_max_relative_growth
     <= Carrier_max_growth
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} - \left( \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y \boxminus_{0} 1,g} \right) \cdot \mathrm{r}_{i} \le \overline{\Delta}_{i} \qquad \forall\, i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \overline{\Delta}_{i} \text{ is defined}
+\mathit{Carrier\_additions}_{y,i} - \mathit{Carrier\_additions}_{y \boxminus_{0} 1,i} \cdot \mathrm{r}_{i} \le \overline{\Delta}_{i} \qquad \forall\, i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \overline{\Delta}_{i} \text{ is defined}
 ```
 
 ### `CVaR-excess-{s}`
@@ -4478,6 +4578,29 @@ scenario_opex:
 
 ```math
 \mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+```
+
+### `Carrier_additions`
+
+```yaml
+Carrier_additions:
+  description: >-
+    what a carrier adds in a period — every extendable component of that
+    carrier, counting each build in the first period it stands in. PyPSA sums
+    the components that carry a carrier attribute; the transformer term is the
+    spec's own extension, since PyPSA gives a transformer no carrier
+  expression: >-
+    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
+    + sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
+    + sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
+    + sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
+    + sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
+    + sum(Transformer_s_nom_ext * Transformer_first_active, by=Transformer_carrier, over=transformer, into=carrier)
+```
+
+```math
+\mathit{Carrier\_additions}_{y,i} = \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} + \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_carrier}(l) = i} F_{l} \cdot \mathrm{new}^{f}_{y,l} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_carrier}(s) = i} H_{s} \cdot \mathrm{new}^{h}_{y,s} + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_carrier}(v) = i} E_{v} \cdot \mathrm{new}^{e}_{y,v} + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_carrier}(k) = i} S_{k} \cdot \mathrm{new}^{s}_{y,k} + \sum_{j \in \mathcal{J} \,:\, \mathrm{Process\_carrier}(j) = i} Z_{j} \cdot \mathrm{new}^{z}_{y,j} + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_carrier}(m) = i} \Sigma_{m} \cdot \mathrm{new}^{\sigma}_{y,m} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
 ```
 
 #### Variable domains
