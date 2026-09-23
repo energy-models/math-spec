@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, overload
 
 from math_spec._expression_parser import (
     ArithmeticNode,
+    ColumnsNode,
     ComparisonNode,
     FunctionCallNode,
     NameNode,
@@ -113,12 +114,33 @@ def _expand_macro(call: FunctionCallNode, ns: Namespace, context: str, stack: tu
         **{formal: _expand(call.kwargs[formal], ns, context, stack) for formal in macro.kwargs},
     }
     body = parse_template(call.name, macro, context)
-    substituted = _substitute(body, bindings)
+    substituted = _substitute(body, bindings, context)
     return _expand(substituted, ns, context, (*stack, call.name))
 
 
-def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode]) -> ArithmeticNode:
-    """Replace formal-name NameNodes in *node* with their bound subtrees."""
+def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode], context: str) -> ArithmeticNode:
+    """Replace formal-name NameNodes in *node* with their bound subtrees, and formal names inside a column selection."""
     if isinstance(node, NameNode) and node.name in bindings:
         return bindings[node.name]
-    return with_children(node, lambda child: _substitute(child, bindings))
+    if isinstance(node, ColumnsNode):
+        return _substitute_columns(node, bindings, context)
+    return with_children(node, lambda child: _substitute(child, bindings, context))
+
+
+def _substitute_columns(node: ColumnsNode, bindings: dict[str, ArithmeticNode], context: str) -> ColumnsNode:
+    """``relation[column, …]`` with each formal in it replaced by the bare name bound to it.
+
+    A selection holds names only, so a formal there takes a name and nothing
+    else: a number or an expression has no place between the brackets.
+    """
+    names: list[str] = []
+    for name in (node.relation, *node.columns):
+        bound = bindings.get(name)
+        if bound is not None and not isinstance(bound, NameNode):
+            msg = (
+                f"{context}: the formal '{name}' stands inside {node}, where only a name fits, and the call "
+                f'passes {bound}. Pass the bare name of a relation or of its column.'
+            )
+            raise SchemaError(msg)
+        names.append(name if bound is None else bound.name)
+    return ColumnsNode(names[0], tuple(names[1:]))

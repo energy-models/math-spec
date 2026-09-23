@@ -3076,14 +3076,14 @@ Bus_nodal_balance:
     carries load, and this file does not yet.
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus, over=storage_unit, into=bus)
-    + sum(Store_p, by=Store_bus, over=store, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
-    - sum(Line_s, by=Line_bus0, over=line, into=bus)
-    + sum(Line_s, by=Line_bus1, over=line, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, over=generator, by=Generator_bus[bus])
+    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, over=storage_unit, by=StorageUnit_bus[bus])
+    + sum(Store_p, over=store, by=Store_bus[bus])
+    - sum(Link_p, over=link, by=Link_bus0[bus])
+    + sum(Link_output_arrival, over=link_output, by=Link_output_bus[bus])
+    - sum(Line_s, over=line, by=Line_bus0[bus])
+    + sum(Line_s, over=line, by=Line_bus1[bus])
+    == sum(Load_p_set, over=load, by=Load_bus[bus])
 ```
 
 ```math
@@ -3264,8 +3264,8 @@ Link_output_arrival:
   cases:
     wrapping:
       when: Link_output_cyclic_delay
-      expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
-  otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
+      expression: shift(at(Link_p, by=Link_output_link[link]) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
+  otherwise: shift(at(Link_p, by=Link_output_link[link]) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
 ```
 
 ```math

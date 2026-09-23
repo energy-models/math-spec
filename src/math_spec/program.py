@@ -262,9 +262,9 @@ class Sum:
     """Sum ``operand`` over the named dims, removing them from the result.
 
     A name in ``over`` is a dimension, or one of the axes a :class:`Join`
-    under it opens (:attr:`JoinColumns.axes`): ``sum(x, by=relation, over=a,
-    into=b)`` lowers to a ``Sum`` over a ``Join``, over the axis of each column
-    the join does not group by. The join is the join, and this node is the
+    under it opens (:attr:`JoinColumns.axes`): ``sum(x, over=a,
+    by=relation[b])`` lowers to a ``Sum`` over a ``Join``, over the axis of
+    each column the join does not group by. The join is the join, and this node is the
     group-by that follows it.
     """
 
@@ -282,10 +282,10 @@ class Join:
     for the relation's column and not for its dimension. So a column dropped
     and a column added over one dimension stay two axes. A :class:`Sum` over
     those axes is the group-by that follows the join, which is how
-    ``sum(x, by=relation, over=a, into=b)`` lowers. Where the grouped columns
+    ``sum(x, over=a, by=relation[b])`` lowers. Where the grouped columns
     hold the relation's whole key, they determine every other column, the
-    join opens no axis, and the bare ``Join`` is ``at(x, by=relation,
-    over=a, into=b)``: one value per row of the result, fanned out where
+    join opens no axis, and the bare ``Join`` is ``at(x,
+    by=relation[a])``: one value per row of the result, fanned out where
     several key tuples share the values joined on.
     """
 
@@ -511,10 +511,10 @@ class JoinColumns:
     named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
     ``joined`` and ``grouped`` are *roles* — column names of ``relation``,
     which binds every role to its dimension and names the key. ``joined`` is
-    every column the join matches the operand on: the ``over=`` columns, then
-    every key column the call did not name. ``grouped`` is every column of the
-    relation the result keeps: the ``into=`` columns, then the same unnamed
-    key columns. A column in neither is not read, so a relation may gain a
+    every column the join matches the operand on: the columns that leave the
+    frame, then every key column the call does not name. ``grouped`` is every
+    column of the relation the result keeps: the columns that arrive, then the
+    same unnamed key columns. A column in neither is not read, so a relation may gain a
     value column without changing what a call means.
 
     A column both joined on and grouped by stays in the frame. One joined on
@@ -1307,7 +1307,7 @@ class TranslatedPredicate:
 
 @dataclass(frozen=True)
 class PulledBackPredicate:
-    """*operand* read through a relation — ``at(has_curve, by=converter_of, over=converter, into=flow)``.
+    """*operand* read through a relation — ``at(has_curve, by=converter_of[converter])``.
 
     True at a coordinate where the relation has a row and *operand* holds at
     the coordinate that row reads. False where the relation has no row, which

@@ -406,7 +406,7 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
                 'variables.p.where': 'c <= 0.5 * k',
                 'constraints.w': {
                     'dims': ['g'],
-                    'where': 'c <= at(zc, by=lk2, over=z, into=g) + sum_back(c, along=g, window=2, by=lk2, within=z)',
+                    'where': 'c <= at(zc, by=lk2[z]) + sum_back(c, along=g, window=2, within=lk2[z])',
                     'expression': 'p <= c',
                 },
             },
@@ -470,7 +470,7 @@ def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_i
                 'parameters.zcap': {'dims': ['z']},
                 'constraints.w': {
                     'dims': ['g'],
-                    'where': 'at(zcap <= 0.5 * k, by=lk2, over=z, into=g)',
+                    'where': 'at(zcap <= 0.5 * k, by=lk2[z])',
                     'expression': 'p <= c',
                 },
             },
@@ -574,12 +574,12 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-sums-away-every-dim-the-operand-carries'),
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-sums-away-the-dim-it-names'),
         pytest.param(
-            'sum(p, by=lk, over=g, into=h)',
+            'sum(p, over=g, by=lk[h])',
             Sum(Join(Variable('p'), LK_JOIN), ('lk.g',)),
             id='a-grouped-sum-is-a-sum-over-the-axis-its-join-opens',
         ),
         pytest.param(
-            'at(r, by=lk, over=h, into=g)',
+            'at(r, by=lk[h])',
             Join(Variable('r'), JoinColumns('lk', LK, ('h',), ('g',))),
             id='an-at-is-the-same-join-the-other-way-with-no-sum-over-it',
         ),
@@ -604,7 +604,7 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-written-with-a-plus-is-the-parameter',
         ),
         pytest.param(
-            'shift(p, along=g, offset=1, by=lk, within=h, edge=0)',
+            'shift(p, along=g, offset=1, within=lk[h], edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -626,7 +626,7 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=2, by=lk, within=h)',
+            'sum_back(p, along=g, window=2, within=lk[h])',
             WindowSum(
                 Variable('p'),
                 'g',
@@ -660,7 +660,7 @@ def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
                 'constraints': {
                     'k': {
                         'dims': ['hour'],
-                        'expression': 'p >= shift(p, along=hour, offset=1, edge=0, by=cal, within=day)',
+                        'expression': 'p >= shift(p, along=hour, offset=1, edge=0, within=cal[day])',
                     }
                 },
             }
@@ -689,21 +689,21 @@ def test_a_relation_lowers_with_the_join_each_call_names():
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
                 'first': {
                     'dims': ['snapshot', 'generator'],
-                    'where': 'position(generator, by=zone_of, within=zone) == 0',
+                    'where': 'position(generator, within=zone_of[zone]) == 0',
                 },
             },
             'constraints': {
                 'zonal': {
                     'dims': ['snapshot', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=generator, into=zone) <= 1',
+                    'expression': 'sum(p, over=generator, by=zone_of[zone]) <= 1',
                 },
                 'priced': {
                     'dims': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, into=generator, over=zone)',
+                    'expression': 'p <= at(price, by=zone_of[zone])',
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot, into=zone) <= 1',
+                    'expression': 'sum(p, over=snapshot, by=zone_of[zone]) <= 1',
                 },
             },
         }
@@ -715,9 +715,9 @@ def test_a_relation_lowers_with_the_join_each_call_names():
     zonal = program.constraints['zonal'].lhs
     columns = JoinColumns('zone_of', declared, ('generator', 'snapshot'), ('zone', 'snapshot'))
     assert zonal == Sum(Join(Variable('p'), columns), ('zone_of.generator',)), (
-        'a grouped sum is a sum over a join: the join names the over= column and the unnamed key column as joined '
-        'on, the into= column and that key column as grouped by, and the sum stands over the axis the join opens '
-        'for the column it drops'
+        'a grouped sum is a sum over a join: the join names the column over the over= dim and the unnamed key '
+        'column as joined on, the by= column and that key column as grouped by, and the sum stands over the axis '
+        'the join opens for the column it drops'
     )
     assert isinstance(zonal, Sum) and isinstance(zonal.operand, Join)
     assert (zonal.operand.columns.dropped_dims, zonal.operand.columns.added_dims, zonal.operand.columns.kept) == (

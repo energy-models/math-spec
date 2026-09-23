@@ -82,7 +82,7 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
     ('patch', 'reach'),
     [
         pytest.param(
-            _rows('p >= shift(p, along=h, offset=1, by=day_of, within=day, edge=0)'),
+            _rows('p >= shift(p, along=h, offset=1, within=day_of[day], edge=0)'),
             Reach("constraint 'k'", 'day_of', 'partition'),
             id='a-shift-inside-groups',
         ),
@@ -133,7 +133,7 @@ def test_resolving_keeps_the_static_reach_and_what_a_relation_decides():
             'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=width, edge=0)'},
             'grouped': {
                 'dims': ['h', 'u'],
-                'expression': 'p >= shift(p, along=h, offset=1, by=day_of, within=day, edge=0)',
+                'expression': 'p >= shift(p, along=h, offset=1, within=day_of[day], edge=0)',
             },
         }
     ).resolved({'width': -1})
@@ -150,9 +150,9 @@ def test_resolving_a_name_nothing_waits_on_is_refused():
 
 
 def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
-    """`at(cap, by=zone_of, over=zone, into=u)` reads `zone` at whatever coordinate the relation
+    """`at(cap, by=zone_of[zone])` reads `zone` at whatever coordinate the relation
     chooses, so how far that reaches along `zone` is the relation's data to say."""
-    verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of, over=zone, into=u) <= 0'))
+    verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of[zone]) <= 0'))
     assert not verdict.windowable and not verdict.coupled, 'undecided until the relation binds'
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
         'the report names the relation a driver has to read'
@@ -167,7 +167,7 @@ def test_a_sum_over_a_lookup_is_a_sum_and_a_lookup_not_a_grouping():
     from its columns, not from the node above it.
     """
     variables = {**BASE['variables'], 'q': {'dims': ['h', 'zone'], 'bounds': {'lower': 0}}}
-    rows = _rows('sum(at(q, by=zone_of, over=zone, into=u), over=u) <= budget', dims=['h'])
+    rows = _rows('sum(at(q, by=zone_of[zone]), over=u) <= budget', dims=['h'])
     program = to_spec({**BASE, 'variables': variables, **rows}).program
     assert list(program.separability['u'].coupled.values()) == [
         'sums over u — a rolling sum_back(window=n) windows, a total over the horizon does not'
@@ -234,7 +234,7 @@ def test_a_grouping_that_sums_the_axis_away_couples_it():
     program = to_spec(
         {
             **BASE,
-            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of, over=u, into=zone) <= cap'}},
+            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, over=u, by=zone_of[zone]) <= cap'}},
         }
     ).program
     verdict = program.separability['u']

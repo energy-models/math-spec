@@ -16,7 +16,8 @@ atom        ::= NUMBER | NAME
 unary_op    ::= "+" | "-"       binary_op ::= "+" | "-" | "*" | "/" | "**"
 COMPARATOR  ::= "<=" | ">=" | "=="
 function_call ::= NAME "(" [pos_arg ("," pos_arg)*] ["," kwarg ("," kwarg)*] ")"
-kwarg       ::= NAME "=" (arithmetic | QUOTED | "[" NAME ("," NAME)* "]")
+kwarg       ::= NAME "=" (arithmetic | QUOTED | "[" NAME ("," NAME)* "]" | COLUMNS)
+COLUMNS     ::= NAME "[" NAME ("," NAME)* "]"
 NAME        ::= [a-zA-Z_][a-zA-Z0-9_]*
 NUMBER      ::= integer | float | "inf" | ".inf"
 ```
@@ -67,8 +68,8 @@ Position decides which kinds of name are legal:
 | Position                               | Legal kinds                                                                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                          |
-| dimension argument (`over=`, `along=`) | a dimension                                                                                                        |
-| relation argument (`by=`)              | a relation. `over=`, `into=` and `within=` name its columns                                                        |
+| dimension argument (`over=`, `along=`) | a dimension. `over=` also takes a list of them                                                                     |
+| column argument (`by=`, `within=`)     | columns of one relation, written `relation[column]` or `relation[column, …]`                                       |
 | `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                                     |
 | `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                      |
 | the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number                                                                               |
@@ -93,8 +94,8 @@ The dimension set of every expression is known before any data binds:
 | `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`            |                                                                                  |
 | `sum(x)`                         | `{}`                           | error if `dims(x)` is already empty                                              |
 | `sum(x, over=d)`                 | `dims(x) − {d}`                | error if `d ∉ dims(x)`                                                           |
-| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − joined) ∪ grouped` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
-| `at(x, by=l, over=a, into=b)`    | `(dims(x) − joined) ∪ grouped` | the same                                                                         |
+| `sum(x, over=d, by=l[c])`        | `(dims(x) − joined) ∪ grouped` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
+| `at(x, by=l[c])`                 | `(dims(x) − joined) ∪ grouped` | the same                                                                         |
 | `shift(x, along=d, offset=n)`    | `dims(x)`                      | error if `d ∉ dims(x)`                                                           |
 | `sum_back(x, along=d, window=n)` | `dims(x)`                      | error if `d ∉ dims(x)`                                                           |
 
@@ -116,38 +117,39 @@ A `where:` is a boolean mask, and true means "this coordinate exists".
 ```text
 where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
-atom       ::= NAME | NAME COMPARATOR value | expression COMPARATOR expression
+atom       ::= NAME | (NAME | COLUMN) COMPARATOR value | expression COMPARATOR expression
             |  POSITION COMPARATOR INTEGER | COUNT COMPARATOR INTEGER | TRANSLATED
             |  READ | "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
-value      ::= NUMBER | QUOTED | NAME_OR_STRING
+value      ::= NUMBER | QUOTED | NAME_OR_STRING | COLUMN
 expression ::= the arithmetic grammar above, with no variable and no dual in it
-POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME "," "within" "=" COLUMNS ] ")"
+POSITION   ::= "position" "(" NAME [ "," "within" "=" COLUMNS ] ")"
 COUNT      ::= "count" "(" where_expr "," "over" "=" NAME ")"
 TRANSLATED ::= "shift" "(" where_expr "," "along" "=" NAME "," "offset" "=" INTEGER ")"
-READ       ::= "at" "(" where_expr "," "by" "=" NAME "," "over" "=" COLUMNS "," "into" "=" COLUMNS ")"
-COLUMNS    ::= NAME | "[" NAME { "," NAME } "]"
+READ       ::= "at" "(" where_expr "," "by" "=" COLUMNS ")"
+COLUMN     ::= NAME "[" NAME "]"
+COLUMNS    ::= NAME "[" NAME { "," NAME } "]"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Written as                                    | Names a…                   | Meaning                                                                                                                                                                             |
-| --------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                                 | parameter                  | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite                                    |
-| `name` (bare)                                 | variable                   | The variable exists at this coordinate                                                                                                                                              |
-| `name` (bare)                                 | relation                   | A row exists, read at the relation's key. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                                      |
-| `name` (bare)                                 | dimension                  | A load error. It would be true everywhere                                                                                                                                           |
-| `name OP value`                               | parameter                  | Element-wise, and a null compares false                                                                                                                                             |
-| `name OP value`                               | dimension                  | A filter on the frame's own coordinate column                                                                                                                                       |
-| `name OP value`, `name.col OP value`          | relation                   | A filter on a value column, read at the relation's key. Name the column where the key determines several                                                                            |
-| `name OP name`, `name.a OP name.b`            | two relation columns       | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                |
-| `expression OP expression`                    | arithmetic over parameters | Coordinate by coordinate, over every dimension either side carries ([arithmetic in a comparison](#arithmetic-in-a-comparison)). A side with no value at a coordinate compares false |
-| `position(name) OP i`                         | dimension                  | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                         |
-| `position(name, by=relation, within=c)`       | dimension                  | The same, counted within each group the relation makes                                                                                                                              |
-| `count(where_expr, over=name) OP i`           | a predicate                | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
-| `shift(where_expr, along=name, offset=i)`     | a predicate                | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
-| `at(where_expr, by=relation, over=a, into=b)` | a predicate                | The predicate read through the relation ([reading a predicate through a relation](#reading-a-predicate-through-a-relation)), and false where the relation has no row                |
-| `AND` `OR` `NOT`                              | —                          | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                       |
-| `True` / `False`                              | —                          | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either                   |
+| Written as                                | Names a…                   | Meaning                                                                                                                                                                             |
+| ----------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                             | parameter                  | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite                                    |
+| `name` (bare)                             | variable                   | The variable exists at this coordinate                                                                                                                                              |
+| `name` (bare)                             | relation                   | A row exists, read at the relation's key. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                                      |
+| `name` (bare)                             | dimension                  | A load error. It would be true everywhere                                                                                                                                           |
+| `name OP value`                           | parameter                  | Element-wise, and a null compares false                                                                                                                                             |
+| `name OP value`                           | dimension                  | A filter on the frame's own coordinate column                                                                                                                                       |
+| `name OP value`, `name[col] OP value`     | relation                   | A filter on a value column, read at the relation's key. Name the column where the key determines several. A comparison reads one column                                             |
+| `name OP name`, `name[a] OP name[b]`      | two relation columns       | Legal where both relations are keyed over the same dimensions and both columns are over one dimension. `ends[bus0] != ends[bus1]` excludes a self-loop                              |
+| `expression OP expression`                | arithmetic over parameters | Coordinate by coordinate, over every dimension either side carries ([arithmetic in a comparison](#arithmetic-in-a-comparison)). A side with no value at a coordinate compares false |
+| `position(name) OP i`                     | dimension                  | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                         |
+| `position(name, within=relation[c])`      | dimension                  | The same, counted within each group the relation makes                                                                                                                              |
+| `count(where_expr, over=name) OP i`       | a predicate                | How many coordinates along the dimension the predicate admits ([counting what a predicate admits](#counting-what-a-predicate-admits))                                               |
+| `shift(where_expr, along=name, offset=i)` | a predicate                | The predicate read `i` coordinates back, and false where that vacates                                                                                                               |
+| `at(where_expr, by=relation[c])`          | a predicate                | The predicate read through the relation ([reading a predicate through a relation](#reading-a-predicate-through-a-relation)), and false where the relation has no row                |
+| `AND` `OR` `NOT`                          | —                          | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                       |
+| `True` / `False`                          | —                          | `True` is the same as no `where`; `False` gives a declaration with no rows. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) may not fold to either                   |
 
 The dimensions of the mask must not exceed the frame it sits in. A bare name
 that is not declared is a load error.
@@ -212,13 +214,13 @@ where: "count(points AND NOT shift(points, along=bp, offset=1), over=bp) == 1"
 
 That reads: the marked breakpoints are one consecutive run.
 
-A negative `offset` reads forwards. `by=`, `within=` and `edge='wrap'` are not
-in this form; where you need a grouped or cyclic translation, compare the
+A negative `offset` reads forwards. `within=` and `edge='wrap'` are not in this
+form; where you need a grouped or cyclic translation, compare the
 arithmetic one instead.
 
 ### Reading a predicate through a relation
 
-`at(<where_expr>, by=<relation>, over=<a>, into=<b>)` reads a predicate over
+`at(<where_expr>, by=<relation>[<column>])` reads a predicate over
 coarse coordinates at fine ones, as [`at`](operators.md#at) reads an array. It
 is true at a coordinate where the relation has a row and the predicate holds at
 the coordinate that row maps to. It is **false** where the relation has no row,
@@ -236,7 +238,7 @@ parameters:
 variables:
   rate:
     dims: [flow]
-    where: "at(has_curve, by=converter_of, over=converter, into=flow)"
+    where: "at(has_curve, by=converter_of[converter])"
     bounds: { lower: 0, upper: cap }
 objective:
   sense: minimize
@@ -245,15 +247,15 @@ objective:
 
 $$0 \le \mathit{rate}_{f} \le \mathrm{cap}_{f} \qquad \forall\thinspace f \in \mathcal{F} \thinspace : \thinspace \mathrm{has\_curve}_{\mathrm{converter\_of}(f)}$$
 
-The column joined on, `converter`, leaves, and the column grouped by, `flow`,
-arrives. So the mask above is over `flow` alone. The rules are those of `at` in
-an expression: `by=`, `over=` and `into=` are all written, the read groups by
-the relation's key, and the predicate carries every dimension the read joins
-on. The read maps one dimension onto another and adds none, so a mask still may
-not widen its frame.
+The column read, `converter`, leaves, and the key, `flow`, arrives. So the mask
+above is over `flow` alone. The rules are those of [`at`](relations.md#lookups)
+in an expression: `by=` names a value column, the read groups by the
+relation's key, and the predicate carries every dimension the read joins on.
+The read maps one dimension onto another and adds none, so a mask still may not
+widen its frame.
 
 A parameter compared as arithmetic reads through a relation too:
-`at(cap, by=bus_of, over=bus, into=generator) > 0`. The predicate form reads
+`at(cap, by=bus_of[bus]) > 0`. The predicate form reads
 what arithmetic cannot: whether a row is defined, a `bool`, a variable's
 existence, and any connective over them.
 
@@ -280,7 +282,7 @@ instead. Two parameters compare as [arithmetic](#arithmetic-in-a-comparison).
 
 Either side of a comparison may be an expression over parameters:
 `p_min <= 0.5 * p_max`, `sum(p_max, over=generator) >= peak`,
-`p_max <= at(bus_cap, by=bus_of, over=bus, into=generator)`. The side is read as
+`p_max <= at(bus_cap, by=bus_of[bus])`. The side is read as
 an [expression](#expressions) is. A macro and a named expression expand into it,
 and every operator keeps its own rule. Two things an expression may carry are
 refused here, because a mask is built before either exists: a variable, and a
@@ -350,7 +352,7 @@ constraints:
 `-1` is the last position, and `-2` the one before it. A position that no
 coordinate occupies is an error when the data binds.
 
-`by=` counts inside each group that a relation makes. That gives one seeded row
+`within=` counts inside each group that a relation's columns make. That gives one seeded row
 per period, however long each period is:
 
 ```yaml
@@ -366,8 +368,8 @@ variables:
 constraints:
   soc_start:
     dims: [snapshot]
-    where: "position(snapshot, by=period_of, within=period) == 0"
-    expression: soc == at(soc_initial, by=period_of, over=period, into=snapshot)
+    where: "position(snapshot, within=period_of[period]) == 0"
+    expression: soc == at(soc_initial, by=period_of[period])
 ```
 
 The relation must have a key column over the dimension being counted, and

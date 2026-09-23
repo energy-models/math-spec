@@ -80,6 +80,22 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
+class ColumnsNode:
+    """Columns of one relation in a kwarg value — ``sum(x, over=g, by=gen_bus[bus])``.
+
+    The relation is written once and its columns after it, so one call cannot
+    name columns of two tables. Unresolved: which columns the kwarg admits is
+    the operator's business.
+    """
+
+    relation: str
+    columns: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return f'{self.relation}[{", ".join(self.columns)}]'
+
+
+@dataclass(frozen=True)
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
@@ -131,10 +147,18 @@ class FunctionCallNode:
         return f'{self.name}({", ".join(passed)})'
 
 
-#: Every arithmetic node the grammar builds. A name, a name list and a quoted
-#: keyword are what resolution reads for their kind; the rest is structure.
+#: Every arithmetic node the grammar builds. A name, a name list, a column
+#: selection and a quoted keyword are what resolution reads for their kind; the
+#: rest is structure.
 ArithmeticNode = (
-    NumberNode | NameNode | NameListNode | KeywordNode | UnaryOperatorNode | BinaryOperatorNode | FunctionCallNode
+    NumberNode
+    | NameNode
+    | NameListNode
+    | ColumnsNode
+    | KeywordNode
+    | UnaryOperatorNode
+    | BinaryOperatorNode
+    | FunctionCallNode
 )
 
 
@@ -200,7 +224,7 @@ def nodes(*roots: ParsedNode) -> Iterator[ParsedNode]:
 
 def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], ArithmeticNode]) -> ArithmeticNode:
     """*node* rebuilt with *recurse* applied to each of its :func:`children`; a leaf comes back as is."""
-    if isinstance(node, NumberNode | NameNode | NameListNode | KeywordNode):
+    if isinstance(node, NumberNode | NameNode | NameListNode | ColumnsNode | KeywordNode):
         return node
     if isinstance(node, UnaryOperatorNode):
         return UnaryOperatorNode(node.op, recurse(node.operand))
@@ -220,8 +244,8 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
 # ---------------------------------------------------------------------------
 
 
-def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
-    """The arithmetic grammar, and the expression grammar that puts one comparison over it.
+def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement, pp.ParserElement]:
+    """The arithmetic grammar, the expression grammar that puts one comparison over it, and a column selection.
 
     ``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would
     match the prefix of ``inflow``.
@@ -238,7 +262,10 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    columns = (name + pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
+        lambda t: ColumnsNode(str(t[0]), tuple(str(x) for x in t[1:]))
+    )
+    kwarg = (name + pp.Suppress('=') + (quoted | columns | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
@@ -264,7 +291,7 @@ def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
     expression = (arith + pp.Optional(comparator + arith)).set_parse_action(
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
-    return arith, expression
+    return arith, expression, columns
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
@@ -304,7 +331,9 @@ def _make_power(tokens: pp.ParseResults) -> ArithmeticNode:
 
 #: The arithmetic half on its own, for the where grammar to put a predicate's
 #: comparator over: one grammar for what a side may say, wherever it stands.
-ARITHMETIC, _GRAMMAR = _build_grammar()
+#: The column selection is shared too, so a kwarg reads one the same way in
+#: both grammars.
+ARITHMETIC, _GRAMMAR, COLUMNS = _build_grammar()
 
 
 #: How deep a tree the language admits. Every pass over an expression recurses,

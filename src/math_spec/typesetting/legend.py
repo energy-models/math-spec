@@ -245,7 +245,7 @@ class Legend:
             counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
             note = (
                 f'{counted} denotes a translation counted inside the group a relation puts {self.format.math("t")} '
-                f'in ({self.format.mono("shift(by=relation)")}), so a term never crosses out of its own group.'
+                f'in ({self.format.mono("shift(within=relation[c])")}), so a term never crosses out of its own group.'
             )
             if 'edge' in noticed.policies:
                 both = self.format.superscript(self.format.subscript(self._op('edge_minus'), ['v']), applied)

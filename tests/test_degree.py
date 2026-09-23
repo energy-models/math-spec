@@ -72,7 +72,7 @@ def test_the_affine_ceiling_refuses_and_names_the_rewrite(text, fragment):
         pytest.param('(p + q) * c * p', id='a-sum-against-one-term'),
         pytest.param('p * q / c', id='a-quadratic-over-a-parameter'),
         pytest.param('p * r * c', id='a-broadcast-product-of-disjoint-dims'),
-        pytest.param('at(r, by=lk, over=h, into=g) * at(r, by=lk, over=h, into=g)', id='two-lookups-are-one-term-each'),
+        pytest.param('at(r, by=lk[h]) * at(r, by=lk[h])', id='two-lookups-are-one-term-each'),
     ],
 )
 def test_the_objective_takes_degree_two(text):
@@ -85,9 +85,7 @@ def test_the_objective_takes_degree_two(text):
         pytest.param('p * q * p', 'this product is degree 3', id='a-cubic'),
         pytest.param('(p * q) * (p * q)', 'this product is degree 4', id='a-quartic'),
         pytest.param('sum(p, over=g) * sum(q, over=g)', 'outer product', id='two-reductions'),
-        pytest.param(
-            'sum(p, by=lk, over=g, into=h) * sum(q, over=g)', 'outer product', id='a-grouped-sum-is-a-reduction'
-        ),
+        pytest.param('sum(p, over=g, by=lk[h]) * sum(q, over=g)', 'outer product', id='a-grouped-sum-is-a-reduction'),
         pytest.param('(p + q) * (p + q)', 'outer product', id='two-sums-of-variables'),
         pytest.param('sum_back(p, along=g, window=1) * (p - q)', 'outer product', id='a-window-against-a-difference'),
     ],

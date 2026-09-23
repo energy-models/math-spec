@@ -11,6 +11,7 @@ from functools import partial
 
 import pytest
 
+from math_spec import to_spec
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
 from math_spec.program import Multiply, Named, Parameter, Sum, Translate, Variable
@@ -263,18 +264,18 @@ def test_macro_collisions_rejected(patch, match):
             id='a-typo-in-an-amount',
         ),
         pytest.param(
-            {'grouped': {'args': ['x'], 'template': 'sum(x, by=nope)'}},
-            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation",
+            {'grouped': {'args': ['x'], 'template': 'sum(x, over=g, by=nope[h])'}},
+            r"Macro 'grouped'.*sum\(by=nope\[\.\.\.\]\) does not name a relation",
             id='a-typo-in-a-relation-kwarg',
         ),
         pytest.param(
-            {'grouped': {'args': ['x'], 'template': 'sum(x, by=[nope, also])'}},
-            r"Macro 'grouped'.*sum\(by=\[nope, also\]\) names 2 relations",
-            id='a-list-of-relations',
+            {'grouped': {'args': ['x'], 'template': 'sum(x, over=g, by=[nope, also])'}},
+            r"Macro 'grouped'.*sum\(by=\.\.\.\) takes columns of one relation, written relation\[column\]",
+            id='a-list-of-names-for-columns',
         ),
         pytest.param(
-            {'grouped': {'args': ['x', 'a', 'b'], 'template': 'sum(x, by=nope, over=a, into=b)'}},
-            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation or a formal of this macro",
+            {'grouped': {'args': ['x', 'a', 'b'], 'template': 'sum(x, over=a, by=nope[b])'}},
+            r"Macro 'grouped'.*sum\(by=nope\[\.\.\.\]\) does not name a relation or a formal of this macro",
             id='a-typo-in-a-relation-beside-formal-columns',
         ),
         pytest.param(
@@ -311,7 +312,9 @@ def test_an_entry_nothing_reads_is_held_to_the_rules_a_use_is():
     ('template', 'match'),
     [
         pytest.param('x * tag', "Macro 'm': 'tag' is declared dtype: str", id='a-label-parameter-as-a-value'),
-        pytest.param('sum(x, by=lk, over=nope, into=h)', "over=nope names no column of 'lk'", id='a-typo-in-a-column'),
+        pytest.param(
+            'sum(x, over=g, by=lk[nope])', r"names \['nope'\], which is no column of 'lk'", id='a-typo-in-a-column'
+        ),
     ],
 )
 def test_a_template_is_held_to_the_rules_a_call_site_is(template, match):
@@ -332,20 +335,20 @@ def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     [
         pytest.param(['x', 'e'], 'shift(x, along=g, offset=1, edge=e)', id='an-edge'),
         pytest.param(['row'], 'dual(row)', id='a-constraint'),
-        pytest.param(['x', 'rel', 'a', 'b'], 'sum(x, by=rel, over=a, into=b)', id='a-relation-and-its-columns'),
-        pytest.param(['x', 'a', 'b'], 'sum(x, by=lk, over=a, into=b)', id='the-columns-of-a-declared-relation'),
+        pytest.param(['x', 'rel', 'a', 'b'], 'sum(x, over=a, by=rel[b])', id='a-relation-and-its-columns'),
+        pytest.param(['x', 'a', 'b'], 'sum(x, over=a, by=lk[b])', id='the-columns-of-a-declared-relation'),
         pytest.param(
-            ['x', 'd'], 'shift(x, along=d, offset=1, by=lk, within=h)', id='the-dimension-a-partition-steps-along'
+            ['x', 'd'], 'shift(x, along=d, offset=1, within=lk[h])', id='the-dimension-a-partition-steps-along'
         ),
         pytest.param(
-            ['x', 'd'], 'sum_back(x, along=d, window=2, by=lk, within=h)', id='the-dimension-a-window-runs-along'
+            ['x', 'd'], 'sum_back(x, along=d, window=2, within=lk[h])', id='the-dimension-a-window-runs-along'
         ),
     ],
 )
 def test_a_formal_stands_where_a_call_site_will_bind_it(formals, template):
     """A formal has no kind until a call binds it, so the template check leaves it bare in every slot.
 
-    A formal `along=` beside a `by=` was handed to the partition as if it were
+    A formal `along=` beside a `within=` was handed to the partition as if it were
     a dimension, and refused as one the relation has no key column over.
     """
     assert (
@@ -355,7 +358,7 @@ def test_a_formal_stands_where_a_call_site_will_bind_it(formals, template):
 
 def test_a_call_binding_the_dimension_a_partition_steps_along_builds_it():
     """The call site is where the formal gets its kind, so the partition is built there."""
-    template = 'shift(x, along=d, offset=1, by=lk, within=h)'
+    template = 'shift(x, along=d, offset=1, within=lk[h])'
     ns = Namespace(schema_of(SMALL_MODEL, macros={'m': {'args': ['x', 'd'], 'template': template}}))
     node = expression_of('m(p, g)', ns, 'expression')
     assert isinstance(node, Translate) and node.along == 'g'
@@ -387,3 +390,57 @@ def test_a_use_of_a_refused_named_expression_names_it_rather_than_repeating_its_
     message = str(exc.value)
     assert message.count("'nope' not found") == 1, 'the fault is the entry that holds it'
     assert "Named expression 'a': named expression 'b' does not load" in message
+
+
+GROUPED_MODEL = {
+    'dimensions': {'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
+    'relations': {'gen_bus': {'key': 'generator', 'values': 'bus'}},
+    'parameters': {'cap': {'dims': ['bus']}},
+    'variables': {'p': {'dims': ['generator']}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
+}
+
+
+@pytest.mark.parametrize(
+    ('template', 'call'),
+    [
+        pytest.param('sum(x, over=d, by=rel[col])', 'grouped(p, d=generator, rel=gen_bus, col=bus)', id='names'),
+        pytest.param('sum(x, over=d, by=cols)', 'grouped(p, d=generator, cols=gen_bus[bus])', id='a-selection'),
+    ],
+)
+def test_a_call_site_binds_the_relation_and_its_columns(template, call):
+    """A formal inside `rel[col]` takes the bare name the call passes, as a whole selection bound to one formal does."""
+    kwargs = [k for k in ('d', 'rel', 'col', 'cols') if f'{k}=' in call]
+    model = GROUPED_MODEL | {
+        'macros': {'grouped': {'args': ['x'], 'kwargs': kwargs, 'template': template}},
+        'constraints': {'k': {'dims': ['bus'], 'expression': f'{call} <= cap'}},
+    }
+    written = GROUPED_MODEL | {
+        'constraints': {'k': {'dims': ['bus'], 'expression': 'sum(p, over=generator, by=gen_bus[bus]) <= cap'}}
+    }
+    assert to_spec(model).program.constraints['k'] == to_spec(written).program.constraints['k'], (
+        'the macro expands to the call written out'
+    )
+
+
+def test_a_selection_bound_into_arithmetic_is_refused():
+    """A selection names columns, not values, so a formal bound to one cannot stand as a term."""
+    model = GROUPED_MODEL | {
+        'macros': {'plus': {'args': ['x'], 'kwargs': ['cols'], 'template': 'x + cols'}},
+        'constraints': {'k': {'dims': ['generator'], 'expression': 'plus(p, cols=gen_bus[bus]) <= 1'}},
+    }
+    with pytest.raises(
+        LanguageError, match=r'gen_bus\[bus\] names columns of a relation, which is only legal as an operator'
+    ):
+        to_spec(model)
+
+
+def test_a_formal_inside_a_selection_takes_a_name_and_nothing_else():
+    model = GROUPED_MODEL | {
+        'macros': {
+            'grouped': {'args': ['x'], 'kwargs': ['col'], 'template': 'sum(x, over=generator, by=gen_bus[col])'}
+        },
+        'constraints': {'k': {'dims': ['bus'], 'expression': 'grouped(p, col=2) <= cap'}},
+    }
+    with pytest.raises(LanguageError, match=r"the formal 'col' stands inside gen_bus\[col\], where only a name fits"):
+        to_spec(model)

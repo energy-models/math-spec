@@ -132,7 +132,8 @@ def join_dims(columns: JoinColumns, inner: frozenset[str], context: str, operand
             already carries one the call adds.
     """
     lookup = columns.one_row_per_group
-    call = f'{"at" if lookup else "sum"}(by={columns.name})'
+    named = columns.dropped if lookup else columns.added
+    call = f'{"at" if lookup else "sum"}(by={columns.name}[{", ".join(named)}])'
     if missing := sorted(set(columns.dropped_dims) - inner):
         if lookup:
             raise DimensionError(
@@ -173,7 +174,8 @@ def _translation_dims(node: Translate | WindowSum, inner: frozenset[str], schema
         )
     _check_named_amount(node, verb, inner, schema, context)
     if node.partition is not None:
-        _check_joined(f'{verb}(along={node.along}, by={node.partition.name})', node.partition, inner, context)
+        within = f'{node.partition.name}[{", ".join(node.partition.grouped)}]'
+        _check_joined(f'{verb}(along={node.along}, within={within})', node.partition, inner, context)
     return inner
 
 

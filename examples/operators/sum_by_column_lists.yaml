@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A call with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  Several columns at each end — `sum(array, over=[dim, …], by=relation[c, …])`
   joins on both key columns at once and groups by both value columns in one
   join.
 
@@ -27,6 +27,6 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+    expression: sum(p, over=[generator, period], by=slot_of[bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }

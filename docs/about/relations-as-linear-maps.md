@@ -24,11 +24,11 @@ variables:
 constraints:
   zonal:
     dims: [snapshot, zone]
-    expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
+    expression: sum(p, over=generator, by=gen_zone[zone]) <= zone_cap
   looked_up:
     dims: [snapshot, generator]
     where: gen_zone
-    expression: p <= at(zone_cap, by=gen_zone, over=zone, into=generator)
+    expression: p <= at(zone_cap, by=gen_zone[zone])
 objective:
   sense: minimize
   expression: sum(p)
@@ -55,7 +55,7 @@ one: the loader checks one row per key tuple when the data binds.
 
 ## A join and group-by is a contraction
 
-`sum(p, by=gen_zone, over=generator, into=zone)` is the product of two arrays,
+`sum(p, over=generator, by=gen_zone[zone])` is the product of two arrays,
 summed over the one index they share and the call names:
 
 ```math
@@ -67,28 +67,28 @@ The right-hand form is what the typesetter
 and the two questions the relations page asks of a column are the two
 positions an index can take in it:
 
-| The relations page says  | In the formula                                              |
-| ------------------------ | ----------------------------------------------------------- |
-| joined on, `over=`       | $`g`$ is on both factors and summed. It leaves.             |
-| grouped by, `into=`      | $`z`$ is on the indicator alone and not summed. It arrives. |
-| joined on and grouped by | $`t`$ is on both factors and not summed. It stays.          |
-| neither                  | a value column not in the formula. It is not read.          |
+| The relations page says          | In the formula                                              |
+| -------------------------------- | ----------------------------------------------------------- |
+| joined on, the column in `over=` | $`g`$ is on both factors and summed. It leaves.             |
+| grouped by, the column in `by=`  | $`z`$ is on the indicator alone and not summed. It arrives. |
+| joined on and grouped by         | $`t`$ is on both factors and not summed. It stays.          |
+| neither                          | a value column not in the formula. It is not read.          |
 
 **The result carries the free indices.** Those are the indices of the operand
 and the indicator together, less the summed one, which is
 `(dims(x) − joined) ∪ grouped`. That is the rule in the [expressions
 reference](../reference/language/expressions.md#how-dimensions-combine), and
-`_join_dims` in `src/math_spec/dimensions.py` computes it. The three refusals
+`join_dims` in `src/math_spec/dimensions.py` computes it. The three refusals
 beside it are the three things the formula needs:
 
 - **The operand carries every column joined on**, or there is nothing to match.
 - **The operand carries every unnamed key column.** Otherwise $`t`$ would sit
-  on the indicator alone, which is the grouped position, and the call names a
-  grouped column with `into=`.
+  on the indicator alone, which is the grouped position, and a sum names the
+  columns it groups by in `by=`.
 - **The operand carries no column grouped by.** Otherwise $`z`$ would sit on
   both factors and not be summed. That matches the two occurrences instead of
   adding an axis. The language makes you write that match outside the
-  operator: `load * sum(p, by=gen_bus, over=generator, into=bus)`.
+  operator: `load * sum(p, over=generator, by=gen_bus[bus])`.
 
 So "joined on" and "grouped by" are the two positions of the summation
 convention, applied to one product. Nothing on the relations page is a
@@ -101,7 +101,7 @@ column has one block.
 
 ## A join alone is the transpose
 
-`at(zone_cap, by=gen_zone, over=zone, into=generator)` joins the same table
+`at(zone_cap, by=gen_zone[zone])` joins the same table
 with the other index bound:
 
 ```math
@@ -117,11 +117,11 @@ $`\mathrm{zone\_cap} \circ f`$, which is a pullback.
 **That one term is the whole difference between `at` and `sum`**, and
 resolution decides it from the key alone. Where the columns a call groups by
 hold the whole key, every group is one row, and the group-by adds nothing.
-`_join` in `src/math_spec/resolution.py` names this `one_row_per_group`. A
+`JoinColumns.one_row_per_group` in `src/math_spec/program.py` names this. A
 `sum` with one row per group adds up nothing and is refused toward `at`. An
-`at` with several rows per group would have several terms and is refused toward
-`sum`. The
-[relations page](../reference/language/relations.md#joins-and-group-bys)
+`at` reads value columns at the whole key, so each of its groups is one row by
+construction. The
+[relations page](../reference/language/relations.md#sums-through-a-relation)
 quotes the message.
 
 **The two are adjoint.** For `gen_bus: { key: generator, values: bus }`,
@@ -187,8 +187,7 @@ consumer builds is not the matrix.
 
 The other two uses of a relation do not contract against $`\mathbf{1}_R`$.
 
-- **A partition steps inside a fibre.** `shift(x, along=snapshot, offset=1,
-by=season_of, within=season)` reads the neighbour $`t'`$ of $`t`$ with
+- **A partition steps inside a fibre.** `shift(x, along=snapshot, offset=1, within=season_of[season])` reads the neighbour $`t'`$ of $`t`$ with
   $`f(t') = f(t)`$. The fibres of $`f`$ partition the axis, and the frame does
   not change.
 - **A test is the indicator itself.** A relation's name in a `where` evaluates

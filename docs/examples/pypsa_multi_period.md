@@ -16,7 +16,7 @@ file of its own. Its network is a whole one: eight snapshots over two investment
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
-| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period, within=period)` has them; a later rung |
+| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, within=snapshot_period[period])` has them; a later rung |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
@@ -167,8 +167,8 @@ objective:
   sense: minimize
   description: operating cost by weighted snapshot and weighted period, and capacity once per period it stands in
   expression: >-
-    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot))
-    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot))
+    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period[period]))
+    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period[period]))
     + sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
 ```
 
@@ -314,10 +314,10 @@ Bus_nodal_balance:
     there
   dims: [snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    sum(Generator_p, over=generator, by=Generator_bus[bus])
+    - sum(Link_p, over=link, by=Link_bus0[bus])
+    + sum(at(Link_p, by=Link_output_link[link]) * Link_efficiency, over=link_output, by=Link_output_bus[bus])
+    == sum(Load_p_set, over=load, by=Load_bus[bus])
 ```
 
 ```math
@@ -338,8 +338,8 @@ Carrier_growth_limit:
   dims: [carrier, period]
   where: Carrier_max_growth
   expression: >-
-    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier), along=period, offset=1, edge=0)
+    sum(Generator_p_nom_ext * Generator_first_active, over=generator, by=Generator_carrier[carrier])
+    - shift(sum(Generator_p_nom_ext * Generator_first_active, over=generator, by=Generator_carrier[carrier]), along=period, offset=1, edge=0)
     * Carrier_max_relative_growth
     <= Carrier_max_growth
 ```

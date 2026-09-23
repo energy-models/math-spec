@@ -14,6 +14,7 @@ knows, so the grammar hands both sides over bare and
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import TYPE_CHECKING, cast, get_args
@@ -22,6 +23,7 @@ import pyparsing as pp
 
 from math_spec._expression_parser import (
     ARITHMETIC,
+    COLUMNS,
     NAME,
     ArithmeticNode,
     KeywordNode,
@@ -52,7 +54,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ColumnNode:
-    """``relation.column`` on a side of a comparison — the one place the language names a column."""
+    """``relation[column]`` on a side of a comparison, which reads one column at the frame's coordinates."""
 
     relation: str
     column: str
@@ -60,7 +62,7 @@ class ColumnNode:
     @property
     def shown(self) -> str:
         """The column as the file wrote it, for an error message."""
-        return f'{self.relation}.{self.column}'
+        return f'{self.relation}[{self.column}]'
 
 
 @dataclass(frozen=True)
@@ -147,14 +149,14 @@ def _build_where_grammar() -> pp.ParserElement:
 
     name = pp.Regex(NAME)
     # pyrefly: ignore[implicit-any-lambda]
-    column = pp.Regex(rf'({NAME})\.({NAME})').set_parse_action(lambda t: ColumnNode(*t[0].split('.')))
+    column = (name + pp.Suppress('[') + name + pp.Suppress(']')).set_parse_action(lambda t: ColumnNode(t[0], t[1]))
     quoted = (pp.QuotedString("'", esc_char='\\') | pp.QuotedString('"', esc_char='\\')).set_parse_action(
         # pyrefly: ignore[implicit-any-lambda]
         lambda t: KeywordNode(t[0])
     )
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
-    kwarg = (name + pp.Suppress('=') + (quoted | ARITHMETIC)).set_parse_action(lambda t: (t[0], t[1]))
+    kwarg = (name + pp.Suppress('=') + (quoted | COLUMNS | ARITHMETIC)).set_parse_action(lambda t: (t[0], t[1]))
 
     def _call(head: pp.ParserElement) -> pp.ParserElement:
         """``<head>(<predicate>[, <kwarg>…])`` — the one shape whose operand is a predicate.
@@ -226,10 +228,11 @@ _WHERE_GRAMMAR = _build_where_grammar()
 
 
 def _named_rewrite(text: str, loc: int) -> str | None:
-    """The rewrite for a connective habit of pandas or C at the token where the grammar gave up, or ``None``.
+    """The rewrite for a connective habit of pandas or C, or a comparison of several columns, or ``None``.
 
     ``!=``, ``<`` and ``>`` are legal here, so only the tokens no predicate
-    admits are diagnosed.
+    admits are diagnosed. The grammar gives up at the bracket of
+    ``relation[a, b]``, since a comparison reads one column.
     """
     rest = text[loc:].lstrip()
     if rest.startswith('&'):
@@ -240,6 +243,12 @@ def _named_rewrite(text: str, loc: int) -> str | None:
         return f"'{rest[0]}' is not the negation — it is written NOT, before the predicate."
     if rest.startswith('=') and not rest.startswith('=='):
         return "'=' compares nothing — equality is written ==."
+    if (listed := re.match(rf'\[\s*({NAME}(?:\s*,\s*{NAME})+)\s*\]', rest)) and (
+        before := re.search(rf'({NAME})\s*$', text[:loc])
+    ):
+        relation, columns = before.group(1), [c.strip() for c in listed.group(1).split(',')]
+        each = ' AND '.join(f'{relation}[{column}] == …' for column in columns)
+        return f"a comparison reads one column of '{relation}'. Compare each column on its own: {each}."
     return None
 
 
