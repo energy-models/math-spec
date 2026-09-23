@@ -72,15 +72,16 @@ column per declared column, named after it.
 
 ## How a relation is used
 
-The declaration fixes no direction. A call names the columns it reads, and a
-key column it names at neither end is **joined on**.
+The declaration fixes no direction. A call **joins** the operand to the
+relation on the columns they share, and **groups** what the join produces. The
+call names the columns that decide both.
 
-| kind      | what it does                                | written as                                            |
-| --------- | ------------------------------------------- | ----------------------------------------------------- |
-| aggregate | many rows of the operand collapse onto one  | `sum(x, by=l, over=a, into=b)`                        |
-| read      | one row's value becomes a coordinate        | `at(x, by=l, over=a, into=b)`                         |
-| partition | the frame stays, and its rows are grouped   | `shift`, `sum_back`, `position` with `by=l, within=c` |
-| test      | a row's presence keeps or cuts a coordinate | the relation's name in a `where`                      |
+| kind              | what it does                                                                 | written as                                            |
+| ----------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| join and group by | rows of the operand match rows of the relation, and each group is added up   | `sum(x, by=l, over=a, into=b)`                        |
+| join              | each row of the operand matches one row of the relation, and reads its value | `at(x, by=l, over=a, into=b)`                         |
+| partition         | the frame stays, and its rows are grouped                                    | `shift`, `sum_back`, `position` with `by=l, within=c` |
+| test              | a row's presence keeps or cuts a coordinate                                  | the relation's name in a `where`                      |
 
 Four rules hold for every use:
 
@@ -90,37 +91,50 @@ Four rules hold for every use:
 3. **The key is fixed.** To change it, declare a new relation.
 4. **A dimension the relation does not name passes through** to the result.
 
-### Aggregates and reads
+### Joins and group-bys
 
-`over=` names the columns consumed and `into=` the columns produced, and either
-may be a list. With `zone_of: { key: [generator, period], values: zone }`, the
-bare `connection: { key: [generator, bus] }` and `p` over `[generator, period]`:
+Each column of the relation is either **joined on** or not, and either
+**grouped by** or not. `over=` names the columns joined on and not grouped by.
+`into=` names the columns grouped by and not joined on. Either may be a list.
 
-| call                                               | consumes    | joins on    | produces    | result                |
-| -------------------------------------------------- | ----------- | ----------- | ----------- | --------------------- |
-| `sum(p, by=zone_of, over=generator, into=zone)`    | `generator` | `period`    | `zone`      | `[zone, period]`      |
-| `sum(p, by=zone_of, over=period, into=zone)`       | `period`    | `generator` | `zone`      | `[generator, zone]`   |
-| `sum(p, by=connection, over=generator, into=bus)`  | `generator` | nothing     | `bus`       | `[bus, period]`       |
-| `at(price, by=zone_of, over=zone, into=generator)` | `zone`      | `period`    | `generator` | `[generator, period]` |
+| column of the relation        | joined on | grouped by | in the result |
+| ----------------------------- | --------- | ---------- | ------------- |
+| `over=`                       | yes       | no         | leaves        |
+| `into=`                       | no        | yes        | arrives       |
+| a key column the call omits   | yes       | yes        | stays         |
+| a value column the call omits | no        | no         | is not read   |
 
-- **The result is the operand, less the consumed dimensions, plus the produced
-  ones.** The operand carries every dimension consumed or joined on, and none
-  that the call lands on. `sum(load * p, by=gen_bus, over=generator, into=bus)`
-  is refused; write `load * sum(p, by=gen_bus, over=generator, into=bus)`.
-- **A read finds one row per coordinate, and a sum finds many.** The columns a
-  read lands on and joins on hold the whole key. A sum leaves a key column out,
-  and each call is refused in the other's case:
+With `zone_of: { key: [generator, period], values: zone }`, the bare
+`connection: { key: [generator, bus] }` and `p` over `[generator, period]`:
+
+| call                                               | joins on            | groups by           | result                |
+| -------------------------------------------------- | ------------------- | ------------------- | --------------------- |
+| `sum(p, by=zone_of, over=generator, into=zone)`    | `generator, period` | `zone, period`      | `[zone, period]`      |
+| `sum(p, by=zone_of, over=period, into=zone)`       | `period, generator` | `zone, generator`   | `[generator, zone]`   |
+| `sum(p, by=connection, over=generator, into=bus)`  | `generator`         | `bus`               | `[bus, period]`       |
+| `at(price, by=zone_of, over=zone, into=generator)` | `zone, period`      | `generator, period` | `[generator, period]` |
+
+- **The result is the operand, less the columns joined on, plus the columns
+  grouped by.** The operand carries every column joined on, and none that the
+  call groups by: a column the operand carries would be joined on, not grouped
+  by. `sum(load * p, by=gen_bus, over=generator, into=bus)` is refused; write
+  `load * sum(p, by=gen_bus, over=generator, into=bus)`.
+- **A sum adds up several rows per group, and a read finds one.** Where the
+  columns grouped by hold the whole key, every group is one row. That is a join
+  with no group-by, which is `at`. A `sum` there is refused toward `at`, and an
+  `at` whose groups hold several rows is refused toward `sum`:
 
   ```text
-  Constraint 'cap': sum(by=zone_of): this sum lands on the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.
+  Constraint 'cap': sum(by=zone_of): the columns this sum groups by, ['generator', 'period'], hold the whole key ['generator', 'period'], so every group is one row and nothing is added up — that is a join with no group-by, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.
   ```
 
-- **A sum consumes at least one key column, and lands on any column it does not
-  consume.** Either end may name a value column beside a key one. `connection`
-  has only key columns, and the sum above consumes one and lands on the other.
-- **A read consumes value columns, and lands on the key.** Its result carries
-  every key column — named in `into=`, or joined on — and whatever else the
-  operand carries that the read does not consume.
+- **A sum joins on at least one key column, and groups by any column it does
+  not join on.** Either end may name a value column beside a key one.
+  `connection` has only key columns, and the sum above joins on one and groups
+  by the other.
+- **A read joins on value columns, and groups by the key.** Its result carries
+  every key column, named in `into=` or left unnamed, and whatever else the
+  operand carries that the read does not join on.
 - **`over=` and `into=` name different columns**, and neither names two
   columns over one dimension.
 
@@ -128,7 +142,8 @@ bare `connection: { key: [generator, bus] }` and `p` over `[generator, period]`:
 
 `shift(x, along=d, by=l, within=c)`, `sum_back(x, along=d, by=l, within=c)`
 and `position(d, by=l, within=c)` step along the key column over `d`, join on
-the other key columns, and group by the value columns `within=` names. The
+the other key columns, and partition the rows by the value columns `within=`
+names. The
 frame does not change. `within=` is written whenever `by=` is. It may name two
 columns over one dimension, may not name a key column, and a bare relation
 partitions nothing.

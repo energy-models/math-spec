@@ -159,6 +159,24 @@ def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
     )
 
 
+def test_a_sum_over_a_lookup_is_a_sum_and_a_lookup_not_a_grouping():
+    """A plain `sum` over an `at` lowered to the `Sum` over a `Join` that a grouped sum lowered to.
+
+    Separability read the shape, so it reported a grouping of `u` into `u` and
+    lost the read of `zone` the lookup waits on. Which call a join is comes
+    from its columns, not from the node above it.
+    """
+    variables = {**BASE['variables'], 'q': {'dims': ['h', 'zone'], 'bounds': {'lower': 0}}}
+    rows = _rows('sum(at(q, by=zone_of, over=zone, into=u), over=u) <= budget', dims=['h'])
+    program = ms.to_program({**BASE, 'variables': variables, **rows})
+    assert list(program.separability['u'].coupled.values()) == [
+        'sums over u — a rolling sum_back(window=n) windows, a total over the horizon does not'
+    ], 'the sum over u is a plain sum, reported as one'
+    assert program.separability['zone'].undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
+        'the lookup under it still reads zone at a coordinate the relation chooses'
+    )
+
+
 def test_a_coupling_names_the_change_that_would_lift_it():
     coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
     assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'
@@ -212,7 +230,7 @@ def test_the_lookahead_is_the_widest_reach_of_any_block():
     assert verdict.ahead == 5, 'one window must see past its last row as far as any block reads'
 
 
-def test_a_grouping_that_consumes_the_axis_couples_it():
+def test_a_grouping_that_sums_the_axis_away_couples_it():
     program = ms.to_program(
         {
             **BASE,
@@ -220,7 +238,11 @@ def test_a_grouping_that_consumes_the_axis_couples_it():
         }
     )
     verdict = program.separability['u']
-    assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'
+    assert not verdict.windowable, 'the grouping sums u away, so a window of u is a different sum'
+    assert verdict.coupled == {
+        "constraint 'z'": 'groups u into zone — window that dimension instead, or cut only at the group edges'
+    }, 'the sum over the join is the grouping, reported once'
+    assert not verdict.undecided, 'the join under the sum is not also a lookup waiting on the relation'
 
 
 def test_every_declared_axis_has_a_verdict_and_nothing_else_does():
@@ -247,7 +269,7 @@ def test_a_reduction_over_several_axes_couples_every_one_of_them():
     so the verdict for each of them has to say so — a walk that read only the
     first would call the rest windowable."""
     program = ms.to_program({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}})
-    assert not program.separability['h'].windowable, 'the reduction consumes h'
+    assert not program.separability['h'].windowable, 'the reduction sums h away'
     assert not program.separability['u'].windowable, 'and u, in the same node'
 
 

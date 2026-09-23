@@ -43,7 +43,7 @@ from math_spec._where_parser import (
     nested,
     parse_where,
 )
-from math_spec.dimensions import dims_of, pulled_back_dims
+from math_spec.dimensions import dims_of, join_dims
 from math_spec.errors import DimensionError, LanguageError, SchemaError, case_context, did_you_mean, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand
@@ -68,12 +68,12 @@ from math_spec.program import (
     CountComparison,
     DimensionComparison,
     DimensionPosition,
-    Direction,
     Divide,
     Dual,
     Expression,
     ExpressionComparison,
-    GroupSum,
+    Join,
+    JoinColumns,
     Mask,
     Multiply,
     Named,
@@ -88,7 +88,6 @@ from math_spec.program import (
     Power,
     Predicate,
     PredicateOperator,
-    Pullback,
     PulledBackPredicate,
     Region,
     RelationComparison,
@@ -332,7 +331,7 @@ class Resolved:
         constraints: Each constraint, as a program declares it.
         objective: The objective, ``None`` where the file declares none.
         relations: Each relation's columns and key, as declared — the one
-            copy, which every :class:`~math_spec.program.Direction` and
+            copy, which every :class:`~math_spec.program.JoinColumns` and
             :class:`~math_spec.program.Partition` in the trees holds.
         assumptions: Each ``assumptions:`` entry's predicate and the mask it
             is checked under.
@@ -810,19 +809,19 @@ class _Resolver:
         dims: Mapping[str, str | None],
         amounts: Mapping[str, int | str | None],
         edge: _Edge | None,
-        read: Direction | Partition | None,
+        read: JoinColumns | Partition | None,
     ) -> Expression | None:
         """The node *operator* builds from its read arguments, or ``None`` with the refusal appended."""
         if operator == 'sum':
             if read is not None:
-                assert isinstance(read, Direction), 'a sum reads its relation in a direction'
-                return GroupSum(operand, read)
+                assert isinstance(read, JoinColumns), 'a sum joins its relation'
+                return Sum(Join(operand, read), read.axes)
             if (over := dims.get('over')) is not None:
                 return Sum(operand, (over,))
             return self._bare_sum(operand)
         if operator == 'at':
-            assert isinstance(read, Direction), 'at reads its relation in a direction'
-            return Pullback(operand, read)
+            assert isinstance(read, JoinColumns), 'at joins its relation'
+            return Join(operand, read)
         assert read is None or isinstance(read, Partition), 'a translation reads its relation as a partition'
         along = dims['along']
         assert along is not None
@@ -994,15 +993,15 @@ class _Resolver:
         key: str,
         roles: Mapping[str, ArithmeticNode],
         along: str | None,
-    ) -> Direction | Partition | None:
-        """An operator's ``by=`` as the direction or the partition the call reads its relation in.
+    ) -> JoinColumns | Partition | None:
+        """An operator's ``by=`` as the join or the partition the call reads its relation in.
 
         A relation carries its own dimensions, so the call names columns rather
-        than dims: ``over=`` the column consumed, ``into=`` the column
-        produced, every other key column joined on. A value column not named
-        is not read, and a bare relation's columns are all key. One call
-        addresses one table, so several columns of one table are a list and
-        several tables are not. *along* is the dimension a translation steps
+        than dims: ``over=`` the columns joined on and summed away, ``into=``
+        the columns grouped by, every other key column joined on and kept. A
+        value column not named is not read, and a bare relation's columns are
+        all key. One call addresses one table, so several columns of one table
+        are a list and several tables are not. *along* is the dimension a translation steps
         along, already read, or ``None`` where it was refused.
         """
         names = names_in(value)
@@ -1032,7 +1031,7 @@ class _Resolver:
             return self._partition(name, operator, along, named['within'])
         if not ({'over', 'into'} <= set(named)):
             return None  # refused already, by the call shape or by the role that named no column
-        return self._direction(name, operator, named['over'], named['into'])
+        return self._join(name, operator, named['over'], named['into'])
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -1043,22 +1042,22 @@ class _Resolver:
         )
         return None
 
-    def _direction(
+    def _join(
         self,
         name: str,
         operator: str,
         from_roles: tuple[str, ...],
         into_roles: tuple[str, ...],
-    ) -> Direction | None:
-        """Which direction ``sum`` or ``at`` reads relation *name* in, between the columns the call named.
+    ) -> JoinColumns | None:
+        """How ``sum`` or ``at`` joins relation *name*, between the columns the call named.
 
         Both ends arrive written: the call shape refuses a call that leaves
         one unsaid, so that a relation may gain a value column without
-        changing what this call means. ``at`` needs the read single-valued
-        and ``sum`` needs it not: a sum that lands on the key has one term
-        per coordinate and adds up nothing, which is a read, so it is
-        refused toward ``at``. A read lands on key columns and nothing else,
-        because a column outside the key is one no coordinate of the read
+        changing what this call means. A lookup needs every group to be one
+        row and a sum needs it not: a sum whose grouped columns hold the whole
+        key has one row per group and adds up nothing, which is a lookup, so
+        it is refused toward ``at``. A lookup groups by key columns and nothing
+        else, because a column outside the key is one no row of the join
         fixes.
         """
         ns, context = self.ns, self.context
@@ -1087,29 +1086,29 @@ class _Resolver:
         if not forward and (outside := [r for r in into_roles if r not in shape.key]):
             self.errors.append(
                 f"{context}: {call}: into={list(into_roles)} names {outside}, which the key of '{name}' does not "
-                f'hold. A read lands on the key it reads at, {list(shape.key)}, and a column outside that key '
-                f'arrives as a dimension the read never fixes. Land on the key, or sum toward {outside}.'
+                f'hold. A lookup reads one row per key, {list(shape.key)}, and a column outside that key '
+                f'arrives as a dimension no row of the join fixes. Group by the key, or sum toward {outside}.'
             )
             return None
-        joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
-        single_valued = set(shape.key) <= {*into_roles, *joined}
-        direction = Direction(name, shape, from_roles, into_roles, joined)
-        if not forward and not single_valued:
+        kept = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
+        join = JoinColumns(name, shape, (*from_roles, *kept), (*into_roles, *kept))
+        one_row_per_group = set(shape.key) <= set(join.grouped)
+        if not forward and not one_row_per_group:
             self.errors.append(
-                f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
-                f'{list(from_roles)} at the columns the call lands on ({[*into_roles, *joined]}) — its key is '
-                f'{list(shape.key)}. Key the table by the columns the call lands on, or read the other way.'
+                f"{context}: {call}: at reads one row per group, and grouping '{name}' by {list(join.grouped)} "
+                f'leaves several rows in a group — its key is {list(shape.key)}. Key the table by the columns '
+                f'the call groups by, or sum instead.'
             )
             return None
-        if forward and single_valued:
+        if forward and one_row_per_group:
             self.errors.append(
-                f'{context}: {call}: this sum lands on the key {list(shape.key)}, so each coordinate has one '
-                f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={list(from_roles)}, into={list(into_roles)}), or sum toward '
-                f'a value column.'
+                f'{context}: {call}: the columns this sum groups by, {list(join.grouped)}, hold the whole key '
+                f'{list(shape.key)}, so every group is one row and nothing is added up — that is a join with no '
+                f"group-by, which is at()'s. Write at(..., by={name}, over={list(from_roles)}, "
+                f'into={list(into_roles)}), or sum toward a value column.'
             )
             return None
-        return direction
+        return join
 
     def _known_roles(self, name: str, call: str, roles: tuple[str, ...], kwarg: str) -> bool:
         """Whether every role *kwarg* names is a column of relation *name*, each once; the refusal otherwise."""
@@ -1323,10 +1322,10 @@ class _Resolver:
         found = len(self.errors)
         roles = {key: node.kwargs[key] for key in ('over', 'into')}
         by = self._relation_ref(node.kwargs['by'], 'at', 'by', roles, None)
-        if len(self.errors) > found or not isinstance(by, Direction):
+        if len(self.errors) > found or not isinstance(by, JoinColumns):
             return node
         try:
-            dims = pulled_back_dims(by, mask.dims, context, 'the predicate')
+            dims = join_dims(by, mask.dims, context, 'the predicate')
         except DimensionError as refusal:
             self.errors.append(str(refusal))
             return node

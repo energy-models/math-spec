@@ -12,7 +12,7 @@ import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
 from math_spec.errors import SchemaError
-from math_spec.program import Mask, RelationPairComparison
+from math_spec.program import Join, Mask, RelationPairComparison, Sum
 from math_spec.resolution import Namespace
 from math_spec.validation import to_spec
 from tests.fixtures import expression_of, override, schema_of, where_of
@@ -112,7 +112,7 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_zone, over=generator, into=zone)',
             {'snapshot', 'zone'},
-            id='a-two-key-relation-consumes-the-key-it-names-and-keeps-the-other',
+            id='a-two-key-relation-sums-away-the-key-it-names-and-keeps-the-other',
         ),
         pytest.param(
             'sum(p, by=gen_zone, over=snapshot, into=zone)',
@@ -122,7 +122,7 @@ def namespace() -> Namespace:
         pytest.param(
             'at(zone_load, by=gen_zone, into=generator, over=zone)',
             {'snapshot', 'generator'},
-            id='its-pullback-keeps-the-joined-key-too',
+            id='its-lookup-keeps-the-joined-key-too',
         ),
         pytest.param(
             "shift(p, along=generator, offset=1, edge='wrap', by=gen_zone, within=zone)",
@@ -142,7 +142,7 @@ def namespace() -> Namespace:
         pytest.param(
             "shift(p, along=generator, offset=1, edge='wrap', by=pair, within=[b0, b1])",
             {'snapshot', 'generator'},
-            id='a-partition-grouped-by-two-columns-over-one-dimension-lands-nothing',
+            id='a-partition-grouped-by-two-columns-over-one-dimension-adds-nothing',
         ),
         pytest.param(
             'sum(p, by=gen_bus, over=generator, into=bus)',
@@ -162,7 +162,7 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_zone, over=[generator, snapshot], into=zone)',
             {'zone'},
-            id='a-from-list-consumes-two-key-columns-at-once',
+            id='an-over-list-joins-on-two-key-columns-at-once',
         ),
         pytest.param(
             'sum(p, by=gen_bz, into=bus, over=generator)',
@@ -180,7 +180,7 @@ def namespace() -> Namespace:
             id='a-map-into-its-own-dimension-keeps-the-frame',
         ),
         pytest.param(
-            'at(p, by=rep_of, over=rep, into=snapshot)', {'snapshot', 'generator'}, id='and-so-does-its-pullback'
+            'at(p, by=rep_of, over=rep, into=snapshot)', {'snapshot', 'generator'}, id='and-so-does-its-lookup'
         ),
         pytest.param(
             "shift(p, along=snapshot, offset=1, edge='wrap', by=rep_of, within=rep)",
@@ -204,7 +204,7 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
         pytest.param(
             'sum(p, by=connection, over=generator, into=bus)',
             {'snapshot', 'bus'},
-            id='a-sum-through-a-bare-relation-lands-on-a-key-column',
+            id='a-sum-through-a-bare-relation-groups-by-a-key-column',
         ),
         pytest.param(
             'sum(load, by=connection, over=bus, into=generator)',
@@ -214,22 +214,39 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
     ],
 )
 def test_a_bare_relation_is_summed_between_its_key_columns(expr, expected):
-    """A bare relation holds no value column, so the column a sum lands on is a key column."""
+    """A bare relation holds no value column, so the column a sum groups by is a key column."""
     assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == expected
 
 
-def test_a_read_carries_the_whole_key_and_what_the_operand_brings_beside_it():
-    """A read lands on the key however the call splits it, and a dim the operand carries and the read does not consume rides along.
+def test_a_lookup_carries_the_whole_key_and_what_the_operand_brings_beside_it():
+    """A lookup groups by the key however the call splits it, and a dim the operand carries and the lookup does not join on rides along.
 
-    `gen_bz` is keyed by `generator` alone, so the key is produced whole; the
-    operand's `snapshot` is neither consumed nor part of the key, and the
+    `gen_bz` is keyed by `generator` alone, so the whole key is grouped by; the
+    operand's `snapshot` is neither joined on nor part of the key, and the
     result keeps it.
     """
     assert _dims('at(zone_load, by=gen_bz, over=zone, into=generator)') == {'generator', 'snapshot'}
 
 
-def test_a_sum_consumes_a_key_column_and_a_value_column_together():
-    """A sum's consumed end is not one kind of column: it needs one key column, and may name a value column beside it."""
+def test_a_join_opens_an_axis_for_the_column_it_drops_and_the_sum_over_it_closes_it():
+    """A map into its own dimension drops and adds one dimension, so the join names the dropped column for the relation.
+
+    Named for its dimension, the column the join drops and the column it
+    groups by are one name, and the sum over the join takes away the dim the
+    row keeps.
+    """
+    s = _schema()
+    node = expression_of('sum(p, by=rep_of, over=snapshot, into=rep)', Namespace(s), 't')
+    assert isinstance(node, Sum) and isinstance(node.operand, Join)
+    assert node.over == ('rep_of.snapshot',), 'the sum stands over the axis the join opens'
+    assert dims_of(node.operand, s, 't') == {'generator', 'snapshot', 'rep_of.snapshot'}, (
+        'the join keeps the dropped column beside the dimension it groups by'
+    )
+    assert dims_of(node, s, 't') == {'generator', 'snapshot'}, 'and the sum over it leaves the frame the row keeps'
+
+
+def test_a_sum_joins_on_a_key_column_and_a_value_column_together():
+    """The columns a sum joins on and sums away are not one kind: it needs one key column, and may name a value column beside it."""
     assert _dims('sum(p * load, by=gen_bz, over=[generator, bus], into=zone)') == {'snapshot', 'zone'}
 
 
@@ -253,7 +270,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             'sum(p, over=bus)',
             DimensionError,
             r'sum\(over=bus\) but the expression has dims',
-            id='sum-consuming-an-absent-dim-is-an-error-not-a-noop',
+            id='sum-over-an-absent-dim-is-an-error-not-a-noop',
         ),
         pytest.param(
             'sum(sum(p))',
@@ -276,7 +293,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         pytest.param(
             'sum(load, by=gen_bus, over=generator, into=bus)',
             DimensionError,
-            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it reads from",
+            r"sum\(by=gen_bus\) joins on \['generator'\] to sum it away",
             id='sum-requires-the-grouped-dim',
         ),
         pytest.param(
@@ -337,7 +354,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             'at(zone_cap, by=gen_zone, into=generator, over=zone)',
             DimensionError,
             r"at\(by=gen_zone\) joins on \['snapshot'\]",
-            id='a-pullback-needs-the-keys-it-joins-on',
+            id='a-lookup-needs-the-keys-it-joins-on',
         ),
         pytest.param(
             "shift(cost, along=generator, offset=1, edge='wrap', by=gen_zone, within=zone)",
@@ -364,24 +381,24 @@ def test_an_ill_dimensioned_expression_is_rejected(expr, error, match):
         pytest.param(
             'sum(p, by=diag, over=k, into=z)',
             {'key': {'k': 'generator', 'j': 'generator', 'z': 'zone'}},
-            id='a-sum-consuming-a-column-over-the-dimension-it-joins-on',
+            id='a-sum-summing-away-a-column-over-a-dimension-it-also-joins-on',
         ),
         pytest.param(
             'at(load, by=diag, over=rep, into=generator)',
             {'key': ['snapshot', 'generator'], 'values': {'rep': 'snapshot'}},
-            id='a-read-consuming-a-column-over-the-dimension-it-joins-on',
+            id='a-lookup-reading-a-column-over-a-dimension-it-also-joins-on',
         ),
     ],
 )
-def test_a_joined_column_is_not_also_consumed(expr, diag):
-    """The operand carries one coordinate per dimension, so a column consumed and a column joined on cannot share one.
+def test_two_joined_columns_do_not_share_a_dimension(expr, diag):
+    """The operand carries one coordinate per dimension, so the `over=` column and an unnamed key column cannot share one.
 
-    The `at` case passed: the check asked whether a joined dimension was
-    *produced*, which the landing check already refuses, and not whether it
-    was consumed. `at(load, by=diag, over=rep, into=generator)` then read
-    `rep` at the operand's snapshot and joined on the key's snapshot at the
-    same coordinate, and landed on `[bus, generator]` with the joined
-    dimension gone.
+    The `at` case passed: the check asked whether an unnamed key dimension
+    was also grouped by, which the grouping check already refuses, and not
+    whether it was also the one read. `at(load, by=diag, over=rep, into=generator)`
+    then read `rep` at the operand's snapshot and joined on the key's snapshot
+    at the same coordinate, and came out over `[bus, generator]` with the
+    joined dimension gone.
     """
     with pytest.raises(DimensionError, match=r"joins 'diag' on \[.*\] through more than one column"):
         _dims_with(expr, **{'relations.diag': diag})

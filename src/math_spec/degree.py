@@ -29,7 +29,6 @@ from math_spec.program import (
     Divide,
     Dual,
     Expression,
-    GroupSum,
     Multiply,
     Power,
     Sum,
@@ -175,10 +174,10 @@ def _multi_term(node: Expression) -> bool:
 def _joins_terms(node: Expression) -> bool:
     """Whether *node* itself makes several terms of one: a reduction over a variable, or a sum of two variable-carrying sides.
 
-    A pullback and a translation re-index and are not reductions: they move a
+    A lookup and a translation re-index and are not reductions: they move a
     term, leaving one term where there was one.
     """
-    if isinstance(node, Sum | GroupSum | WindowSum):
+    if isinstance(node, Sum | WindowSum):
         return carries_variable(node.operand)
     return isinstance(node, Add) and carries_variable(node.left) and carries_variable(node.right)
 

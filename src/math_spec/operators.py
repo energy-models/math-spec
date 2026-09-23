@@ -40,11 +40,11 @@ class Builtin:
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a column of the relation ``by=`` names — ``over=`` and
-    #: ``into=`` — which resolution folds into the direction it is read in.
+    #: ``into=`` — which resolution folds into the join the call makes.
     role_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a dimension on their own and a column of the relation where
     #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
-    #: away; ``sum(x, by=l, over=c)`` names the column the call consumes.
+    #: away; ``sum(x, by=l, over=c)`` names the column the call joins on and sums away.
     #: One meaning — what leaves the frame — read in the namespace ``by=``
     #: decides.
     dimension_or_role_kwargs: tuple[str, ...] = ()
@@ -93,7 +93,7 @@ class Builtin:
 #: The closed operator set. ``by=`` is the one keyword that addresses a relation,
 #: and a relation carries its own dimensions, so no sibling kwarg restates them.
 #: On ``shift`` and ``sum_back`` it partitions the axis the operator steps along: it
-#: says which rows are neighbours, not which group a term lands in, and
+#: says which rows are neighbours, not which group a term is added to, and
 #: ``within=`` names the value columns the group is made of, on every call
 #: that names a ``by=``.
 BUILTINS: dict[str, Builtin] = {

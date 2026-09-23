@@ -76,6 +76,7 @@ nav:
       - The limits: about/limits.md
       - What counts as language: about/what-counts-as-language.md
       - What counts as public API: about/what-counts-as-public-api.md
+      - Relations as linear maps: about/relations-as-linear-maps.md
       - Contributing: contributing.md
       - Changelog: CHANGELOG.md
 

@@ -285,7 +285,7 @@ def _observe(
         raise Undecidable(msg)
     if isinstance(node, PulledBackPredicate):
         msg = (
-            f"it reads a predicate through '{node.direction.name}', and which rows that admits only the data "
+            f"it reads a predicate through '{node.columns.name}', and which rows that admits only the data "
             'decides — test this row, or precompute the read as a boolean parameter and test that'
         )
         raise Undecidable(msg)
@@ -321,7 +321,7 @@ def _subject_of(node: TypedPredicate) -> Subject:
         case DimensionPosition(name=name, partition=partition):
             if partition is None:
                 return Subject('rank', name)
-            return Subject('rank', name, partition.name, partition.group)
+            return Subject('rank', name, partition.name, partition.grouped)
         case RelationDefined(name=name) | RelationComparison(name=name):
             return Subject('relation', name)
         case RelationPairComparison(name=name, other=other):

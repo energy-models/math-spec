@@ -901,12 +901,12 @@ class TestAPredicateIsAnOperand:
             ),
             pytest.param(
                 'at(flag, by=lk, over=h, into=g)',
-                ("at(by=lk) reads through ['h'], which the predicate does not carry",),
+                ("at(by=lk) joins on ['h'], which the predicate does not carry",),
                 id='a-read-through-a-dim-the-predicate-lacks',
             ),
             pytest.param(
                 'at(q, by=lk, over=h, into=g)',
-                ("at(by=lk) lands on ['g'], which the expression already carries",),
+                ("at(by=lk) groups by ['g'], which the expression already carries",),
                 id='a-read-onto-a-dim-the-predicate-carries',
             ),
             pytest.param(
@@ -1159,8 +1159,8 @@ class TestRulesDecidedWithoutData:
                     'variables.q.dims': ['g', 'h', 'z'],
                     'objective': {'expression': 'sum(sum(q, by=lk, over=g, into=h))'},
                 },
-                ("sum(by=lk) lands on ['h'], which the expression already carries",),
-                id='landing-on-a-dim-the-operand-carries',
+                ("sum(by=lk) groups by ['h'], which the expression already carries",),
+                id='grouping-by-a-dim-the-operand-carries',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk, over=z, into=h))'}},
@@ -1259,8 +1259,8 @@ class TestRulesDecidedWithoutData:
                     'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
                 },
                 (
-                    "at reads one value per coordinate, and 'rel' is not single-valued in ['h'] at the columns "
-                    "the call lands on (['g'])",
+                    "at reads one row per group, and grouping 'rel' by ['g'] leaves several rows in a group",
+                    "its key is ['g', 'h']",
                 ),
                 id='at-through-a-bare-relation',
             ),
@@ -1272,10 +1272,10 @@ class TestRulesDecidedWithoutData:
                 },
                 (
                     "into=['z'] names ['z'], which the key of 'lz' does not hold",
-                    "A read lands on the key it reads at, ['g']",
-                    "Land on the key, or sum toward ['z']",
+                    "A lookup reads one row per key, ['g']",
+                    "Group by the key, or sum toward ['z']",
                 ),
-                id='a-read-landing-on-a-value-column',
+                id='a-lookup-grouping-by-a-value-column',
             ),
             pytest.param(
                 {
@@ -1284,16 +1284,16 @@ class TestRulesDecidedWithoutData:
                     'objective': {'expression': 'sum(at(r, by=lz, over=h, into=[g, z]))'},
                 },
                 ("into=['g', 'z'] names ['z'], which the key of 'lz' does not hold",),
-                id='a-read-landing-on-the-key-and-a-value-column',
+                id='a-lookup-grouping-by-the-key-and-a-value-column',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
                 (
-                    "this sum lands on the key ['g']",
-                    'that is a read, which is',
+                    "the columns this sum groups by, ['g'], hold the whole key ['g']",
+                    'that is a join with no group-by, which is',
                     "at(..., by=lk, over=['h'], into=['g'])",
                 ),
-                id='a-sum-that-lands-on-the-key-is-a-read',
+                id='a-sum-grouped-by-the-whole-key-is-a-lookup',
             ),
             pytest.param(
                 {
@@ -1465,8 +1465,8 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(at(c, by=lk, over=h, into=g))'}},
-                ("at(by=lk) reads through ['h'], which the expression does not carry (dims ['g'])",),
-                id='a-read-whose-operand-lacks-the-column-it-reads-through',
+                ("at(by=lk) joins on ['h'], which the expression does not carry (dims ['g'])",),
+                id='a-lookup-whose-operand-lacks-the-column-it-joins-on',
             ),
             pytest.param(
                 {
@@ -1515,15 +1515,15 @@ class TestRulesDecidedWithoutData:
         for fragment in fragments:
             assert fragment in message
 
-    def test_the_at_a_sum_landing_on_the_key_names_is_one_the_language_takes(self):
+    def test_the_at_a_sum_grouped_by_the_whole_key_names_is_one_the_language_takes(self):
         """A refusal that names a call is holding out a rewrite, so the rewrite has to load.
 
-        Was: the message swapped the direction's ends, answering a sum refused
-        for landing on the key with `at(..., over=<into>, into=<over>)` — which
-        `at` refuses in turn, for reading a column that is not single-valued
-        at the one the operand fixes. Both operators take `over=` as the
-        column the read consumes, so the rewrite is the author's own spelling
-        with `at` in place of `sum`.
+        Was: the message swapped the join's ends, answering a sum refused
+        for grouping by the whole key with `at(..., over=<into>, into=<over>)` —
+        which `at` refuses in turn, for grouping in a way that leaves several
+        rows per group. Both operators take `over=` as the columns joined on
+        and dropped, so the rewrite is the author's own spelling with `at` in
+        place of `sum`.
 
         Reading the call out of the message rather than restating it is the
         point: a fragment can agree with a message that names a call nothing

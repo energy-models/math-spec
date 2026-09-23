@@ -160,7 +160,7 @@ def inline(node: program.Expression | program.Named) -> program.Expression:
         return program.Power(inline(node.base), inline(node.exponent))
     if isinstance(node, program.Divide):
         return program.Divide(inline(node.numerator), inline(node.divisor))
-    if isinstance(node, program.Sum | program.GroupSum | program.Pullback | program.Translate | program.WindowSum):
+    if isinstance(node, program.Sum | program.Join | program.Translate | program.WindowSum):
         return replace(node, operand=inline(node.operand))
     if isinstance(node, program.Cases):
         return program.Cases(tuple(program.Region(inline_mask(r.when), inline(r.value)) for r in node.regions))
