@@ -374,7 +374,7 @@ class _Block:
                 f'({link.expression}) {link.sign} sum({self.emitted.lam} * {link.values}, over={d})',
             )
         if self.pw.method in ('sos2', 'adjacency'):
-            sos.section(self.raw, 'sos')[self.name] = {'variable': self.emitted.lam, 'over': d, 'type': 2}
+            sos.section(self.raw, 'sos')[self.name] = {'variable': self.emitted.lam, 'along': d, 'type': 2}
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
         """What the weights sum to, as ``(name suffix, where, right-hand side)``.

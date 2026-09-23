@@ -89,7 +89,7 @@ TWO_DIM = override(
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
     with pytest.raises(SchemaError, match="writes sos 'cost_curve', which this file already declares"):
-        schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'over': 'snapshot', 'type': 1}})
+        schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'along': 'snapshot', 'type': 1}})
 
 
 @pytest.mark.parametrize('method', [pytest.param('incremental', id='unknown'), pytest.param(['sos2'], id='a list')])

@@ -75,7 +75,7 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
             {
                 'objective.expression': '-sum(v, over=g)',
                 'variables.v.bounds': {'lower': 0, 'upper': 10},
-                'sos': {'s': {'variable': 'v', 'over': 'g', 'type': 1}},
+                'sos': {'s': {'variable': 'v', 'along': 'g', 'type': 1}},
             },
             id='carried-by-a-set',
         ),

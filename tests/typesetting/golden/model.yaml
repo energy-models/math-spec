@@ -99,7 +99,7 @@ variables:
 sos:
   adjacent: # at most two adjacent members nonzero, one set per snapshot
     variable: weight
-    over: generator
+    along: generator
     type: 2
 
 piecewise:

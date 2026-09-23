@@ -676,8 +676,8 @@ SOS_TYPES = frozenset(get_args(SosType))
 class SosBlock(_StrictBlock):
     """A special-ordered set over one dimension of one variable.
 
-    One set per coordinate of the variable's ``dims`` minus ``over``; the
-    members are the variable's *existing* coordinates along ``over``, in that
+    One set per coordinate of the variable's ``dims`` minus ``along``; the
+    members are the variable's *existing* coordinates along ``along``, in that
     dimension's declared order.
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
@@ -690,7 +690,7 @@ class SosBlock(_StrictBlock):
     _label: ClassVar[str] = 'a sos declaration'
 
     variable: str
-    over: str
+    along: str
     type: SosType
     description: str | None = None
 
@@ -1068,17 +1068,17 @@ class Spec(_StrictBlock):
         claimed: dict[str, str] = {}
         for sname, block in self.sos.items():
             context = f"Sos '{sname}'"
-            if block.over not in self.dimensions:
-                yield (undeclared_dimension('Sos', sname, block.over))
+            if block.along not in self.dimensions:
+                yield (undeclared_dimension('Sos', sname, block.along))
             elif block.variable not in self.variables:
                 yield (
                     f"{context}: '{block.variable}' is not a declared variable.\n"
                     f'  Variables: {sorted(self.variables)}\n'
                     f'A set is over one variable, so a parameter or an expression cannot carry one.'
                 )
-            elif block.over not in self.variables[block.variable].dims:
+            elif block.along not in self.variables[block.variable].dims:
                 yield (
-                    f"{context}: over '{block.over}' is not a dim of variable "
+                    f"{context}: along '{block.along}' is not a dim of variable "
                     f"'{block.variable}' (dims {self.variables[block.variable].dims}). The set runs "
                     f"along one of the variable's own dims — one set per coordinate of the rest."
                 )
