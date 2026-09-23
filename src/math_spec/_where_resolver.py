@@ -34,12 +34,13 @@ from math_spec._where_parser import (
     UnresolvedPredicateCallNode,
     UnresolvedWhereNode,
 )
-from math_spec.dimensions import dims_of, join_dims
+from math_spec.dimensions import dims_of, frame_of, join_dims
 from math_spec.errors import DimensionError, LanguageError, did_you_mean, prefixed
 from math_spec.expansion import expand
 from math_spec.program import (
     Add,
     And,
+    Axis,
     BooleanLiteral,
     Constant,
     CountComparison,
@@ -231,11 +232,11 @@ class WhereResolver:
         if by is None:
             return node
         try:
-            dims = join_dims(by, mask.dims, context, 'the predicate')
+            dims = join_dims(by, frame_of(mask.dims), context, 'the predicate')
         except DimensionError as refusal:
             self.errors.append(str(refusal))
             return node
-        return PulledBackPredicate(mask, by, tuple(sorted(dims)))
+        return PulledBackPredicate(mask, by, tuple(sorted(axis.dimension for axis in dims)))
 
     def _count(self, node: UnresolvedCountNode) -> Predicate | UnresolvedWhereNode:
         """``count(<predicate>, over=<dim>) <op> <integer>`` — how many coordinates the predicate admits.
@@ -352,7 +353,7 @@ class WhereResolver:
         if len(self.errors) > found:
             return node
         assert len(sides) == 2, 'a side of a where builds or refuses, since a where holds no formal'
-        dims: set[str] = set()
+        dims: set[Axis] = set()
         for side in sides:
             if carries_variable(side):
                 self.errors.append(
@@ -380,7 +381,7 @@ class WhereResolver:
                 f'the comparison.'
             )
             return node
-        return ExpressionComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
+        return ExpressionComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if Axis(d) in dims))
 
     def _position(
         self, call: FunctionCallNode, node: UnresolvedComparisonNode

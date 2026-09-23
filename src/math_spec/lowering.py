@@ -23,6 +23,7 @@ from math_spec.expansion import expand, parse_template
 from math_spec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, resolve_links
 from math_spec.program import (
     Assumption,
+    Axis,
     BooleanLiteral,
     Cases,
     Constant,
@@ -232,7 +233,7 @@ def _frame_of(name: str, entry: Named, schema: Spec) -> tuple[str, ...]:
     if isinstance(entry.body, Cases):
         return tuple(schema.expressions[name].dims or ())
     carried = dims_of(entry.body, schema, f"Named expression '{name}'")
-    return tuple(d for d in schema.dimensions if d in carried)
+    return tuple(d for d in schema.dimensions if Axis(d) in carried)
 
 
 def _bound(value: float | str) -> Constant | Parameter:
