@@ -6,9 +6,11 @@
 
 ``check`` loads the file and prints the language's advice; one further verb
 per typeset format, read off :data:`math_spec.typesetting.FORMATS`. Every verb
-reads the file as written and takes ``--expand``, because a shell cannot
-compose :meth:`~math_spec.model.Spec.expand` the way a caller does, and
-nothing here expands a formulation unasked.
+reads the file as written, and nothing here expands a formulation unasked.
+The typeset verbs take ``--expand``, because a shell cannot compose
+:meth:`~math_spec.model.Spec.expand` the way a caller does and the rows are a
+different document; ``check`` has no such flag, because advice reads a block
+as the rows it states.
 """
 
 from __future__ import annotations
@@ -30,11 +32,6 @@ def parser() -> argparse.ArgumentParser:
 
     check = verbs.add_parser('check', help='load a model, and print what the language advises')
     check.add_argument('model', help='path to a math_spec YAML model')
-    check.add_argument(
-        '--expand',
-        action='store_true',
-        help='check the variables and constraints the piecewise: and sos: blocks state, not the blocks',
-    )
 
     for name in FORMATS:
         verb = verbs.add_parser(name, help=f'render a model as {name}')
@@ -58,20 +55,18 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run one verb; a refused file is its message on stderr and exit status 1.
 
-    Advice is not a refusal: ``check`` prints it and exits 0. A model with a
-    ``piecewise:`` block is refused by ``check`` as by any consumer building
-    rows, and ``--expand`` is how the shell asks for the rows.
+    Advice is not a refusal: ``check`` prints it and exits 0.
     """
     args = parser().parse_args(argv)
-    model = to_spec(args.model).expand() if args.expand else args.model
     if args.verb == 'check':
         try:
-            notes = advice(model)
+            notes = advice(args.model)
         except MathSpecError as e:
             sys.stderr.write(f'{e}\n')
             return 1
         sys.stdout.write(''.join(f'{note}\n' for note in notes))
         return 0
+    model = to_spec(args.model).expand() if args.expand else args.model
     text = typeset(
         model,
         args.verb,

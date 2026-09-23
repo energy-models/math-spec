@@ -40,8 +40,9 @@ file, it is one.
 - **Nothing is expanded unasked.** A `piecewise:` or `sos:` block is the
   block until a caller expands it with `spec.expand(...)`. No door, verb or
   check expands a model on the caller's behalf: `spec.program` mirrors the
-  file, `advice` and the `check` verb refuse a curve left as written, and
-  `--expand` is how the shell asks. An engine that expands curves at its
+  file, `advice` reads a block as the rows it states, and `--expand` on a
+  typeset verb is how the shell asks for the rows as a document of their own.
+  An engine that expands curves at its
   own door makes that choice for its users, not for the language.
 
 ## Three things a function never decides
