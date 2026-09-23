@@ -121,6 +121,13 @@ parameters:
       parameter
     dims: [snapshot, generator]
     dtype: bool
+  Generator_must_stay_down:
+    description: >-
+      true while the down time a unit brought into the horizon still binds —
+      PyPSA's `min_down_time - down_time_before` snapshots, where
+      `down_time_before > 0`, data prep for the same reason
+    dims: [snapshot, generator]
+    dtype: bool
   Generator_start_up_cost:
     description: cost of one start
     dims: [generator]
@@ -1338,7 +1345,10 @@ constraints:
     where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0 AND Generator_active
     expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
   Generator_com_down_time:
-    description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+    description: >-
+      `Generator-com-down-time` — a unit stopped within its own minimum down
+      time is still off. The first snapshot's share of the window is the
+      brought-in down time's, which the must-stay-down mask carries
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0 AND Generator_active
     expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
@@ -1347,6 +1357,13 @@ constraints:
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_must_stay_up AND Generator_active
     expression: Generator_status == 1
+  Generator_com_status_must_stay_down:
+    description: >-
+      `Generator-com-status-min_down_time_must_stay_up` — a unit still serving
+      the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+    dims: [scenario, snapshot, generator]
+    where: Generator_committable AND Generator_must_stay_down AND Generator_active
+    expression: Generator_status == 0
   Generator_p_ramp_limit_up_run_big_m:
     description: >-
       `Generator-p-ramp_limit_up-run-bigM` — a committed extendable unit

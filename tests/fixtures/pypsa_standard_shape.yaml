@@ -37,6 +37,9 @@ constraints:
   Generator_com_p_upper:
     - snapshot
     - generator
+  Generator_com_status_must_stay_down:
+    - snapshot
+    - generator
   Generator_com_status_must_stay_up:
     - snapshot
     - generator
@@ -355,6 +358,9 @@ parameters:
   Generator_min_up_time:
     - generator
   Generator_modules_installed:
+    - generator
+  Generator_must_stay_down:
+    - snapshot
     - generator
   Generator_must_stay_up:
     - snapshot

@@ -47,6 +47,7 @@ names:
   Generator_ramp_up_allowance: '\Delta^{+}'
   Generator_ramp_down_allowance: '\Delta^{-}'
   Generator_must_stay_up: '\mathrm{hold}'
+  Generator_must_stay_down: '\mathrm{rest}'
   Generator_start_up_cost: '\mathrm{c}^{\mathrm{up}}'
   Generator_shut_down_cost: '\mathrm{c}^{\mathrm{dn}}'
   Generator_stand_by_cost: '\mathrm{c}^{\mathrm{on}}'

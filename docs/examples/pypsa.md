@@ -601,7 +601,8 @@ def build():
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
 | [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(window=min_up_time)`                    |
-| [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal |
+| [`{c}-com-status-min_up_time_must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal |
+| [`{c}-com-status-min_down_time_must_stay_up`](#generator-com-status-min_down_time_must_stay_up) | done | the same prep mask over the down time brought in, status zero; PyPSA's name says `_must_stay_up`; rung 24 records it |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
 | [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
 
@@ -1970,6 +1971,58 @@ def build():
 </details>
 <!-- reference:rung_23_transformer_losses_secants:end -->
 
+### Rung 24 — must stay down
+
+A committable unit that stopped `down_time_before` snapshots before the horizon
+stays off until its `min_down_time` has passed. PyPSA fixes its status to zero
+in the first `min_down_time - down_time_before` snapshots. Here the cheapest
+unit in the network brought one snapshot of a three-snapshot down time into
+the horizon, so it stays off for two snapshots and the dearer coal unit serves
+the load.
+
+<!-- reference:rung_24_must_stay_down:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `9007.5`, 65 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_24_must_stay_down.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 24: must stay down — a committable unit still serving the down time it brought in stays off."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus a cheap committable unit that stopped one snapshot before the horizon and must stay off for three."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'warm',
+        bus='north',
+        committable=True,
+        p_nom=50,
+        marginal_cost=5,
+        p_min_pu=0.2,
+        min_down_time=3,
+        up_time_before=0,
+        down_time_before=1,
+        start_up_cost=20,
+    )
+    n.add('Load', 'swing24', bus='north', p_set=[25, 45, 45, 10])
+    return n
+```
+
+</details>
+<!-- reference:rung_24_must_stay_down:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2038,6 +2091,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{DT}`$ | `Generator_min_down_time` over $`\mathcal{G}`$ — least snapshots a unit stays off once stopped |
 | $`\mathrm{u}^{0}`$ | `Generator_status_initial` over $`\mathcal{G}`$ — one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
 | $`\mathrm{hold}`$ | `Generator_must_stay_up` over $`\mathcal{T} \times \mathcal{G}`$ — true while the up time a unit brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}`$ | `Generator_must_stay_down` over $`\mathcal{T} \times \mathcal{G}`$ — true while the down time a unit brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
 | $`\mathrm{c}^{\mathrm{up}}`$ | `Generator_start_up_cost` over $`\mathcal{G}`$ — cost of one start |
 | $`\mathrm{c}^{\mathrm{dn}}`$ | `Generator_shut_down_cost` over $`\mathcal{G}`$ — cost of one stop |
 | $`\mathrm{c}^{\mathrm{on}}`$ | `Generator_stand_by_cost` over $`\mathcal{T} \times \mathcal{G}`$ — cost of one snapshot spent on |
@@ -2839,7 +2893,10 @@ Generator_com_up_time:
 
 ```yaml
 Generator_com_down_time:
-  description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+  description: >-
+    `Generator-com-down-time` — a unit stopped within its own minimum down
+    time is still off. The first snapshot's share of the window is the
+    brought-in down time's, which the must-stay-down mask carries
   dims: [scenario, snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0 AND Generator_active
   expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
@@ -2863,6 +2920,24 @@ Generator_com_status_must_stay_up:
 
 ```math
 u_{\xi,t,g} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g} \wedge \mathrm{on}_{t,g}
+```
+
+### `Generator-com-status-min_down_time_must_stay_up`
+
+`Generator_com_status_must_stay_down`
+
+```yaml
+Generator_com_status_must_stay_down:
+  description: >-
+    `Generator-com-status-min_down_time_must_stay_up` — a unit still serving
+    the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+  dims: [scenario, snapshot, generator]
+  where: Generator_committable AND Generator_must_stay_down AND Generator_active
+  expression: Generator_status == 0
+```
+
+```math
+u_{\xi,t,g} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{rest}_{t,g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-run-bigM`
