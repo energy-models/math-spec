@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from math_spec import Spec
 from math_spec._expression_parser import ComparisonNode
 from math_spec._yaml import parse_yaml, read_yaml
-from math_spec.errors import LanguageError
+from math_spec.errors import SchemaError
 from math_spec.expansion import parse_and_expand
 from math_spec.resolution import Namespace, mask_of, resolve_expression, resolve_where_text
 from math_spec.validation import to_spec
@@ -98,13 +98,13 @@ def raw_of(source: str | Path | dict[str, Any]) -> dict[str, Any]:
 
 
 def expression_of(text: str, ns: Namespace, context: str) -> Expression:
-    """Parse, expand and resolve one expression into its program tree, raising every problem at once rather than collecting."""
+    """Parse, expand and resolve one expression into its program tree, raising every problem at once as `to_spec` would."""
     errors: list[str] = []
     ast = parse_and_expand(text, ns, context)
     assert not isinstance(ast, ComparisonNode), 'a comparison is a constraint, which comparison_of reads'
     resolved = resolve_expression(ast, ns, context, errors)
     if errors:
-        raise LanguageError('\n'.join(errors))
+        raise SchemaError('\n'.join(errors))
     assert resolved is not None
     return resolved
 
@@ -116,7 +116,7 @@ def comparison_of(text: str, ns: Namespace, context: str) -> tuple[Expression, s
     assert isinstance(ast, ComparisonNode), 'a value is an expression, which expression_of reads'
     left, right = (resolve_expression(side, ns, context, errors) for side in (ast.left, ast.right))
     if errors:
-        raise LanguageError('\n'.join(errors))
+        raise SchemaError('\n'.join(errors))
     assert left is not None and right is not None
     return left, ast.op, right
 
@@ -126,5 +126,5 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     errors: list[str] = []
     resolved = resolve_where_text(text, ns, context, errors, self_variable)
     if errors:
-        raise LanguageError('\n'.join(errors))
+        raise SchemaError('\n'.join(errors))
     return mask_of(resolved)

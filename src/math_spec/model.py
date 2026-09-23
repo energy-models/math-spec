@@ -1124,14 +1124,20 @@ class Spec(_StrictBlock):
             yield from self._collisions(f"Sos '{sname}'", Emitted.of(sname, block.type).by_kind)
 
     def _piecewise_references(self) -> Iterator[str]:
-        """A curve runs along a declared dimension through values parameters carrying it, gated by a binary, masked by a bool."""
+        """A curve runs along a declared dimension through numeric values parameters carrying it, gated by a binary, masked by a bool."""
         for name, pw in self.piecewise.items():
             context = f"piecewise '{name}'"
             if pw.over not in self.dimensions:
                 yield undeclared_dimension('piecewise', name, pw.over)
+                continue
             for i, link in enumerate(pw.links):
                 if link.values not in self.parameters:
                     yield f"{context}: link {i} values references undeclared parameter '{link.values}'"
+                elif (dtype := self.parameters[link.values].dtype) not in NUMERIC_DTYPES:
+                    yield (
+                        f"{context}: link {i} values parameter '{link.values}' is declared dtype: {dtype}, and a "
+                        f'breakpoint is a number. Declare it dtype: float or int.'
+                    )
                 elif pw.over not in self.parameters[link.values].dims:
                     yield (
                         f"{context}: link {i} values parameter '{link.values}' must carry dim "

@@ -191,7 +191,6 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 #: model takes — a file declares at most one — and
 #: `test_a_model_with_no_objective_prints_the_rest` covers it.
 UNREACHABLE = {
-    'if isinstance(node, Cases):',
     'return self.format.cases(self._arms(node, ctx)), _ATOM',
     'assert_never(node)',
     'assert_never(check)',

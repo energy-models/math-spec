@@ -27,6 +27,8 @@ NUMBER      ::= integer | float | "inf" | ".inf"
 - A float may carry an exponent, as in `1e5` or `2.5e-3`.
 - The same keyword twice in one call is an error.
 - An expression nests at most 100 levels deep, and so does a `where:` string.
+  With every named expression it reads written in, an expression nests at most
+  300 levels deep.
 
 ## Where a product of two variables is allowed
 

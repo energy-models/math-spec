@@ -213,9 +213,11 @@ class TestWillNotDecide:
             pytest.param('-2 < capacity', 'capacity > -2', id='a-signed-literal'),
             pytest.param('2.5 >= capacity', 'capacity <= 2.5', id='a-fraction-and-a-flipped-comparator'),
             pytest.param('0 != age', 'age != 0', id='a-comparator-that-is-its-own-mirror'),
+            pytest.param('123456789 < capacity', 'capacity > 123456789', id='a-literal-longer-than-six-digits'),
         ],
     )
     def test_the_rewrite_is_the_same_test_with_the_sides_swapped(self, schema: Spec, when: str, rewrite: str):
+        """The literal is quoted as the file wrote it: rounded to six digits, `123456789` became `1.23457e+08`, a different test."""
         [refusal] = refusals(schema, {'one': when, 'two': 'cyclic'})
         assert rewrite in refusal
 
