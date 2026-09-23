@@ -264,7 +264,7 @@
     },
     "MacroBlock": {
       "additionalProperties": false,
-      "description": "A parameterised expression template, defined in the YAML itself.\n\nLanguage, not code: formals (``args`` positional, ``kwargs`` keyword)\nshadow model names inside the template, and every call site expands into\ncore AST before either backend sees the expression.",
+      "description": "A parameterised expression template, defined in the YAML itself.\n\nLanguage, not code: formals (``args`` positional, ``kwargs`` keyword)\nshadow model names inside the template, and every call site expands in\nthe syntax tree before resolution reads the expression.",
       "properties": {
         "args": {
           "default": [],

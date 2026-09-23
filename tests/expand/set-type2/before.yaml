@@ -1,0 +1,13 @@
+dimensions:
+  g: { dtype: str }
+
+variables:
+  p:
+    dims: [g]
+    bounds: { lower: 0, upper: 10 }
+
+sos:
+  pick:
+    variable: p
+    over: g
+    type: 2

@@ -34,15 +34,12 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterator
 
-    from math_spec._expression_parser import ArithmeticNode
-
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'And',
-    'ArithmeticComparison',
     'Assumption',
     'BooleanLiteral',
     'Cases',
@@ -51,7 +48,6 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'CountComparison',
-    'Derivation',
     'DimensionComparison',
     'DimensionDeclaration',
     'DimensionDtype',
@@ -62,15 +58,12 @@ __all__ = [
     'ExpressionComparison',
     'ExpressionDeclaration',
     'FanIn',
-    'FirstOf',
     'Footprint',
-    'Holds',
     'Join',
     'JoinColumns',
-    'LastOf',
     'Mask',
-    'MaskOf',
     'Multiply',
+    'Named',
     'Negate',
     'Not',
     'ObjectiveDeclaration',
@@ -87,6 +80,7 @@ __all__ = [
     'Predicate',
     'PredicateOperator',
     'Program',
+    'PulledBackPredicate',
     'QuadraticPosition',
     'Reach',
     'Region',
@@ -126,7 +120,7 @@ ConstraintSense = ComparisonOperator
 #: How a shape operator's output rows relate to its input slots, answered by
 #: :func:`fan_in` for every node.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
-ObjectiveSense = Literal['minimize', 'maximize']
+ObjectiveSense = _model.ObjectiveSense
 
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
@@ -240,12 +234,7 @@ class Divide:
 
 @dataclass(frozen=True)
 class Sum:
-    """Sum ``operand`` over the named dims, removing them from the result.
-
-    ``sum(x, by=relation, over=a, into=b)`` lowers to a ``Sum`` over a
-    :class:`Join`, ``over`` naming the dims the join drops: the group-by is
-    this node, and the join is its operand.
-    """
+    """Sum ``operand`` over the named dims, removing them from the result."""
 
     operand: Expression
     over: tuple[str, ...]
@@ -253,15 +242,19 @@ class Sum:
 
 @dataclass(frozen=True)
 class Join:
-    """Join ``operand`` to a relation on the columns ``columns`` joins on, and carry the columns it groups by.
+    """Join ``operand`` to a relation on the columns ``columns`` joins on, and sum each group of the columns it groups by.
 
-    The operand carries every dim joined on. The result keeps every dim the
-    operand carries and gains the dims grouped by and not joined on; the dims
-    joined on and not grouped by leave only under a :class:`Sum` over them.
-    ``at(x, by=relation, over=a, into=b)`` lowers to a bare ``Join``: the
-    grouped columns hold the relation's whole key, which the loader checks, so
-    each row of the result meets one row of the relation and reads one value.
-    The join fans out where several key tuples share the values joined on.
+    The operand carries every dim joined on. The result has the operand's
+    dims, less the dims joined on, plus the dims grouped by: the join and the
+    sum over each group are one contraction, and this node is both.
+    ``sum(x, by=relation, over=a, into=b)`` and ``at(x, by=relation, over=a,
+    into=b)`` both lower to a ``Join``. Where the grouped columns hold the
+    relation's whole key (:attr:`JoinColumns.one_row_per_group`), each group
+    is one row and the node is ``at``'s lookup: one value per row of the
+    result, fanned out where several key tuples share the values joined on.
+    Elsewhere each group sums several rows, which is ``sum``'s. The loader
+    refuses a ``sum`` of the first shape and an ``at`` of the second, so
+    :func:`fan_in` reads which one a node is off its columns.
     """
 
     operand: Expression
@@ -347,6 +340,22 @@ class Cases:
     regions: tuple[Region, ...]
 
 
+@dataclass(frozen=True)
+class Named:
+    """A use of an ``expressions:`` entry, standing where its name was written, with the entry's body under it.
+
+    Only a :attr:`~math_spec.model.Spec.resolved` tree holds one: it is what
+    lets the typesetter print the symbol where the name stood and define it
+    once, and what ``in_math`` is read off. Lowering inlines every one, so no
+    :class:`Program` carries it and :data:`Expression` does not name it. Every
+    use of one entry holds the one node resolution built for it, and a walk
+    steps through it.
+    """
+
+    name: str
+    body: Expression
+
+
 #: Every expression node, as one type — what a walk takes. The set is
 #: *closed*: nothing registers into it, so a consumer that walks it ends in
 #: ``assert_never`` and a node added without a branch is a type error at the
@@ -383,11 +392,13 @@ def fan_in(expression: Expression) -> FanIn:
     """
     if isinstance(expression, Sum):
         return 'many-to-one'
+    if isinstance(expression, Join):
+        return 'one-to-one' if expression.columns.one_row_per_group else 'many-to-one'
     if isinstance(expression, WindowSum):
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Join, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -395,6 +406,8 @@ def fan_in(expression: Expression) -> FanIn:
 
 def children(expression: Expression) -> tuple[Expression, ...]:
     """The sub-expressions of *expression* — what every walk recurses through."""
+    if isinstance(expression, Named):
+        return (expression.body,)
     if isinstance(expression, Negate):
         return (expression.operand,)
     if isinstance(expression, (Add, Multiply)):
@@ -520,6 +533,11 @@ class JoinColumns:
     def kept_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.kept)
 
+    @property
+    def one_row_per_group(self) -> bool:
+        """Whether the grouped columns hold the relation's whole key, so each group is one row: a lookup, not a sum."""
+        return set(self.relation.key) <= set(self.grouped)
+
 
 @dataclass(frozen=True)
 class Partition:
@@ -566,49 +584,13 @@ class DimensionDeclaration:
 
 
 @dataclass(frozen=True)
-class MaskOf:
-    """A ``bool`` parameter true wherever *values* has a row.
-
-    The mask a ``points:`` naming one of the block's own breakpoints derives:
-    the curve runs as far as its values do. ``values`` is the name the file
-    wrote, so a refusal about the mask can say it.
-    """
-
-    block: str
-    values: str
-
-
-@dataclass(frozen=True)
-class FirstOf:
-    """A ``bool`` parameter marking, per curve, the first breakpoint *mask* admits."""
-
-    block: str
-    mask: str
-
-
-@dataclass(frozen=True)
-class LastOf:
-    """Its sibling for the last breakpoint."""
-
-    block: str
-    mask: str
-
-
-#: How an emitted parameter is filled — closed, so a consumer binding data
-#: dispatches on it and a kind added later is a type error at that match.
-#: Each names the ``piecewise:`` block whose expansion emitted the parameter.
-Derivation = MaskOf | FirstOf | LastOf
-
-
-@dataclass(frozen=True)
 class PiecewiseDeclaration:
     """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
 
-    The expansion lowered the links into constraints and emitted the
-    parameters it needs — each of those says how it is filled, on its own
-    :attr:`ParameterDeclaration.derivation`. What the block assumes of its
-    numbers is an :data:`Assumption` like any other, under
-    :attr:`Program.assumptions`; what is left here is the curve.
+    The expansion lowered the links into constraints over the file's own
+    parameters, and emitted none. What the block assumes of its numbers is an
+    :class:`Assumption` like any other, under :attr:`Program.assumptions`; what
+    is left here is the curve.
 
     Attributes:
         over: The breakpoint dimension.
@@ -622,7 +604,7 @@ class PiecewiseDeclaration:
 
 
 @dataclass(frozen=True)
-class Holds:
+class Assumption:
     """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
 
     ``predicate`` is true at every coordinate of its frame — the product of
@@ -638,14 +620,6 @@ class Holds:
     #: ``piecewise:`` method implies. The refusal trails it: the names alone
     #: say which columns are wrong, and not why the rule is there.
     description: str | None = None
-
-
-#: One fact about the data a consumer has to check before it solves — the
-#: file's own, and every one a ``piecewise:`` method implies, which the
-#: expansion writes into ``assumptions:`` and a load derives for a block still
-#: declared. The data decides whether each holds, so the language states the
-#: condition and the consumer holding the numbers checks.
-Assumption = Holds
 
 
 def assumption_message(name: str, assumption: Assumption) -> str:
@@ -673,11 +647,6 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
-    #: How this parameter is filled where a ``piecewise:`` expansion emitted
-    #: it, or ``None`` for one the file declares. Who supplies the data
-    #: follows: the caller binds a declared parameter, and an emitted one is
-    #: built from the block's own breakpoints the way its derivation says.
-    derivation: Derivation | None = None
 
 
 @dataclass(frozen=True)
@@ -1138,22 +1107,6 @@ class ExpressionComparison:
 
 
 @dataclass(frozen=True)
-class ArithmeticComparison:
-    """The same comparison as resolution types it, its sides in the core syntax tree.
-
-    What the spec-side readers walk — the typesetter, the dim rules, the
-    exclusivity check. :func:`~math_spec.lowering.lower_program` rebuilds
-    every mask with an :class:`ExpressionComparison` in its place, so a
-    program never carries one.
-    """
-
-    left: ArithmeticNode
-    op: PredicateOperator
-    right: ArithmeticNode
-    dims: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class DimensionComparison:
     """Compare a dimension's own coordinates against a literal."""
 
@@ -1257,6 +1210,22 @@ class TranslatedPredicate:
 
 
 @dataclass(frozen=True)
+class PulledBackPredicate:
+    """*operand* read through a relation — ``at(has_curve, by=converter_of, over=converter, into=flow)``.
+
+    True at a coordinate where the relation has a row and *operand* holds at
+    the coordinate that row reads. False where the relation has no row, which
+    is what a missing row already means in a mask. The dims ``columns``
+    joins on go and the dims it groups by arrive, as a lookup
+    :class:`Join`'s do.
+    """
+
+    operand: Mask
+    columns: JoinColumns
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Not:
     operand: Predicate
 
@@ -1273,38 +1242,12 @@ class Or:
     right: Predicate
 
 
-#: Every resolved predicate node. A lowered mask's ``root`` holds every member
-#: but :class:`ArithmeticComparison`, which lowering rewrites into an
-#: :class:`ExpressionComparison`, so a consumer walking a program never meets
-#: one. The parser's ``Unresolved*`` nodes are not members: they live with the
-#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
-#: before anything here is asked.
-Predicate = (
-    BooleanLiteral
-    | DimensionPosition
-    | ParameterDefined
-    | VariableDefined
-    | ParameterComparison
-    | ExpressionComparison
-    | ArithmeticComparison
-    | DimensionComparison
-    | RelationComparison
-    | RelationPairComparison
-    | RelationDefined
-    | CountComparison
-    | TranslatedPredicate
-    | Not
-    | And
-    | Or
-)
-
 #: Every predicate resolution has typed: it names a declaration and the kind is
 #: settled. Resolution passes these straight through, having nothing left to
 #: decide about them.
 TypedPredicate = (
     ParameterComparison
     | ExpressionComparison
-    | ArithmeticComparison
     | ParameterDefined
     | VariableDefined
     | DimensionComparison
@@ -1314,6 +1257,7 @@ TypedPredicate = (
     | RelationDefined
     | CountComparison
     | TranslatedPredicate
+    | PulledBackPredicate
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
@@ -1321,6 +1265,11 @@ TypedPredicate = (
 #: these classes directly, over leaves still unresolved, so a pre-resolution
 #: tree shares them — the transient impurity resolution normalizes away.
 Connective = Not | And | Or
+
+#: Every resolved predicate node. The parser's ``Unresolved*`` nodes are not members: they live with the
+#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
+#: before anything here is asked.
+Predicate = BooleanLiteral | TypedPredicate | Connective
 
 
 def where_children(where: Predicate) -> tuple[Predicate, ...]:
@@ -1371,19 +1320,20 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
         case (
             ParameterComparison()
             | ExpressionComparison()
-            | ArithmeticComparison()
             | ParameterDefined()
             | VariableDefined()
             | CountComparison()
             | TranslatedPredicate()
+            | RelationComparison()
+            | RelationPairComparison()
+            | RelationDefined()
+            | PulledBackPredicate()
         ):
             return frozenset(atom.dims)
         case DimensionComparison():
             return frozenset({atom.name})
         case DimensionPosition():
             return frozenset({atom.name, *(atom.partition.joined_dims if atom.partition is not None else ())})
-        case RelationComparison() | RelationPairComparison() | RelationDefined():
-            return frozenset(atom.dims)
         case _:
             assert_never(atom)
 
@@ -1406,13 +1356,12 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
             return frozenset({atom.name, atom.other})
         case ExpressionComparison():
             return _names_under(atom.left, atom.right)
-        case ArithmeticComparison():
-            msg = 'a resolved mask is asked what it reads; lowering rebuilds it first, and the program mask answers.'
-            raise AssertionError(msg)
         case CountComparison():
             return atom.predicate.names_read
         case TranslatedPredicate():
             return atom.operand.names_read
+        case PulledBackPredicate():
+            return atom.operand.names_read | {atom.columns.name}
         case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:

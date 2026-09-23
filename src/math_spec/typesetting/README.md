@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: math-spec Contributors
 SPDX-License-Identifier: MIT
 -->
 
-# `typeset/` — the model, printed
+# `typesetting/` — the model, printed
 
 This package is a consumer of the resolved core syntax tree. It builds no model
 and binds no data. It walks the typed tree that `to_spec` validates, and prints

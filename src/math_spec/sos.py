@@ -84,8 +84,8 @@ _SEGMENTS = {
 def expand_sets(schema: Spec) -> Spec:
     """*schema* with every ``sos:`` block written out as binaries and the rows that link them.
 
-    The record of what an expanded curve derived rides along, because a model
-    whose curves are already written out is the one this is usually asked of.
+    The curves an expansion wrote out ride along, because a model whose
+    curves are already written out is the one this is usually asked of.
     """
     from math_spec.model import Spec as Model
 
@@ -105,23 +105,23 @@ def emit(raw: dict[str, object], name: str) -> None:
             it runs over.
         name: Which set to lower.
     """
-    sets = _section(raw, 'sos')
+    sets = section(raw, 'sos')
     block = sets.pop(name)
     assert isinstance(block, dict), 'a validated model carries each set as a mapping'
     variable, over, order = block['variable'], block['over'], block['type']
-    member = _section(raw, 'variables')[variable]
+    member = section(raw, 'variables')[variable]
     assert isinstance(member, dict), 'a validated model carries each variable as a mapping'
     dims = list(member['dims'])
     emitted = Emitted.of(name, order)
 
-    _section(raw, 'variables')[emitted.seg] = {
+    section(raw, 'variables')[emitted.seg] = {
         'dims': dims,
         **({'where': member['where']} if member.get('where') else {}),
         'domain': 'binary',
         'description': _SEGMENTS[order],
     }
     picked = emitted.seg if order == 1 else f'{emitted.seg} + shift({emitted.seg}, along={over}, offset=1, edge=0)'
-    constraints = _section(raw, 'constraints')
+    constraints = section(raw, 'constraints')
     constraints[emitted.pick] = {
         'dims': [d for d in dims if d != over],
         'expression': f'sum({emitted.seg}, over={over}) <= 1',
@@ -157,7 +157,7 @@ def _coefficients(member: dict[str, object]) -> tuple[float | str, float | str]:
     return below, above
 
 
-def _section(raw: dict[str, object], name: str) -> dict[str, object]:
+def section(raw: dict[str, object], name: str) -> dict[str, object]:
     """The *name* section of the raw model, created empty where the file declares none."""
     section = raw.setdefault(name, {})
     assert isinstance(section, dict), f'{name}: is a mapping in a validated model'

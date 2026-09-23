@@ -15,9 +15,8 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
-from math_spec.program import Predicate
+from math_spec.program import Dual, Expression, Join, Named, Predicate, Sum, Translate, WindowSum
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
@@ -125,47 +124,32 @@ def _rendered_trees() -> Iterator[object]:
     printed at all.
     """
     resolved = to_spec(golden.MODEL).resolved
-    yield resolved.objective
-    for expression, mask in resolved.constraints.values():
-        yield expression
-        if mask is not None:
-            yield mask.root
+    assert resolved.objective is not None
+    yield resolved.objective.expression
+    for constraint in resolved.constraints.values():
+        yield constraint.lhs
+        yield constraint.rhs
+        if constraint.where is not None:
+            yield constraint.where.root
     for mask in resolved.variables.values():
         if mask is not None:
             yield mask.root
-    for holds, where, _ in resolved.assumptions.values():
-        yield holds.root
-        if where is not None:
-            yield where.root
+    for assumption in resolved.assumptions.values():
+        yield assumption.predicate.root
+        if assumption.where is not None:
+            yield assumption.where.root
     yield from resolved.expressions.values()
     for links in resolved.piecewise.values():
         yield from links
 
 
-#: What resolution never hands the walk: the four nodes a where carries before
-#: its sides are read, the three an expression only carries before names are
-#: resolved, and the lowered form of a comparison of expressions, which only a
-#: program carries. The walk raises on each rather than rendering it, so a
-#: fixture reaching one would be a bug in resolution rather than a case worth
-#: committing output for.
-UNRESOLVED = {
-    'UnresolvedNameNode',
-    'UnresolvedComparisonNode',
-    'ColumnNode',
-    'QuotedNode',
-    'NameNode',
-    'NameListNode',
-    'KeywordNode',
-    'ExpressionComparison',
-}
-
-#: A dataclass the walk steps *through* rather than renders: an arm has no
+#: A dataclass the walk steps *through* rather than renders: a region has no
 #: branch of its own — its ``when`` and ``value`` do — the columns a join
 #: names and the relation it reads are the facts a node carries rather than
 #: nodes, and a ``Mask`` is the wrapper a leaf carries a predicate in. None is a
 #: member of any node union, so they are subtracted from what the tree walk
 #: finds rather than added to what the vocabulary declares.
-CARRIERS = {'CaseArm', 'JoinColumns', 'Mask', 'Partition', 'RelationDeclaration'}
+CARRIERS = {'Region', 'JoinColumns', 'Mask', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
@@ -177,10 +161,10 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     `coverage` installed, and its failure names the construct rather than a line.
     """
     kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)} - CARRIERS
-    declared = {node.__name__ for node in (*get_args(Predicate), *get_args(ArithmeticNode), ComparisonNode)}
-    assert kinds == declared - UNRESOLVED, (
+    declared = {node.__name__ for node in (*get_args(Predicate), *get_args(Expression), Named)}
+    assert kinds == declared, (
         f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
-        f'{sorted(declared - UNRESOLVED - kinds)}. Every node the walk renders needs a case here, '
+        f'{sorted(declared - kinds)}. Every node the walk renders needs a case here, '
         f'or its arm ships output nobody has read.'
     )
 
@@ -188,31 +172,28 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
 def test_the_golden_model_calls_every_operator_in_the_language():
     """``BUILTINS`` is the closed set, so a new operator lands with its case here.
 
-    ``dual`` resolves to its own leaf rather than staying a call, so it is
-    counted by that leaf.
+    Each operator resolves to the node it is, so the census counts the nodes
+    by the verb the file writes them with.
     """
+    verbs = {Sum: 'sum', Translate: 'shift', WindowSum: 'sum_back', Dual: 'dual'}
     nodes = [node for tree in _rendered_trees() for node in _nodes(tree)]
-    calls = {node.name for node in nodes if isinstance(node, FunctionCallNode)}
-    calls |= {'dual' for node in nodes if isinstance(node, DualNode)}
+    calls = {verb for node in nodes for kind, verb in verbs.items() if isinstance(node, kind)}
+    calls |= {'at' if node.columns.one_row_per_group else 'sum' for node in nodes if isinstance(node, Join)}
     assert calls == BUILTIN_NAMES, (
         f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'
     )
 
 
-#: What the fixture cannot reach, by the source text of the line. The guards
-#: are what the walk raises when resolution hands it something it types away,
-#: so a model reaching one is a bug upstream. The absent objective is the arm a
-#: *different* model takes — a file declares at most one — and
+#: What the fixture cannot reach, by the source text of the line. A bare
+#: ``Cases`` stands under the ``Named`` node resolution builds for its entry
+#: and nowhere else, so the arm that would print one in place is the type's
+#: closure rather than a case. The absent objective is the arm a *different*
+#: model takes — a file declares at most one — and
 #: `test_a_model_with_no_objective_prints_the_rest` covers it.
 UNREACHABLE = {
-    'if isinstance(node, UnresolvedNode | KwargNode):',
-    "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
-    'if isinstance(node, ExpressionComparison):',
-    "msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'",
-    'if not isinstance(node, ComparisonNode):',
-    "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
-    'raise AssertionError(msg)',
+    'if isinstance(node, Cases):',
+    'return self.format.cases(self._arms(node, ctx)), _ATOM',
     'assert_never(node)',
     'assert_never(check)',
     'if block is None:',

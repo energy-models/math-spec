@@ -2,18 +2,19 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Name resolution — the pass that makes the core AST fully typed.
+"""Name resolution — the pass that reads the syntax tree into the program vocabulary.
 
-Parsers emit unresolved names; this module rewrites each into the typed node
-its kind asks for, so the AST reaching a consumer holds none. The rules live in
-the language reference.
+The grammars emit bare names and calls; this module builds the
+:mod:`math_spec.program` node each stands for, so every pass after — the dim
+rules, the degree rules, the typesetter, lowering — reads one vocabulary. The
+rules live in the language reference.
 """
 
 from __future__ import annotations
 
 import datetime
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
@@ -21,45 +22,31 @@ import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
-    CaseArm,
-    CasesNode,
     ComparisonNode,
-    DefinitionNode,
-    DimensionNode,
-    DualNode,
-    EdgeNode,
     FunctionCallNode,
-    JoinNode,
     KeywordNode,
-    KwargNode,
     NameListNode,
     NameNode,
     NumberNode,
-    ParameterNode,
-    ParsedNode,
-    PartitionNode,
     UnaryOperatorNode,
-    VariableNode,
-    case_context,
     nodes,
     shown,
-    with_children,
 )
 from math_spec._where_parser import (
     ColumnNode,
-    QuotedNode,
     UnresolvedComparisonNode,
     UnresolvedCountNode,
-    UnresolvedNameNode,
     UnresolvedPredicateCallNode,
     UnresolvedWhereNode,
     parse_where,
 )
-from math_spec.dimensions import dims_of
-from math_spec.errors import LanguageError, did_you_mean, prefixed
-from math_spec.expansion import expand
+from math_spec.dimensions import dims_of, join_dims
+from math_spec.errors import DimensionError, LanguageError, SchemaError, case_context, did_you_mean, prefixed
+from math_spec.exclusivity import overlapping
+from math_spec.expansion import expand, parse_and_expand
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
+    AMOUNTS,
     BUILTINS,
     EDGE_WRAP,
     PARTITION_NAMES_ITS_GROUP,
@@ -68,40 +55,68 @@ from math_spec.operators import (
     unknown_operator_message,
 )
 from math_spec.program import (
+    Add,
     And,
-    ArithmeticComparison,
+    Assumption,
     BooleanLiteral,
+    Cases,
+    Constant,
+    ConstraintDeclaration,
     CountComparison,
     DimensionComparison,
     DimensionPosition,
+    Divide,
+    Dual,
+    Expression,
+    ExpressionComparison,
+    Join,
     JoinColumns,
     Mask,
+    Multiply,
+    Named,
+    Negate,
     Not,
+    ObjectiveDeclaration,
     Or,
+    Parameter,
     ParameterComparison,
     ParameterDefined,
     Partition,
+    Power,
     Predicate,
     PredicateOperator,
+    PulledBackPredicate,
+    Region,
     RelationComparison,
     RelationDeclaration,
     RelationDefined,
     RelationPairComparison,
+    Sum,
+    Translate,
     TranslatedPredicate,
     TypedPredicate,
+    Variable,
     VariableDefined,
+    WindowSum,
+    carries_variable,
+    walk,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import DeclaredDtype, Spec
+    from math_spec._expression_parser import ComparisonOperator
+    from math_spec.model import DeclaredDtype, ExpressionBlock, Spec
 
 
 #: What a name a file may write turns out to be. Answered by
 #: :meth:`Namespace.kind`, so a pass reading a name switches over this rather
 #: than over the stores it would otherwise have to try in order.
 DeclarationKind = Literal['variable', 'parameter', 'dimension', 'relation']
+
+#: An ``edge=`` as a translation carries it: whether it wraps, and the number
+#: the vacated positions contribute where it does not.
+_Edge = tuple[bool, float | None]
 
 
 class Namespace:
@@ -110,7 +125,18 @@ class Namespace:
     A name has one kind: model.py refuses one declared under two sections.
     """
 
-    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'parameters', 'relations', 'schema', 'variables')
+    __slots__ = (
+        '_loading',
+        '_named',
+        'constraints',
+        'dimensions',
+        'dtypes',
+        'leaf_dims',
+        'parameters',
+        'relations',
+        'schema',
+        'variables',
+    )
 
     def __init__(self, schema: Spec) -> None:
         #: The schema the names come from — what an expression is expanded and
@@ -141,6 +167,42 @@ class Namespace:
             **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
             **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
         }
+        #: named expression -> its resolved node, or ``None``, and its refusals;
+        #: filled the first time anything reads the name.
+        self._named: dict[str, tuple[Named | None, tuple[str, ...]]] = {}
+        #: The named expressions being resolved, outermost first — a cycle's chain.
+        self._loading: list[str] = []
+
+    def named(self, name: str, context: str) -> Named:
+        """The ``expressions:`` entry *name* as the node that stands where its name is written.
+
+        Resolved under the entry's own context the first time it is asked
+        for, and read from then on, so a fault in it is reported once.
+
+        Raises:
+            SchemaError: The entry reads itself, or does not load.
+        """
+        if name in self._loading:
+            chain = ' -> '.join([*self._loading[self._loading.index(name) :], name])
+            msg = f'{context}: circular expression reference: {chain}'
+            raise SchemaError(msg)
+        node, _ = self.named_entry(name)
+        if node is None:
+            msg = f"{context}: named expression '{name}' does not load. Its refusal is listed with it."
+            raise SchemaError(msg)
+        return node
+
+    def named_entry(self, name: str) -> tuple[Named | None, tuple[str, ...]]:
+        """The ``expressions:`` entry *name* resolved, or ``None``, with every refusal it earned."""
+        if name not in self._named:
+            errors: list[str] = []
+            self._loading.append(name)
+            try:
+                node = _named(name, self.schema.expressions[name], self, errors)
+            finally:
+                self._loading.pop()
+            self._named[name] = (node, tuple(errors))
+        return self._named[name]
 
     def kind(self, name: str) -> DeclarationKind | None:
         """What *name* was declared as, or ``None`` where the file declares it nowhere."""
@@ -185,47 +247,27 @@ class Namespace:
         )
 
 
-class ResolvedConstraint(NamedTuple):
-    """One constraint's typed halves: the comparison it states, and the mask it holds under."""
-
-    expression: ComparisonNode
-    where: Mask | None
-
-
-class ResolvedAssumption(NamedTuple):
-    """One assumption's typed halves: the predicate it states, and the mask it is checked under.
-
-    ``description`` is the sentence a refusal quotes where one was written or
-    a method implied one, and ``None`` where the name is the whole of what a
-    reader is told.
-    """
-
-    holds: Mask
-    where: Mask | None
-    description: str | None = None
-
-
 @dataclass(frozen=True)
 class Resolved:
-    """Every expression and where string of one schema, typed once at load.
+    """Every expression and where string of one schema, typed once at load, in the program's own vocabulary.
 
     :func:`~math_spec.validation.validate_expressions` builds it, and every
     reader after — the dim rules, lowering, the typesetter — walks these trees
     rather than parsing, expanding and resolving the text again. Each mapping
     is keyed as the schema's own section is. A ``where`` the file did not
-    write, or one every row passes, is ``None``.
+    write, or one every row passes, is ``None``. What a program does not carry
+    is here alone: every use of an ``expressions:`` entry stands as the
+    :class:`~math_spec.program.Named` node resolution built for it, which
+    lowering inlines.
 
     Attributes:
-        expressions: Each ``expressions:`` entry as the node its name expands
-            to — a plain entry a :class:`~math_spec._expression_parser.DefinitionNode`
-            carrying its name over its body, a cased one a
-            :class:`~math_spec._expression_parser.CasesNode` with every arm's
-            ``when`` typed. Every entry either names is inlined where it
-            stood, so a walk over one sees the whole chain.
+        expressions: Each ``expressions:`` entry as the node every use of it
+            holds — a plain entry's body, or a cased one's
+            :class:`~math_spec.program.Cases` with every region's mask typed
+            and the ``otherwise`` carrying the negation of the rest.
         variables: Each variable's ``where``.
-        constraints: Each constraint's comparison and ``where``.
-        objective: The objective's expression, ``None`` where the file
-            declares none.
+        constraints: Each constraint, as a program declares it.
+        objective: The objective, ``None`` where the file declares none.
         relations: Each relation's columns and key, as declared — the one
             copy, which every :class:`~math_spec.program.JoinColumns` and
             :class:`~math_spec.program.Partition` in the trees holds.
@@ -234,13 +276,13 @@ class Resolved:
         piecewise: Each ``piecewise:`` block's link expressions, in link order.
     """
 
-    expressions: dict[str, CasesNode | DefinitionNode]
+    expressions: dict[str, Named]
     variables: dict[str, Mask | None]
-    constraints: dict[str, ResolvedConstraint]
-    objective: ArithmeticNode | None
+    constraints: dict[str, ConstraintDeclaration]
+    objective: ObjectiveDeclaration | None
     relations: dict[str, RelationDeclaration]
-    assumptions: dict[str, ResolvedAssumption]
-    piecewise: dict[str, tuple[ArithmeticNode, ...]]
+    assumptions: dict[str, Assumption]
+    piecewise: dict[str, tuple[Expression, ...]]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:
@@ -253,11 +295,11 @@ class Resolved:
         counts because it states rows, so the answer does not move when the
         curve is written out (:meth:`~math_spec.model.Spec.expand`).
         """
-        roots: list[ParsedNode] = [constraint.expression for constraint in self.constraints.values()]
+        roots = [side for constraint in self.constraints.values() for side in (constraint.lhs, constraint.rhs)]
         if self.objective is not None:
-            roots.append(self.objective)
+            roots.append(self.objective.expression)
         roots.extend(link for links in self.piecewise.values() for link in links)
-        return frozenset(node.name for node in nodes(*roots) if isinstance(node, CasesNode | DefinitionNode))
+        return frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
 
 
 # ---------------------------------------------------------------------------
@@ -279,26 +321,44 @@ def mask_of(node: Predicate | None) -> Mask | None:
     return Mask(node)
 
 
+def remainder(masks: Iterable[Mask]) -> Mask:
+    """The region left over: where not one of *masks* holds.
+
+    The ``otherwise`` arm's own mask, built rather than written. ``cases:``
+    carries at least one case, so there is no vacuous truth to spell.
+    """
+    first, *rest = masks
+    left = ~first
+    for mask in rest:
+        left = left & ~mask
+    return left
+
+
 # ---------------------------------------------------------------------------
 # expressions
 # ---------------------------------------------------------------------------
 
 
 def resolve_expression(
-    node: ParsedNode,
+    node: ArithmeticNode,
     ns: Namespace,
     context: str,
     errors: list[str],
-) -> ParsedNode | None:
-    """Rewrite every ``NameNode`` under *node* to a typed node, checking operator call shapes on the way.
+    *,
+    formals: frozenset[str] = frozenset(),
+) -> Expression | None:
+    """Build the program tree *node* stands for, checking every name and operator call shape on the way.
 
     Returns:
-        The typed tree, or ``None`` once anything failed — appending to
-        *errors* rather than raising, so a caller collecting problems across a
-        whole schema reports them together.
+        The tree, or ``None`` once anything failed — appending to *errors*
+        rather than raising, so a caller collecting problems across a whole
+        schema reports them together. Also ``None``, with nothing appended,
+        where a name in *formals* stands under *node*: a macro template is
+        checked by the rules a call site is before anything calls it, and
+        only the call site that binds its formals has a tree to build.
     """
     before = len(errors)
-    resolved = _Resolver(ns, context, errors).expression(node)
+    resolved = _Resolver(ns, context, errors, formals=formals).arith(node)
     return None if len(errors) > before else resolved
 
 
@@ -343,44 +403,186 @@ def resolve_where_text(
     return resolve_where(node, ns, context, errors, self_variable)
 
 
+def resolve_expression_text(
+    text: str, ns: Namespace, context: str, errors: list[str], *, ceiling: int | None
+) -> Expression | None:
+    """Parse, expand, resolve and degree-check one expression string that stands for a value.
+
+    *ceiling* is the degree the position honours, and ``None`` for an
+    ``expressions:`` entry's body: what the math admits
+    (:func:`~math_spec.degree.check_expression`) is a rule about the position
+    that *reads* it, so it fires on the expanded tree of every objective and
+    piecewise link, and not where an entry is declared. A constraint is
+    :func:`resolve_constraint_text`'s.
+
+    Returns:
+        The typed tree, or ``None`` once anything failed, the problem appended
+        to *errors*.
+    """
+    ast = _parsed(text, ns, context, errors)
+    if ast is None:
+        return None
+    if isinstance(ast, ComparisonNode):
+        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {text!r}')
+        return None
+    resolved = resolve_expression(ast, ns, context, errors)
+    if resolved is None or ceiling is None:
+        return resolved
+    return None if _over_the_ceiling(resolved, context, errors, ceiling=ceiling) else resolved
+
+
+def resolve_constraint_text(
+    text: str, ns: Namespace, context: str, errors: list[str]
+) -> tuple[Expression, ComparisonOperator, Expression] | None:
+    """Parse, expand, resolve and degree-check one constraint string: exactly one comparison, a variable on a side (#1171).
+
+    Returns:
+        The two sides and the sense between them, or ``None`` once anything
+        failed, the problem appended to *errors*.
+    """
+    ast = _parsed(text, ns, context, errors)
+    if ast is None:
+        return None
+    if not isinstance(ast, ComparisonNode):
+        errors.append(
+            f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {text!r}'
+        )
+        return None
+    found = len(errors)
+    resolver = _Resolver(ns, context, errors)
+    left, right = resolver.arith(ast.left), resolver.arith(ast.right)
+    if len(errors) > found or left is None or right is None:
+        return None
+    if any(_over_the_ceiling(side, context, errors, ceiling=2) for side in (left, right)):
+        return None
+    if not (carries_variable(left) or carries_variable(right)):
+        errors.append(
+            f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
+            f'Got: {text!r}\n'
+            f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
+            f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
+            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
+        )
+        return None
+    return left, ast.op, right
+
+
+def _parsed(text: str, ns: Namespace, context: str, errors: list[str]) -> ComparisonNode | ArithmeticNode | None:
+    """*text* parsed and its macros expanded, or ``None`` with the refusal appended."""
+    try:
+        return parse_and_expand(text, ns, context)
+    except ValueError as e:
+        errors.append(prefixed(context, e))
+        return None
+
+
+def _over_the_ceiling(node: Expression, context: str, errors: list[str], *, ceiling: int) -> bool:
+    """Whether *node* breaks the degree rules at *ceiling*, the refusal appended."""
+    try:
+        degree.check_expression(node, context, ceiling=ceiling)
+    except LanguageError as e:
+        errors.append(str(e))
+        return True
+    return False
+
+
+def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) -> Named | None:
+    """One ``expressions:`` entry as the node every use of it holds, or ``None`` once anything in it failed.
+
+    A cased entry's arms are checked one by one, so every fault is collected
+    rather than the first, and proved apart only once all of them resolve.
+    The ``otherwise`` arm becomes the region left over, so a consumer adds
+    regions rather than working out which one is left; the language proved
+    the rest apart, so the regions are disjoint and total.
+    """
+    context = f"Named expression '{name}'"
+    if not block.cases:
+        assert block.expression is not None
+        body = resolve_expression_text(block.expression, ns, context, errors, ceiling=None)
+        return None if body is None else Named(name, body)
+
+    found = len(errors)
+    regions: list[Region] = []
+    masks: dict[str, Predicate] = {}
+    for case_name, case in block.cases.items():
+        arm_context = case_context(name, case_name)
+        when = resolve_where_text(case.when, ns, arm_context, errors)
+        if isinstance(when, BooleanLiteral):
+            errors.append(_constant_arm(arm_context, value=when.value))
+        elif when is not None:
+            masks[case_name] = when
+        value = resolve_expression_text(case.expression, ns, arm_context, errors, ceiling=None)
+        if when is not None and value is not None:
+            regions.append(Region(Mask(when), value))
+    assert block.otherwise is not None
+    fallback = resolve_expression_text(block.otherwise, ns, case_context(name, None), errors, ceiling=None)
+    if len(errors) > found or fallback is None:
+        return None
+    errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
+    if len(errors) > found:
+        return None
+    left_over = Region(remainder(region.when for region in regions), fallback)
+    return Named(name, Cases((*regions, left_over)))
+
+
+def _constant_arm(context: str, *, value: bool) -> str:
+    """The refusal for a case arm whose mask the connectives already decided.
+
+    Cases are proved apart rather than ranked, so an always-true arm is not
+    one that shadows the arms under it — it is one no other arm can be proved
+    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
+    is the plainer half: nothing to apply to.
+    """
+    if value:
+        return (
+            f'{context}: the mask admits every row, so no other arm can hold anywhere '
+            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
+            f'or narrow the `when`.'
+        )
+    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
+
+
 @dataclass(frozen=True)
 class _Resolver:
     """One resolution walk, and the three things every step of it reads.
 
-    A node that cannot be typed comes back unresolved with its refusal
-    appended to ``errors``; the public doors discard the tree once ``errors``
-    grew, which is what lets a connective's children be typed as resolved.
-    ``self_variable`` is the variable whose own ``where`` is being read, which
-    may not ask whether it exists.
+    A node that cannot be built comes back as ``None`` with its refusal
+    appended to ``errors``; every sibling is still read, so a declaration
+    with two faults reports both. ``self_variable`` is the variable whose own
+    ``where`` is being read, which may not ask whether it exists. ``formals``
+    are a macro template's formals: a formal has no kind until a call site
+    binds it, so a node one stands under is ``None`` with nothing appended.
     """
 
     ns: Namespace
     context: str
     errors: list[str]
     self_variable: str | None = None
+    formals: frozenset[str] = frozenset()
+
+    def _formal(self, value: ArithmeticNode) -> bool:
+        """Whether *value* is a formal, left for the call site to bind."""
+        return isinstance(value, NameNode) and value.name in self.formals
 
     # -- expressions -------------------------------------------------------
 
-    def expression(self, node: ParsedNode) -> ParsedNode:
-        """Every ``NameNode`` under *node* typed; a comparison keeps its shape."""
-        if isinstance(node, ComparisonNode):
-            return ComparisonNode(node.op, self._arith(node.left), self._arith(node.right))
-        return self._arith(node)
+    def arith(self, node: ArithmeticNode) -> Expression | None:
+        """The program node *node* stands for, or ``None``.
 
-    def _arith(self, node: ArithmeticNode, *, amount: bool = False) -> ArithmeticNode:
-        """One arithmetic node typed.
-
-        *amount* marks an ``offset=``/``window=`` value, whose dtype rule is
-        ``dimensions._check_named_amount``'s and stricter than "a number", so the
-        numeric check here stands aside for it. A quoted keyword or a name list in
-        arithmetic arrives through a macro formal bound to one.
+        A quoted keyword or a name list in arithmetic arrives through a macro
+        formal bound to one.
         """
-        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode):
-            return node
+        if isinstance(node, NumberNode):
+            return Constant(node.value)
         if isinstance(node, NameNode):
-            return self._name(node, amount=amount)
-        if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | DefinitionNode):
-            return with_children(node, self._arith)
+            return self._name(node)
+        if isinstance(node, UnaryOperatorNode):
+            operand = self.arith(node.operand)
+            if operand is None:
+                return None
+            return Negate(operand) if node.op == '-' else operand
+        if isinstance(node, BinaryOperatorNode):
+            return self._binary(node)
         if isinstance(node, FunctionCallNode):
             return self._call(node)
         if isinstance(node, KeywordNode):
@@ -389,29 +591,60 @@ class _Resolver:
                 f"operator kwarg value such as shift(..., edge='wrap'). In an expression, quote "
                 f'nothing — names resolve and numbers are written bare.'
             )
-            return node
+            return None
         if isinstance(node, NameListNode):
             self.errors.append(
                 f'{self.context}: {node} is a list of names, which is only legal as an operator '
                 f'kwarg value such as sum(x, by=[gen_bus, gen_tech]). In an expression, write the '
                 f'terms out and add them.'
             )
-            return node
-        if isinstance(node, CasesNode):
-            return self._cases(node)
+            return None
         assert_never(node)
 
-    def _name(self, node: NameNode, *, amount: bool) -> ArithmeticNode:
-        """A bare name as the variable or parameter it declares; a dimension or relation is not a value."""
+    def _binary(self, node: BinaryOperatorNode) -> Expression | None:
+        """A subtraction is an addition of the negation, so a program has one additive node."""
+        left, right = self.arith(node.left), self.arith(node.right)
+        if left is None or right is None:
+            return None
+        match node.op:
+            case '+':
+                return Add(left, right)
+            case '-':
+                return Add(left, Negate(right))
+            case '*':
+                return Multiply(left, right)
+            case '/':
+                return Divide(left, right)
+            case '**':
+                return Power(left, right)
+            case _:
+                assert_never(node.op)
+
+    def _name(self, node: NameNode) -> Expression | None:
+        """A bare name as the variable, parameter or named expression it declares; a dimension or relation is not a value.
+
+        A named expression arrives as the one node :meth:`Namespace.named`
+        built for it; the cast is the one place a
+        :class:`~math_spec.program.Named` enters a tree typed as a program's,
+        which lowering makes true.
+        """
+        if node.name in self.formals:
+            return None
+        if node.name in self.ns.schema.expressions:
+            try:
+                return cast('Expression', self.ns.named(node.name, self.context))
+            except SchemaError as e:
+                self.errors.append(str(e))
+                return None
         match self.ns.kind(node.name):
             case 'variable':
-                return VariableNode(node.name)
+                return Variable(node.name)
             case 'parameter':
                 dtype = self.ns.dtypes.get(node.name)
-                if not amount and dtype is not None and dtype not in NUMERIC_DTYPES:
+                if dtype is not None and dtype not in NUMERIC_DTYPES:
                     self.errors.append(_not_a_number(node.name, dtype, self.context))
-                    return node
-                return ParameterNode(node.name)
+                    return None
+                return Parameter(node.name)
             case 'dimension':
                 self.errors.append(
                     f"{self.context}: '{node.name}' is a dimension, and a dimension is "
@@ -420,7 +653,7 @@ class _Resolver:
                     f'and in where-comparisons — to use its coordinates as data, '
                     f'declare a parameter over it.'
                 )
-                return node
+                return None
             case 'relation':
                 self.errors.append(
                     f"{self.context}: '{node.name}' is a relation, and a relation is structure "
@@ -428,24 +661,28 @@ class _Resolver:
                     f'appears in a helper (sum(x, by={node.name})) and in a where — to '
                     f'carry numbers along this dimension, declare a parameter over it.'
                 )
-                return node
+                return None
             case _:
-                self.errors.append(self.ns.unknown(node.name, self.context, allow_dims=False))
-                return node
+                self.errors.append(self.ns.unknown(node.name, self.context, allow_dims=False, formals=self.formals))
+                return None
 
-    def _call(self, node: FunctionCallNode) -> ArithmeticNode:
-        """An operator call: its shape checked, and each kwarg typed by the kind the operator declares for it."""
+    def _call(self, node: FunctionCallNode) -> Expression | None:
+        """An operator call as the node it is: its shape checked, and each kwarg read by the kind the operator declares for it.
+
+        Every argument is read even after one failed, so a call with two
+        faults reports both. A formal anywhere under the call builds nothing
+        and refuses nothing.
+        """
         if node.name not in BUILTINS:
             self.errors.append(f'{self.context}: {unknown_operator_message(node.name)}')
-            return node
+            return None
         builtin = BUILTINS[node.name]
         shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
         if shape_error is not None:
             self.errors.append(f'{self.context}: {shape_error}')
         if node.name == 'dual':
-            return node if shape_error is not None else self._dual(node)
-        args = tuple(self._arith(a) for a in node.args)
-        kwargs: dict[str, ArithmeticNode] = {}
+            return None if shape_error is not None else self._dual(node)
+        args = [self.arith(a) for a in node.args]
         with_relation = any(k in node.kwargs for k in builtin.relation_kwargs)
         roles = {k: v for k, v in node.kwargs.items() if builtin.kind_of(k, with_relation=with_relation) == 'role'}
         if roles and 'by' not in node.kwargs:
@@ -453,100 +690,213 @@ class _Resolver:
                 f'{self.context}: {node.name}({", ".join(f"{k}=" for k in roles)}) names a column of a relation, '
                 f'and no by= names the relation. Write {builtin.usage}'
             )
+        dims: dict[str, str | None] = {}
+        amounts: dict[str, int | str | None] = {}
+        edge: _Edge | None = None
         for key, value in node.kwargs.items():
             match builtin.kind_of(key, with_relation=with_relation):
                 case 'edge':
-                    kwargs[key] = self._edge(value, node.name)
+                    edge = self._edge(value, node.name)
                 case 'dimension':
-                    kwargs[key] = self._dim_ref(value, node.name, key)
-                case 'relation':
-                    kwargs[key] = self._relation_ref(value, node.name, key, roles, node.kwargs.get('along'))
-                case 'role':
-                    pass
+                    dims[key] = self._dim_ref(value, node.name, key)
                 case 'value':
-                    kwargs[key] = self._amount(value, node.name, key)
-                case None:
-                    pass  # a keyword the operator does not declare; the shape error already named it
-        return FunctionCallNode(node.name, args, kwargs)
+                    amounts[key] = self._amount(value, node.name, key)
+                case 'relation' | 'role' | None:
+                    pass
+        read = None
+        if 'by' in node.kwargs and builtin.kind_of('by') == 'relation':
+            read = self._relation_ref(node.kwargs['by'], node.name, 'by', roles, dims.get('along'))
+        unread = (
+            shape_error is not None
+            or not args
+            or args[0] is None
+            or None in dims.values()
+            or None in amounts.values()
+            or ('edge' in node.kwargs and edge is None)
+            or ('by' in node.kwargs and read is None)
+        )
+        if unread:
+            return None
+        return self._built(node.name, cast('Expression', args[0]), dims, amounts, edge, read)
 
-    def _cases(self, node: CasesNode) -> CasesNode:
-        """Each arm's value and ``when`` typed under the arm's own context."""
-        arms = []
-        for arm in node.arms:
-            arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = None if arm.when is None else resolve_where(arm.when, self.ns, arm_context, self.errors)
-            arms.append(CaseArm(arm.label, when, replace(self, context=arm_context)._arith(arm.value)))
-        return CasesNode(node.name, tuple(arms))
+    def _built(
+        self,
+        operator: str,
+        operand: Expression,
+        dims: Mapping[str, str | None],
+        amounts: Mapping[str, int | str | None],
+        edge: _Edge | None,
+        read: JoinColumns | Partition | None,
+    ) -> Expression | None:
+        """The node *operator* builds from its read arguments, or ``None`` with the refusal appended."""
+        if operator == 'sum':
+            if read is not None:
+                assert isinstance(read, JoinColumns), 'a sum joins its relation'
+                return Join(operand, read)
+            if (over := dims.get('over')) is not None:
+                return Sum(operand, (over,))
+            return self._bare_sum(operand)
+        if operator == 'at':
+            assert isinstance(read, JoinColumns), 'at joins its relation'
+            return Join(operand, read)
+        assert read is None or isinstance(read, Partition), 'a translation reads its relation as a partition'
+        along = dims['along']
+        assert along is not None
+        wrap, fill = edge if edge is not None else (False, None)
+        if operator == 'shift':
+            offset = amounts['offset']
+            assert offset is not None
+            if not self._edge_fits(operand, offset, wrap=wrap, fill=fill):
+                return None
+            return Translate(operand, along, offset, wrap=wrap, fill=fill, partition=read)
+        if fill is not None:
+            self.errors.append(
+                f"{self.context}: sum_back(edge=...) takes 'wrap' or nothing. A window sums the terms "
+                f'it reaches, so a position before the first contributes nothing rather than a '
+                f'fill value; add the constant to the expression if you want one.'
+            )
+            return None
+        width = amounts['window']
+        assert width is not None
+        return WindowSum(operand, along, width, wrap=wrap, partition=read)
 
-    def _amount(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
-        """``offset=`` or ``window=``: a number or a parameter name, never an expression.
+    def _bare_sum(self, operand: Expression) -> Expression | None:
+        """``sum(x)`` with no ``over=`` or ``by=`` reduces every dim the operand carries, which it has to carry some of."""
+        try:
+            inner = dims_of(operand, self.ns.schema, self.context)
+        except DimensionError as e:
+            self.errors.append(str(e))
+            return None
+        if not inner:
+            self.errors.append(
+                f'{self.context}: sum() with no over= or by= sums every dim the operand '
+                f'carries, and this one carries none — the expression is already a '
+                f'scalar. Drop the sum.'
+            )
+            return None
+        return Sum(operand, tuple(sorted(inner)))
 
-        Closed so that :func:`math_spec.dimensions._check_named_amount` sees every
-        parameter an amount carries.
+    def _edge_fits(self, operand: Expression, offset: int | str, *, wrap: bool, fill: float | None) -> bool:
+        """What a ``shift``'s ``edge=`` may say, and where saying nothing is an answer.
+
+        Every rule here is decidable from the file — whether the operand
+        carries a variable, whether the offset is named, what the edge is
+        written as — so a file breaking one is refused at load rather than by
+        whoever lowers it.
         """
+        if wrap:
+            return True
+        has_var = carries_variable(operand)
+        if has_var and fill is not None and fill != 0:
+            self.errors.append(
+                f'{self.context}: shift(edge={fill:g}) over an expression containing a variable — only '
+                f'fill=0 is representable there, since a vacated slot contributes no term. A nonzero '
+                f'fill would be a constant standing where a term was; add that constant to the '
+                f'expression instead.'
+            )
+            return False
+        if fill is None and _vacates(offset) and not has_var:
+            self.errors.append(_shift_over_data_message(self.context))
+            return False
+        if fill is None and isinstance(offset, str):
+            self.errors.append(f'{self.context}: {_named_offset_edge_message(offset)}')
+            return False
+        return True
+
+    def _amount(self, value: ArithmeticNode, operator: str, key: str) -> int | str | None:
+        """``offset=`` or ``window=``: a whole number in the operator's range, or the name of a parameter.
+
+        Closed so that :func:`math_spec.dimensions._check_named_amount` sees
+        every parameter an amount carries, and so that a program's
+        ``offset`` and ``width`` are the ``int | str`` they say.
+        """
+        if self._formal(value):
+            return None
+        words = AMOUNTS[operator]
         if (literal := _literal(value)) is not None:
-            return literal
-        if not isinstance(_without_sign(value), NameNode):
+            if not (literal.value.is_integer() and literal.value >= words.minimum):
+                self.errors.append(f'{self.context}: {operator}({key}=...) {words.form}')
+                return None
+            return int(literal.value)
+        bare = _without_sign(value)
+        if not isinstance(bare, NameNode):
             self.errors.append(
                 f'{self.context}: {operator}({key}=) takes a number or the name of an integer parameter. '
                 f'Precompute it as a parameter.'
             )
-            return value
-        return self._arith(value, amount=True)
+            return None
+        if self._formal(bare):
+            return None
+        if self.ns.kind(bare.name) != 'parameter':
+            if self._name(bare) is not None:
+                self.errors.append(f'{self.context}: {operator}({key}=...) {words.form}')
+            return None
+        if isinstance(value, UnaryOperatorNode) and value.op == '-':
+            self.errors.append(
+                f'{self.context}: {operator}({key}=-{bare.name}) negates a named {words.noun}. {words.negated}'
+            )
+            return None
+        return bare.name
 
-    def _edge(self, value: ArithmeticNode, operator: str) -> ArithmeticNode:
+    def _edge(self, value: ArithmeticNode, operator: str) -> _Edge | None:
         """``edge=``: the closed keyword ``wrap``, or a number to contribute; a name here is a typo."""
+        if self._formal(value):
+            return None
         if isinstance(value, KeywordNode):
             if value.value == EDGE_WRAP:
-                return EdgeNode()
+                return True, None
             self.errors.append(f'{self.context}: {edge_error(operator, repr(value.value))}')
-            return value
+            return None
         if isinstance(value, NameNode):
             if value.name == EDGE_WRAP:
                 self.errors.append(
                     f'{self.context}: {operator}(edge={EDGE_WRAP}) is a bare name where a keyword belongs. '
                     f"Write edge='{EDGE_WRAP}', quoted."
                 )
-                return value
+                return None
             self.errors.append(f'{self.context}: {edge_error(operator, value.name)}')
-            return value
+            return None
         if (literal := _literal(value)) is None:
             self.errors.append(
                 f"{self.context}: {operator}(edge=) is an expression, and an edge is the keyword '{EDGE_WRAP}' "
                 f'or a number. Write the number itself.'
             )
-            return value
-        return literal
+            return None
+        return False, literal.value
 
-    def _dim_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
+    def _dim_ref(self, value: ArithmeticNode, operator: str, key: str) -> str | None:
         """An operator kwarg whose *value* must name a declared dimension."""
+        if self._formal(value):
+            return None
         if not isinstance(value, NameNode):
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a dimension.')
-            return value
+            return None
         if value.name not in self.ns.dimensions:
             self.errors.append(_undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns))
-            return value
-        return DimensionNode(value.name)
+            return None
+        return value.name
 
-    def _dual(self, node: FunctionCallNode) -> ArithmeticNode:
-        """``dual(c)`` typed to the leaf it is, its one argument the name of a declared constraint.
+    def _dual(self, node: FunctionCallNode) -> Dual | None:
+        """``dual(c)`` as the leaf it is, its one argument the name of a declared constraint.
 
         Constraints sit outside the flat namespace, so this store is consulted
         only here — a bare name in arithmetic never reaches it. A dual standing
         where the math is built is refused separately
-        (:mod:`math_spec.validation`); this pass only types the name.
+        (:mod:`math_spec.degree`); this pass only types the name.
         """
         (value,) = node.args
+        if self._formal(value):
+            return None
         if not isinstance(value, NameNode):
             self.errors.append(
                 f'{self.context}: dual() takes the name of a declared constraint, written bare — '
                 f'dual(<constraint>). Name the constraint whose row dual you want.'
             )
-            return node
+            return None
         if value.name not in self.ns.constraints:
-            self.errors.append(self.ns.unknown_constraint(value.name, self.context))
-            return node
-        return DualNode(value.name)
+            self.errors.append(self.ns.unknown_constraint(value.name, self.context, formals=self.formals))
+            return None
+        return Dual(value.name)
 
     def _relation_ref(
         self,
@@ -554,55 +904,52 @@ class _Resolver:
         operator: str,
         key: str,
         roles: Mapping[str, ArithmeticNode],
-        over: ArithmeticNode | None,
-    ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how the relation is joined and grouped.
+        along: str | None,
+    ) -> JoinColumns | Partition | None:
+        """An operator's ``by=`` as the join or the partition the call reads its relation in.
 
         A relation carries its own dimensions, so the call names columns rather
         than dims: ``over=`` the columns joined on and summed away, ``into=``
         the columns grouped by, every other key column joined on and kept. A
         value column not named is not read, and a bare relation's columns are
-        all key. One call
-        addresses one table, so several columns of one table are a list and
-        several tables are not.
+        all key. One call addresses one table, so several columns of one table
+        are a list and several tables are not. *along* is the dimension a translation steps
+        along, already read, or ``None`` where it was refused.
         """
         names = names_in(value)
         if not names:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a relation.')
-            return value
+            return None
         if len(names) > 1:
             self.errors.append(
                 f'{self.context}: {operator}({key}={shown(names)}) names {len(names)} relations, and one call '
                 f'reads one table. Declare one relation with the columns of all of them, or read them in turn, '
                 f'one call each.'
             )
-            return value
+            return None
         name = names[0]
+        if name in self.formals or any(n in self.formals for v in roles.values() for n in names_in(v)):
+            return None
 
         if (problem := self._not_a_relation(name, operator, key)) is not None:
             self.errors.append(problem)
-            return value
+            return None
         read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
         if any(r is None for r in read.values()):
-            return value
+            return None
         named = {k: r for k, r in read.items() if r is not None}
         if operator in ('shift', 'sum_back'):
             if 'within' not in named:
-                return value  # the call shape refused it already, with the wording that names the rewrite
-            over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            partition = self._partition(name, operator, over_dim, named['within'])
-            return value if partition is None else PartitionNode(partition)
+                return None  # the call shape refused it already, with the wording that names the rewrite
+            return self._partition(name, operator, along, named['within'])
         if not ({'over', 'into'} <= set(named)):
-            return value  # the call shape refused it already, with the wording that names the rewrite
-        columns = self._join(name, operator, named['over'], named['into'])
-        return value if columns is None else JoinNode(columns)
+            return None  # the call shape refused it already, with the wording that names the rewrite
+        return self._join(name, operator, named['over'], named['into'])
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
-        if isinstance(value, NameNode):
-            return (value.name,)
-        if isinstance(value, NameListNode):
-            return value.names
+        if names := names_in(value):
+            return names
         self.errors.append(
             f'{self.context}: {operator}({key}=...) names columns of the relation — a bare name, or a list of them.'
         )
@@ -760,7 +1107,7 @@ class _Resolver:
         """One predicate node typed, or returned unresolved with its refusal appended."""
         if isinstance(node, BooleanLiteral | TypedPredicate):
             return node
-        if isinstance(node, UnresolvedNameNode):
+        if isinstance(node, NameNode):
             return self._where_name(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
@@ -780,7 +1127,7 @@ class _Resolver:
         """A connective's child, typed as resolved: an unresolved one survives only with its refusal appended."""
         return cast('Predicate', self.where(node))
 
-    def _where_name(self, node: UnresolvedNameNode) -> Predicate | UnresolvedWhereNode:
+    def _where_name(self, node: NameNode) -> Predicate | UnresolvedWhereNode:
         """A bare name: a parameter's or relation's definedness, or a variable's existence."""
         ns, context = self.ns, self.context
         kind = ns.kind(node.name)
@@ -819,7 +1166,7 @@ class _Resolver:
         return node
 
     def _predicate_call(self, node: UnresolvedPredicateCallNode) -> Predicate | UnresolvedWhereNode:
-        """``shift(<predicate>, along=, offset=)`` — the one operator that reads a predicate and answers one.
+        """``shift(<predicate>, along=, offset=)`` or ``at(<predicate>, by=, over=, into=)`` — the two operators that read a predicate and answer one.
 
         ``count`` answers a number, so it stands on a comparison's side and
         :meth:`_count` reads it there. Anything else naming a predicate is
@@ -836,16 +1183,18 @@ class _Resolver:
                 f'count(<predicate>, over=<dimension>) <op> <integer>.'
             )
             return node
-        if node.name != 'shift':
+        if node.name not in ('shift', 'at'):
             self.errors.append(
-                f"{context}: '{node.name}()' does not read a predicate. `shift` reads one and answers one, "
-                f'`count` reads one and answers a number, and every other operator reads arithmetic. '
+                f"{context}: '{node.name}()' does not read a predicate. `shift` and `at` read one and answer "
+                f'one, `count` reads one and answers a number, and every other operator reads arithmetic. '
                 f'Compare the predicate, or name a parameter carrying it.'
             )
             return node
         operand = self._child(node.operand)
         if len(self.errors) > found:
             return node
+        if node.name == 'at':
+            return self._pulled_back(node, Mask(operand))
         if (refusal := _kwargs_error(context, 'shift', node.kwargs, required=('along', 'offset'))) is not None:
             self.errors.append(refusal)
             return node
@@ -871,6 +1220,29 @@ class _Resolver:
             )
             return node
         return TranslatedPredicate(mask, along.name, int(offset.value), tuple(sorted(mask.dims)))
+
+    def _pulled_back(self, node: UnresolvedPredicateCallNode, mask: Mask) -> Predicate | UnresolvedWhereNode:
+        """``at(<predicate>, by=, over=, into=)`` — the predicate read through a relation, as ``at`` reads an array.
+
+        The relation and its two ends are read by the rules an expression's
+        ``at`` is, so the one refusal a file meets for a bad read is the same
+        in a ``where:`` and in an expression.
+        """
+        context = self.context
+        if (refusal := _kwargs_error(context, 'at', node.kwargs, required=('by', 'over', 'into'))) is not None:
+            self.errors.append(refusal)
+            return node
+        found = len(self.errors)
+        roles = {key: node.kwargs[key] for key in ('over', 'into')}
+        by = self._relation_ref(node.kwargs['by'], 'at', 'by', roles, None)
+        if len(self.errors) > found or not isinstance(by, JoinColumns):
+            return node
+        try:
+            dims = join_dims(by, mask.dims, context, 'the predicate')
+        except DimensionError as refusal:
+            self.errors.append(str(refusal))
+            return node
+        return PulledBackPredicate(mask, by, tuple(sorted(dims)))
 
     def _count(self, node: UnresolvedCountNode) -> Predicate | UnresolvedWhereNode:
         """``count(<predicate>, over=<dim>) <op> <integer>`` — how many coordinates the predicate admits.
@@ -942,8 +1314,8 @@ class _Resolver:
         ns = self.ns
         name, right = _side_name(node.left), node.right
         value: float | str | None
-        quoted = isinstance(right, QuotedNode)
-        if isinstance(right, QuotedNode):
+        quoted = isinstance(right, KeywordNode)
+        if isinstance(right, KeywordNode):
             value = right.value
         elif isinstance(right, ColumnNode):
             value = right.shown
@@ -957,7 +1329,7 @@ class _Resolver:
             return None
         return _Plain(name, node.op, value, quoted)
 
-    def _expression_comparison(self, node: UnresolvedComparisonNode) -> ArithmeticComparison | UnresolvedComparisonNode:
+    def _expression_comparison(self, node: UnresolvedComparisonNode) -> ExpressionComparison | UnresolvedComparisonNode:
         """``expression <op> expression``: each side expanded, typed and held to what a mask may read.
 
         A side is read as an expression is — macros and named expressions
@@ -966,9 +1338,9 @@ class _Resolver:
         """
         ns, context = self.ns, self.context
         found = len(self.errors)
-        sides = []
+        sides: list[Expression] = []
         for side in (node.left, node.right):
-            if isinstance(side, ColumnNode | QuotedNode):
+            if isinstance(side, ColumnNode | KeywordNode):
                 self.errors.append(_not_arithmetic(context, side))
                 continue
             if any(isinstance(n, FunctionCallNode) and n.name == 'count' for n in nodes(side)):
@@ -978,16 +1350,18 @@ class _Resolver:
                 )
                 continue
             try:
-                expanded = expand(side, ns.schema, context)
+                expanded = expand(side, ns, context)
             except ValueError as e:
                 self.errors.append(prefixed(context, e))
                 continue
-            sides.append(self._arith(expanded))
+            if (resolved := self.arith(expanded)) is not None:
+                sides.append(resolved)
         if len(self.errors) > found:
             return node
+        assert len(sides) == 2, 'a side of a where builds or refuses, since a where holds no formal'
         dims: set[str] = set()
         for side in sides:
-            if degree.carries_variable(side):
+            if carries_variable(side):
                 self.errors.append(
                     f'{context}: a where compares expressions, and one side names a variable. A where mask '
                     f'is built before variables exist — it may test parameters and dimension coordinates only.'
@@ -1013,7 +1387,7 @@ class _Resolver:
                 f'the comparison.'
             )
             return node
-        return ArithmeticComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
+        return ExpressionComparison(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
         self, call: FunctionCallNode, node: UnresolvedComparisonNode
@@ -1028,7 +1402,7 @@ class _Resolver:
             )
             return node
         dimension, by, into = shape
-        index = None if isinstance(node.right, ColumnNode | QuotedNode) else _literal(node.right)
+        index = None if isinstance(node.right, ColumnNode | KeywordNode) else _literal(node.right)
         if index is None or not index.value.is_integer():
             self.errors.append(
                 f'{context}: position({dimension}) is compared against an integer index, where 0 is first and a '
@@ -1286,7 +1660,7 @@ def _position_shape(call: FunctionCallNode) -> tuple[str, str | None, tuple[str,
         return None
     if within is not None and not isinstance(within, NameNode | NameListNode):
         return None
-    into = within.names if isinstance(within, NameListNode) else (within.name,) if within is not None else None
+    into = names_in(within) if within is not None else None
     return call.args[0].name, by.name if by is not None else None, into
 
 
@@ -1308,7 +1682,7 @@ def _kwargs_error(
         return (
             f'{context}: {name}(<predicate>) does not take {_listed([f"{key}=" for key in extra])}. '
             f'It takes {_listed([f"{key}=" for key in required])}, and nothing else.'
-            f'{edge if "edge" in extra else ""}'
+            f'{edge if "edge" in extra and name == "shift" else ""}'
         )
     return None
 
@@ -1334,18 +1708,13 @@ def _listed(items: list[str]) -> str:
     return f'{", ".join(quoted[:-1])} and {quoted[-1]}'
 
 
-def _is_number(side: ArithmeticNode) -> bool:
+def _is_number(side: Expression) -> bool:
     """Whether *side* is arithmetic over literals alone — a value the language can fold, and a where may not test."""
-    return all(isinstance(n, NumberNode | UnaryOperatorNode | BinaryOperatorNode) for n in nodes(side))
+    return all(isinstance(n, Constant | Negate | Add | Multiply | Divide | Power) for n in walk(side))
 
 
 def _literal(value: ArithmeticNode) -> NumberNode | None:
-    """The number a literal names, its sign folded in — ``None`` where *value* is not one.
-
-    Folded here so that every later reader of an ``offset=`` or ``edge=`` —
-    the dim rules, lowering, the typesetter — meets one signed number rather
-    than each peeling a unary minus of its own.
-    """
+    """The number a literal names, its sign folded in — ``None`` where *value* is not one."""
     if isinstance(value, NumberNode):
         return value
     if isinstance(value, UnaryOperatorNode) and isinstance(value.operand, NumberNode):
@@ -1353,7 +1722,7 @@ def _literal(value: ArithmeticNode) -> NumberNode | None:
     return None
 
 
-def _not_arithmetic(context: str, side: ColumnNode | QuotedNode) -> str:
+def _not_arithmetic(context: str, side: ColumnNode | KeywordNode) -> str:
     """Why a relation column or a quoted label may not stand on a side of a comparison of expressions."""
     if isinstance(side, ColumnNode):
         return (
@@ -1417,3 +1786,43 @@ def _relation_pair_error(context: str, node: _Plain, other: str, ns: Namespace, 
             f'where they are over the same dimension.'
         )
     return None
+
+
+def _vacates(offset: int | str) -> bool:
+    """Whether a translation leaves anything behind.
+
+    A literal zero step reaches every coordinate from itself, so there is no
+    vacated position for an ``edge=`` to answer for and the refusal has
+    nothing to refuse. A *named* offset may be zero in the data and is not
+    known here, so it vacates until proved otherwise.
+    """
+    return offset != 0
+
+
+def _named_offset_edge_message(name: str) -> str:
+    """Why a named offset must say what the vacated positions contribute.
+
+    The absent edge propagates through a presence frame keyed by the translated
+    dimension alone, and a per-entity offset vacates a different slot for each
+    entity — which that frame cannot say. Refused rather than answered wrongly
+    (#850); the two edges that write their own answer are allowed.
+    """
+    return (
+        f'shift(offset={name}) leaves the vacated positions absent, which a '
+        f'per-entity offset cannot say yet.\n'
+        f"Add edge='wrap' for a cyclic translation, or edge=<number> for what the "
+        f'vacated positions contribute.'
+    )
+
+
+def _shift_over_data_message(context: str) -> str:
+    """The three ways out of a translation over data with no ``edge=``, the third being two things at once."""
+    return (
+        f'{context}: shift() over a variable-free expression leaves vacated positions with no '
+        f'value, and inventing one is what silently pinned a bound to zero. Say which you mean:\n'
+        f"  shift(x, along=d, offset=n, edge='wrap')   the dimension really is cyclic\n"
+        f'  shift(x, along=d, offset=n, edge=0)        the vacated positions contribute zero\n'
+        f'  ...and a where: excluding them        the vacated rows should not exist at all\n'
+        f'A where: alone does not lift this — it is decided on the expression, before any mask '
+        f'is read — and edge=0 alone leaves a row whose bound is that zero.'
+    )

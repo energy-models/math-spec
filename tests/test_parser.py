@@ -19,39 +19,26 @@ import pytest
 import math_spec.program as program_module
 from math_spec._expression_parser import (
     BinaryOperatorNode,
-    CasesNode,
     ComparisonNode,
-    DefinitionNode,
-    DimensionNode,
-    DualNode,
-    EdgeNode,
     FunctionCallNode,
-    JoinNode,
+    KeywordNode,
     NameListNode,
     NameNode,
     NumberNode,
-    ParameterNode,
-    PartitionNode,
     UnaryOperatorNode,
-    VariableNode,
     parse_expression,
 )
 from math_spec._where_parser import (
     ColumnNode,
-    QuotedNode,
     UnresolvedComparisonNode,
-    UnresolvedNameNode,
     parse_where,
 )
 from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
-    JoinColumns,
     Not,
     Or,
-    Partition,
-    RelationDeclaration,
     _conjuncts,
 )
 
@@ -263,7 +250,7 @@ def test_a_name_may_begin_with_inf(name):
     ('text', 'node_type', 'attrs'),
     [
         pytest.param('True', BooleanLiteral, {'value': True}, id='a-literal'),
-        pytest.param('p_max', UnresolvedNameNode, {'name': 'p_max'}, id='a-bare-name'),
+        pytest.param('p_max', NameNode, {'name': 'p_max'}, id='a-bare-name'),
         pytest.param('p_max > 0', UnresolvedComparisonNode, {'op': '>', 'right': NumberNode(0)}, id='a-comparison'),
         pytest.param('a AND b', And, {}, id='and'),
         pytest.param('a OR b', Or, {}, id='or'),
@@ -280,9 +267,7 @@ def test_a_where_string_parses_to_its_node(text, node_type, attrs):
 
 
 def test_and_binds_tighter_than_or():
-    assert parse_where('a OR b AND c') == Or(
-        UnresolvedNameNode('a'), And(UnresolvedNameNode('b'), UnresolvedNameNode('c'))
-    )
+    assert parse_where('a OR b AND c') == Or(NameNode('a'), And(NameNode('b'), NameNode('c')))
 
 
 @pytest.mark.parametrize(
@@ -315,12 +300,12 @@ def test_conjuncts_does_not_split_or_or_not(text):
 @pytest.mark.parametrize(
     ('text', 'right'),
     [
-        ("g == 'wind'", QuotedNode('wind')),
-        ('g == "wind"', QuotedNode('wind')),
-        ("g == 'combined-cycle'", QuotedNode('combined-cycle')),
-        ("g == 'CCGT 400MW'", QuotedNode('CCGT 400MW')),
-        ("t > '2030-01-01'", QuotedNode('2030-01-01')),
-        ("g == 'it\\'s'", QuotedNode("it's")),
+        ("g == 'wind'", KeywordNode('wind')),
+        ('g == "wind"', KeywordNode('wind')),
+        ("g == 'combined-cycle'", KeywordNode('combined-cycle')),
+        ("g == 'CCGT 400MW'", KeywordNode('CCGT 400MW')),
+        ("t > '2030-01-01'", KeywordNode('2030-01-01')),
+        ("g == 'it\\'s'", KeywordNode("it's")),
         ('g == wind', NameNode('wind')),
     ],
     ids=['single', 'double', 'hyphen', 'space', 'date', 'escaped quote', 'bare'],
@@ -541,37 +526,3 @@ def test_a_parsed_tree_prints_to_text_that_parses_to_the_same_tree(text):
 )
 def test_a_node_prints_as_the_file_writes_it(text, printed):
     assert str(parse_expression(text)) == printed, 'the spelling is the one a file could be written with'
-
-
-_ZONE_OF = RelationDeclaration((('u', 'unit'), ('zone', 'zone')), ('u',))
-
-
-@pytest.mark.parametrize(
-    ('node', 'printed'),
-    [
-        pytest.param(VariableNode('p'), 'p', id='a-variable'),
-        pytest.param(ParameterNode('cost'), 'cost', id='a-parameter'),
-        pytest.param(DimensionNode('t'), 't', id='a-dimension'),
-        pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
-        pytest.param(
-            JoinNode(JoinColumns('zone_of', _ZONE_OF, ('u',), ('zone',))),
-            'zone_of',
-            id='a-relation-as-a-call-joins-it',
-        ),
-        pytest.param(
-            PartitionNode(Partition('zone_of', _ZONE_OF, 'u', ('zone',), ())),
-            'zone_of',
-            id='a-relation-stepped-along-as-a-partition',
-        ),
-        pytest.param(EdgeNode(), "'wrap'", id='a-resolved-edge'),
-        pytest.param(DefinitionNode('headroom', NameNode('p')), 'headroom', id='a-named-expression-prints-its-name'),
-        pytest.param(CasesNode('startup', ()), 'startup', id='and-so-does-a-cased-one'),
-    ],
-)
-def test_a_node_resolution_built_prints_the_name_the_file_wrote(node, printed):
-    """These eight never come out of the parser, so no round trip reaches them:
-    resolution rewrites a `NameNode` into each. A `DefinitionNode` and a
-    `CasesNode` stand where a name stood, and the name is what the file says at
-    that position — printing the inlined body would print an expression the
-    author never wrote."""
-    assert str(node) == printed, 'a resolved node prints the text it was resolved from'

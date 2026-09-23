@@ -730,7 +730,7 @@ class TestAWhereSideIsReadInResolution:
 
 
 class TestAPredicateIsAnOperand:
-    """``count`` and ``shift`` over a predicate — the two calls that read one rather than arithmetic.
+    """``count``, ``shift`` and ``at`` over a predicate — the three calls that read one rather than arithmetic.
 
     Everything else in the language takes arithmetic, so the grammar reads
     these shapes itself and resolution decides what each name is.
@@ -746,6 +746,9 @@ class TestAPredicateIsAnOperand:
             pytest.param('shift(flag, along=g, offset=1)', id='a-translated-mask'),
             pytest.param('shift(flag, along=g, offset=-1)', id='a-translation-forwards'),
             pytest.param('count(shift(flag, along=g, offset=1), over=g) >= 1', id='a-translation-under-a-count'),
+            pytest.param('at(r, by=lk, over=h, into=g)', id='a-mask-read-through-a-relation'),
+            pytest.param("flag AND NOT at(h == 'north', by=lk, over=h, into=g)", id='a-read-under-connectives'),
+            pytest.param('count(at(r, by=lk, over=h, into=g), over=g) >= 1', id='a-read-under-a-count'),
         ],
     )
     def test_a_shape_the_language_admits(self, where):
@@ -841,6 +844,36 @@ class TestAPredicateIsAnOperand:
                 id='a-translation-by-a-fraction',
             ),
             pytest.param(
+                'at(r, by=lk)',
+                ("at(<predicate>) needs 'over=' and 'into='",),
+                id='a-read-naming-no-columns',
+            ),
+            pytest.param(
+                'at(r, by=lk, over=h, into=g, edge=0)',
+                ("does not take 'edge='", "It takes 'by=', 'over=' and 'into=', and nothing else."),
+                id='a-read-with-a-keyword-it-lacks',
+            ),
+            pytest.param(
+                'at(flag, by=lk, over=h, into=g)',
+                ("at(by=lk) joins on ['h'], which the predicate does not carry",),
+                id='a-read-through-a-dim-the-predicate-lacks',
+            ),
+            pytest.param(
+                'at(q, by=lk, over=h, into=g)',
+                ("at(by=lk) groups by ['g'], which the expression already carries",),
+                id='a-read-onto-a-dim-the-predicate-carries',
+            ),
+            pytest.param(
+                'at(flag, by=lk, over=g, into=h)',
+                ("into=['h'] names ['h'], which the key of 'lk' does not hold",),
+                id='a-read-landing-off-the-key',
+            ),
+            pytest.param(
+                'at(r, by=nope, over=h, into=g)',
+                ('at(by=nope) does not name a relation',),
+                id='a-read-through-no-relation',
+            ),
+            pytest.param(
                 'sum_back(flag, along=g, window=2)',
                 ("'sum_back()' does not read a predicate", '`count` reads one and answers a number'),
                 id='an-operator-that-reads-arithmetic',
@@ -858,6 +891,7 @@ class TestAPredicateIsAnOperand:
         [
             pytest.param('count(nope, over=g) >= 2', id='under-a-count'),
             pytest.param('shift(nope, along=g, offset=1)', id='under-a-translation'),
+            pytest.param('at(nope, by=lk, over=h, into=g)', id='under-a-read'),
         ],
     )
     def test_a_name_the_operand_does_not_declare_is_reported_rather_than_walked(self, where):
@@ -886,6 +920,43 @@ class TestAPredicateIsAnOperand:
             constraints={'cap': {'dims': ['g'], 'expression': 'p <= pick'}},
         )
         assert 'it counts the coordinates a predicate admits, which only the data decides' in message
+
+    def test_a_read_through_a_relation_is_undecidable_in_a_case_when(self):
+        """Which rows a relation maps onto a coordinate is the data's to say, so two cases split by one are not proved apart."""
+        message = _refusal(
+            expressions={
+                'pick': {
+                    'dims': ['g'],
+                    'cases': {
+                        'mapped': {'when': 'at(r, by=lk, over=h, into=g)', 'expression': '1'},
+                        'some': {'when': 'c > 0', 'expression': '2'},
+                    },
+                    'otherwise': '0',
+                }
+            },
+            constraints={'cap': {'dims': ['g'], 'expression': 'p <= pick'}},
+        )
+        assert "it reads a predicate through 'lk', and which rows that admits only the data decides" in message
+
+    def test_a_read_landing_outside_the_frame_names_the_relation(self):
+        """The read adds the dims it lands on, so a mask over the coarse side cannot carry the fine one."""
+        message = _refusal(
+            constraints={'cap': {'dims': ['h'], 'where': 'at(r, by=lk, over=h, into=g)', 'expression': 'r <= 1'}}
+        )
+        assert "a where-predicate read through 'lk' reads dims ['g'] outside the frame ['h']" in message
+
+    def test_a_read_given_an_edge_is_not_told_about_translations(self):
+        """The edge sentence explains a shift; under a read it would explain an operator the file did not write."""
+        with pytest.raises(LanguageError) as caught:
+            where_of('at(r, by=lk, over=h, into=g, edge=0)', Namespace(_schema()), 'probe')
+        assert 'translation' not in str(caught.value)
+
+    def test_a_read_lands_on_the_dims_it_produces_and_reads_the_relation(self):
+        """The mask is over what the relation maps onto, and a consumer binds the relation as well as the operand."""
+        mask = where_of("at(h == 'north', by=lk, over=h, into=g)", Namespace(_schema()), 'probe')
+        assert mask is not None
+        assert sorted(mask.dims) == ['g'], "'h' is read at lk(g), so g is all the mask is over"
+        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer binds, the label is not'
 
     def test_a_count_reduces_the_dim_it_counts_along_away(self):
         """The count is one number per remaining coordinate, so a claim about each group needs no word for the group."""
@@ -1751,7 +1822,7 @@ class TestExpressionCases:
             to_spec(model)
 
     def test_a_fault_in_an_arm_names_the_declaration_and_is_reported_once(self):
-        """The block is expanded at every use, and the fault is in one place.
+        """The block is resolved once, and the fault is in one place.
 
         Naming the use site would report a case on a constraint that has none,
         and one sentence per constraint reading the expression is the same
@@ -1926,8 +1997,9 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
 
         return record
 
+    doors = (resolution.resolve_expression, resolution.resolve_constraint_text, resolution.resolve_where_text)
     for module in (validation, resolution):
-        for door in (resolution.resolve_expression, resolution.resolve_where_text):
+        for door in doors:
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
     spec = to_spec(
@@ -1948,8 +2020,8 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     to_markdown(spec)
 
     assert sorted(seen) == [
-        ('resolve_expression', "Constraint 'balance'"),
-        ('resolve_expression', "Constraint 'spare'"),
+        ('resolve_constraint_text', "Constraint 'balance'"),
+        ('resolve_constraint_text', "Constraint 'spare'"),
         ('resolve_expression', "Named expression 'headroom', case 'opening'"),
         ('resolve_expression', "Named expression 'headroom', otherwise"),
         ('resolve_expression', 'The objective'),

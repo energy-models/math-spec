@@ -98,22 +98,23 @@ stale anchor fails it. `pixi run docs-serve` builds the site and serves it at
 The same construct passes through three layers, and each names it in full. The
 suffix says which layer:
 
-| Layer                           | Suffix               | Example                                    |
-| ------------------------------- | -------------------- | ------------------------------------------ |
-| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`          |
-| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `UnresolvedComparisonNode` |
-| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`          |
+| Layer                          | Suffix               | Example                                |
+| ------------------------------ | -------------------- | -------------------------------------- |
+| YAML block (`math_spec.model`) | `Block`              | `VariableBlock`, `PiecewiseBlock`      |
+| Syntax (`math_spec.*_parser`)  | `Node`               | `NameNode`, `UnresolvedComparisonNode` |
+| Program (`math_spec.program`)  | none / `Declaration` | `Variable`, `VariableDeclaration`      |
 
-A node names the operation, not the verb a file writes. One verb can lower to
-two nodes, so the file's spelling cannot decide the name.
+A node names the operation, not the verb a file writes. One verb can resolve
+to two nodes and two verbs to one, so the file's spelling cannot decide the
+name.
 
-| File verb          | Node                | What the node names                        |
-| ------------------ | ------------------- | ------------------------------------------ |
-| `sum(over=)`       | `Sum`               | dims removed from the result               |
-| `sum(by=)`         | `Sum` over a `Join` | a join, and the sum over the dims it drops |
-| `at(by=)`          | `Join`              | a join with no sum over it                 |
-| `shift(along=)`    | `Translate`         | a re-index along one dimension             |
-| `sum_back(along=)` | `WindowSum`         | a sum over a trailing window               |
+| File verb          | Node        | What the node names                                  |
+| ------------------ | ----------- | ---------------------------------------------------- |
+| `sum(over=)`       | `Sum`       | dims removed from the result                         |
+| `sum(by=)`         | `Join`      | a join, and the sum over each group it groups by     |
+| `at(by=)`          | `Join`      | the same join, where each group is one row: a lookup |
+| `shift(along=)`    | `Translate` | a re-index along one dimension                       |
+| `sum_back(along=)` | `WindowSum` | a sum over a trailing window                         |
 
 Nothing is abbreviated.
 
@@ -121,11 +122,10 @@ Nothing is abbreviated.
 
 Start with the grammar, which is usually free because `f(x, k=v)` already
 parses. Then declare the signature in `operators.BUILTINS`. It holds the number
-of arguments and says which arguments name dimensions, and resolution,
-validation and lowering all read it from there. Then write the dimension rule in
-`dimensions.py`, the degree verdict in `degree.py`, the node it lowers to in
-`program.py`, and the entry in the
-[language reference](reference/language/operators.md).
+of arguments and says which arguments name dimensions, and resolution reads it
+from there. Then write the node in `program.py` and how resolution builds it,
+the dimension rule in `dimensions.py`, the degree verdict in `degree.py`, and
+the entry in the [language reference](reference/language/operators.md).
 
 ## Submitting changes
 

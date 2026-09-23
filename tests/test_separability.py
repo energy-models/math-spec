@@ -159,6 +159,24 @@ def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
     )
 
 
+def test_a_sum_over_a_lookup_is_a_sum_and_a_lookup_not_a_grouping():
+    """A plain `sum` over an `at` lowered to the `Sum` over a `Join` that a grouped sum lowered to.
+
+    Separability read the shape, so it reported a grouping of `u` into `u` and
+    lost the read of `zone` the lookup waits on. Which call a join is comes
+    from its columns, not from the node above it.
+    """
+    variables = {**BASE['variables'], 'q': {'dims': ['h', 'zone'], 'bounds': {'lower': 0}}}
+    rows = _rows('sum(at(q, by=zone_of, over=zone, into=u), over=u) <= budget', dims=['h'])
+    program = ms.to_program({**BASE, 'variables': variables, **rows})
+    assert list(program.separability['u'].coupled.values()) == [
+        'sums over u — a rolling sum_back(window=n) windows, a total over the horizon does not'
+    ], 'the sum over u is a plain sum, reported as one'
+    assert program.separability['zone'].undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
+        'the lookup under it still reads zone at a coordinate the relation chooses'
+    )
+
+
 def test_a_coupling_names_the_change_that_would_lift_it():
     coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
     assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'

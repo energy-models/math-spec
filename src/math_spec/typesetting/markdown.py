@@ -86,9 +86,9 @@ class MarkdownFormat(LatexFormat):
         return '\n\n'.join(blocks)
 
     @override
-    def glossary(self, title: str, entries: list[Entry]) -> str:
+    def glossary(self, entries: list[Entry]) -> str:
         rows = '\n'.join(f'| {_cell(self.math(e.symbol))} | {_cell(e.meaning)} |' for e in entries)
-        return f'#### {title}\n\n| Symbol | Meaning |\n|---|---|\n{rows}'
+        return f'| Symbol | Meaning |\n|---|---|\n{rows}'
 
     @override
     def section(self, title: str, body: str) -> str:

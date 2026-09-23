@@ -14,17 +14,11 @@ from __future__ import annotations
 import pytest
 
 from math_spec import CURVATURES
-from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
+from math_spec.errors import LanguageError, SchemaError
 from math_spec.lowering import lower_program, to_program
 from math_spec.piecewise import expand_piecewise
-from math_spec.program import (
-    FirstOf,
-    Holds,
-    LastOf,
-    MaskOf,
-    assumption_message,
-)
-from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
+from math_spec.program import Assumption, assumption_message
+from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
 #: binaries and links is not something a smaller one can stand in for.
@@ -92,25 +86,9 @@ TWO_DIM = override(
 )
 
 
-def test_expansion_emits_the_lambda_declarations():
-    expanded = expand_piecewise(schema_of(NONCONVEX_YAML))
-
-    assert not expanded.piecewise, 'the block is spent once its declarations are emitted'
-    assert 'cost_curve_lam' in expanded.variables
-    assert expanded.variables['cost_curve_seg'].domain == 'binary'
-    assert set(expanded.constraints) >= {
-        'cost_curve_convexity',
-        'cost_curve_pick',
-        'cost_curve_adjacency',
-        'cost_curve_link0',
-        'cost_curve_link1',
-        'balance',
-    }, "the adjacency formulation's five rows, one link each, beside the constraint the file wrote"
-
-
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
-    with pytest.raises(PiecewiseExpansionError, match="emitted sos 'cost_curve' collides"):
+    with pytest.raises(SchemaError, match="writes sos 'cost_curve', which this file already declares"):
         schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'over': 'snapshot', 'type': 1}})
 
 
@@ -130,13 +108,17 @@ def test_the_file_keeps_its_curve_and_the_expansion_has_none():
 
 
 def test_lowering_refuses_a_model_that_still_owes_rows_to_a_curve():
-    """A curve states rows and a program holds them, so lowering one unexpanded would drop the whole block.
+    """A curve states rows and a program holds them, and nothing here writes them out on the caller's behalf.
 
-    The type used to carry this claim: the expanded spec was a class of its own
-    and validated that it held no `piecewise:`.
+    Which formulations to write out is the caller's to say: a set is one thing
+    to a consumer that takes it and another to one that does not, so the
+    refusal names both spellings.
     """
-    with pytest.raises(AssertionError, match=r"pass spec.expand\('piecewise'\)"):
-        lower_program(schema_of(NONCONVEX_YAML))
+    with pytest.raises(LanguageError, match="piecewise: 'cost_curve' states rows") as refusal:
+        to_program(schema_of(NONCONVEX_YAML))
+    assert "expand('piecewise')" in str(refusal.value) and 'expand()' in str(refusal.value), (
+        'the refusal names both ways out, because they differ in what a set becomes'
+    )
 
 
 def test_expansion_is_memoised_and_idempotent():
@@ -265,7 +247,7 @@ def test_a_malformed_block_is_refused(model, patch, match):
 )
 def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expression, message):
     """Lowering would catch these too, but naming ``cost_curve_link0`` — a declaration the user never wrote."""
-    with pytest.raises(PiecewiseExpansionError, match=message) as exc:
+    with pytest.raises(SchemaError, match=message) as exc:
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.links': [[link_expression, 'bp_x'], ['op_cost', 'bp_y']]})
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
 
@@ -279,7 +261,7 @@ def test_a_link_reading_a_nonlinear_entry_is_refused():
     declaration: the entry-declaration relocation for the other math positions
     is `TestValidateExpressions.test_a_nonlinear_entry_is_refused_where_the_math_reads_it`.
     """
-    with pytest.raises(PiecewiseExpansionError, match='the divisor contains variables') as exc:
+    with pytest.raises(SchemaError, match='the divisor contains variables') as exc:
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -298,7 +280,7 @@ def test_a_link_reading_a_degree_two_product_entry_is_refused():
     reads a named entry and rejects the product. A constraint and the objective
     accept degree 2, so they are not the refusing site here.
     """
-    with pytest.raises(PiecewiseExpansionError, match='which is degree 2') as exc:
+    with pytest.raises(SchemaError, match='which is degree 2') as exc:
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -315,7 +297,7 @@ def test_an_entry_a_link_reads_is_in_the_math():
         NONCONVEX_YAML,
         **{'expressions': {'twice': 'p * 2'}, 'piecewise.cost_curve.links': [['twice', 'bp_x'], ['op_cost', 'bp_y']]},
     )
-    assert to_program(schema).expressions['twice'].in_math is True
+    assert to_program(schema.expand('piecewise')).expressions['twice'].in_math is True
 
 
 def test_a_link_reading_a_dual_entry_is_refused():
@@ -325,7 +307,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
     a dual carries no variable — and hand lowering a leaf no piecewise
     expansion can build.
     """
-    with pytest.raises(PiecewiseExpansionError, match='a dual exists only after a solve'):
+    with pytest.raises(SchemaError, match='a dual exists only after a solve'):
         schema_of(
             NONCONVEX_YAML,
             **{
@@ -345,7 +327,7 @@ def test_a_link_reading_a_dual_entry_is_refused():
 )
 def test_a_gate_that_is_not_a_variable_is_refused(activity, match):
     """Only a variable has a declaration to say what its absence means, and the block needs that answer."""
-    with pytest.raises(PiecewiseExpansionError, match=match):
+    with pytest.raises(SchemaError, match=match):
         expand_piecewise(schema_of(GATED, **{'piecewise.cost_curve.activity': activity}))
 
 
@@ -379,7 +361,9 @@ _CURVATURE_CASES = [
 @pytest.mark.parametrize(('raw', 'expected'), _CURVATURE_CASES)
 def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
     """The consumer holding the breakpoints checks the shape; this says what to check for."""
-    stated = [a.description for n, a in to_program(raw).assumptions.items() if n.endswith('_curvature')]
+    stated = [
+        a.description for n, a in to_program(expanded(raw, 'piecewise')).assumptions.items() if n.endswith('_curvature')
+    ]
     answer = next((c for c in CURVATURES if stated and f'a {c} curve' in stated[0]), 'either' if stated else None)
     assert answer == expected, 'the curvature the method is exact for is the shape its sentence names'
     assert answer is None or answer in CURVATURES, (
@@ -398,42 +382,71 @@ def test_every_published_curvature_is_one_a_method_can_ask_for():
     )
 
 
-def test_an_emitted_parameter_says_how_it_is_filled():
-    """Who binds a parameter, and from what, is the program's to say rather than a suffix a consumer re-spells.
-
-    An ``lp`` block masked by one of its own values-parameters emits three
-    ``bool`` parameters the caller never supplies; each carries the
-    derivation that fills it, and every parameter the file declared carries
-    none.
-    """
+def test_a_masked_lp_curve_sits_its_rows_on_predicates_rather_than_on_parameters():
+    """An ``lp`` block masked by one of its own values parameters emitted three ``bool``
+    parameters — the mask, and the first and last breakpoint of each curve — that the
+    caller never supplied and a derivation in private state filled. The ``where``
+    language writes each of them, so the rows carry the predicate and the program
+    declares the file's parameters and no other."""
     program = lower_program(expand_piecewise(schema_of(LP_MASKED)))
+    rows = {name: program.constraints[f'cost_curve_{name}'].where for name in ('chord', 'domain_lo', 'domain_hi')}
 
-    assert {n: p.derivation for n, p in program.parameters.items() if p.derivation is not None} == {
-        'cost_curve_points': MaskOf('cost_curve', 'bp_x'),
-        'cost_curve_starts': FirstOf('cost_curve', 'cost_curve_points'),
-        'cost_curve_ends': LastOf('cost_curve', 'cost_curve_points'),
-    }, 'the mask derived from bp_x and the two edge flags it carries, and nothing else'
-    assert {n for n, p in program.parameters.items() if p.derivation is None} == {'bp_x', 'bp_y', 'load'}, (
-        "every declared parameter is the caller's to bind"
-    )
+    assert set(program.parameters) == {'bp_x', 'bp_y', 'load'}, 'every parameter is one the file declared'
+    assert {name: row.names_read for name, row in rows.items() if row is not None} == {
+        'chord': frozenset({'bp_x'}),
+        'domain_lo': frozenset({'bp_x'}),
+        'domain_hi': frozenset({'bp_x'}),
+    }, 'every masked row reads the mask the file named, and nothing the expansion invented'
 
 
-def test_a_file_supplied_mask_derives_nothing():
-    """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check still names it."""
+def test_a_file_supplied_mask_is_what_the_contiguity_condition_reads():
+    """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check names it."""
     program = to_program(
-        override(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'})
+        expanded(
+            override(
+                LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'}
+            ),
+            'piecewise',
+        )
     )
 
-    assert program.parameters['reach'].derivation is None, 'the file declared it, so the caller binds it'
     contiguous = program.assumptions['cost_curve_contiguous']
     assert contiguous.predicate.names_read == frozenset({'reach'}), (
         "the mask is still one the data has to make contiguous, and the condition reads the file's own name"
     )
 
 
+@pytest.mark.parametrize(
+    ('method', 'reason'),
+    [
+        pytest.param('adjacency', 'nonzero only on two neighbouring breakpoints', id='adjacency'),
+        pytest.param('sos2', 'nonzero only on two neighbouring breakpoints', id='sos2'),
+        pytest.param('convex', 'a bend across a gap goes unchecked', id='convex'),
+        pytest.param('lp', 'the chord row joins a breakpoint to the one before it', id='lp'),
+    ],
+)
+def test_a_gap_is_explained_by_the_rows_the_method_writes(method, reason):
+    """Every method gave the ``lp`` reason, naming a chord row and domain rows that only ``lp`` writes."""
+    links = (
+        [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]
+        if method in {'convex', 'lp'}
+        else [['p', 'bp_x'], ['op_cost', 'bp_y']]
+    )
+    spec = schema_of(
+        NONCONVEX_YAML,
+        **{
+            'piecewise.cost_curve.method': method,
+            'piecewise.cost_curve.points': 'bp_x',
+            'piecewise.cost_curve.links': links,
+        },
+    )
+
+    assert reason in to_program(spec.expand()).assumptions['cost_curve_contiguous'].description
+
+
 def test_a_block_assumes_of_its_data_what_the_method_implies():
     """Every condition a curve puts on its data stands with the file's own, carrying its own subjects."""
-    program = to_program(LP_MASKED)
+    program = to_program(expanded(LP_MASKED, 'piecewise'))
 
     assert program.piecewise['cost_curve'].breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
     assert list(program.assumptions) == [
@@ -443,14 +456,14 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
         'cost_curve_breakpoints',
         'cost_curve_contiguous',
     ], 'an lp curve with a mask assumes all five, each named after the block that implies it'
-    assert all(isinstance(a, Holds) for a in program.assumptions.values()), (
+    assert all(isinstance(a, Assumption) for a in program.assumptions.values()), (
         'a method states its conditions in the same language the file does, so a consumer has one kind to read'
     )
     assert program.assumptions['cost_curve_increasing'].predicate.names_read == frozenset({'bp_x'}), (
         'the x-axis is what increases, and the condition reads it and nothing else'
     )
 
-    plain = to_program(raw_of(NONCONVEX_YAML))
+    plain = to_program(expanded(NONCONVEX_YAML, 'piecewise'))
     assert list(plain.assumptions) == ['cost_curve_complete'], (
         'adjacency is exact for a curve of any shape, so it states nothing about the shape — but every '
         'curve states that its breakpoints are there, whatever the method'
@@ -459,13 +472,15 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
 
 def test_a_curves_conditions_cannot_collide_with_a_written_assumption():
     """A condition a method states is a name the block emits, and a file writing it is the collision every emitted name is."""
-    with pytest.raises(LanguageError, match="emitted assumption 'cost_curve_increasing' collides"):
-        to_program(override(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}))
+    with pytest.raises(
+        SchemaError, match="writes assumption 'cost_curve_increasing', which this file already declares"
+    ):
+        expanded(override(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}), 'piecewise')
 
 
 @pytest.mark.parametrize('suffix', ['increasing', 'curvature', 'breakpoints', 'contiguous'])
 def test_every_check_has_a_sentence(suffix):
-    assumptions = to_program(LP_MASKED).assumptions
+    assumptions = to_program(expanded(LP_MASKED, 'piecewise')).assumptions
     name = f'cost_curve_{suffix}'
     assert name in assumptions, 'the fixture is the block that assumes everything'
     message = assumption_message(name, assumptions[name])

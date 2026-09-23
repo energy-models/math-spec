@@ -10,10 +10,12 @@ from functools import partial
 
 import pytest
 
-from math_spec._expression_parser import ComparisonNode, DefinitionNode, parse_expression, with_children
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from tests.fixtures import DISPATCH_MODEL, schema_of
+from math_spec.lowering import inline
+from math_spec.program import Multiply, Named, Parameter, Sum, Variable
+from math_spec.resolution import Namespace
+from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
 
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],
@@ -24,12 +26,19 @@ WEIGHTED_SUM = {
 schema = partial(schema_of, DISPATCH_MODEL)
 
 
-def _bodies(node):
-    """*node* with every named expression's body standing bare where its name was."""
-    if isinstance(node, ComparisonNode):
-        return ComparisonNode(node.op, _bodies(node.left), _bodies(node.right))
-    node = node.body if isinstance(node, DefinitionNode) else node
-    return with_children(node, _bodies)
+def _resolved(text, ns):
+    """*text* as its program tree, or as its two sides and the sense between them where it compares."""
+    if any(op in text for op in ('<=', '>=', '==')):
+        return comparison_of(text, ns, 'expression')
+    return expression_of(text, ns, 'expression')
+
+
+def _bodies(resolved):
+    """*resolved* with every named expression's body standing bare where its name was."""
+    if isinstance(resolved, tuple):
+        left, op, right = resolved
+        return inline(left), op, inline(right)
+    return inline(resolved)
 
 
 @pytest.mark.parametrize(
@@ -104,18 +113,21 @@ def _bodies(node):
     ],
 )
 def test_a_call_expands_to_core_ast(expressions, macros, call, want):
-    """The math a call expands to is what `want` spells; a plain named
-    expression's body arrives under the node carrying its name, which `_bodies`
-    reads through, as every pass does."""
-    expanded = parse_and_expand(call, schema(expressions=expressions, macros=macros), 'expression')
-    assert _bodies(expanded) == parse_expression(want)
+    """The math a call expands to is what `want` spells; a named expression's
+    body arrives under the `Named` node carrying its name, which `_bodies`
+    inlines, as lowering does."""
+    ns = Namespace(schema(expressions=expressions, macros=macros))
+    assert _bodies(_resolved(call, ns)) == _resolved(want, ns)
 
 
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():
-    expanded = parse_and_expand('sum(gen_cost, over=generator)', schema(expressions={'gen_cost': 'p * cost'}), 'e')
-    assert expanded.args[0] == DefinitionNode('gen_cost', parse_expression('p * cost')), (
-        'the body is inlined and the name kept, for the typesetter to define it once'
+    ns = Namespace(schema(expressions={'gen_cost': 'p * cost'}))
+    resolved = expression_of('sum(gen_cost, over=generator)', ns, 'e')
+    assert resolved == Sum(Named('gen_cost', Multiply(Variable('p'), Parameter('cost'))), ('generator',)), (
+        'the body is inlined resolved and the name kept, for the typesetter to define it once'
     )
+    assert isinstance(resolved, Sum)
+    assert resolved.operand is expression_of('gen_cost', ns, 'another use'), 'every use reads the one node'
 
 
 @pytest.mark.parametrize(
@@ -151,7 +163,7 @@ def test_a_refusal_names_its_context_once():
 )
 def test_macro_arity_errors(call, match):
     with pytest.raises(LanguageError, match=match):
-        parse_and_expand(call, schema(macros={'ws': WEIGHTED_SUM}), 'expression')
+        parse_and_expand(call, Namespace(schema(macros={'ws': WEIGHTED_SUM})), 'expression')
 
 
 @pytest.mark.parametrize(
@@ -223,8 +235,8 @@ def test_macro_collisions_rejected(patch, match):
         ),
         pytest.param(
             {'grouped': {'args': ['x'], 'template': 'sum(x, by=[nope, also])'}},
-            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation",
-            id='a-typo-in-a-relation-list',
+            r"Macro 'grouped'.*sum\(by=\[nope, also\]\) names 2 relations",
+            id='a-list-of-relations',
         ),
     ],
 )
@@ -234,8 +246,64 @@ def test_macro_templates_validated_even_when_unused(macros, match):
         schema(macros=macros)
 
 
+@pytest.mark.parametrize(
+    ('template', 'match'),
+    [
+        pytest.param('x * tag', "Macro 'm': 'tag' is declared dtype: str", id='a-label-parameter-as-a-value'),
+        pytest.param('sum(x, by=lk, over=nope, into=h)', "over=nope names no column of 'lk'", id='a-typo-in-a-column'),
+    ],
+)
+def test_a_template_is_held_to_the_rules_a_call_site_is(template, match):
+    """A template nothing calls was checked for names only: a label parameter or an unknown column passed load."""
+    with pytest.raises(LanguageError, match=match):
+        schema_of(SMALL_MODEL, macros={'m': {'args': ['x'], 'template': template}})
+
+
 @pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'escape'])
 def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     with pytest.raises(LanguageError) as exc:
         schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
     assert fragment in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ('formals', 'template'),
+    [
+        pytest.param(['x', 'e'], 'shift(x, along=g, offset=1, edge=e)', id='an-edge'),
+        pytest.param(['row'], 'dual(row)', id='a-constraint'),
+        pytest.param(['x', 'rel', 'a', 'b'], 'sum(x, by=rel, over=a, into=b)', id='a-relation-and-its-columns'),
+        pytest.param(['x', 'a', 'b'], 'sum(x, by=lk, over=a, into=b)', id='the-columns-of-a-declared-relation'),
+    ],
+)
+def test_a_formal_stands_where_a_call_site_will_bind_it(formals, template):
+    """A formal has no kind until a call binds it, so the template check leaves it bare in every slot."""
+    assert (
+        schema_of(SMALL_MODEL, macros={'m': {'args': formals, 'template': template}}).macros['m'].template == template
+    )
+
+
+def test_a_named_expression_is_resolved_once_however_many_uses(monkeypatch):
+    """Every use parsed, expanded and resolved the entry again, and a cased one's arms with it."""
+    from math_spec import resolution
+
+    resolved: list[str] = []
+    named = resolution._named
+
+    def counted(name, *args):
+        resolved.append(name)
+        return named(name, *args)
+
+    monkeypatch.setattr(resolution, '_named', counted)
+    schema(
+        expressions={'gen_cost': 'p * cost', 'total': 'sum(gen_cost, over=generator) + sum(gen_cost, over=generator)'},
+        constraints={'balance': {'dims': ['snapshot'], 'expression': 'sum(gen_cost, over=generator) >= load'}},
+    )
+    assert sorted(resolved) == ['gen_cost', 'total'], 'three uses of gen_cost, one resolution'
+
+
+def test_a_use_of_a_refused_named_expression_names_it_rather_than_repeating_its_fault():
+    with pytest.raises(LanguageError) as exc:
+        schema(expressions={'a': 'b + 1', 'b': 'nope'})
+    message = str(exc.value)
+    assert message.count("'nope' not found") == 1, 'the fault is the entry that holds it'
+    assert "Named expression 'a': named expression 'b' does not load" in message

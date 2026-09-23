@@ -13,8 +13,8 @@ from __future__ import annotations
 import pytest
 
 from math_spec import LanguageError
-from math_spec._expression_parser import NameNode
-from math_spec.degree import calls_dual, carries_variable, check_binary, check_expression
+from math_spec.degree import calls_dual, check_binary, check_expression
+from math_spec.program import carries_variable
 from math_spec.resolution import Namespace
 from tests.fixtures import SMALL_MODEL, expression_of, schema_of
 
@@ -72,6 +72,7 @@ def test_the_affine_ceiling_refuses_and_names_the_rewrite(text, fragment):
         pytest.param('(p + q) * c * p', id='a-sum-against-one-term'),
         pytest.param('p * q / c', id='a-quadratic-over-a-parameter'),
         pytest.param('p * r * c', id='a-broadcast-product-of-disjoint-dims'),
+        pytest.param('at(r, by=lk, over=h, into=g) * at(r, by=lk, over=h, into=g)', id='two-lookups-are-one-term-each'),
     ],
 )
 def test_the_objective_takes_degree_two(text):
@@ -84,6 +85,9 @@ def test_the_objective_takes_degree_two(text):
         pytest.param('p * q * p', 'this product is degree 3', id='a-cubic'),
         pytest.param('(p * q) * (p * q)', 'this product is degree 4', id='a-quartic'),
         pytest.param('sum(p, over=g) * sum(q, over=g)', 'outer product', id='two-reductions'),
+        pytest.param(
+            'sum(p, by=lk, over=g, into=h) * sum(q, over=g)', 'outer product', id='a-grouped-sum-is-a-reduction'
+        ),
         pytest.param('(p + q) * (p + q)', 'outer product', id='two-sums-of-variables'),
         pytest.param('sum_back(p, along=g, window=1) * (p - q)', 'outer product', id='a-window-against-a-difference'),
     ],
@@ -104,11 +108,6 @@ def test_degree_two_is_one_term_against_one_term_and_no_higher(text, fragment):
 def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(context, opening):
     with pytest.raises(LanguageError, match=opening):
         check_binary(_ast('p * q'), context, ceiling=1)
-
-
-def test_carries_variable_refuses_an_unresolved_name():
-    with pytest.raises(AssertionError, match=r'resolution\.resolve_expression'):
-        carries_variable(NameNode('p'))
 
 
 def _dual_ast(text: str):
@@ -136,12 +135,12 @@ def test_calls_dual_finds_a_dual_wherever_it_stands(text, found):
 
 
 def test_calls_dual_finds_a_dual_inside_a_cased_arm():
-    """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
+    """`calls_dual` recurses through a region of a `Cases`, not only the top node.
 
-    The reference resolves straight to the `CasesNode` expansion.py builds, so
-    this also guards that `children()` walking its arm values reaches a dual a
-    non-recursive check — one that only inspected the node it was handed —
-    would miss.
+    The reference resolves to the `Named` node carrying the block, so this also
+    guards that the walk steps through it into the region values, reaching a
+    dual a non-recursive check — one that only inspected the node it was
+    handed — would miss.
     """
     schema = schema_of(
         SMALL_MODEL,

@@ -1030,3 +1030,19 @@ def test_the_expansion_prints_the_rows_the_block_states():
 
     assert 'curve_lam' not in to_markdown(spec), 'nothing a curve emits is named where the curve itself prints'
     assert 'curve_convexity' in to_markdown(spec.expand()), 'and every row of it is named where the expansion prints'
+
+
+@EVERY_FORMAT
+def test_a_set_is_labelled_by_the_block_that_declares_it(name: FormatName, fmt: Format):
+    """The line was labelled ``<variable> sos``, a name the file never wrote, while every other line carries its key."""
+    picked = override(
+        DISPATCH_MODEL,
+        **{
+            'variables.p.bounds': {'lower': 0, 'upper': 10},
+            'sos': {'pick': {'variable': 'p', 'over': 'generator', 'type': 1}},
+        },
+    )
+    text = typeset(picked, name)
+
+    assert 'pick' in text, 'the set carries the key it was declared under'
+    assert 'p sos' not in text

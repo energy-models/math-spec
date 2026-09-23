@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
+from math_spec.errors import LanguageError
 from math_spec.program import Mask, RelationPairComparison
 from math_spec.resolution import Namespace
 from math_spec.validation import to_spec
@@ -321,7 +322,8 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
     ],
 )
 def test_an_ill_dimensioned_expression_is_rejected(expr, match):
-    with pytest.raises(DimensionError, match=match):
+    """A rule on the operand's dims is the dim checker's; one on the form of an amount is resolution's, so the class is the language's."""
+    with pytest.raises(LanguageError, match=match):
         _dims(expr)
 
 
@@ -420,7 +422,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
 
     def _refused(self, expression: str) -> str:
         raw = override(self.BASE, **{'constraints.k.expression': expression})
-        with pytest.raises(DimensionError) as caught:
+        with pytest.raises(LanguageError) as caught:
             to_spec(raw)
         return str(caught.value)
 

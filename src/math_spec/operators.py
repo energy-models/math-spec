@@ -10,8 +10,9 @@ cannot say is a declared ``escape:``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -134,6 +135,44 @@ BUILTINS: dict[str, Builtin] = {
 }
 
 BUILTIN_NAMES = frozenset(BUILTINS)
+
+
+class Amount(NamedTuple):
+    """What the errors of an operator that steps along an axis say about the amount it takes."""
+
+    #: The word for the amount.
+    noun: str
+    #: Why negating a named one at the call site is not what the caller means.
+    negated: str
+    #: What a named one that varies over the axis it steps along becomes.
+    varies: str
+    #: The least whole number a literal may be.
+    minimum: float
+    #: What a literal must be written as, after ``operator(kwarg=...)``.
+    form: str
+
+
+#: The amount each operator that steps along an axis takes, by operator name.
+AMOUNTS: dict[str, Amount] = {
+    'shift': Amount(
+        'offset',
+        'A named offset carries its sign in its values, so that one row pointing backwards says '
+        'so where the data is read — negate the column instead.',
+        'a permutation rather than a lag',
+        -math.inf,
+        'must be a whole number, or the name of an integer parameter when the offset differs per '
+        'entity — a lead time, a transit time, a minimum up time.',
+    ),
+    'sum_back': Amount(
+        'width',
+        'A width counts positions and so has no direction; which way a window reaches is the '
+        "operator's own name rather than the sign of its width.",
+        'a different window at every position, which is no longer "the last n"',
+        1,
+        'needs a whole number of positions of at least 1, or the name of an integer parameter when '
+        'the window differs per entity. A width of 1 is the operand itself.',
+    ),
+}
 
 #: The one closed keyword an ``edge=`` accepts. Everything else in that
 #: position is a number: the value the vacated positions contribute.
