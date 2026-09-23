@@ -55,8 +55,8 @@ from math_spec._where_parser import (
     UnresolvedWhereNode,
     parse_where,
 )
-from math_spec.dimensions import dims_of
-from math_spec.errors import LanguageError, did_you_mean, prefixed
+from math_spec.dimensions import dims_of, pulled_back_dims
+from math_spec.errors import DimensionError, LanguageError, did_you_mean, prefixed
 from math_spec.expansion import expand
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
@@ -83,6 +83,7 @@ from math_spec.program import (
     Partition,
     Predicate,
     PredicateOperator,
+    PulledBackPredicate,
     RelationComparison,
     RelationDeclaration,
     RelationDefined,
@@ -818,7 +819,7 @@ class _Resolver:
         return node
 
     def _predicate_call(self, node: UnresolvedPredicateCallNode) -> Predicate | UnresolvedWhereNode:
-        """``shift(<predicate>, along=, offset=)`` — the one operator that reads a predicate and answers one.
+        """``shift(<predicate>, along=, offset=)`` or ``at(<predicate>, by=, over=, into=)`` — the two operators that read a predicate and answer one.
 
         ``count`` answers a number, so it stands on a comparison's side and
         :meth:`_count` reads it there. Anything else naming a predicate is
@@ -835,16 +836,18 @@ class _Resolver:
                 f'count(<predicate>, over=<dimension>) <op> <integer>.'
             )
             return node
-        if node.name != 'shift':
+        if node.name not in ('shift', 'at'):
             self.errors.append(
-                f"{context}: '{node.name}()' does not read a predicate. `shift` reads one and answers one, "
-                f'`count` reads one and answers a number, and every other operator reads arithmetic. '
+                f"{context}: '{node.name}()' does not read a predicate. `shift` and `at` read one and answer "
+                f'one, `count` reads one and answers a number, and every other operator reads arithmetic. '
                 f'Compare the predicate, or name a parameter carrying it.'
             )
             return node
         operand = self._child(node.operand)
         if len(self.errors) > found:
             return node
+        if node.name == 'at':
+            return self._pulled_back(node, Mask(operand))
         if (refusal := _kwargs_error(context, 'shift', node.kwargs, required=('along', 'offset'))) is not None:
             self.errors.append(refusal)
             return node
@@ -870,6 +873,29 @@ class _Resolver:
             )
             return node
         return TranslatedPredicate(mask, along.name, int(offset.value), tuple(sorted(mask.dims)))
+
+    def _pulled_back(self, node: UnresolvedPredicateCallNode, mask: Mask) -> Predicate | UnresolvedWhereNode:
+        """``at(<predicate>, by=, over=, into=)`` — the predicate read through a relation, as ``at`` reads an array.
+
+        The relation and its two ends are read by the rules an expression's
+        ``at`` is, so the one refusal a file meets for a bad read is the same
+        in a ``where:`` and in an expression.
+        """
+        context = self.context
+        if (refusal := _kwargs_error(context, 'at', node.kwargs, required=('by', 'over', 'into'))) is not None:
+            self.errors.append(refusal)
+            return node
+        found = len(self.errors)
+        roles = {key: node.kwargs[key] for key in ('over', 'into')}
+        by = self._relation_ref(node.kwargs['by'], 'at', 'by', roles, None)
+        if len(self.errors) > found or not isinstance(by, DirectionNode):
+            return node
+        try:
+            dims = pulled_back_dims(by.direction, mask.dims, context, 'the predicate')
+        except DimensionError as refusal:
+            self.errors.append(str(refusal))
+            return node
+        return PulledBackPredicate(mask, by.direction, tuple(sorted(dims)))
 
     def _count(self, node: UnresolvedCountNode) -> Predicate | UnresolvedWhereNode:
         """``count(<predicate>, over=<dim>) <op> <integer>`` — how many coordinates the predicate admits.
@@ -1307,7 +1333,7 @@ def _kwargs_error(
         return (
             f'{context}: {name}(<predicate>) does not take {_listed([f"{key}=" for key in extra])}. '
             f'It takes {_listed([f"{key}=" for key in required])}, and nothing else.'
-            f'{edge if "edge" in extra else ""}'
+            f'{edge if "edge" in extra and name == "shift" else ""}'
         )
     return None
 

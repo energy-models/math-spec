@@ -300,7 +300,7 @@ class _Lowering:
             return program.ExpressionComparison(self.expr(node.left), node.op, self.expr(node.right), node.dims)
         if isinstance(node, program.CountComparison):
             return replace(node, predicate=self._mask(node.predicate))
-        if isinstance(node, program.TranslatedPredicate):
+        if isinstance(node, program.TranslatedPredicate | program.PulledBackPredicate):
             return replace(node, operand=self._mask(node.operand))
         if isinstance(node, program.Not):
             return program.Not(self._predicate(node.operand))

@@ -35,6 +35,7 @@ from math_spec.program import (
     Or,
     ParameterComparison,
     ParameterDefined,
+    PulledBackPredicate,
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
@@ -274,6 +275,12 @@ def _observe(
             'decides — test this row, or precompute the neighbour as a boolean parameter and test that'
         )
         raise Undecidable(msg)
+    if isinstance(node, PulledBackPredicate):
+        msg = (
+            f"it reads a predicate through '{node.direction.name}', and which rows that admits only the data "
+            'decides — test this row, or precompute the read as a boolean parameter and test that'
+        )
+        raise Undecidable(msg)
     if isinstance(node, DimensionPosition):
         values.add(node.position)
     elif isinstance(node, RelationPairComparison):
@@ -317,6 +324,8 @@ def _subject_of(node: TypedPredicate) -> Subject:
             return Subject('expression', 'a count of the coordinates a predicate admits')
         case TranslatedPredicate():
             return Subject('expression', 'a predicate read at a neighbouring coordinate')
+        case PulledBackPredicate():
+            return Subject('expression', 'a predicate read through a relation')
         case _:
             assert_never(node)
 
@@ -511,8 +520,11 @@ def _atom(node: TypedPredicate, cell: dict[Subject, Cell], grid: _Grid) -> bool:
         case ArithmeticComparison() | ExpressionComparison():
             msg = 'a comparison of expressions is refused as undecidable before any cell is read'
             raise AssertionError(msg)
-        case CountComparison() | TranslatedPredicate():
-            msg = 'a predicate read as a count or at a neighbour is refused as undecidable before any cell is read'
+        case CountComparison() | TranslatedPredicate() | PulledBackPredicate():
+            msg = (
+                'a predicate read as a count, at a neighbour or through a relation is refused as undecidable '
+                'before any cell is read'
+            )
             raise AssertionError(msg)
         case DimensionPosition(op=op, position=position):
             return _compare(value, op, position)

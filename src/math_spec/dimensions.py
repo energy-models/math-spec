@@ -51,6 +51,7 @@ from math_spec.program import (
     ParameterComparison,
     ParameterDefined,
     Partition,
+    PulledBackPredicate,
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
@@ -178,11 +179,20 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
     """``at`` is the adjoint of ``sum(by=)``: it consumes the dims a sum produces and produces the ones it consumes."""
     by = node.kwargs['by']
     assert isinstance(by, DirectionNode), 'resolution reads at(by=) in a direction'
-    direction = by.direction
+    return pulled_back_dims(by.direction, inner, context, 'the expression')
+
+
+def pulled_back_dims(direction: Direction, inner: frozenset[str], context: str, operand: str) -> frozenset[str]:
+    """The dims *inner* has once ``at`` reads it through *direction*, an expression's or a predicate's alike.
+
+    Raises:
+        DimensionError: *operand* does not carry a dim the read consumes or
+            joins on, or already carries one it lands on.
+    """
     if absent := sorted(set(direction.consumed_dims) - inner):
         raise DimensionError(
             f'{context}: at(by={direction.name}) reads through '
-            f'{absent}, which the expression does not carry (dims '
+            f'{absent}, which {operand} does not carry (dims '
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
@@ -557,6 +567,8 @@ def _check_where_dims(
                 leaf = f"a where-count over '{atom.over}'"
             case TranslatedPredicate():
                 leaf = f"a where-predicate translated along '{atom.along}'"
+            case PulledBackPredicate():
+                leaf = f"a where-predicate read through '{atom.direction.name}'"
             case _:
                 assert_never(atom)
         raise DimensionError(

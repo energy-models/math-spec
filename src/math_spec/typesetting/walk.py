@@ -51,6 +51,7 @@ from math_spec.program import (
     ParameterDefined,
     Predicate,
     PredicateOperator,
+    PulledBackPredicate,
     RelationComparison,
     RelationDefined,
     RelationPairComparison,
@@ -464,12 +465,7 @@ class Walk:
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, DirectionNode)
-            outer = ctx
-            direction = by.direction
-            at = {r: outer.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
-            for read in direction.consumed:
-                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.name, at, read))
-            return self._arithmetic(node.args[0], ctx)
+            return self._arithmetic(node.args[0], self._pulled_back(by.direction, ctx))
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, DirectionNode)
@@ -495,6 +491,13 @@ class Walk:
                 memberships.append(self._membership(d, dummy))
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
+
+    def _pulled_back(self, direction: Direction, ctx: _Context) -> _Context:
+        """*ctx* with each dimension *direction* consumes read at the relation, as ``at`` re-indexes a leaf."""
+        at = {r: ctx.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
+        for read in direction.consumed:
+            ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.name, at, read))
+        return ctx
 
     def _grouping(self, direction: Direction, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
         """The conditions a grouped sum's domain carries for one direction: what it fixes of the row it joins on.
@@ -606,6 +609,9 @@ class Walk:
         if isinstance(node, TranslatedPredicate):
             moved = ctx.translated(node.along, _Step(node.offset, 'plain'))
             return self._where(node.operand.root, moved)
+
+        if isinstance(node, PulledBackPredicate):
+            return self._where(node.operand.root, self._pulled_back(node.direction, ctx))
 
         if isinstance(node, RelationDefined):
             return self._relation_row(node.name, self._frame_key(node.name, ctx)), comparison
