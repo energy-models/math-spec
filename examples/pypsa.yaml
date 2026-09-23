@@ -602,6 +602,20 @@ parameters:
       `multi_investment_periods`, so data prep feeds false otherwise
     dims: [storage_unit]
     dtype: bool
+  StorageUnit_opens_late:
+    description: >-
+      whether a snapshot is the first a storage unit stands in, where that is
+      not the first of the horizon — PyPSA's `active.cumsum() == 1` past the
+      first snapshot, data prep; false in a run where every unit stands throughout
+    dims: [snapshot, storage_unit]
+    dtype: bool
+  StorageUnit_inactive_snapshots:
+    description: >-
+      how many snapshots a storage unit does not stand in — PyPSA's
+      `(~active).sum()`, data prep. A cyclic unit reaches back this many
+      snapshots further, so it closes on the last snapshot it stands in
+    dims: [storage_unit]
+    dtype: int
   StorageUnit_marginal_cost:
     description: cost of one unit of dispatch
     dims: [snapshot, storage_unit]
@@ -655,6 +669,20 @@ parameters:
       `multi_investment_periods`, so data prep feeds false otherwise
     dims: [store]
     dtype: bool
+  Store_opens_late:
+    description: >-
+      whether a snapshot is the first a store stands in, where that is not the
+      first of the horizon — PyPSA's `active.cumsum() == 1` past the first
+      snapshot, data prep; false in a run where every store stands throughout
+    dims: [snapshot, store]
+    dtype: bool
+  Store_inactive_snapshots:
+    description: >-
+      how many snapshots a store does not stand in — PyPSA's `(~active).sum()`,
+      data prep. A cyclic store reaches back this many snapshots further, so it
+      closes on the last snapshot it stands in
+    dims: [store]
+    dtype: int
   Store_marginal_cost:
     description: cost of one unit of power delivered
     dims: [snapshot, store]
@@ -1503,20 +1531,28 @@ expressions:
     otherwise: Process_ramp_down_rate * Process_p_nom_effective
   StorageUnit_charge_carried_in:
     description: >-
-      the charge a unit opens a snapshot with — its last snapshot's less
-      standing loss where it is cyclic, the given initial charge at the start
-      of the horizon, which no standing loss has touched yet, and the previous
-      snapshot's less standing loss otherwise. Per period, the same holds with
-      each investment period as the horizon
+      the charge a unit opens a snapshot with — at the first snapshot it
+      stands in, its last such snapshot's less standing loss where it is
+      cyclic and the given initial charge, which no standing loss has touched
+      yet, where it is not; the previous snapshot's less standing loss
+      otherwise. A unit built in a later period opens in that period, and a
+      cyclic one that retires closes on its own last snapshot. Per period, the
+      same holds with each investment period as the horizon
     dims: [scenario, snapshot, storage_unit]
     cases:
       cyclic:
-        when: StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period AND NOT StorageUnit_state_of_charge_initial_per_period
-        expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
+        when: >-
+          StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period
+          AND NOT StorageUnit_state_of_charge_initial_per_period
+          AND (position(snapshot) == 0 OR StorageUnit_opens_late)
+        expression: >-
+          StorageUnit_retention
+          * shift(shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap'), along=snapshot, offset=StorageUnit_inactive_snapshots, edge='wrap')
       opening:
         when: >-
           NOT StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period
-          AND NOT StorageUnit_state_of_charge_initial_per_period AND position(snapshot) == 0
+          AND NOT StorageUnit_state_of_charge_initial_per_period
+          AND (position(snapshot) == 0 OR StorageUnit_opens_late)
         expression: StorageUnit_state_of_charge_initial
       period_cyclic:
         when: StorageUnit_cyclic_state_of_charge_per_period
@@ -1531,18 +1567,26 @@ expressions:
     otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1)
   Store_energy_carried_in:
     description: >-
-      the energy a store opens a snapshot with — its last snapshot's less
-      standing loss where it is cyclic, the given initial energy at the start
-      of the horizon, which no standing loss has touched yet, and the previous
-      snapshot's less standing loss otherwise. Per period, the same holds with
-      each investment period as the horizon
+      the energy a store opens a snapshot with — at the first snapshot it
+      stands in, its last such snapshot's less standing loss where it is
+      cyclic and the given initial energy, which no standing loss has touched
+      yet, where it is not; the previous snapshot's less standing loss
+      otherwise. A store built in a later period opens in that period, and a
+      cyclic one that retires closes on its own last snapshot. Per period, the
+      same holds with each investment period as the horizon
     dims: [scenario, snapshot, store]
     cases:
       cyclic:
-        when: Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
-        expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
+        when: >-
+          Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
+          AND (position(snapshot) == 0 OR Store_opens_late)
+        expression: >-
+          Store_retention
+          * shift(shift(Store_e, along=snapshot, offset=1, edge='wrap'), along=snapshot, offset=Store_inactive_snapshots, edge='wrap')
       opening:
-        when: NOT Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period AND position(snapshot) == 0
+        when: >-
+          NOT Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
+          AND (position(snapshot) == 0 OR Store_opens_late)
         expression: Store_e_initial
       period_cyclic:
         when: Store_e_cyclic_per_period

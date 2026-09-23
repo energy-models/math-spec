@@ -1359,6 +1359,7 @@ own dimensions.
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | every extendable component of the carrier, counted in the first period a build stands in; `edge=0` at the first period |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
+| [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) for storage built in a later period or retired early | done | rung 32 |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
@@ -2552,6 +2553,91 @@ def build():
 </details>
 <!-- reference:rung_30_security_constrained:end -->
 
+### Rung 32 — storage that stands in one period only
+
+`n.optimize(multi_investment_periods=True)` with storage that is not per period
+and does not stand in every period. PyPSA opens such a storage at the first
+snapshot it stands in: on its initial level where it is not cyclic, and on the
+level of the last snapshot it stands in where it is cyclic
+(`constraints.py:2095-2097`, `2270-2273`). It reads the previous level through
+a forward fill over the snapshots the storage does not stand in. Because a
+build year and a lifetime make those snapshots one run at each end of the
+horizon, the file states the same rows with two data-prep parameters. The
+opening snapshot past the horizon's first is `{c}_opens_late`. The number of
+snapshots the storage does not stand in is `{c}_inactive_snapshots`, and a
+cyclic storage reaches back that many snapshots further. A plain run feeds
+false and zero, so the rows collapse to the standard ones.
+
+The rung builds a cyclic storage unit and a store with an initial level of 5 in
+2030, and a cyclic store that retires after 2020. The earlier file read the
+level before 2030 as absent and dropped the opening row, so each storage
+opened on any level it chose. With the same rows, the objective falls to
+`5620.61` (#620).
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance), at the first snapshot a storage stands in | done | the `cyclic` and `opening` cases hold at `position(snapshot) == 0` or at `{c}_opens_late`; the cyclic one shifts one snapshot and then `{c}_inactive_snapshots` more, `edge='wrap'` |
+
+<!-- reference:rung_32_storage_later_period:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7230.4866975671375`, 92 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_32_storage_later_period.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 32: storage that stands in one period only — two built in the later period open at its first snapshot, and a cyclic one that retires closes on its own last snapshot."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def build():
+    """A whole network, not the spine: eight snapshots over two periods, two storages built in 2030, one cyclic store that retires after 2020."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(4)] + [(2030, datetime(2030, 1, 1, t)) for t in range(4)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0, 2.0, 1.5, 2.5, 2.0]
+    n.snapshot_weightings['stores'] = [0.5, 2.0, 1.5, 2.5, 0.5, 2.0, 1.5, 2.5]
+    n.add('Bus', 'hub')
+    n.add('Generator', 'base32', bus='hub', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'peak32', bus='hub', p_nom=200, marginal_cost=[80, 20, 90, 30, 80, 20, 90, 30])
+    n.add(
+        'StorageUnit',
+        'su_late',
+        bus='hub',
+        p_nom=15,
+        max_hours=4,
+        standing_loss=0.02,
+        cyclic_state_of_charge=True,
+        build_year=2030,
+        lifetime=30,
+    )
+    n.add('Store', 'e_late', bus='hub', e_nom=30, e_initial=5, build_year=2030, lifetime=30)
+    n.add('Store', 'e_retire', bus='hub', e_nom=30, standing_loss=0.01, e_cyclic=True, build_year=2020, lifetime=10)
+    n.add('Load', 'hub_load', bus='hub', p_set=[40, 60, 70, 40, 90, 110, 120, 90])
+    return n
+```
+
+</details>
+<!-- reference:rung_32_storage_later_period:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2749,6 +2835,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}`$ | `StorageUnit_cyclic_state_of_charge` over $`\mathcal{S}`$ — whether the horizon closes on itself instead of opening on the initial charge |
 | $`\mathrm{cyc}^{y}`$ | `StorageUnit_cyclic_state_of_charge_per_period` over $`\mathcal{S}`$ — whether each investment period closes on itself instead of carrying its charge on to the next; it overrides `cyclic_state_of_charge` and `state_of_charge_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{reset}`$ | `StorageUnit_state_of_charge_initial_per_period` over $`\mathcal{S}`$ — whether each investment period opens on the initial charge instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\mathrm{open}`$ | `StorageUnit_opens_late` over $`\mathcal{T} \times \mathcal{S}`$ — whether a snapshot is the first a storage unit stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every unit stands throughout |
+| $`\mathrm{idle}`$ | `StorageUnit_inactive_snapshots` over $`\mathcal{S}`$ — how many snapshots a storage unit does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic unit reaches back this many snapshots further, so it closes on the last snapshot it stands in |
 | $`\mathrm{c}^{h}`$ | `StorageUnit_marginal_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of dispatch |
 | $`\mathrm{c}^{\mathrm{soc}}`$ | `StorageUnit_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of charge held over one snapshot |
 | $`\mathrm{c}^{\mathrm{spill}}`$ | `StorageUnit_spill_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of inflow passed on unused |
@@ -2763,6 +2851,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
 | $`\mathrm{cyc}^{e,y}`$ | `Store_e_cyclic_per_period` over $`\mathcal{V}`$ — whether each investment period closes on itself instead of carrying its energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{reset}^{e}`$ | `Store_e_initial_per_period` over $`\mathcal{V}`$ — whether each investment period opens on the initial energy instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\mathrm{open}^{e}`$ | `Store_opens_late` over $`\mathcal{T} \times \mathcal{V}`$ — whether a snapshot is the first a store stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every store stands throughout |
+| $`\mathrm{idle}^{e}`$ | `Store_inactive_snapshots` over $`\mathcal{V}`$ — how many snapshots a store does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic store reaches back this many snapshots further, so it closes on the last snapshot it stands in |
 | $`\mathrm{c}^{q}`$ | `Store_marginal_cost` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of power delivered |
 | $`\mathrm{c}^{e}`$ | `Store_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of energy held over one snapshot |
 | $`\mathrm{e}^{\mathrm{set}}`$ | `Store_e_set` over $`\mathcal{T} \times \mathcal{V}`$ — a given energy schedule; a store without one has no row here |
@@ -2894,8 +2984,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\widehat{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_committed` over $`\mathcal{J}`$ — the build a committed process's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{z,+}`$ | `Process_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may raise internal power between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{z,-}`$ | `Process_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may lower internal power between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
-| $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise. Per period, the same holds with each investment period as the horizon |
-| $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise. Per period, the same holds with each investment period as the horizon |
+| $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial charge, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A unit built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
+| $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial energy, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A store built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
 | $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed transfer wraps from the horizon's end, and where it is not the energy still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
 | $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
@@ -6817,20 +6907,28 @@ Process_ramp_down_allowance:
 ```yaml
 StorageUnit_charge_carried_in:
   description: >-
-    the charge a unit opens a snapshot with — its last snapshot's less
-    standing loss where it is cyclic, the given initial charge at the start
-    of the horizon, which no standing loss has touched yet, and the previous
-    snapshot's less standing loss otherwise. Per period, the same holds with
-    each investment period as the horizon
+    the charge a unit opens a snapshot with — at the first snapshot it
+    stands in, its last such snapshot's less standing loss where it is
+    cyclic and the given initial charge, which no standing loss has touched
+    yet, where it is not; the previous snapshot's less standing loss
+    otherwise. A unit built in a later period opens in that period, and a
+    cyclic one that retires closes on its own last snapshot. Per period, the
+    same holds with each investment period as the horizon
   dims: [scenario, snapshot, storage_unit]
   cases:
     cyclic:
-      when: StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period AND NOT StorageUnit_state_of_charge_initial_per_period
-      expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
+      when: >-
+        StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period
+        AND NOT StorageUnit_state_of_charge_initial_per_period
+        AND (position(snapshot) == 0 OR StorageUnit_opens_late)
+      expression: >-
+        StorageUnit_retention
+        * shift(shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap'), along=snapshot, offset=StorageUnit_inactive_snapshots, edge='wrap')
     opening:
       when: >-
         NOT StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period
-        AND NOT StorageUnit_state_of_charge_initial_per_period AND position(snapshot) == 0
+        AND NOT StorageUnit_state_of_charge_initial_per_period
+        AND (position(snapshot) == 0 OR StorageUnit_opens_late)
       expression: StorageUnit_state_of_charge_initial
     period_cyclic:
       when: StorageUnit_cyclic_state_of_charge_per_period
@@ -6846,7 +6944,7 @@ StorageUnit_charge_carried_in:
 ```
 
 ```math
-\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \wedge \mathrm{pos}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,s} & \text{if } \mathrm{cyc}^{y}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \mathrm{reset}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
+\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{\xi,\left( t \ominus \mathrm{idle} \right) \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}_{t,s} \right) \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}_{t,s} \right) \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,s} & \text{if } \mathrm{cyc}^{y}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \mathrm{reset}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
 ```
 
 ### `Store_energy_carried_in`
@@ -6854,18 +6952,26 @@ StorageUnit_charge_carried_in:
 ```yaml
 Store_energy_carried_in:
   description: >-
-    the energy a store opens a snapshot with — its last snapshot's less
-    standing loss where it is cyclic, the given initial energy at the start
-    of the horizon, which no standing loss has touched yet, and the previous
-    snapshot's less standing loss otherwise. Per period, the same holds with
-    each investment period as the horizon
+    the energy a store opens a snapshot with — at the first snapshot it
+    stands in, its last such snapshot's less standing loss where it is
+    cyclic and the given initial energy, which no standing loss has touched
+    yet, where it is not; the previous snapshot's less standing loss
+    otherwise. A store built in a later period opens in that period, and a
+    cyclic one that retires closes on its own last snapshot. Per period, the
+    same holds with each investment period as the horizon
   dims: [scenario, snapshot, store]
   cases:
     cyclic:
-      when: Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
-      expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
+      when: >-
+        Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
+        AND (position(snapshot) == 0 OR Store_opens_late)
+      expression: >-
+        Store_retention
+        * shift(shift(Store_e, along=snapshot, offset=1, edge='wrap'), along=snapshot, offset=Store_inactive_snapshots, edge='wrap')
     opening:
-      when: NOT Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period AND position(snapshot) == 0
+      when: >-
+        NOT Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
+        AND (position(snapshot) == 0 OR Store_opens_late)
       expression: Store_e_initial
     period_cyclic:
       when: Store_e_cyclic_per_period
@@ -6877,7 +6983,7 @@ Store_energy_carried_in:
 ```
 
 ```math
-\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{\xi,t \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \mathrm{pos}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,v} & \text{if } \mathrm{cyc}^{e,y}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \mathrm{reset}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
+\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{\xi,\left( t \ominus \mathrm{idle}^{e} \right) \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}^{e}_{t,v} \right) \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}^{e}_{t,v} \right) \\ \rho^{e}_{t,v} \cdot e_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,v} & \text{if } \mathrm{cyc}^{e,y}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \mathrm{reset}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
 ```
 
 ### `Link_output_arrival`
