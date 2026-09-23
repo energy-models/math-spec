@@ -137,14 +137,6 @@ class Entry:
     meaning: str
 
 
-@dataclass(frozen=True)
-class Glossary:
-    """One legend section: its title, and the entries under it."""
-
-    title: str
-    entries: list[Entry]
-
-
 #: The one notation author prose carries: a name in backticks, set in monospace.
 _CODE_SPAN = re.compile(r'`([^`]+)`')
 
@@ -169,8 +161,6 @@ class Format(Protocol):
     operators: ClassVar[Mapping[OperatorName, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
-    #: Between the rows of a ``cases`` block.
-    cases_row: ClassVar[str]
 
     # -- atoms -------------------------------------------------------------
 
@@ -255,7 +245,9 @@ class Format(Protocol):
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str: ...
 
-    def glossary(self, title: str, entries: list[Entry]) -> str: ...
+    def glossary(self, entries: list[Entry]) -> str:
+        """A legend section's rows; :meth:`section` sets its title, as it does for the equations."""
+        ...
 
     def section(self, title: str, body: str) -> str: ...
 
