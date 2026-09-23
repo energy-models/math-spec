@@ -50,7 +50,7 @@ from math_spec.resolution import (
     resolve_expression_text,
     resolve_where_text,
 )
-from math_spec.validation import to_spec
+from math_spec.validation import reference_errors, to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -96,6 +96,9 @@ def lower(schema: Spec) -> Program:
 
     What is checked:
 
+    - every rule one declaration is held to against the others
+      (:func:`~math_spec.validation.reference_errors`), before any expression
+      is read, since resolution assumes each of them;
     - the expression parses, and constraints hold exactly one comparison where
       objectives hold none;
     - every referenced name resolves, and every operator is a built-in whose
@@ -120,9 +123,10 @@ def lower(schema: Spec) -> Program:
         DimensionError: The first dim rule a declaration breaks, once every
             name resolves.
     """
-    ns = Namespace(schema)
-    errors: list[str] = []
+    if errors := reference_errors(schema):
+        raise SchemaError('\n'.join(errors))
 
+    ns = Namespace(schema)
     for mname, macro in schema.macros.items():
         context = f"Macro '{mname}'"
         formals = frozenset((*macro.args, *macro.kwargs))
