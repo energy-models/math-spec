@@ -37,13 +37,14 @@ machine and in CI.
 
 3. **Ask from Python** where the check is one step of a longer script.
    `to_spec` raises a `MathSpecError` for anything the language refuses, and
-   `advice` returns what it would print:
+   `advice` returns what it would print. Advice reads the rows a curve states,
+   so pass the model with its curves written out:
 
    ```python
    import math_spec as ms
 
    spec = ms.to_spec('model.yaml')
-   for note in ms.advice(spec):
+   for note in ms.advice(spec.expand('piecewise')):
        print(note)
    ```
 

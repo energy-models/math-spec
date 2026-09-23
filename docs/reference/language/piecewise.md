@@ -264,4 +264,5 @@ a model before and after, as whole files.
   curve the model still declares is under `program.piecewise`, typed, and
   `spec.expand('piecewise').program` carries its rows instead. A consumer
   building rows reads the expansion's program, and refuses a curve it finds on
-  a program; one that cannot take a set reads `spec.expand().program`.
+  a program with `UnexpandedCurveError`; one that cannot take a set reads
+  `spec.expand().program`.

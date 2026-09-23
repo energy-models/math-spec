@@ -52,12 +52,14 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run one verb; a refused file is its message on stderr and exit status 1.
 
-    Advice is not a refusal: ``check`` prints it and exits 0.
+    Advice is not a refusal: ``check`` prints it and exits 0. It reads the
+    model with its curves written out, since advice reads the rows a curve
+    states and a front end may make that choice for the file.
     """
     args = parser().parse_args(argv)
     if args.verb == 'check':
         try:
-            notes = advice(args.model)
+            notes = advice(to_spec(args.model).expand('piecewise'))
         except MathSpecError as e:
             sys.stderr.write(f'{e}\n')
             return 1

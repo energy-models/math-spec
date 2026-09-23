@@ -80,7 +80,22 @@ curve written out as rows, and `spec.expand()` writes the sets out too. Which
 to read is the caller's to say, because a consumer printing a curve wants the
 curve and a consumer building rows wants the rows. A consumer building rows
 reads the sections it takes and refuses the rest: a curve or a set still on
-the program is a block it did not ask to have written out.
+the program is a block it did not ask to have written out. The refusal of a
+curve has one wording, `UnexpandedCurveError`, which names the blocks and the
+expansion to pass:
+
+```python
+from math_spec import UnexpandedCurveError
+
+
+def rows_of(program):
+    if program.piecewise:
+        raise UnexpandedCurveError(program.piecewise)
+    return program
+
+
+rows_of(rows) is rows  # True
+```
 
 | you are                                                             | take      | because                                      |
 | ------------------------------------------------------------------- | --------- | -------------------------------------------- |

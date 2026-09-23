@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from math_spec.boundedness import unbounded_notes
-from math_spec.errors import Advice, LanguageError
+from math_spec.errors import Advice, UnexpandedCurveError
 from math_spec.program import GroupSum, Program, Pullback, walk
 from math_spec.validation import to_spec
 
@@ -28,27 +28,21 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
 
     Args:
         model: A YAML path, a mapping, a loaded :class:`Spec`, or a
-            :class:`Program`. Both passes read the rows a curve states, so a
-            file or a model is read with its curves written out, and a program
-            still carrying one is refused.
+            :class:`Program`, read as it arrived. Both passes read the rows a
+            curve states, so a model still carrying a ``piecewise:`` block is
+            refused the way any consumer building rows refuses one: pass
+            ``spec.expand('piecewise')``.
 
     Returns:
         The never-an-axis advice in declaration order, then the unboundedness
         advice; ``str()`` of each is its sentence.
 
     Raises:
-        LanguageError: A :class:`Program` with a ``piecewise:`` block still
-            in it, naming the expansion to pass instead.
+        UnexpandedCurveError: A ``piecewise:`` block still in the model.
     """
-    program = model if isinstance(model, Program) else to_spec(model).expand('piecewise').program
+    program = model if isinstance(model, Program) else to_spec(model).program
     if program.piecewise:
-        named = ', '.join(f"'{name}'" for name in program.piecewise)
-        msg = (
-            f'piecewise: {named} states rows rather than being one, and advice reads the rows. Pass '
-            f"spec.expand('piecewise').program, which writes each block out as the variables and "
-            f'constraints it states.'
-        )
-        raise LanguageError(msg)
+        raise UnexpandedCurveError(program.piecewise)
     return tuple(_never_an_axis(program) + unbounded_notes(program))
 
 

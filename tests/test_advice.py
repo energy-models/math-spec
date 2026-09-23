@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, get_args
 
 import pytest
 
-from math_spec import LanguageError, advice, to_spec
+from math_spec import LanguageError, UnexpandedCurveError, advice, to_spec
 from math_spec.errors import AdviceKind
 from tests.fixtures import SMALL_MODEL, override
 
@@ -106,17 +106,24 @@ def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
     ], 'one model, one answer, whichever of the four the caller happens to hold'
 
 
-def test_a_curve_is_written_out_before_advice_reads_it():
-    """Advice reads the rows a curve states, so a file is expanded first and a program still carrying one is refused.
+def test_a_curve_left_as_written_is_refused_however_the_model_arrives():
+    """Advice reads the rows a curve states and writes nothing out on the caller's behalf.
 
-    The refusal was added without a test; deleting the guard let a program
-    with a block advise on the file's own rows as if the curve stated none.
+    It once expanded a file or a Spec itself, which is the choice every other
+    door leaves to the caller; a program with a block was let through when the
+    guard was deleted, advising on the file's own rows as if the curve stated
+    none.
     """
-    from_file = advice(CURVED)
-    from_rows = advice(to_spec(CURVED).expand('piecewise').program)
-    assert [(n.kind, n.subject) for n in from_file] == [(n.kind, n.subject) for n in from_rows], (
-        'a file and the program of its expansion are advised alike'
+    rows = advice(to_spec(CURVED).expand('piecewise'))
+    assert [(n.kind, n.subject) for n in rows] == [(n.kind, n.subject) for n in advice(to_spec(CURVED).expand())], (
+        'the expansion is what advice reads, with or without its sets'
     )
-    with pytest.raises(LanguageError, match="piecewise: 'curve' states rows") as refusal:
-        advice(to_spec(CURVED).program)
-    assert "expand('piecewise')" in str(refusal.value), 'the refusal names the expansion to pass'
+    for arrived in (CURVED, to_spec(CURVED), to_spec(CURVED).program):
+        with pytest.raises(
+            UnexpandedCurveError, match="piecewise: 'curve' states rows rather than being one"
+        ) as refusal:
+            advice(arrived)
+        assert refusal.value.blocks == ('curve',) and "expand('piecewise')" in str(refusal.value), (
+            'the refusal names the block and the expansion to pass'
+        )
+    assert isinstance(refusal.value, LanguageError), "a consumer catching the language's refusals catches this one"
