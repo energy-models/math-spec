@@ -347,16 +347,11 @@ class _Lowering:
         """
         over_node = node.kwargs['along']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
-        window_node = node.kwargs['window']
         operand = self.expr(node.args[0])
         wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
-        width: int | str
-        if isinstance(window_node, ParameterNode):
-            width = window_node.name
-        else:
-            assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
-            width = int(window_node.value)
-        return program.WindowSum(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
+        return program.WindowSum(
+            operand, over_node.name, width=_amount(node.kwargs['window']), wrap=wrap, partition=_partition_of(node)
+        )
 
     def shift(self, node: FunctionCallNode) -> program.Expression:
         """``shift(x, along=d, offset=n)`` — the value at *t - offset* along one dim.
@@ -366,19 +361,12 @@ class _Lowering:
         """
         over_node = node.kwargs['along']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
-        by_node = node.kwargs['offset']
         operand = self.expr(node.args[0])
         edge = node.kwargs.get('edge')
-        by: int | str
-        if isinstance(by_node, ParameterNode):
-            by = by_node.name
-        else:
-            assert isinstance(by_node, NumberNode), 'an offset= that is neither is refused at load'
-            by = int(by_node.value)
         return program.Translate(
             operand,
             over_node.name,
-            offset=by,
+            offset=_amount(node.kwargs['offset']),
             wrap=isinstance(edge, EdgeNode),
             fill=edge.value if isinstance(edge, NumberNode) else None,
             partition=_partition_of(node),
@@ -392,6 +380,14 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.Expression]] =
     'sum_back': _Lowering.sum_back,
     'shift': _Lowering.shift,
 }
+
+
+def _amount(node: ArithmeticNode) -> int | str:
+    """A translation's offset or a window's width: a literal step count, or the parameter that holds one per entity."""
+    if isinstance(node, ParameterNode):
+        return node.name
+    assert isinstance(node, NumberNode), 'an offset= or window= that is neither is refused at load'
+    return int(node.value)
 
 
 def _partition_of(node: FunctionCallNode) -> program.Partition | None:

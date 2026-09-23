@@ -20,9 +20,8 @@ from typing import TYPE_CHECKING, cast, get_args
 
 import pyparsing as pp
 
-from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, parse_text
+from math_spec._expression_parser import ARITHMETIC, NAME, ArithmeticNode, children, keywords, parse_text
 from math_spec._sealed import Sealed
-from math_spec.errors import SchemaError
 from math_spec.program import (
     And,
     BooleanLiteral,
@@ -140,13 +139,7 @@ _ParsedWhere = Predicate | UnresolvedWhereNode | ArithmeticNode | ColumnNode | Q
 def _predicate_call(tokens: pp.ParseResults) -> UnresolvedPredicateCallNode:
     """The call node, with a keyword given twice refused as the arithmetic grammar refuses it."""
     name, operand, *pairs = tokens
-    kwargs: dict[str, ArithmeticNode] = {}
-    for key, value in pairs:
-        if key in kwargs:
-            msg = f'{name}({key}=) is given twice. A keyword names one value; drop one of them.'
-            raise SchemaError(msg)
-        kwargs[key] = value
-    return UnresolvedPredicateCallNode(name, operand, kwargs)
+    return UnresolvedPredicateCallNode(name, operand, keywords(name, pairs))
 
 
 def _build_where_grammar() -> pp.ParserElement:

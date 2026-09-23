@@ -599,10 +599,8 @@ class _Resolver:
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
-        if isinstance(value, NameNode):
-            return (value.name,)
-        if isinstance(value, NameListNode):
-            return value.names
+        if names := names_in(value):
+            return names
         self.errors.append(
             f'{self.context}: {operator}({key}=...) names columns of the relation — a bare name, or a list of them.'
         )
@@ -1311,7 +1309,7 @@ def _position_shape(call: FunctionCallNode) -> tuple[str, str | None, tuple[str,
         return None
     if within is not None and not isinstance(within, NameNode | NameListNode):
         return None
-    into = within.names if isinstance(within, NameListNode) else (within.name,) if within is not None else None
+    into = names_in(within) if within is not None else None
     return call.args[0].name, by.name if by is not None else None, into
 
 

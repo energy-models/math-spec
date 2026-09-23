@@ -23,7 +23,7 @@ from math_spec.expansion import parse_and_expand
 from math_spec.model import Curvature, PiecewiseBlock, PiecewiseMethod, Spec, undeclared_dimension
 from math_spec.program import PiecewiseDeclaration
 from math_spec.resolution import Namespace, resolve_expression
-from math_spec.sos import Emitted, emit
+from math_spec.sos import Emitted, emit, section
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -265,31 +265,25 @@ class _Block:
         model that has been written out carries them as language rather than
         as something a consumer has to know to ask for.
         """
-        section = self._section('assumptions')
+        assumptions = section(self.raw, 'assumptions')
         for name, assumed in assumptions_of(self.name, self.pw).items():
             entry: dict[str, object] = {'holds': assumed.holds, 'description': assumed.description}
             if assumed.where is not None:
                 entry['where'] = assumed.where
-            section[name] = entry
+            assumptions[name] = entry
 
     # -- emitters ----------------------------------------------------------
 
-    def _section(self, name: str) -> dict[str, object]:
-        """The *name* section of the raw model, created empty where the file declares none."""
-        section = self.raw.setdefault(name, {})
-        assert isinstance(section, dict), f'{name}: is a mapping in a validated model'
-        return section
-
     def _weight(self, name: str, **fields: object) -> None:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
-        self._section('variables')[name] = {
+        section(self.raw, 'variables')[name] = {
             'dims': [*self.frame, self.pw.over],
             **({'where': self.mask} if self.mask else {}),
             **fields,
         }
 
     def _constraint(self, name: str, dims: list[str], expression: str, where: str | None = None) -> None:
-        self._section('constraints')[name] = {
+        section(self.raw, 'constraints')[name] = {
             'dims': dims,
             **({'where': where} if where else {}),
             'expression': expression,
@@ -313,7 +307,7 @@ class _Block:
                 f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
             )
         if self.pw.method in ('sos2', 'adjacency'):
-            self._section('sos')[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
+            section(self.raw, 'sos')[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
         """What the weights sum to, as ``(name suffix, where, right-hand side)``.
