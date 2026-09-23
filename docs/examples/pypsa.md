@@ -1357,7 +1357,7 @@ own dimensions.
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | every extendable component of the carrier, counted in the first period a build stands in; `edge=0` at the first period |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
-| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period, within=period)` has them; a later rung |
+| [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
@@ -2397,6 +2397,87 @@ def build():
 </details>
 <!-- reference:rung_28_start_up_ramp:end -->
 
+### Rung 29 — storage per investment period
+
+`n.optimize(multi_investment_periods=True)` with storage that treats each
+investment period as a horizon of its own. A storage unit with
+`cyclic_state_of_charge_per_period` and a store with `e_cyclic_per_period`
+close each period on itself: the first snapshot of a period carries in the
+level of that period's last snapshot. A storage unit with
+`state_of_charge_initial_per_period` and a store with `e_initial_per_period`
+open each period on their initial level. The per-period cyclic flag overrides
+the global one and the per-period initial flag. PyPSA reads the four flags only
+under `multi_investment_periods`, so data prep feeds false on a plain run.
+
+PyPSA also builds no ramp row at the first snapshot of a later period, with or
+without these flags. The ramp-limited coal unit in this rung raises its output
+from 59.2 to 90 across the period boundary, above its limit of 10 per
+snapshot, while its ramp rows bind inside each period.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance), per period | done | two more cases in the charge carried in: a `shift(…, edge='wrap', by=snapshot_period, within=period)` and the initial level at `position(snapshot, by=snapshot_period, within=period) == 0` |
+| [`{c}-p-ramp_limit_*`, `-bigM`, at a period start](#generator-p-ramp_limit_up) | done | the `where:` drops every period start but the horizon's first |
+
+<!-- reference:rung_29_storage_per_period:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7438.461538461539`, 212 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_29_storage_per_period.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 29: storage per investment period — a storage unit and a store that cycle within each period, two that reopen on their initial level, and a ramp that restarts at a period start."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def build():
+    """A whole network, not the spine: eight snapshots over two periods, four storages that each close or reopen per period, a ramp-limited coal unit."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(4)] + [(2030, datetime(2030, 1, 1, t)) for t in range(4)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0, 2.0, 1.5, 2.5, 2.0]
+    n.snapshot_weightings['stores'] = [0.5, 2.0, 1.5, 2.5, 0.5, 2.0, 1.5, 2.5]
+    n.add('Bus', 'hub')
+    n.add('Generator', 'coal29', bus='hub', p_nom=100, marginal_cost=10, ramp_limit_up=0.1, ramp_limit_down=0.1)
+    n.add('Generator', 'peak29', bus='hub', p_nom=200, marginal_cost=[80, 20, 90, 30, 80, 20, 90, 30])
+    n.add('StorageUnit', 'su_cycle', bus='hub', p_nom=15, max_hours=4, cyclic_state_of_charge_per_period=True)
+    n.add(
+        'StorageUnit',
+        'su_reset',
+        bus='hub',
+        p_nom=15,
+        max_hours=4,
+        state_of_charge_initial=20,
+        state_of_charge_initial_per_period=True,
+    )
+    n.add('Store', 'e_cycle', bus='hub', e_nom=30, e_cyclic_per_period=True)
+    n.add('Store', 'e_reset', bus='hub', e_nom=30, e_initial=10, e_initial_per_period=True)
+    n.add('Load', 'hub_load', bus='hub', p_set=[40, 60, 70, 40, 90, 110, 120, 90])
+    return n
+```
+
+</details>
+<!-- reference:rung_29_storage_per_period:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2590,6 +2671,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{inflow}`$ | `StorageUnit_inflow` over $`\mathcal{T} \times \mathcal{S}`$ — energy arriving per hour, a river into a reservoir |
 | $`\mathrm{soc}^{0}`$ | `StorageUnit_state_of_charge_initial` over $`\mathcal{S}`$ — charge held before the first snapshot |
 | $`\mathrm{cyc}`$ | `StorageUnit_cyclic_state_of_charge` over $`\mathcal{S}`$ — whether the horizon closes on itself instead of opening on the initial charge |
+| $`\mathrm{cyc}^{y}`$ | `StorageUnit_cyclic_state_of_charge_per_period` over $`\mathcal{S}`$ — whether each investment period closes on itself instead of carrying its charge on to the next; it overrides `cyclic_state_of_charge` and `state_of_charge_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\mathrm{reset}`$ | `StorageUnit_state_of_charge_initial_per_period` over $`\mathcal{S}`$ — whether each investment period opens on the initial charge instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{c}^{h}`$ | `StorageUnit_marginal_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of dispatch |
 | $`\mathrm{c}^{\mathrm{soc}}`$ | `StorageUnit_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of charge held over one snapshot |
 | $`\mathrm{c}^{\mathrm{spill}}`$ | `StorageUnit_spill_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of inflow passed on unused |
@@ -2602,6 +2685,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\rho^{e}`$ | `Store_retention` over $`\mathcal{T} \times \mathcal{V}`$ — share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
 | $`\mathrm{e}^{0}`$ | `Store_e_initial` over $`\mathcal{V}`$ — energy held before the first snapshot |
 | $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
+| $`\mathrm{cyc}^{e,y}`$ | `Store_e_cyclic_per_period` over $`\mathcal{V}`$ — whether each investment period closes on itself instead of carrying its energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\mathrm{reset}^{e}`$ | `Store_e_initial_per_period` over $`\mathcal{V}`$ — whether each investment period opens on the initial energy instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{c}^{q}`$ | `Store_marginal_cost` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of power delivered |
 | $`\mathrm{c}^{e}`$ | `Store_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of energy held over one snapshot |
 | $`\mathrm{e}^{\mathrm{set}}`$ | `Store_e_set` over $`\mathcal{T} \times \mathcal{V}`$ — a given energy schedule; a store without one has no row here |
@@ -2731,8 +2816,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\widehat{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_committed` over $`\mathcal{J}`$ — the build a committed process's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{z,+}`$ | `Process_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may raise internal power between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{z,-}`$ | `Process_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may lower internal power between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
-| $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
-| $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
+| $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise. Per period, the same holds with each investment period as the horizon |
+| $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise. Per period, the same holds with each investment period as the horizon |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
 | $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed transfer wraps from the horizon's end, and where it is not the energy still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
 | $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
@@ -2749,7 +2834,11 @@ $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size 
 
 $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
+$`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
+
 $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` steps along, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
+
+$`\mathrm{pos}_{\mathrm{relation}(t)}(t)`$ counts within the group a relation puts $`t`$ in: the subscript names the map, $`\mathcal{T}_{\mathrm{relation}(t)}`$ is the group it lands in, and that group has a first position of its own.
 
 ### Objective
 
@@ -3389,7 +3478,8 @@ Generator_p_ramp_limit_up_run_big_m:
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
     AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+    AND Generator_active
   expression: >-
     Generator_p - Generator_previous_p <=
     Generator_ramp_up_rate * Generator_p_nom_ext
@@ -3397,7 +3487,7 @@ Generator_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-start-bigM`
@@ -3414,7 +3504,8 @@ Generator_p_ramp_limit_up_start_big_m:
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
     AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+    AND Generator_active
   expression: >-
     Generator_p - Generator_previous_p <=
     Generator_start_up_rate * Generator_p_nom_ext
@@ -3422,7 +3513,7 @@ Generator_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-run-bigM`
@@ -3439,7 +3530,8 @@ Generator_p_ramp_limit_down_run_big_m:
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
     AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+    AND Generator_active
   expression: >-
     Generator_previous_p - Generator_p <=
     Generator_ramp_down_rate * Generator_p_nom_ext
@@ -3447,7 +3539,7 @@ Generator_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
@@ -3464,7 +3556,8 @@ Generator_p_ramp_limit_down_shut_big_m:
   where: >-
     Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
     AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-    AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+    AND Generator_active
   expression: >-
     Generator_previous_p - Generator_p <=
     Generator_shut_down_rate * Generator_p_nom_ext
@@ -3472,7 +3565,7 @@ Generator_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p_nom_modularity`
@@ -3858,7 +3951,8 @@ Link_p_ramp_limit_up_run_big_m:
   where: >-
     Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
     AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
-    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+    AND Link_active
   expression: >-
     Link_p - Link_previous_p <=
     Link_ramp_up_rate * Link_p_nom_ext
@@ -3866,7 +3960,7 @@ Link_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_up-start-bigM`
@@ -3883,7 +3977,8 @@ Link_p_ramp_limit_up_start_big_m:
   where: >-
     Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
     AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
-    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+    AND Link_active
   expression: >-
     Link_p - Link_previous_p <=
     Link_start_up_rate * Link_p_nom_ext
@@ -3891,7 +3986,7 @@ Link_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down-run-bigM`
@@ -3908,7 +4003,8 @@ Link_p_ramp_limit_down_run_big_m:
   where: >-
     Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
     AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
-    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+    AND Link_active
   expression: >-
     Link_previous_p - Link_p <=
     Link_ramp_down_rate * Link_p_nom_ext
@@ -3916,7 +4012,7 @@ Link_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down-shut-bigM`
@@ -3933,7 +4029,8 @@ Link_p_ramp_limit_down_shut_big_m:
   where: >-
     Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
     AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
-    AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+    AND Link_active
   expression: >-
     Link_previous_p - Link_p <=
     Link_shut_down_rate * Link_p_nom_ext
@@ -3941,7 +4038,7 @@ Link_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p_nom_modularity`
@@ -4327,7 +4424,8 @@ Process_p_ramp_limit_up_run_big_m:
   where: >-
     Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
     AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
-    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+    AND Process_active
   expression: >-
     Process_p - Process_previous_p <=
     Process_ramp_up_rate * Process_p_nom_ext
@@ -4335,7 +4433,7 @@ Process_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_up-start-bigM`
@@ -4352,7 +4450,8 @@ Process_p_ramp_limit_up_start_big_m:
   where: >-
     Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
     AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
-    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+    AND Process_active
   expression: >-
     Process_p - Process_previous_p <=
     Process_start_up_rate * Process_p_nom_ext
@@ -4360,7 +4459,7 @@ Process_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down-run-bigM`
@@ -4377,7 +4476,8 @@ Process_p_ramp_limit_down_run_big_m:
   where: >-
     Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
     AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
-    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+    AND Process_active
   expression: >-
     Process_previous_p - Process_p <=
     Process_ramp_down_rate * Process_p_nom_ext
@@ -4385,7 +4485,7 @@ Process_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down-shut-bigM`
@@ -4402,7 +4502,8 @@ Process_p_ramp_limit_down_shut_big_m:
   where: >-
     Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
     AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
-    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+    AND Process_active
   expression: >-
     Process_previous_p - Process_p <=
     Process_shut_down_rate * Process_p_nom_ext
@@ -4410,7 +4511,7 @@ Process_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p_nom_modularity`
@@ -5045,17 +5146,18 @@ Generator_p_ramp_limit_up:
     its ramp limit of the build, and a committed one no further than its
     start-up ramp in the snapshot it turns on. A unit that came into the
     horizon running brought an unknown output, so it carries no row at the
-    first snapshot — nor does any unit a big M releases instead
+    first snapshot, nor at the start of a later investment period — nor does any unit a big M releases instead
   dims: [scenario, snapshot, generator]
   where: >-
     (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
     AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
-    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_committable AND Generator_status_initial == 0)))
+    AND Generator_active
   expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down`
@@ -5069,17 +5171,18 @@ Generator_p_ramp_limit_down:
     its ramp limit of the build, and a committed one no further than its
     shut-down ramp in the snapshot it turns off. A unit that came into the
     horizon running brought an unknown output, so it carries no row at the
-    first snapshot — nor does any unit a big M releases instead
+    first snapshot, nor at the start of a later investment period — nor does any unit a big M releases instead
   dims: [scenario, snapshot, generator]
   where: >-
     (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
     AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
-    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_committable AND Generator_status_initial == 0)))
+    AND Generator_active
   expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-p-ramp_limit_up`
@@ -5093,17 +5196,18 @@ Link_p_ramp_limit_up:
     its ramp limit of the build, and a committed one no further than its
     start-up ramp in the snapshot it turns on. A link that came into the
     horizon running brought an unknown flow, so it carries no row at the
-    first snapshot — nor does any link a big M releases instead
+    first snapshot, nor at the start of a later investment period — nor does any link a big M releases instead
   dims: [scenario, snapshot, link]
   where: >-
     (Link_ramp_limit_up OR Link_ramp_limit_start_up)
     AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
-    AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_committable AND Link_status_initial == 0)))
+    AND Link_active
   expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down`
@@ -5117,17 +5221,18 @@ Link_p_ramp_limit_down:
     its ramp limit of the build, and a committed one no further than its
     shut-down ramp in the snapshot it turns off. A link that came into the
     horizon running brought an unknown flow, so it carries no row at the
-    first snapshot — nor does any link a big M releases instead
+    first snapshot, nor at the start of a later investment period — nor does any link a big M releases instead
   dims: [scenario, snapshot, link]
   where: >-
     (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
     AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
-    AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_committable AND Link_status_initial == 0)))
+    AND Link_active
   expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Process-p-ramp_limit_up`
@@ -5141,17 +5246,18 @@ Process_p_ramp_limit_up:
     its ramp limit of the build, and a committed one no further than its
     start-up ramp in the snapshot it turns on. A process that came into the
     horizon running brought an unknown internal power, so it carries no row at the
-    first snapshot — nor does any process a big M releases instead
+    first snapshot, nor at the start of a later investment period — nor does any process a big M releases instead
   dims: [scenario, snapshot, process]
   where: >-
     (Process_ramp_limit_up OR Process_ramp_limit_start_up)
     AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
-    AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_committable AND Process_status_initial == 0)))
+    AND Process_active
   expression: Process_p - Process_previous_p <= Process_ramp_up_allowance
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down`
@@ -5165,17 +5271,18 @@ Process_p_ramp_limit_down:
     its ramp limit of the build, and a committed one no further than its
     shut-down ramp in the snapshot it turns off. A process that came into the
     horizon running brought an unknown internal power, so it carries no row at the
-    first snapshot — nor does any process a big M releases instead
+    first snapshot, nor at the start of a later investment period — nor does any process a big M releases instead
   dims: [scenario, snapshot, process]
   where: >-
     (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
     AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
-    AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
+    AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_committable AND Process_status_initial == 0)))
+    AND Process_active
   expression: Process_previous_p - Process_p <= Process_ramp_down_allowance
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `StorageUnit-ext-p_dispatch-lower`
@@ -6458,20 +6565,33 @@ StorageUnit_charge_carried_in:
     the charge a unit opens a snapshot with — its last snapshot's less
     standing loss where it is cyclic, the given initial charge at the start
     of the horizon, which no standing loss has touched yet, and the previous
-    snapshot's less standing loss otherwise
+    snapshot's less standing loss otherwise. Per period, the same holds with
+    each investment period as the horizon
   dims: [scenario, snapshot, storage_unit]
   cases:
     cyclic:
-      when: StorageUnit_cyclic_state_of_charge
+      when: StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period AND NOT StorageUnit_state_of_charge_initial_per_period
       expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
     opening:
-      when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
+      when: >-
+        NOT StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period
+        AND NOT StorageUnit_state_of_charge_initial_per_period AND position(snapshot) == 0
+      expression: StorageUnit_state_of_charge_initial
+    period_cyclic:
+      when: StorageUnit_cyclic_state_of_charge_per_period
+      expression: >-
+        StorageUnit_retention
+        * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap', by=snapshot_period, within=period)
+    period_opening:
+      when: >-
+        StorageUnit_state_of_charge_initial_per_period AND NOT StorageUnit_cyclic_state_of_charge_per_period
+        AND position(snapshot, by=snapshot_period, within=period) == 0
       expression: StorageUnit_state_of_charge_initial
   otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1)
 ```
 
 ```math
-\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
+\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \wedge \mathrm{pos}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,s} & \text{if } \mathrm{cyc}^{y}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \mathrm{reset}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
 ```
 
 ### `Store_energy_carried_in`
@@ -6482,20 +6602,27 @@ Store_energy_carried_in:
     the energy a store opens a snapshot with — its last snapshot's less
     standing loss where it is cyclic, the given initial energy at the start
     of the horizon, which no standing loss has touched yet, and the previous
-    snapshot's less standing loss otherwise
+    snapshot's less standing loss otherwise. Per period, the same holds with
+    each investment period as the horizon
   dims: [scenario, snapshot, store]
   cases:
     cyclic:
-      when: Store_e_cyclic
+      when: Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
       expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
     opening:
-      when: not Store_e_cyclic AND position(snapshot) == 0
+      when: NOT Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period AND position(snapshot) == 0
+      expression: Store_e_initial
+    period_cyclic:
+      when: Store_e_cyclic_per_period
+      expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap', by=snapshot_period, within=period)
+    period_opening:
+      when: Store_e_initial_per_period AND NOT Store_e_cyclic_per_period AND position(snapshot, by=snapshot_period, within=period) == 0
       expression: Store_e_initial
   otherwise: Store_retention * shift(Store_e, along=snapshot, offset=1)
 ```
 
 ```math
-\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{\xi,t \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
+\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{\xi,t \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \mathrm{pos}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,v} & \text{if } \mathrm{cyc}^{e,y}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \mathrm{reset}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
 ```
 
 ### `Link_output_arrival`

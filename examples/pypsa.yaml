@@ -580,6 +580,21 @@ parameters:
     description: whether the horizon closes on itself instead of opening on the initial charge
     dims: [storage_unit]
     dtype: bool
+  StorageUnit_cyclic_state_of_charge_per_period:
+    description: >-
+      whether each investment period closes on itself instead of carrying its
+      charge on to the next; it overrides `cyclic_state_of_charge` and
+      `state_of_charge_initial_per_period`. PyPSA reads it only under
+      `multi_investment_periods`, so data prep feeds false otherwise
+    dims: [storage_unit]
+    dtype: bool
+  StorageUnit_state_of_charge_initial_per_period:
+    description: >-
+      whether each investment period opens on the initial charge instead of
+      carrying the previous period's; PyPSA reads it only under
+      `multi_investment_periods`, so data prep feeds false otherwise
+    dims: [storage_unit]
+    dtype: bool
   StorageUnit_marginal_cost:
     description: cost of one unit of dispatch
     dims: [snapshot, storage_unit]
@@ -616,6 +631,21 @@ parameters:
     dims: [store]
   Store_e_cyclic:
     description: whether the horizon closes on itself instead of opening on the initial energy
+    dims: [store]
+    dtype: bool
+  Store_e_cyclic_per_period:
+    description: >-
+      whether each investment period closes on itself instead of carrying its
+      energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`.
+      PyPSA reads it only under `multi_investment_periods`, so data prep feeds
+      false otherwise
+    dims: [store]
+    dtype: bool
+  Store_e_initial_per_period:
+    description: >-
+      whether each investment period opens on the initial energy instead of
+      carrying the previous period's; PyPSA reads it only under
+      `multi_investment_periods`, so data prep feeds false otherwise
     dims: [store]
     dtype: bool
   Store_marginal_cost:
@@ -1448,14 +1478,27 @@ expressions:
       the charge a unit opens a snapshot with — its last snapshot's less
       standing loss where it is cyclic, the given initial charge at the start
       of the horizon, which no standing loss has touched yet, and the previous
-      snapshot's less standing loss otherwise
+      snapshot's less standing loss otherwise. Per period, the same holds with
+      each investment period as the horizon
     dims: [scenario, snapshot, storage_unit]
     cases:
       cyclic:
-        when: StorageUnit_cyclic_state_of_charge
+        when: StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period AND NOT StorageUnit_state_of_charge_initial_per_period
         expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
       opening:
-        when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
+        when: >-
+          NOT StorageUnit_cyclic_state_of_charge AND NOT StorageUnit_cyclic_state_of_charge_per_period
+          AND NOT StorageUnit_state_of_charge_initial_per_period AND position(snapshot) == 0
+        expression: StorageUnit_state_of_charge_initial
+      period_cyclic:
+        when: StorageUnit_cyclic_state_of_charge_per_period
+        expression: >-
+          StorageUnit_retention
+          * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap', by=snapshot_period, within=period)
+      period_opening:
+        when: >-
+          StorageUnit_state_of_charge_initial_per_period AND NOT StorageUnit_cyclic_state_of_charge_per_period
+          AND position(snapshot, by=snapshot_period, within=period) == 0
         expression: StorageUnit_state_of_charge_initial
     otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1)
   Store_energy_carried_in:
@@ -1463,14 +1506,21 @@ expressions:
       the energy a store opens a snapshot with — its last snapshot's less
       standing loss where it is cyclic, the given initial energy at the start
       of the horizon, which no standing loss has touched yet, and the previous
-      snapshot's less standing loss otherwise
+      snapshot's less standing loss otherwise. Per period, the same holds with
+      each investment period as the horizon
     dims: [scenario, snapshot, store]
     cases:
       cyclic:
-        when: Store_e_cyclic
+        when: Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period
         expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
       opening:
-        when: not Store_e_cyclic AND position(snapshot) == 0
+        when: NOT Store_e_cyclic AND NOT Store_e_cyclic_per_period AND NOT Store_e_initial_per_period AND position(snapshot) == 0
+        expression: Store_e_initial
+      period_cyclic:
+        when: Store_e_cyclic_per_period
+        expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap', by=snapshot_period, within=period)
+      period_opening:
+        when: Store_e_initial_per_period AND NOT Store_e_cyclic_per_period AND position(snapshot, by=snapshot_period, within=period) == 0
         expression: Store_e_initial
     otherwise: Store_retention * shift(Store_e, along=snapshot, offset=1)
   Link_output_arrival:
@@ -1779,7 +1829,8 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND Generator_active
     expression: >-
       Generator_p - Generator_previous_p <=
       Generator_ramp_up_rate * Generator_p_nom_ext
@@ -1793,7 +1844,8 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND Generator_active
     expression: >-
       Generator_p - Generator_previous_p <=
       Generator_start_up_rate * Generator_p_nom_ext
@@ -1807,7 +1859,8 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND Generator_active
     expression: >-
       Generator_previous_p - Generator_p <=
       Generator_ramp_down_rate * Generator_p_nom_ext
@@ -1821,7 +1874,8 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Generator_status_initial == 0) AND Generator_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND Generator_active
     expression: >-
       Generator_previous_p - Generator_p <=
       Generator_shut_down_rate * Generator_p_nom_ext
@@ -1973,7 +2027,8 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND Link_active
     expression: >-
       Link_p - Link_previous_p <=
       Link_ramp_up_rate * Link_p_nom_ext
@@ -1987,7 +2042,8 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND Link_active
     expression: >-
       Link_p - Link_previous_p <=
       Link_start_up_rate * Link_p_nom_ext
@@ -2001,7 +2057,8 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND Link_active
     expression: >-
       Link_previous_p - Link_p <=
       Link_ramp_down_rate * Link_p_nom_ext
@@ -2015,7 +2072,8 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Link_status_initial == 0) AND Link_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND Link_active
     expression: >-
       Link_previous_p - Link_p <=
       Link_shut_down_rate * Link_p_nom_ext
@@ -2167,7 +2225,8 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND Process_active
     expression: >-
       Process_p - Process_previous_p <=
       Process_ramp_up_rate * Process_p_nom_ext
@@ -2181,7 +2240,8 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND Process_active
     expression: >-
       Process_p - Process_previous_p <=
       Process_start_up_rate * Process_p_nom_ext
@@ -2195,7 +2255,8 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND Process_active
     expression: >-
       Process_previous_p - Process_p <=
       Process_ramp_down_rate * Process_p_nom_ext
@@ -2209,7 +2270,8 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND Process_active
     expression: >-
       Process_previous_p - Process_p <=
       Process_shut_down_rate * Process_p_nom_ext
@@ -2445,12 +2507,13 @@ constraints:
       its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A unit that came into the
       horizon running brought an unknown output, so it carries no row at the
-      first snapshot — nor does any unit a big M releases instead
+      first snapshot, nor at the start of a later investment period — nor does any unit a big M releases instead
     dims: [scenario, snapshot, generator]
     where: >-
       (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
       AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
-      AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_committable AND Generator_status_initial == 0)))
+      AND Generator_active
     expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
   Generator_p_ramp_limit_down:
     description: >-
@@ -2458,12 +2521,13 @@ constraints:
       its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A unit that came into the
       horizon running brought an unknown output, so it carries no row at the
-      first snapshot — nor does any unit a big M releases instead
+      first snapshot, nor at the start of a later investment period — nor does any unit a big M releases instead
     dims: [scenario, snapshot, generator]
     where: >-
       (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
       AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
-      AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0)) AND Generator_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_committable AND Generator_status_initial == 0)))
+      AND Generator_active
     expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
   Link_p_ramp_limit_up:
     description: >-
@@ -2471,12 +2535,13 @@ constraints:
       its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A link that came into the
       horizon running brought an unknown flow, so it carries no row at the
-      first snapshot — nor does any link a big M releases instead
+      first snapshot, nor at the start of a later investment period — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
     where: >-
       (Link_ramp_limit_up OR Link_ramp_limit_start_up)
       AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
-      AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_committable AND Link_status_initial == 0)))
+      AND Link_active
     expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
   Link_p_ramp_limit_down:
     description: >-
@@ -2484,12 +2549,13 @@ constraints:
       its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A link that came into the
       horizon running brought an unknown flow, so it carries no row at the
-      first snapshot — nor does any link a big M releases instead
+      first snapshot, nor at the start of a later investment period — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
     where: >-
       (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
       AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
-      AND (position(snapshot) > 0 OR (Link_committable AND Link_status_initial == 0)) AND Link_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_committable AND Link_status_initial == 0)))
+      AND Link_active
     expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
   Process_p_ramp_limit_up:
     description: >-
@@ -2497,12 +2563,13 @@ constraints:
       its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A process that came into the
       horizon running brought an unknown internal power, so it carries no row at the
-      first snapshot — nor does any process a big M releases instead
+      first snapshot, nor at the start of a later investment period — nor does any process a big M releases instead
     dims: [scenario, snapshot, process]
     where: >-
       (Process_ramp_limit_up OR Process_ramp_limit_start_up)
       AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
-      AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_committable AND Process_status_initial == 0)))
+      AND Process_active
     expression: Process_p - Process_previous_p <= Process_ramp_up_allowance
   Process_p_ramp_limit_down:
     description: >-
@@ -2510,12 +2577,13 @@ constraints:
       its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A process that came into the
       horizon running brought an unknown internal power, so it carries no row at the
-      first snapshot — nor does any process a big M releases instead
+      first snapshot, nor at the start of a later investment period — nor does any process a big M releases instead
     dims: [scenario, snapshot, process]
     where: >-
       (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
       AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
-      AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_committable AND Process_status_initial == 0)))
+      AND Process_active
     expression: Process_previous_p - Process_p <= Process_ramp_down_allowance
   StorageUnit_ext_p_dispatch_lower:
     description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
