@@ -15,7 +15,7 @@ import pytest
 
 from math_spec import CURVATURES
 from math_spec.errors import LanguageError, SchemaError
-from math_spec.lowering import lower_program, to_program
+from math_spec.lowering import to_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import Assumption, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
@@ -107,17 +107,21 @@ def test_the_file_keeps_its_curve_and_the_expansion_has_none():
     assert not schema.expand('piecewise').piecewise, 'the block is spent once its declarations are emitted'
 
 
-def test_lowering_refuses_a_model_that_still_owes_rows_to_a_curve():
-    """A curve states rows and a program holds them, and nothing here writes them out on the caller's behalf.
+def test_a_program_holds_the_rows_a_curve_states_and_not_the_curve():
+    """A curve states rows and a program holds them, so lowering a model writes every block out.
 
-    Which formulations to write out is the caller's to say: a set is one thing
-    to a consumer that takes it and another to one that does not, so the
-    refusal names both spellings.
+    Writing a set out stays the caller's: a set is one thing to a consumer
+    that takes it and another to one that does not.
     """
-    with pytest.raises(LanguageError, match="piecewise: 'cost_curve' states rows") as refusal:
-        to_program(schema_of(NONCONVEX_YAML))
-    assert "expand('piecewise')" in str(refusal.value) and 'expand()' in str(refusal.value), (
-        'the refusal names both ways out, because they differ in what a set becomes'
+    schema = schema_of(NONCONVEX_YAML)
+    program = to_program(schema)
+    assert program is to_program(schema.expand('piecewise')), 'the program of a model is the program of its rows'
+    assert {'cost_curve_lam', 'p', 'op_cost'} <= set(program.variables), 'the weights the block states'
+    assert 'cost_curve_link0' in program.constraints and not hasattr(program, 'piecewise'), (
+        'the rows are declarations like any other, and nothing records the block they came from'
+    )
+    assert to_program(schema.expand()).sos == {} and program.sos == {}, (
+        'an adjacency block writes its own set out; a caller writes the rest out with expand()'
     )
 
 
@@ -488,7 +492,7 @@ def test_a_masked_lp_curve_sits_its_rows_on_predicates_rather_than_on_parameters
     caller never supplied and a derivation in private state filled. The ``where``
     language writes each of them, so the rows carry the predicate and the program
     declares the file's parameters and no other."""
-    program = lower_program(expand_piecewise(schema_of(LP_MASKED)))
+    program = to_program(schema_of(LP_MASKED))
     rows = {name: program.constraints[f'cost_curve_{name}'].where for name in ('chord', 'domain_lo', 'domain_hi')}
 
     assert set(program.parameters) == {'bp_x', 'bp_y', 'load'}, 'every parameter is one the file declared'
@@ -548,7 +552,6 @@ def test_a_block_assumes_of_its_data_what_the_method_implies():
     """Every condition a curve puts on its data stands with the file's own, carrying its own subjects."""
     program = to_program(expanded(LP_MASKED, 'piecewise'))
 
-    assert program.piecewise['cost_curve'].breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
     assert list(program.assumptions) == [
         'cost_curve_complete',
         'cost_curve_increasing',

@@ -5,7 +5,8 @@
 """The program: what a file declares, with names resolved and shapes fixed.
 
 The second public state, and the one a consumer reads. A :class:`Program` is
-every declaration a file makes and no data at all;
+every declaration a file makes and no data at all, with every ``piecewise:``
+block written out as the rows it states;
 :func:`~math_spec.lowering.to_program` is the only thing that builds one, so
 nothing here re-checks a hand-built one.
 
@@ -75,7 +76,6 @@ __all__ = [
     'ParameterDefined',
     'ParameterDtype',
     'Partition',
-    'PiecewiseDeclaration',
     'Power',
     'Predicate',
     'PredicateOperator',
@@ -351,12 +351,11 @@ class Cases:
 class Named:
     """A use of an ``expressions:`` entry, standing where its name was written, with the entry's body under it.
 
-    Only a :attr:`~math_spec.model.Spec.resolved` tree holds one: it is what
-    lets the typesetter print the symbol where the name stood and define it
-    once, and what ``in_math`` is read off. Lowering inlines every one, so no
-    :class:`Program` carries it and :data:`Expression` does not name it. Every
-    use of one entry holds the one node resolution built for it, and a walk
-    steps through it.
+    Its value is its body's: a consumer building rows steps through it, as
+    :func:`children` does. It is kept as a node rather than written in so the
+    typesetter can print the symbol where the name stood and define it once.
+    Every use of one entry holds the one node resolution built for it, which
+    is the :attr:`ExpressionDeclaration.expression` of that entry.
     """
 
     name: str
@@ -389,16 +388,16 @@ Expression = (
     | Translate
     | WindowSum
     | Cases
+    | Named
 )
 
 
-def fan_in(expression: Expression | Named) -> FanIn:
+def fan_in(expression: Expression) -> FanIn:
     """How *expression*'s output rows relate to its input slots.
 
     For the absence rules, both classes other than ``'one-to-one'`` sum
     several input slots into an output row. A :class:`Named` answers as its
-    body does, so a :attr:`~math_spec.model.Spec.resolved` tree is asked as a
-    program's is.
+    body does.
     """
     if isinstance(expression, Named):
         return fan_in(expression.body)
@@ -560,26 +559,6 @@ class DimensionDeclaration:
 
 
 @dataclass(frozen=True)
-class PiecewiseDeclaration:
-    """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
-
-    The expansion lowered the links into constraints over the file's own
-    parameters, and emitted none. What the block assumes of its numbers is an
-    :class:`Assumption` like any other, under :attr:`Program.assumptions`; what
-    is left here is the curve.
-
-    Attributes:
-        over: The breakpoint dimension.
-        method: How the weights are restricted.
-        breakpoints: The links' values parameters, in link order.
-    """
-
-    over: str
-    method: _model.PiecewiseMethod
-    breakpoints: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class Assumption:
     """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
 
@@ -688,6 +667,9 @@ class ExpressionDeclaration:
     """
 
     expression: Expression
+    #: The frame the entry is read over: the ``dims:`` a cased entry
+    #: declares, or the dims a plain entry's body carries.
+    dims: tuple[str, ...]
     in_math: bool
 
 
@@ -846,18 +828,15 @@ class Program:
     dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
     relations: Mapping[str, RelationDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
-    #: Each ``piecewise:`` block the file wrote, as facts — see
-    #: :class:`PiecewiseDeclaration`.
-    piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
     #: What the data has to satisfy for the answer to mean anything, by the
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
     #: language decides none of it, so the consumer binding the data checks
     #: each and refuses with :func:`assumption_message`.
     assumptions: Mapping[str, Assumption] = Sealed({})
-    #: Declared ``expressions:``, lowered, each saying whether the math reads
-    #: it. None builds a row of its own — one the math reads is inlined where
-    #: it is read — but all are lowered with the program, so a file whose
+    #: Declared ``expressions:``, each saying whether the math reads it. None
+    #: builds a row of its own — one the math reads stands as a :class:`Named`
+    #: where it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     expressions: Mapping[str, ExpressionDeclaration] = Sealed({})

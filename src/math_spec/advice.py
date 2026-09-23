@@ -30,8 +30,7 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
     Args:
         model: A YAML path, a mapping, a loaded :class:`Spec`, or a
             :class:`Program`. Both passes read the program, so the four
-            answer alike, and a ``piecewise:`` block still in the model is
-            refused as :func:`~math_spec.lowering.to_program` refuses it.
+            answer alike.
 
     Returns:
         The never-an-axis advice in declaration order, then the unboundedness

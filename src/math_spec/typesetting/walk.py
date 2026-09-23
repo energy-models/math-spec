@@ -15,8 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from math_spec.dimensions import dims_of
-from math_spec.piecewise import curve_frame
+from math_spec.piecewise import curve
 from math_spec.program import (
     Add,
     And,
@@ -65,6 +64,7 @@ if TYPE_CHECKING:
 
     from math_spec._expression_parser import BinaryOperator
     from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
+    from math_spec.program import Program
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -241,27 +241,27 @@ class Walk:
     def __init__(
         self,
         schema: Spec,
+        program: Program,
         symbols: Symbols,
         fmt: Format,
         *,
         inline_expressions: bool = False,
     ) -> None:
         self.schema = schema
+        #: The typed trees, masks and frames of every declaration *schema*
+        #: makes, which the walk prints from; *schema* says how the file
+        #: wrote them and what it says about them.
+        self.program = program
         self.symbols = symbols
         self.format = fmt
         #: Substitute each plain named expression where it is used, rather than
         #: printing its symbol there and its definition once.
         self.inline_expressions = inline_expressions
         self.noticed = Noticed()
-        #: The dims a named expression is read over: a cased one declares them,
-        #: a plain one's fall out of its body.
-        self.frames: dict[str, list[str]] = {name: self._frame_of(name) for name in schema.expressions}
 
     def _frame_of(self, name: str) -> list[str]:
-        block = self.schema.expressions[name]
-        if block.cases:
-            return list(block.dims or ())
-        return self._sorted(dims_of(self.schema.resolved.expressions[name].body, self.schema, f"expression '{name}'"))
+        """The dims named expression *name* is read over, as its declaration carries them."""
+        return list(self.program.expressions[name].dims)
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -345,7 +345,7 @@ class Walk:
         if isinstance(node, Named):
             if self.inline_expressions and not isinstance(node.body, Cases):
                 return self._arithmetic(node.body, ctx)
-            return ctx.indexed(self.symbols.name[node.name], self.frames[node.name]), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], self._frame_of(node.name)), _ATOM
 
         if isinstance(node, Constant):
             return self._number(node.value), _ATOM if node.value >= 0 else 1
@@ -700,7 +700,7 @@ class Walk:
         if block is None:
             return []
         sense = self._op('minimize' if block.sense == 'minimize' else 'maximize')
-        objective = self.schema.resolved.objective
+        objective = self.program.objective
         assert objective is not None, 'validation resolves the objective the file declares'
         return [Line(label='', left=sense, right=self._expression(objective.expression, self._context()))]
 
@@ -718,7 +718,7 @@ class Walk:
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
-        constraint = self.schema.resolved.constraints[name]
+        constraint = self.program.constraints[name]
         ctx = self._context(frame=block.dims)
         condition = self._condition(ctx, constraint.where)
         return Line(
@@ -748,23 +748,19 @@ class Walk:
         """
         if not self.inline_expressions:
             return list(self.schema.expressions)
-        read = self.schema.resolved.read_by_the_math
-        return [name for name, block in self.schema.expressions.items() if block.cases or name not in read]
+        entries = self.program.expressions
+        return [name for name, block in self.schema.expressions.items() if block.cases or not entries[name].in_math]
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""
-        entry = self.schema.resolved.expressions[name]
-        frame = self.frames[name]
+        body = self.program.expressions[name].expression
+        frame = self._frame_of(name)
         ctx = self._context(frame)
-        body = (
-            self.format.cases(self._arms(entry.body, ctx))
-            if isinstance(entry.body, Cases)
-            else self._expression(entry.body, ctx)
-        )
+        rendered = self.format.cases(self._arms(body, ctx)) if isinstance(body, Cases) else self._expression(body, ctx)
         return Line(
             label=name,
             left=ctx.indexed(self.symbols.name[name], frame),
-            right=f'{self._op("equal")} {body}',
+            right=f'{self._op("equal")} {rendered}',
             condition=self._quantifier(frame, ''),
         )
 
@@ -781,7 +777,7 @@ class Walk:
             return self.definition(name)
         if name in self.schema.constraints:
             return self._constraint(name)
-        if name in self.schema.resolved.assumptions:
+        if name in self.program.assumptions:
             return self._assumption(name)
         if name in self.schema.piecewise:
             return self._piecewise(name)
@@ -822,7 +818,7 @@ class Walk:
         block = self.schema.variables[name]
         ctx = self._context(frame=block.dims)
         symbol = ctx.indexed(self.symbols.name[name], list(block.dims))
-        where = self.schema.resolved.variables[name]
+        where = self.program.variables[name].where
         condition = self._quantifier(list(block.dims), self._condition(ctx, where))
         lower, upper = block.bounds.lower, block.bounds.upper
 
@@ -864,11 +860,11 @@ class Walk:
         method states them in the same language: the reader sees every
         condition the data is held to, whoever stated it.
         """
-        return [self._assumption(name) for name in self.schema.resolved.assumptions]
+        return [self._assumption(name) for name in self.program.assumptions]
 
     def _assumption(self, name: str) -> Line:
         """One assumption: the predicate over the frame both its masks name, under its ``where``."""
-        assumption = self.schema.resolved.assumptions[name]
+        assumption = self.program.assumptions[name]
         holds, where = assumption.predicate, assumption.where
         frame = self._sorted(holds.dims | (where.dims if where is not None else frozenset()))
         ctx = self._context(frame)
@@ -888,8 +884,8 @@ class Walk:
         which side.
         """
         block = self.schema.piecewise[name]
-        links = self.schema.resolved.piecewise[name]
-        frame = list(curve_frame(self.schema, name, block, links))
+        links, stated = curve(self.schema, name)
+        frame = list(stated)
         ctx = self._context([*frame, block.over])
         locus = self._locus(block, ctx)
         bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
@@ -950,7 +946,7 @@ class Walk:
             return ''
         gate = self.schema.variables[activity]
         symbol = ctx.indexed(self.symbols.name[activity], list(gate.dims))
-        mask = self.schema.resolved.variables[activity]
+        mask = self.program.variables[activity].where
         if mask is None or gate.absence == 'zero':
             return symbol
         where = self._predicate(mask.root, ctx, need=_WHERE_PRECEDENCE['and'])
@@ -988,7 +984,7 @@ class Walk:
             for v, block in self.schema.variables.items()
         ]
         definitions = [
-            self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self.frames[e])}', block.description)
+            self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self._frame_of(e))}', block.description)
             for e, block in self.schema.expressions.items()
             if e in self._defined()
         ]

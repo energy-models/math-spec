@@ -26,6 +26,7 @@ from math_spec.program import (
     Expression,
     GroupSum,
     Multiply,
+    Named,
     Negate,
     Parameter,
     Power,
@@ -162,7 +163,7 @@ def _record_signs(node: Expression, sign: Sign, signs: dict[str, Sign]) -> None:
         _record_signs(node.base, None, signs)
         _record_signs(node.exponent, None, signs)
         return
-    if isinstance(node, Sum | GroupSum | Pullback | Translate | WindowSum | Cases):
+    if isinstance(node, Sum | GroupSum | Pullback | Translate | WindowSum | Cases | Named):
         for child in children(node):
             _record_signs(child, sign, signs)
         return

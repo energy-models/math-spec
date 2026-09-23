@@ -16,13 +16,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from math_spec._yaml import read_yaml
-from math_spec.degree import calls_dual
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.program import carries_variable
+from math_spec.program import Dual, Variable, walk
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
+    from math_spec.program import Program
     from math_spec.typesetting.format import Format, Notation
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -73,20 +73,20 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
     return _word(name, fmt, given=given)
 
 
-def chosen_expressions(schema: Spec) -> frozenset[str]:
+def chosen_expressions(program: Program) -> frozenset[str]:
     """The named expressions the solver decides, rather than is handed.
 
     A ``when`` does not move one: a variable there asks whether the variable
     *exists*, which the model settles when it is built. Only a value reaching a
-    variable does — through another named expression too, since expansion
-    inlines those where the name stood.
+    variable does — through another named expression too, since a use of one
+    stands where the name was written.
     A ``dual`` moves one for the same reason a variable does: the solve settles
     it, and no data hands it over.
     """
     return frozenset(
         name
-        for name, entry in schema.resolved.expressions.items()
-        if carries_variable(entry.body) or calls_dual(entry.body)
+        for name, entry in program.expressions.items()
+        if any(isinstance(node, Variable | Dual) for node in walk(entry.expression))
     )
 
 
@@ -102,14 +102,14 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: Spec, fmt: Format, table: SymbolTable) -> None:
+    def __init__(self, schema: Spec, program: Program, fmt: Format, table: SymbolTable) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema)
+        chosen = frozenset(schema.variables) | chosen_expressions(program)
         names = (*schema.parameters, *schema.variables, *schema.expressions)
         declared = frozenset(names)
 

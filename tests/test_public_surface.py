@@ -42,10 +42,10 @@ SURFACE = frozenset(
 )  # fmt: skip
 
 #: What `Spec` promises beyond the sections a file declares: the two ways back
-#: out, the verb that writes a formulation out, the relations of one dimension,
-#: and the typed trees every reader in this package walks. A `model_`-prefixed
-#: name is pydantic's, not a contract this project keeps.
-SPEC_SURFACE = frozenset({'relations_of', 'to_dict', 'to_yaml', 'expand', 'resolved'})
+#: out, the verb that writes a formulation out, and the relations of one
+#: dimension. A `model_`-prefixed name is pydantic's, not a contract this
+#: project keeps.
+SPEC_SURFACE = frozenset({'relations_of', 'to_dict', 'to_yaml', 'expand'})
 
 #: The modules whose `__all__` a consumer imports from.
 MODULES = [

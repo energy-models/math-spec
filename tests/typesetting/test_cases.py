@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import to_latex, to_spec, typeset
-from math_spec.piecewise import expand_piecewise
+from math_spec import to_latex, to_program, typeset
 from math_spec.typesetting.symbols import chosen_expressions
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
@@ -134,8 +133,7 @@ def test_a_variable_reached_through_another_cased_expression_still_prints_chosen
     holds a variable. A walk stopping at the inner block would print the outer
     one upright — a quantity the solver decides, set as one the model was handed.
     """
-    schema = expand_piecewise(to_spec(_NESTED))
-    assert chosen_expressions(schema) == {'headroom', 'opening_cost'}, (
+    assert chosen_expressions(to_program(_NESTED)) == {'headroom', 'opening_cost'}, (
         'the chain is followed to its end, so both are chosen'
     )
 

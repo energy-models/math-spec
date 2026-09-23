@@ -2060,13 +2060,13 @@ def test_a_name_may_open_with_an_underscore():
 def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     """Loading, lowering and typesetting a model resolve each expression and where string once.
 
-    Every reader after validation — the dim rules, lowering, the typesetter —
-    used to parse, expand and resolve the declaration's text again, so one
-    constraint was resolved four times per load and the trees the readers
-    walked were built apart from the one the language checked (#401). They
-    read the trees validation built now.
+    Every reader after validation — the dim rules, the typesetter — used to
+    parse, expand and resolve the declaration's text again, so one constraint
+    was resolved four times per load and the trees the readers walked were
+    built apart from the one the language checked (#401). They read the
+    program lowering built now.
     """
-    from math_spec import resolution, validation
+    from math_spec import lowering, resolution
 
     seen: list[tuple[str, str]] = []
 
@@ -2078,7 +2078,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         return record
 
     doors = (resolution.resolve_expression, resolution.resolve_constraint_text, resolution.resolve_where_text)
-    for module in (validation, resolution):
+    for module in (lowering, resolution):
         for door in doors:
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
