@@ -40,6 +40,7 @@ from math_spec.program import (
     JoinColumns,
     Mask,
     Multiply,
+    Named,
     Negate,
     Not,
     Or,
@@ -602,6 +603,11 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
+            "shift(p, along=g, offset=+lead, edge='wrap')",
+            Translate(Variable('p'), 'g', offset='lead', wrap=True, fill=None),
+            id='a-named-offset-written-with-a-plus-is-the-parameter',
+        ),
+        pytest.param(
             'shift(p, along=g, offset=1, by=lk, within=h, edge=0)',
             Translate(
                 Variable('p'),
@@ -619,8 +625,8 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
             id='a-window-is-one-node-rather-than-a-fold-of-translations',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=k)',
-            WindowSum(Variable('p'), 'g', width='k', wrap=False),
+            'sum_back(p, along=g, window=lead)',
+            WindowSum(Variable('p'), 'g', width='lead', wrap=False),
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
@@ -857,6 +863,12 @@ def test_every_expression_node_is_classified_by_fan_in():
 @pytest.mark.parametrize(('node', 'expected'), FAN_IN.items(), ids=[type(node).__name__ for node in FAN_IN])
 def test_a_node_answers_its_fan_in(node, expected):
     assert fan_in(node) == expected
+
+
+def test_fan_in_reads_through_a_named_expression():
+    """`fan_in` on a `Spec.resolved` tree, which holds `Named`, ended in `assert_never`."""
+    named = Named('total', Sum(Variable('p'), ('g',)))
+    assert fan_in(named) == 'many-to-one', 'a use of an entry fans in as the entry does'
 
 
 def test_a_relation_is_declared_as_the_file_declares_it():

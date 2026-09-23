@@ -227,6 +227,64 @@ def test_any_affine_expression_is_a_legal_link(link):
             'activity is not supported with method: lp',
             id='lp-with-an-activity-and-nothing-to-gate',
         ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'parameters.bp_x.dtype': 'bool'},
+            "link 0 values parameter 'bp_x' is declared dtype: bool, and a breakpoint is a number",
+            id='values-that-are-not-numbers',
+        ),
+        pytest.param(
+            LP,
+            {'piecewise.cost_curve.links': [['load', 'bp_x'], ['op_cost', 'bp_y', '>=']]},
+            "link 0: method: lp bounds the curve's domain by rows comparing this link's expression",
+            id='lp-with-an-x-link-carrying-no-variable',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'parameters.bp_x.dims': []},
+            "link 0 values parameter 'bp_x' must carry dim 'bp'",
+            id='a-breakpoint-parameter-without-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'piecewise.cost_curve.points': 'nope'},
+            "points references undeclared parameter 'nope'",
+            id='undeclared-points',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'parameters.reach': {'dims': [], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'},
+            "points parameter 'reach' must carry dim 'bp'",
+            id='points-without-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'piecewise.cost_curve.links': [['p + bp_x', 'bp_x'], ['op_cost', 'bp_y']]},
+            "link 0 expression already carries the breakpoint dim 'bp'",
+            id='a-link-carrying-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'variables.u': {'dims': ['snapshot', 'bp'], 'domain': 'binary'}, 'piecewise.cost_curve.activity': 'u'},
+            "activity already carries the breakpoint dim 'bp'",
+            id='a-gate-carrying-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'dimensions.generator': {'dtype': 'str'}, 'parameters.bp_x.dims': ['generator', 'bp']},
+            r"values parameter 'bp_x' carries \['generator'\], which no link expression does",
+            id='a-breakpoint-varying-along-a-dim-no-link-carries',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {
+                'dimensions.generator': {'dtype': 'str'},
+                'parameters.reach': {'dims': ['generator', 'bp'], 'dtype': 'bool'},
+                'piecewise.cost_curve.points': 'reach',
+            },
+            r"points parameter 'reach' carries \['generator'\], which the links do not",
+            id='a-mask-adding-a-coordinate-the-curve-does-not-have',
+        ),
     ],
 )
 def test_a_malformed_block_is_refused(model, patch, match):
@@ -250,6 +308,48 @@ def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expre
     with pytest.raises(SchemaError, match=message) as exc:
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.links': [[link_expression, 'bp_x'], ['op_cost', 'bp_y']]})
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ('model', 'patch'),
+    [
+        pytest.param(NONCONVEX_YAML, {'parameters.bp_x.dtype': 'str'}, id='a-label-as-a-breakpoint'),
+        pytest.param(
+            LP,
+            {'piecewise.cost_curve.links': [['load', 'bp_x'], ['op_cost', 'bp_y', '>=']]},
+            id='a-variable-free-x-link',
+        ),
+    ],
+)
+def test_a_block_is_refused_on_the_link_the_file_wrote_and_not_on_a_row_it_would_emit(model, patch):
+    """Both were refused only once written out, under `cost_curve_increasing` or `cost_curve_domain_lo` — rows the file never declared."""
+    with pytest.raises(SchemaError) as exc:
+        schema_of(model, **patch)
+    assert "piecewise 'cost_curve'" in str(exc.value) and 'link 0' in str(exc.value)
+    assert 'cost_curve_' not in str(exc.value), 'the refusal names the block, not a declaration the expansion writes'
+
+
+def test_an_undeclared_breakpoint_dimension_is_refused_once():
+    """`over: nope` also said, per link, that the values parameter must carry `nope` — lines that follow from the first."""
+    with pytest.raises(SchemaError) as exc:
+        schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.over': 'nope'})
+    assert str(exc.value).splitlines() == [
+        "piecewise 'cost_curve' references undeclared dimension 'nope'. Declare it under 'dimensions:'."
+    ]
+
+
+def test_a_link_reading_a_refused_entry_names_it_and_its_refusal_is_listed():
+    """A link through a failing entry said `Its refusal is listed with it`, and nothing listed the refusal."""
+    with pytest.raises(SchemaError) as exc:
+        schema_of(
+            NONCONVEX_YAML,
+            **{'expressions': {'bad': 'nope'}, 'piecewise.cost_curve.links': [['bad', 'bp_x'], ['op_cost', 'bp_y']]},
+        )
+    message = str(exc.value)
+    assert "Named expression 'bad': 'nope' not found" in message
+    assert (
+        "piecewise 'cost_curve' link 0: named expression 'bad' does not load. Its refusal is listed with it." in message
+    )
 
 
 def test_a_link_reading_a_nonlinear_entry_is_refused():

@@ -243,7 +243,8 @@ def _expression_rewrite(node: ExpressionComparison) -> str:
     if number is not None and isinstance(right, Parameter):
         return (
             f'the literal is on the left, and a comparison is read as arithmetic there — write it as '
-            f'the same test the other way round, {right.name} {_FLIPPED[node.op]} {number:g}'
+            f'the same test the other way round, {right.name} {_FLIPPED[node.op]} '
+            f'{int(number) if number.is_integer() else number}'
         )
     return (
         'it compares expressions, whose values only the data decides — compare one parameter against a '

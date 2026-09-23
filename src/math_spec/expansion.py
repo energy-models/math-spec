@@ -74,6 +74,14 @@ def parse_template(name: str, macro: MacroBlock, context: str) -> ArithmeticNode
 
 
 def _expand(node: ArithmeticNode, ns: Namespace, context: str, stack: tuple[str, ...]) -> ArithmeticNode:
+    """*node* with every macro call under it substituted; *stack* is the macros this walk is inside.
+
+    A name a template reads is checked against the entries being resolved
+    here, where the macros it came through are known, so a cycle closed
+    through a macro is reported with the macros in its chain.
+    """
+    if isinstance(node, NameNode) and stack and (refusal := ns.cycle(node.name, context, stack)) is not None:
+        raise SchemaError(refusal)
     if isinstance(node, FunctionCallNode) and node.name in ns.schema.macros:
         if node.name in stack:
             msg = f'{context}: circular macro reference: {" -> ".join([*stack, node.name])}'

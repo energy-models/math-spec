@@ -13,7 +13,7 @@ import pytest
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
 from math_spec.lowering import inline
-from math_spec.program import Multiply, Named, Parameter, Sum, Variable
+from math_spec.program import Multiply, Named, Parameter, Sum, Translate, Variable
 from math_spec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
 
@@ -148,6 +148,37 @@ def test_a_bad_named_expression_is_refused_at_load(expressions, match):
         schema(expressions=expressions)
 
 
+@pytest.mark.parametrize(
+    ('expressions', 'macros', 'chain'),
+    [
+        pytest.param({'a': 'b + 1', 'b': 'a + 1'}, {}, 'a -> b -> a', id='through-an-entry'),
+        pytest.param(
+            {'a': 'm(load)'}, {'m': {'args': ['x'], 'template': 'x + a'}}, 'a -> m -> a', id='through-a-macro'
+        ),
+        pytest.param(
+            {'a': 'b + 1', 'b': 'm(1)'},
+            {'m': {'args': ['x'], 'template': 'x + a'}},
+            'a -> b -> m -> a',
+            id='through-an-entry-and-a-macro',
+        ),
+        pytest.param(
+            {
+                'a': {'dims': ['snapshot'], 'cases': {'x': {'when': 'b > 0', 'expression': '1'}}, 'otherwise': '2'},
+                'b': 'a + 1',
+            },
+            {},
+            'a -> b -> a',
+            id='through-the-when-of-a-case',
+        ),
+    ],
+)
+def test_a_cycle_is_reported_with_the_chain_that_closes_it(expressions, macros, chain):
+    """A cycle closed through a macro was reported as `a -> a`, the macro left out, and one closed through a case's `when` was a `RecursionError`."""
+    with pytest.raises(LanguageError, match=f'circular expression reference: {chain}$') as exc:
+        schema(expressions=expressions, macros=macros)
+    assert str(exc.value).count('circular') == 1, 'the cycle is reported once, where it closes'
+
+
 def test_a_refusal_names_its_context_once():
     with pytest.raises(LanguageError) as exc:
         schema(expressions={'a': 'a + 1'})
@@ -238,12 +269,39 @@ def test_macro_collisions_rejected(patch, match):
             r"Macro 'grouped'.*sum\(by=\[nope, also\]\) names 2 relations",
             id='a-list-of-relations',
         ),
+        pytest.param(
+            {'grouped': {'args': ['x', 'a', 'b'], 'template': 'sum(x, by=nope, over=a, into=b)'}},
+            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation or a formal of this macro",
+            id='a-typo-in-a-relation-beside-formal-columns',
+        ),
+        pytest.param(
+            {'reduced': {'args': ['x'], 'template': 'sum(x, over=nope)'}},
+            r"Macro 'reduced'.*sum\(over=nope\) does not name a declared dimension or a formal of this macro",
+            id='a-typo-in-a-dimension',
+        ),
+        pytest.param(
+            {'lag': {'args': ['x'], 'template': 'shift(x, along=snapshot, offset=0.5)'}},
+            r"Macro 'lag'.*shift\(offset=...\) must be a whole number",
+            id='a-fractional-offset',
+        ),
     ],
 )
 def test_macro_templates_validated_even_when_unused(macros, match):
-    """A typo in a template the model never calls is still caught at load."""
+    """A typo in a template the model never calls is still caught at load.
+
+    The relation beside formal columns loaded once the columns were formals,
+    because the formals sent the call back before the relation's name was
+    read; a fractional offset in a template nothing calls loaded before the
+    form of an amount was decided in resolution.
+    """
     with pytest.raises(LanguageError, match=match):
         schema(macros=macros)
+
+
+def test_an_entry_nothing_reads_is_held_to_the_rules_a_use_is():
+    """`sum(k)` over a scalar loaded as an unread entry, since the bare sum was only decided where the math read it."""
+    with pytest.raises(LanguageError, match=r"Named expression 'e1': sum\(\) with no over= or by=.*already a scalar"):
+        schema_of(SMALL_MODEL, expressions={'e1': 'sum(k)'})
 
 
 @pytest.mark.parametrize(
@@ -273,13 +331,32 @@ def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
         pytest.param(['row'], 'dual(row)', id='a-constraint'),
         pytest.param(['x', 'rel', 'a', 'b'], 'sum(x, by=rel, over=a, into=b)', id='a-relation-and-its-columns'),
         pytest.param(['x', 'a', 'b'], 'sum(x, by=lk, over=a, into=b)', id='the-columns-of-a-declared-relation'),
+        pytest.param(
+            ['x', 'd'], 'shift(x, along=d, offset=1, by=lk, within=h)', id='the-dimension-a-partition-steps-along'
+        ),
+        pytest.param(
+            ['x', 'd'], 'sum_back(x, along=d, window=2, by=lk, within=h)', id='the-dimension-a-window-runs-along'
+        ),
     ],
 )
 def test_a_formal_stands_where_a_call_site_will_bind_it(formals, template):
-    """A formal has no kind until a call binds it, so the template check leaves it bare in every slot."""
+    """A formal has no kind until a call binds it, so the template check leaves it bare in every slot.
+
+    A formal `along=` beside a `by=` was handed to the partition as if it were
+    a dimension, and refused as one the relation has no key column over.
+    """
     assert (
         schema_of(SMALL_MODEL, macros={'m': {'args': formals, 'template': template}}).macros['m'].template == template
     )
+
+
+def test_a_call_binding_the_dimension_a_partition_steps_along_builds_it():
+    """The call site is where the formal gets its kind, so the partition is built there."""
+    template = 'shift(x, along=d, offset=1, by=lk, within=h)'
+    ns = Namespace(schema_of(SMALL_MODEL, macros={'m': {'args': ['x', 'd'], 'template': template}}))
+    node = expression_of('m(p, g)', ns, 'expression')
+    assert isinstance(node, Translate) and node.along == 'g'
+    assert node.partition is not None and node.partition.name == 'lk', 'the relation is read once along= is bound'
 
 
 def test_a_named_expression_is_resolved_once_however_many_uses(monkeypatch):

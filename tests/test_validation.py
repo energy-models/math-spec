@@ -113,6 +113,25 @@ class TestValidateExpressions:
         assert 'exactly one comparison' in message, 'the second fault is reported beside the first, not behind it'
 
     @pytest.mark.parametrize(
+        'patch',
+        [
+            pytest.param({'macros': {'m': {'args': ['x'], 'template': 'x + nope'}}}, id='a-macro'),
+            pytest.param({'expressions': {'e': 'nope'}}, id='a-named-expression'),
+        ],
+    )
+    def test_a_fault_in_a_macro_or_an_entry_hides_no_other_fault(self, patch):
+        """Validation raised after the macros and the `expressions:` entries, so a constraint's fault waited for the next load."""
+        message = _refusal(**patch, constraints={'c': {'dims': ['g'], 'expression': 'p <= also_nope'}})
+        assert "'nope' not found" in message
+        assert "Constraint 'c': 'also_nope' not found" in message, 'every declaration is read, whatever an entry did'
+
+    def test_a_refused_call_is_not_read_by_the_call_around_it(self):
+        """`sum(sum(p, into=g))`: the inner call names a column with no `by=`, and the outer bare sum then said its operand was already a scalar, because the refused call was still built."""
+        message = _refusal(objective={'expression': 'sum(sum(p, into=g))'})
+        assert 'no by= names the relation' in message
+        assert 'already a scalar' not in message, 'a refused call builds nothing for the call around it to read'
+
+    @pytest.mark.parametrize(
         ('patch', 'fragments'),
         [
             pytest.param(
@@ -320,6 +339,22 @@ class TestDimensionKwargs:
     def test_declared_dimensions_still_pass(self, expression, dims):
         to_spec(_kwarg_model(expression, dims))
 
+    @pytest.mark.parametrize(
+        ('expression', 'fragment'),
+        [
+            pytest.param('sum(p, over=1)', 'sum(over=...) must name a dimension', id='a-number-as-a-dimension'),
+            pytest.param("sum(p, by='lk', over=g, into=h)", 'sum(by=...) must name a relation', id='a-quoted-relation'),
+            pytest.param(
+                'sum(p, by=lk, over=1, into=h)',
+                'sum(over=...) names columns of the relation',
+                id='a-number-as-a-column',
+            ),
+        ],
+    )
+    def test_a_kwarg_that_names_nothing_is_refused(self, expression, fragment):
+        """A kwarg that takes a name and gets a number or a label is refused by the kind the operator declares for it."""
+        assert fragment in _refusal(objective={'expression': expression})
+
     def test_macro_formals_are_not_mistaken_for_dimensions(self):
         """A formal in a dim position is legal inside the template body."""
         _schema(
@@ -464,13 +499,24 @@ class TestArithmeticDtype:
 
     def test_a_named_amount_keeps_its_own_sentence(self):
         """`offset=` has a stricter rule of its own — a count of positions is integral — and that sentence arrives."""
-        with pytest.raises(LanguageError, match='counts positions along'):
+        with pytest.raises(SchemaError, match="counts positions, but 'lag' is declared dtype: str"):
             _schema(
                 **{
                     'parameters.lag': {'dims': [], 'dtype': 'str'},
                     'objective': {'expression': "sum(shift(p, along=g, offset=lag, edge='wrap'))"},
                 }
             )
+
+    def test_a_negated_named_amount_is_first_held_to_its_dtype(self):
+        """`offset=-lag` with `lag` a str parameter said only that the offset was negated, and nothing about the dtype."""
+        message = _refusal(
+            **{
+                'parameters.lag': {'dims': [], 'dtype': 'str'},
+                'objective': {'expression': "sum(shift(p, along=g, offset=-lag, edge='wrap'))"},
+            }
+        )
+        assert "'lag' is declared dtype: str" in message
+        assert 'negates a named offset' not in message, 'the sign is read once the name is a count'
 
 
 class TestVersion:
@@ -1836,7 +1882,10 @@ class TestExpressionCases:
         message = _refusal(model)
         assert message.count("'nope' not found") == 1, 'two constraints read it; the fault is reported once'
         assert "Named expression 'headroom', case 'opening'" in message
-        assert 'Constraint' not in message, "the arm is the declaration's, not the use site's"
+        for name in ('cap', 'floor'):
+            assert f"Constraint '{name}': named expression 'headroom' does not load" in message, (
+                'a use site names the entry it could not read, and does not repeat its fault'
+            )
 
     def test_the_fallback_is_not_named_as_a_case(self):
         """`otherwise:` is what is left, not a region like the cases are.
@@ -1964,6 +2013,37 @@ def test_an_expression_too_deep_to_walk_fails_as_a_language_error(patch, nests):
     """
     with pytest.raises(LanguageError, match='past the 100 levels'):
         to_spec(override(DISPATCH_MODEL, **patch))
+
+
+def _chain(n: int, *, deepest_first: bool) -> dict[str, str]:
+    """*n* named expressions, each reading the one before; the body of `e{n-1}` resolves `2n - 1` deep with every entry written in."""
+    entries = {'e0': 'load'} | {f'e{i}': f'e{i - 1} + 1' for i in range(1, n)}
+    return dict(reversed(list(entries.items()))) if deepest_first else entries
+
+
+@pytest.mark.parametrize('deepest_first', [True, False], ids=['declared-deepest-first', 'declared-deepest-last'])
+def test_a_chain_of_named_expressions_is_held_to_the_resolved_depth_and_costs_no_stack(deepest_first):
+    """A chain of entries recursed once per entry, so a long one raised `RecursionError`, or the parser's refusal about a tree that was not deep.
+
+    Where the interpreter's stack ran out decided the message: a chain of 120
+    declared deepest first was a `RecursionError` out of `to_spec`, and one
+    whose parse was the deepest frame was refused as nesting past the 100
+    levels a text may, which the text did not. The entries are now resolved
+    in an order that reads each one's dependencies first, from a worklist,
+    and the resolved tree is held to one depth however it was written.
+    """
+    chain = _chain(150, deepest_first=deepest_first)
+    constraint = {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) <= e149'}
+    spec = to_spec(override(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
+    to_markdown(to_program(spec) and spec)
+
+    with pytest.raises(LanguageError, match='nests 301 deep with every named expression it reads written in') as caught:
+        to_spec(override(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
+    assert 'past the 300 levels' in str(caught.value)
+    assert "Named expression 'e150'" in str(caught.value), 'refused at the first entry past the depth, by name'
+
+    with pytest.raises(LanguageError, match='past the 300 levels'):
+        to_spec(override(DISPATCH_MODEL, expressions=_chain(400, deepest_first=deepest_first)))
 
 
 def test_a_name_may_open_with_an_underscore():
