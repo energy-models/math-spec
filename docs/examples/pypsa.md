@@ -1174,13 +1174,13 @@ balance, and the model collapses to the lossless one.
 
 | PyPSA | status | note |
 | --- | --- | --- |
-| [`Line-loss`](#variable-domains) | done | absent, and zero in the balance, where lossless |
-| [`Line-fix-s-*`, `Line-ext-s-*`](#line-fix-s-lower) | done | the loss counted against the rating |
-| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss at either end |
-| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep, see X4 |
-| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
-| [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1) | split | |
-| [`Line-loss_secants-pos`, `Line-loss_secants-neg`](#line-loss_tangents-k-1) | done | the same two blocks in the secant mode; slope, offset and the breakpoint loop are data prep; rung 19 records it |
+| [`Line-loss`, `Transformer-loss`](#variable-domains) | done | absent, and zero in the balance, where lossless |
+| [`Line-fix-s-*`, `Line-ext-s-*`](#line-fix-s-lower), [`Transformer-fix-s-*`, `Transformer-ext-s-*`](#transformer-fix-s-lower) | done | the loss counted against the rating |
+| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's and transformer's loss at either end |
+| [`Line-loss_upper`](#line-loss_upper), [`Transformer-loss_upper`](#transformer-loss_upper) | done | `loss_max` is data prep, see X4 |
+| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1), [`Transformer-loss_tangents-{k}-1`](#transformer-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
+| [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1), [`Transformer-loss_tangents-{k}--1`](#transformer-loss_tangents-k--1) | split | |
+| [`Line-loss_secants-pos`, `Line-loss_secants-neg`](#line-loss_tangents-k-1), [`Transformer-loss_secants-pos`, `Transformer-loss_secants-neg`](#transformer-loss_tangents-k-1) | done | the same two blocks in the secant mode; slope, offset and the breakpoint loop are data prep; rungs 19 and 23 record it |
 
 <!-- reference:rung_13_losses:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
@@ -1855,6 +1855,121 @@ def build():
 </details>
 <!-- reference:rung_21_carrier_growth:end -->
 
+### Rung 22 — transformer losses
+
+PyPSA applies the loss of rung 13 to every passive branch, so a transformer
+dissipates a loss as a line does: its own loss variable, the loss counted
+against its rating, its cap and its fan of cuts, and half of it at either end
+in the balance. The loss curve is `r_pu_eff * p**2`, where a transformer's
+`r_pu_eff` is its resistance over its given `s_nom`, times its tap ratio
+(`power_flow.py:815`). The given `s_nom` sets it also for an extendable
+transformer, whose build does not move the curve. Here the loss of the
+extendable transformer is counted against its rating, so it builds more than
+the flow it carries.
+
+<!-- reference:rung_22_transformer_losses:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10643.477135410736`, 174 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_22_transformer_losses.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 22: transformer losses in tangent form — a loss per transformer, as per line."""
+
+from __future__ import annotations
+
+import spine
+
+OPTIMIZE = {'transmission_losses': {'mode': 'tangents', 'segments': 3}}
+
+
+def build():
+    """The spine plus a triangle of one 110 kV line and two transformers, one extendable and off-nominal tap, per-unit resistances a real transformer has, so its loss stays a few percent of the flow."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b', 'c'], v_nom=110)
+    n.add('Generator', 'hydro22', bus='a', p_nom=80, marginal_cost=10)
+    n.add('Generator', 'diesel22', bus='b', p_nom=80, marginal_cost=50)
+    n.add('Line', 'ab22', bus0='a', bus1='b', carrier='AC', x=30, r=6, s_nom=60)
+    n.add('Transformer', 'bc22', bus0='b', bus1='c', x=0.1, r=0.03, s_nom=60)
+    n.add(
+        'Transformer',
+        'ca22',
+        bus0='c',
+        bus1='a',
+        x=0.12,
+        r=0.02,
+        s_nom=40,
+        s_nom_extendable=True,
+        s_nom_max=90,
+        capital_cost=4,
+        tap_ratio=1.05,
+    )
+    n.add('Load', 'town22', bus='c', p_set=[35, 55, 15, 45])
+    return n
+```
+
+</details>
+<!-- reference:rung_22_transformer_losses:end -->
+
+The same triangle solved in the secant mode records the identical loss rows,
+its cuts placed by PyPSA's tolerance loop.
+
+<!-- reference:rung_23_transformer_losses_secants:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10821.999155213578`, 142 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_23_transformer_losses_secants.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 23: transformer losses in secant form — the same loss per transformer, its cuts placed by PyPSA's tolerance loop."""
+
+from __future__ import annotations
+
+import spine
+
+OPTIMIZE = {'transmission_losses': {'mode': 'secants', 'atol': 1, 'rtol': 0.1, 'max_segments': 20}}
+
+
+def build():
+    """Rung 22's triangle, unchanged, so the two modes differ only in the cuts."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b', 'c'], v_nom=110)
+    n.add('Generator', 'hydro23', bus='a', p_nom=80, marginal_cost=10)
+    n.add('Generator', 'diesel23', bus='b', p_nom=80, marginal_cost=50)
+    n.add('Line', 'ab23', bus0='a', bus1='b', carrier='AC', x=30, r=6, s_nom=60)
+    n.add('Transformer', 'bc23', bus0='b', bus1='c', x=0.1, r=0.03, s_nom=60)
+    n.add(
+        'Transformer',
+        'ca23',
+        bus0='c',
+        bus1='a',
+        x=0.12,
+        r=0.02,
+        s_nom=40,
+        s_nom_extendable=True,
+        s_nom_max=90,
+        capital_cost=4,
+        tap_ratio=1.05,
+    )
+    n.add('Load', 'town23', bus='c', p_set=[35, 55, 15, 45])
+    return n
+```
+
+</details>
+<!-- reference:rung_23_transformer_losses_secants:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -1868,7 +1983,7 @@ data prep, or harness — is one open question. Line numbers are pinned pypsa
 | `ValueError`, `constraints.py:1557`          | load on a bus with nothing attached               | row not built, unserved | X2   |
 | `ValueError`, `optimize.py:436`              | no component carries a cost                       | feasibility problem     | X3   |
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
-| `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` | X4   |
+| `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` and `Transformer_loss_max` | X4   |
 | `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
 
 Duals and solutions are read back by the harness on the lpspec side:
@@ -1898,7 +2013,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_carrier}: \mathcal{K} \to \mathcal{I},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
 | $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_carrier}: \mathcal{M} \to \mathcal{I},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
-| $`\mathcal{B}`$ | index $`b`$ — `segment` — the cuts a line's loss curve is held above — PyPSA's tangents, as many as its `segments` count, or its secants, as many as its tolerance loop places; none in a lossless run |
+| $`\mathcal{B}`$ | index $`b`$ — `segment` — the cuts a passive branch's loss curve is held above — PyPSA's tangents, as many as its `segments` count, or its secants, as many as its tolerance loop places; none in a lossless run |
 | $`\mathcal{I}`$ | index $`i`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 | $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
 | $`\mathcal{I}`$ | index $`i`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Link\_carrier}: \mathcal{L} \to \mathcal{I},\ \mathrm{Process\_carrier}: \mathcal{J} \to \mathcal{I},\ \mathrm{StorageUnit\_carrier}: \mathcal{S} \to \mathcal{I},\ \mathrm{Line\_carrier}: \mathcal{K} \to \mathcal{I},\ \mathrm{Store\_carrier}: \mathcal{V} \to \mathcal{I},\ \mathrm{Transformer\_carrier}: \mathcal{M} \to \mathcal{I}`$ — energy carriers, what a growth limit is set per |
@@ -2059,6 +2174,9 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{Transformer\_phase\_shift\_min}`$ | `Transformer_phase_shift_min` over $`\mathcal{M}`$ — the least a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_min`; where it is below `phase_shift_max` the shift is a decision, otherwise the transformer keeps its fixed `phase_shift` |
 | $`\mathrm{Transformer\_phase\_shift\_max}`$ | `Transformer_phase_shift_max` over $`\mathcal{M}`$ — the most a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_max`; equal to `phase_shift_min` for a fixed transformer |
 | $`\mathrm{Transformer\_phase\_shift\_cycle\_weight}`$ | `Transformer_phase_shift_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the cycle sign for a varying transformer's phase shift, times π/180 so a shift in degrees enters the cycle sum in radians — data prep; zero for a fixed transformer or one in no cycle |
+| $`\overline{\ell}^{\sigma}`$ | `Transformer_loss_max` over $`\mathcal{T} \times \mathcal{M}`$ — the loss at a transformer's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, its `r_pu_eff` the resistance over the given `s_nom` times the tap ratio, data prep |
+| $`\mathrm{a}^{\sigma}`$ | `Transformer_loss_slope` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — the slope of a cut to a transformer's loss curve — a tangent's `2 * r_pu_eff * p_k`, a secant's `r_pu_eff * (p_k + p_k+1)`, as a line's, over the transformer's own `r_pu_eff` and rating, data prep |
+| $`\mathrm{b}^{\sigma}`$ | `Transformer_loss_offset` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
 | $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{I}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
 | $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{I}`$ — which way the row binds — `<=`, `>=` or `==` |
 | $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
@@ -2100,6 +2218,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the cuts; absent, and zero in the balance, where the network is lossless |
 | $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
+| $`\ell^{\sigma}`$ | `Transformer_loss` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-loss` — what a transformer dissipates carrying its flow, as a line does; absent, and zero in the balance, where the network is lossless |
 | $`\mathit{Transformer\_phase\_shift}`$ | `Transformer_phase_shift` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-phase_shift` — a phase-shifting transformer's voltage angle shift in degrees, chosen per snapshot to redistribute the flows around its cycles without moving active power; absent, and zero in the cycle sum, where the shift is fixed |
 | $`S`$ | `Line_s_nom_ext` over $`\mathcal{K}`$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -3263,14 +3382,14 @@ Line_loss_tangents_reverse:
 
 ```yaml
 Transformer_fix_s_lower:
-  description: "`Transformer-fix-s-lower` — a fixed transformer carries at least the negative of its rating"
+  description: "`Transformer-fix-s-lower` — a fixed transformer carries at least the negative of its rating, the loss counted against it"
   dims: [scenario, snapshot, transformer]
   where: not Transformer_s_nom_extendable AND Transformer_active
-  expression: Transformer_s >= -Transformer_s_max_pu * Transformer_s_nom
+  expression: Transformer_s - Transformer_loss >= -Transformer_s_max_pu * Transformer_s_nom
 ```
 
 ```math
-\sigma_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-fix-s-upper`
@@ -3279,14 +3398,14 @@ Transformer_fix_s_lower:
 
 ```yaml
 Transformer_fix_s_upper:
-  description: "`Transformer-fix-s-upper` — a fixed transformer carries at most its rating"
+  description: "`Transformer-fix-s-upper` — a fixed transformer carries at most its rating, the loss included"
   dims: [scenario, snapshot, transformer]
   where: not Transformer_s_nom_extendable AND Transformer_active
-  expression: Transformer_s <= Transformer_s_max_pu * Transformer_s_nom
+  expression: Transformer_s + Transformer_loss <= Transformer_s_max_pu * Transformer_s_nom
 ```
 
 ```math
-\sigma_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-ext-s-lower`
@@ -3295,14 +3414,14 @@ Transformer_fix_s_upper:
 
 ```yaml
 Transformer_ext_s_lower:
-  description: "`Transformer-ext-s-lower` — an extendable transformer carries at least the negative of its rating of the chosen build"
+  description: "`Transformer-ext-s-lower` — an extendable transformer carries at least the negative of its rating of the chosen build, the loss counted against it"
   dims: [scenario, snapshot, transformer]
   where: Transformer_s_nom_extendable AND Transformer_active
-  expression: Transformer_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+  expression: Transformer_s - Transformer_loss >= -Transformer_s_max_pu * Transformer_s_nom_ext
 ```
 
 ```math
-\sigma_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-ext-s-upper`
@@ -3311,14 +3430,14 @@ Transformer_ext_s_lower:
 
 ```yaml
 Transformer_ext_s_upper:
-  description: "`Transformer-ext-s-upper` — an extendable transformer carries at most its rating of the chosen build"
+  description: "`Transformer-ext-s-upper` — an extendable transformer carries at most its rating of the chosen build, the loss included"
   dims: [scenario, snapshot, transformer]
   where: Transformer_s_nom_extendable AND Transformer_active
-  expression: Transformer_s <= Transformer_s_max_pu * Transformer_s_nom_ext
+  expression: Transformer_s + Transformer_loss <= Transformer_s_max_pu * Transformer_s_nom_ext
 ```
 
 ```math
-\sigma_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-ext-s_nom-lower`
@@ -3383,6 +3502,59 @@ Transformer_s_set:
 
 ```math
 \sigma_{\xi,t,m} = \sigma^{\mathrm{set}}_{t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \sigma^{\mathrm{set}}_{t,m} \text{ is defined} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-loss_upper`
+
+`Transformer_loss_upper`
+
+```yaml
+Transformer_loss_upper:
+  description: "`Transformer-loss_upper` — a transformer dissipates at most the loss at its rating"
+  dims: [scenario, snapshot, transformer]
+  where: transmission_losses AND Transformer_active
+  expression: Transformer_loss <= Transformer_loss_max
+```
+
+```math
+\ell^{\sigma}_{\xi,t,m} \le \overline{\ell}^{\sigma}_{t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-loss_tangents-{k}-1`
+
+`Transformer_loss_tangents_forward`
+
+```yaml
+Transformer_loss_tangents_forward:
+  description: >-
+    `Transformer-loss_tangents-{k}-1`, `Transformer-loss_secants-pos` — the
+    loss sits above every cut to its curve for flow one way, as a line's
+    does, over the segment dimension
+  dims: [scenario, snapshot, transformer, segment]
+  where: transmission_losses AND Transformer_active
+  expression: Transformer_loss + Transformer_loss_slope * Transformer_s >= Transformer_loss_offset
+```
+
+```math
+\ell^{\sigma}_{\xi,t,m} + \mathrm{a}^{\sigma}_{t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
+```
+
+### `Transformer-loss_tangents-{k}--1`
+
+`Transformer_loss_tangents_reverse`
+
+```yaml
+Transformer_loss_tangents_reverse:
+  description: >-
+    `Transformer-loss_tangents-{k}--1`, `Transformer-loss_secants-neg` — the
+    same fan mirrored, the loss depending on the flow's magnitude
+  dims: [scenario, snapshot, transformer, segment]
+  where: transmission_losses AND Transformer_active
+  expression: Transformer_loss - Transformer_loss_slope * Transformer_s >= Transformer_loss_offset
+```
+
+```math
+\ell^{\sigma}_{\xi,t,m} - \mathrm{a}^{\sigma}_{t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Kirchhoff-Voltage-Law`
@@ -4177,7 +4349,8 @@ Bus_nodal_balance:
     them after losses and any delay at every port they deliver to, each
     process port drawing or delivering at its own rate and each passive branch
     carrying its flow, meets the load there, less half of every incident
-    line's loss — PyPSA dissipates a branch's loss half at either end.
+    line's and transformer's loss — PyPSA dissipates a branch's loss half at
+    either end.
     A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
   dims: [scenario, snapshot, bus]
@@ -4194,11 +4367,13 @@ Bus_nodal_balance:
     - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
     - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
     + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
+    - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
+    - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
     == sum(Load_p_set, by=Load_bus, over=load, into=bus)
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
 ```
 
 ### `Carrier-growth_limit`
@@ -4699,6 +4874,12 @@ s_{\xi,t,k} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k 
 
 ```math
 \sigma_{\xi,t,m} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{on}^{\sigma}_{t,m}
+```
+
+**`Transformer_loss`**
+
+```math
+\ell^{\sigma}_{\xi,t,m} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 **`Transformer_phase_shift`**

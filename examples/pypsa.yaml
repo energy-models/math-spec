@@ -51,9 +51,9 @@ dimensions:
     description: independent cycles of the passive network graph — the cycle basis, data prep
   segment:
     description: >-
-      the cuts a line's loss curve is held above — PyPSA's tangents, as many as
-      its `segments` count, or its secants, as many as its tolerance loop
-      places; none in a lossless run
+      the cuts a passive branch's loss curve is held above — PyPSA's tangents,
+      as many as its `segments` count, or its secants, as many as its tolerance
+      loop places; none in a lossless run
     dtype: int
   global_constraint:
     description: PyPSA's `GlobalConstraint` rows, one label per declared limit
@@ -607,6 +607,23 @@ parameters:
       shift in degrees enters the cycle sum in radians — data prep; zero for a
       fixed transformer or one in no cycle
     dims: [transformer, cycle]
+  Transformer_loss_max:
+    description: >-
+      the loss at a transformer's rating — PyPSA's `r_pu_eff * (s_max_pu *
+      s_nom_max)**2`, its `r_pu_eff` the resistance over the given `s_nom` times
+      the tap ratio, data prep
+    dims: [snapshot, transformer]
+  Transformer_loss_slope:
+    description: >-
+      the slope of a cut to a transformer's loss curve — a tangent's
+      `2 * r_pu_eff * p_k`, a secant's `r_pu_eff * (p_k + p_k+1)`, as a line's,
+      over the transformer's own `r_pu_eff` and rating, data prep
+    dims: [snapshot, transformer, segment]
+  Transformer_loss_offset:
+    description: >-
+      where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`,
+      a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep
+    dims: [snapshot, transformer, segment]
   GlobalConstraint_type:
     description: >-
       which formula the row takes — `primary_energy`, `operational_limit`,
@@ -879,6 +896,16 @@ variables:
       `Transformer_bus1`, lossless
     dims: [scenario, snapshot, transformer]
     where: Transformer_active
+  Transformer_loss:
+    description: >-
+      `Transformer-loss` — what a transformer dissipates carrying its flow, as
+      a line does; absent, and zero in the balance, where the network is
+      lossless
+    dims: [scenario, snapshot, transformer]
+    where: transmission_losses AND Transformer_active
+    absence: zero
+    bounds:
+      lower: 0
   Transformer_phase_shift:
     description: >-
       `Transformer-phase_shift` — a phase-shifting transformer's voltage angle
@@ -1524,25 +1551,25 @@ constraints:
     where: transmission_losses AND Line_active
     expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset
   Transformer_fix_s_lower:
-    description: "`Transformer-fix-s-lower` — a fixed transformer carries at least the negative of its rating"
+    description: "`Transformer-fix-s-lower` — a fixed transformer carries at least the negative of its rating, the loss counted against it"
     dims: [scenario, snapshot, transformer]
     where: not Transformer_s_nom_extendable AND Transformer_active
-    expression: Transformer_s >= -Transformer_s_max_pu * Transformer_s_nom
+    expression: Transformer_s - Transformer_loss >= -Transformer_s_max_pu * Transformer_s_nom
   Transformer_fix_s_upper:
-    description: "`Transformer-fix-s-upper` — a fixed transformer carries at most its rating"
+    description: "`Transformer-fix-s-upper` — a fixed transformer carries at most its rating, the loss included"
     dims: [scenario, snapshot, transformer]
     where: not Transformer_s_nom_extendable AND Transformer_active
-    expression: Transformer_s <= Transformer_s_max_pu * Transformer_s_nom
+    expression: Transformer_s + Transformer_loss <= Transformer_s_max_pu * Transformer_s_nom
   Transformer_ext_s_lower:
-    description: "`Transformer-ext-s-lower` — an extendable transformer carries at least the negative of its rating of the chosen build"
+    description: "`Transformer-ext-s-lower` — an extendable transformer carries at least the negative of its rating of the chosen build, the loss counted against it"
     dims: [scenario, snapshot, transformer]
     where: Transformer_s_nom_extendable AND Transformer_active
-    expression: Transformer_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+    expression: Transformer_s - Transformer_loss >= -Transformer_s_max_pu * Transformer_s_nom_ext
   Transformer_ext_s_upper:
-    description: "`Transformer-ext-s-upper` — an extendable transformer carries at most its rating of the chosen build"
+    description: "`Transformer-ext-s-upper` — an extendable transformer carries at most its rating of the chosen build, the loss included"
     dims: [scenario, snapshot, transformer]
     where: Transformer_s_nom_extendable AND Transformer_active
-    expression: Transformer_s <= Transformer_s_max_pu * Transformer_s_nom_ext
+    expression: Transformer_s + Transformer_loss <= Transformer_s_max_pu * Transformer_s_nom_ext
   Transformer_ext_s_nom_lower:
     description: "`Transformer-ext-s_nom-lower` — the chosen build is at least its floor"
     dims: [transformer]
@@ -1563,6 +1590,26 @@ constraints:
     dims: [scenario, snapshot, transformer]
     where: Transformer_s_set AND Transformer_active
     expression: Transformer_s == Transformer_s_set
+  Transformer_loss_upper:
+    description: "`Transformer-loss_upper` — a transformer dissipates at most the loss at its rating"
+    dims: [scenario, snapshot, transformer]
+    where: transmission_losses AND Transformer_active
+    expression: Transformer_loss <= Transformer_loss_max
+  Transformer_loss_tangents_forward:
+    description: >-
+      `Transformer-loss_tangents-{k}-1`, `Transformer-loss_secants-pos` — the
+      loss sits above every cut to its curve for flow one way, as a line's
+      does, over the segment dimension
+    dims: [scenario, snapshot, transformer, segment]
+    where: transmission_losses AND Transformer_active
+    expression: Transformer_loss + Transformer_loss_slope * Transformer_s >= Transformer_loss_offset
+  Transformer_loss_tangents_reverse:
+    description: >-
+      `Transformer-loss_tangents-{k}--1`, `Transformer-loss_secants-neg` — the
+      same fan mirrored, the loss depending on the flow's magnitude
+    dims: [scenario, snapshot, transformer, segment]
+    where: transmission_losses AND Transformer_active
+    expression: Transformer_loss - Transformer_loss_slope * Transformer_s >= Transformer_loss_offset
   Kirchhoff_Voltage_Law:
     description: >-
       `Kirchhoff-Voltage-Law` — around every independent cycle the
@@ -1844,7 +1891,8 @@ constraints:
       them after losses and any delay at every port they deliver to, each
       process port drawing or delivering at its own rate and each passive branch
       carrying its flow, meets the load there, less half of every incident
-      line's loss — PyPSA dissipates a branch's loss half at either end.
+      line's and transformer's loss — PyPSA dissipates a branch's loss half at
+      either end.
       A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     dims: [scenario, snapshot, bus]
@@ -1861,6 +1909,8 @@ constraints:
       - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
       - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
       + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
+      - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
+      - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
       == sum(Load_p_set, by=Load_bus, over=load, into=bus)
   Carrier_growth_limit:
     description: >-

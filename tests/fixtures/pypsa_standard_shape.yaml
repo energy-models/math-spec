@@ -657,6 +657,17 @@ parameters:
   Transformer_cycle_weight:
     - transformer
     - cycle
+  Transformer_loss_max:
+    - snapshot
+    - transformer
+  Transformer_loss_offset:
+    - snapshot
+    - transformer
+    - segment
+  Transformer_loss_slope:
+    - snapshot
+    - transformer
+    - segment
   Transformer_phase_shift_cycle_weight:
     - transformer
     - cycle
