@@ -19,6 +19,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.118](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.117...v0.0.0-alpha.118) (2026-09-23)
+
+
+### Features
+
+* **language:** a where may read a predicate through a relation with at() ([#634](https://github.com/energy-models/math-spec/issues/634)) ([6190cf4](https://github.com/energy-models/math-spec/commit/6190cf4e3dae0f07455cb5a7f10c9bdb572f1b9b))
+
 ## [0.0.0-alpha.117](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.116...v0.0.0-alpha.117) (2026-09-22)
 
 
