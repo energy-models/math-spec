@@ -15,26 +15,31 @@ its frame in :func:`curve_frame`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal
 
 import math_spec.sos as sos
 from math_spec.dimensions import dims_of
 from math_spec.errors import DimensionError
 from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, PiecewiseMethod, Spec
-from math_spec.program import carries_variable
-from math_spec.resolution import Namespace, resolve_expression_text
+from math_spec.program import PiecewiseDeclaration, carries_variable
+from math_spec.resolution import resolve_expression_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from math_spec.program import Expression
+    from math_spec.resolution import Namespace
+
+#: A block as the file wrote it, or as the program carries it: the two share
+#: every name the rules here read, and the rules read nothing else.
+type Curve = PiecewiseBlock | PiecewiseDeclaration
 
 
 #: The suffix on the second gate row, where the gate variable does not exist.
 _UNGATED = '_ungated'
 
 
-def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
+def _curvature_required(pw: Curve) -> Curvature | None:
     """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
 
     A bounded link binds from one side, and that side is the hull boundary the
@@ -90,30 +95,7 @@ def lp_domain_refusal(name: str, pw: PiecewiseBlock, links: tuple[Expression, ..
     )
 
 
-class Curve(NamedTuple):
-    """One ``piecewise:`` block as the curve it states: its links typed, and the frame it builds one curve per coordinate of."""
-
-    links: tuple[Expression, ...]
-    frame: tuple[str, ...]
-
-
-def curve(schema: Spec, name: str) -> Curve:
-    """Block *name* of *schema* as the curve it states.
-
-    Read off the model rather than kept on it: a program holds the rows a
-    curve states and not the curve, and the two readers of the curve itself
-    — the expansion writing those rows and the typesetter printing the block
-    — each ask here. Nothing here can fail: *schema* loaded, so its links
-    resolved and its frame held.
-    """
-    ns = Namespace(schema)
-    errors: list[str] = []
-    links = resolve_links(name, schema.piecewise[name], ns, errors)
-    assert links is not None and not errors, 'a loaded model resolved every link'
-    return Curve(links, curve_frame(schema, name, schema.piecewise[name], links))
-
-
-def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, AssumptionBlock]:
+def assumptions_of(block: str, pw: Curve) -> dict[str, AssumptionBlock]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
     Every curve assumes its breakpoints are there: a missing parameter row is
@@ -218,7 +200,7 @@ def _interior(over: str, mask: str | None) -> str:
     return f'{mask} AND shift({mask}, along={over}, offset=1) AND shift({mask}, along={over}, offset=-1)'
 
 
-def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
+def _bends(block: str, pw: Curve, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
     """The curve bends the way *curvature* says, as a comparison of the two slopes at each breakpoint.
 
     The slopes are compared as a cross-product rather than as two quotients,
@@ -269,7 +251,7 @@ class Emitted:
     assumptions: tuple[str, ...]
 
     @classmethod
-    def of(cls, name: str, pw: PiecewiseBlock) -> Emitted:
+    def of(cls, name: str, pw: Curve) -> Emitted:
         """The names block *name* writes."""
         return cls(
             name,
@@ -357,14 +339,16 @@ class _Block:
     *schema* loaded.
     """
 
-    def __init__(self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock) -> None:
+    def __init__(
+        self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock, frame: tuple[str, ...]
+    ) -> None:
         self.schema = schema
         self.raw = raw
         self.name = name
         self.pw = pw
         self.emitted = Emitted.of(name, pw)
         self.mask = pw.points
-        self.frame = curve(schema, name).frame
+        self.frame = frame
 
     def expand(self) -> None:
         """Write the block's declarations into the raw model."""
@@ -483,15 +467,18 @@ def expand_piecewise(schema: Spec) -> Spec:
     ``method: sos2`` states, and then that set is written out here too: the
     binaries are what the method *is*, so the model that comes back carries no
     set of its own (:func:`math_spec.sos.emit` is where they are spelled).
+    Each block's frame is read off the program *schema* lowered to.
     """
     if not schema.piecewise:
         return schema
+    from math_spec.lowering import to_program
 
+    program = to_program(schema)
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
-        _Block(schema, raw, name, pw).expand()
+        _Block(schema, raw, name, pw, program.piecewise[name].frame).expand()
     raw['piecewise'].clear()
     for name, pw in schema.piecewise.items():
         if pw.method == 'adjacency':

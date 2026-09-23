@@ -35,13 +35,13 @@ from math_spec.typesetting.markdown import MarkdownFormat
 from math_spec.typesetting.symbols import Symbols, SymbolTable
 from math_spec.typesetting.typst import TypstFormat
 from math_spec.typesetting.walk import Walk
-from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from math_spec.model import Spec
+    from math_spec.program import Program
     from math_spec.typesetting.format import Format
 
 __all__ = [
@@ -77,7 +77,7 @@ class _Options(TypedDict, total=False):
 
 
 def _walk(
-    model: str | Path | Mapping[str, object] | Spec,
+    model: str | Path | Mapping[str, object] | Spec | Program,
     fmt: FormatName,
     symbols: str | Path | Mapping[str, object] | SymbolTable | None,
     *,
@@ -87,23 +87,21 @@ def _walk(
     if fmt not in FORMATS:
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
-    schema = to_spec(model)
-    program = to_program(schema)
+    program = to_program(model)
     format_ = FORMATS[fmt]
     if symbols is None:
         symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     return Walk(
-        schema,
         program,
-        Symbols(schema, program, format_, table.checked_against(schema)),
+        Symbols(program, format_, table.checked_against(program)),
         format_,
         inline_expressions=inline_expressions,
     )
 
 
 def typeset(
-    model: str | Path | Mapping[str, object] | Spec,
+    model: str | Path | Mapping[str, object] | Spec | Program,
     fmt: FormatName,
     *,
     symbols: str | Path | Mapping[str, object] | SymbolTable | None = None,
@@ -115,11 +113,11 @@ def typeset(
     """Render *model*'s math in *fmt*.
 
     Args:
-        model: Anything :func:`math_spec.to_spec` accepts. A
-            :class:`~math_spec.model.Spec` is rendered as it stands, so
-            printing one model in several formats reads and checks the file
-            once rather than once per format, and a curve prints as the curve it
-            states. Pass ``spec.expand()`` for the rows a solver holds
+        model: Anything :func:`math_spec.to_program` accepts. A
+            :class:`~math_spec.model.Spec` or a :class:`~math_spec.program.Program`
+            is rendered as it stands, so printing one model in several formats
+            reads and checks the file once rather than once per format, and a
+            curve prints as the curve it states. Pass ``spec.expand()`` for the rows a solver holds
             instead.
         fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
@@ -145,14 +143,14 @@ def typeset(
             table written in a notation *fmt* does not read.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
-    schema, format_ = walk.schema, walk.format
+    program, format_ = walk.program, walk.format
 
     sections, noticed = walk.equations()
     rendered = [
         format_.section(title, format_.equations(lines, numbered=numbered)) for title, lines in sections if lines
     ]
 
-    blocks = [format_.note(format_.escape(schema.description))] if schema.description else []
+    blocks = [format_.note(format_.escape(program.description))] if program.description else []
     if legend:
         blocks += [format_.section(title, format_.glossary(entries)) for title, entries in walk.glossaries(noticed)]
         blocks += [format_.note(text) for text in walk.convention_notes()]
@@ -162,7 +160,7 @@ def typeset(
 
 
 def typeset_declaration(
-    model: str | Path | Mapping[str, object] | Spec,
+    model: str | Path | Mapping[str, object] | Spec | Program,
     name: str,
     fmt: FormatName,
     *,
@@ -181,7 +179,7 @@ def typeset_declaration(
     one prints by symbol, and a second call with its name prints its block.
 
     Args:
-        model: Anything :func:`math_spec.to_spec` accepts.
+        model: Anything :func:`math_spec.to_program` accepts.
         name: A named expression, constraint, assumption, ``piecewise:``
             block or variable the model declares.
         fmt: What spells the math — a key of :data:`FORMATS`.
@@ -202,13 +200,13 @@ def typeset_declaration(
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
-    schema = walk.schema
+    program = walk.program
     kinds = {
-        'named expression': schema.expressions,
-        'constraint': schema.constraints,
-        'assumption': walk.program.assumptions,
-        'curve': schema.piecewise,
-        'variable': schema.variables,
+        'named expression': program.expressions,
+        'constraint': program.constraints,
+        'assumption': program.assumptions,
+        'curve': program.piecewise,
+        'variable': program.variables,
     }
     found = [kind for kind, group in kinds.items() if name in group]
     if not found:
@@ -224,16 +222,16 @@ def typeset_declaration(
     return walk.format.equation(walk.line(name))
 
 
-def to_latex(model: str | Path | Mapping[str, object] | Spec, **options: Unpack[_Options]) -> str:
+def to_latex(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
     """Render *model* as LaTeX (amsmath ``align``). See :func:`typeset`."""
     return typeset(model, 'latex', **options)
 
 
-def to_typst(model: str | Path | Mapping[str, object] | Spec, **options: Unpack[_Options]) -> str:
+def to_typst(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
     """Render *model* as Typst. See :func:`typeset`."""
     return typeset(model, 'typst', **options)
 
 
-def to_markdown(model: str | Path | Mapping[str, object] | Spec, **options: Unpack[_Options]) -> str:
+def to_markdown(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
     """Render *model* as GitHub-flavoured Markdown. See :func:`typeset`."""
     return typeset(model, 'markdown', **options)

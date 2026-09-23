@@ -17,7 +17,6 @@ import pytest
 
 from math_spec.lowering import to_program
 from math_spec.operators import BUILTIN_NAMES
-from math_spec.piecewise import curve
 from math_spec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
@@ -144,8 +143,8 @@ def _rendered_trees() -> Iterator[object]:
             yield assumption.where.root
     for name in schema.expressions:
         yield program.expressions[name].expression
-    for name in schema.piecewise:
-        yield from curve(schema, name).links
+    for curve in program.piecewise.values():
+        yield from (link.expression for link in curve.links)
 
 
 #: A dataclass the walk steps *through* rather than renders: a region has no

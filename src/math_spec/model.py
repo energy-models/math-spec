@@ -788,10 +788,6 @@ class Spec(_StrictBlock):
     sos: dict[str, SosBlock] = {}
     assumptions: dict[str, AssumptionBlock] = {}
 
-    def relations_of(self, dimension: str) -> dict[str, RelationBlock]:
-        """The relations with a column over *dimension*, by name."""
-        return {n: lk for n, lk in self.relations.items() if dimension in lk.dims}
-
     @classmethod
     @override
     def model_validate(

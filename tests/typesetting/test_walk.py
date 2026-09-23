@@ -520,7 +520,7 @@ def test_nothing_the_model_is_given_prints_italic():
         f'solution — upright is what the model is given, italic what it computes'
     )
 
-    symbols = Symbols(schema, to_program(schema), LATEX, SymbolTable('latex'))
+    symbols = Symbols(to_program(schema), LATEX, SymbolTable('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
     assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
         f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'

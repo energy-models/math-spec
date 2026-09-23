@@ -62,26 +62,30 @@ objective:
 from math_spec import to_spec, to_program
 
 spec = to_spec('curve.yaml')
-sorted(spec.constraints)  # ['target']
-
 program = to_program(spec)
-sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
-sorted(program.variables)  # ['cost', 'curve_lam', 'p']
+sorted(program.constraints)  # ['target']
+sorted(program.piecewise)  # ['curve']
+
+rows = to_program(spec.expand('piecewise'))
+sorted(rows.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(rows.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
 on a `Program`, it returns the same object unchanged. Called on a `Spec`, it
 returns the program built when the model loaded, so two calls on one model
-return one object. It writes every `piecewise:` block out as the rows the block
-states: `to_program(spec)` and `to_program(spec.expand('piecewise'))` are the
-same program. It keeps every `sos:` block, because a consumer with the concept
-of a set takes one whole. A consumer without it calls `spec.expand()` first,
-which writes the sets out too.
+return one object. The program mirrors the model: a `piecewise:` block the
+model still declares is a curve under `program.piecewise`, typed, and a `sos:`
+block is a set under `program.sos`. `spec.expand('piecewise')` is the model
+with each curve written out as rows, and `spec.expand()` writes the sets out
+too. Which to lower is the caller's to say, because a consumer printing a
+curve wants the curve and a consumer building rows wants the rows.
 
-| you are                                                                      | take      | because                                       |
-| ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
-| building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
-| reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program holds a curve's rows, not the curve |
+| you are                                                             | take      | because                                      |
+| ------------------------------------------------------------------- | --------- | -------------------------------------------- |
+| building rows, as a solver backend or a second front end does       | `Program` | Every declaration is there, and resolved     |
+| printing, or checking a model without data                          | `Program` | Every description and every curve is there   |
+| rewriting the file, for `macros:` or the text a link was written as | `Spec`    | A program holds trees, and a file holds text |
 
 ## Formulations written out
 
@@ -96,14 +100,16 @@ sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_l
 spec.expand() is spec.expand()  # True
 ```
 
-`to_program` writes the curves out and leaves the sets, because a program
-carries a set for a consumer that has the concept. A consumer without one
-refuses the model and names `spec.expand('sos')`; what that emits is on the
-[piecewise page](language/piecewise.md#what-a-set-is-written-out-as).
+A consumer that takes a set lowers `spec.expand('piecewise')`, and one that
+does not lowers `spec.expand()`; what a set is written out as is on the
+[piecewise page](language/piecewise.md#what-a-set-is-written-out-as). A
+consumer handed a program still carrying a curve or a set it cannot take
+refuses it and names the expansion.
 
 Every parameter the program declares is one the file declared, and the engine
-binds each from its data. A program does not keep the curve: the rows, the
-weights and the conditions the method states are declarations like any other.
+binds each from its data. The program of an expansion keeps no curve: the
+rows, the weights and the conditions the method states are declarations like
+any other.
 
 ## What the data has to satisfy
 
@@ -180,9 +186,11 @@ arrives as a `Mask` too. The node classes live in `math_spec.program`.
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one model uses.
+Ask it of the rows a solver takes, since a curve written out uses more of the
+language than the block did:
 
 ```python
-footprint = program.footprint
+footprint = rows.footprint
 
 sorted(footprint.quadratic)  # []
 sorted(footprint.domains)  # ['continuous']
@@ -203,10 +211,10 @@ inside one window along it: a storage balance that reads the previous snapshot
 does, and an annual emissions cap does not.
 
 ```python
-program.separability['bp'].windowable  # False
-program.separability['generator'].linking_rows  # ('target',)
-program.separability['generator'].linking_columns  # ()
-tied = program.separability['generator'].coupled["constraint 'target'"]
+rows.separability['bp'].windowable  # False
+rows.separability['generator'].linking_rows  # ('target',)
+rows.separability['generator'].linking_columns  # ()
+tied = rows.separability['generator'].coupled["constraint 'target'"]
 tied.partition(' — ')[0]  # 'sums over generator'
 'sum_back(window=n)' in tied  # True
 ```

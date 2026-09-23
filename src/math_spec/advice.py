@@ -12,16 +12,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from math_spec.boundedness import unbounded_notes
-from math_spec.errors import Advice
+from math_spec.errors import Advice, LanguageError
 from math_spec.lowering import to_program
-from math_spec.program import GroupSum, Pullback, walk
+from math_spec.program import GroupSum, Program, Pullback, walk
+from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from math_spec.model import Spec
-    from math_spec.program import Program
 
 
 def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
@@ -29,14 +29,29 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
 
     Args:
         model: A YAML path, a mapping, a loaded :class:`Spec`, or a
-            :class:`Program`. Both passes read the program, so the four
-            answer alike.
+            :class:`Program`. Both passes read the rows a curve states, so a
+            file or a model is read with its curves written out, and a program
+            still carrying one is refused.
 
     Returns:
         The never-an-axis advice in declaration order, then the unboundedness
         advice; ``str()`` of each is its sentence.
+
+    Raises:
+        LanguageError: A :class:`Program` with a ``piecewise:`` block still
+            in it, naming the expansion to pass instead.
     """
+    if not isinstance(model, Program):
+        model = to_spec(model).expand('piecewise')
     program = to_program(model)
+    if program.piecewise:
+        named = ', '.join(f"'{name}'" for name in program.piecewise)
+        msg = (
+            f'piecewise: {named} states rows, and advice reads the rows. Pass '
+            f"to_program(spec.expand('piecewise')), which writes each block out as the variables and "
+            f'constraints it states.'
+        )
+        raise LanguageError(msg)
     return tuple(_never_an_axis(program) + unbounded_notes(program))
 
 

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The walk: resolved tree → typeset lines. Written once, for every format.
+"""The walk: program → typeset lines. Written once, for every format.
 
 Everything here is a decision about the *math* — where a bracket changes the
 reading, which dimension a reduction binds, that a mask belongs on the ∀ rather
@@ -15,7 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from math_spec.piecewise import curve
 from math_spec.program import (
     Add,
     And,
@@ -63,8 +62,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from math_spec._expression_parser import BinaryOperator
-    from math_spec.model import PiecewiseBlock, RelationBlock, SosBlock, Spec
-    from math_spec.program import Program
+    from math_spec.program import PiecewiseDeclaration, Program, RelationDeclaration, SosDeclaration
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -231,7 +229,7 @@ class Noticed:
 
 
 class Walk:
-    """Walks a validated schema, emitting :class:`Line`s in one format.
+    """Walks a program, emitting :class:`Line`s in one format.
 
     :meth:`equations` prints every section and returns what it :class:`Noticed`;
     the legend methods take that record, so they can only describe symbols the
@@ -240,17 +238,12 @@ class Walk:
 
     def __init__(
         self,
-        schema: Spec,
         program: Program,
         symbols: Symbols,
         fmt: Format,
         *,
         inline_expressions: bool = False,
     ) -> None:
-        self.schema = schema
-        #: The typed trees, masks and frames of every declaration *schema*
-        #: makes, which the walk prints from; *schema* says how the file
-        #: wrote them and what it says about them.
         self.program = program
         self.symbols = symbols
         self.format = fmt
@@ -289,9 +282,9 @@ class Walk:
         named after the relation alone where the key determines one column, and
         after the column read otherwise.
         """
-        lk = self.schema.relations[name]
-        function = name if len(lk.value_roles) == 1 else f'{name}.{read}'
-        return self.format.apply(self.format.upright(function), self.format.joined([at[k] for k in lk.key_roles], ''))
+        lk = self.program.relations[name]
+        function = name if len(lk.values) == 1 else f'{name}.{read}'
+        return self.format.apply(self.format.upright(function), self.format.joined([at[k] for k in lk.key], ''))
 
     def _relation_row(self, name: str, at: Mapping[str, str]) -> str:
         """That relation *name* has a row at the key *at* fixes.
@@ -301,16 +294,16 @@ class Walk:
         column of it is a key column, so the row is written out:
         ``(g, b) ∈ connection``.
         """
-        lk = self.schema.relations[name]
-        key = self.format.joined([at[k] for k in lk.key_roles], '')
-        if lk.value_roles:
+        lk = self.program.relations[name]
+        key = self.format.joined([at[k] for k in lk.key], '')
+        if lk.values:
             return f'{self.format.apply(self.format.upright(name), key)} {self.format.prose(" is defined")}'
         return f'{self.format.parenthesise(key)} {self._op("in")} {self.format.upright(name)}'
 
     def _frame_key(self, name: str, ctx: _Context) -> dict[str, str]:
         """Relation *name*'s key roles at the frame's own indices of their dimensions."""
-        lk = self.schema.relations[name]
-        return {k: ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles}
+        lk = self.program.relations[name]
+        return {k: ctx.subscript(lk.dim(k)) for k in lk.key}
 
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed relation's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
@@ -351,10 +344,10 @@ class Walk:
             return self._number(node.value), _ATOM if node.value >= 0 else 1
 
         if isinstance(node, Parameter):
-            return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], list(self.program.parameters[node.name].dims)), _ATOM
 
         if isinstance(node, Variable):
-            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].dims)), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], list(self.program.variables[node.name].dims)), _ATOM
 
         if isinstance(node, Negate):
             text, precedence = self._arithmetic(node.operand, ctx)
@@ -389,7 +382,7 @@ class Walk:
 
     def _dual(self, node: Dual, ctx: _Context) -> str:
         """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
-        frame = self._sorted(frozenset(self.schema.constraints[node.constraint].dims))
+        frame = self._sorted(frozenset(self.program.constraints[node.constraint].dims))
         return self.format.subscript(
             self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
         )
@@ -501,7 +494,7 @@ class Walk:
             **{r: dummies[direction.dim(r)] for r in direction.consumed},
             **{r: ctx.subscript(direction.dim(r)) for r in (*direction.joined, *direction.produced)},
         }
-        fixed = [r for r in self.schema.relations[direction.name].value_roles if r in at]
+        fixed = [r for r in self.program.relations[direction.name].values if r in at]
         if not fixed:
             return [self._relation_row(direction.name, at)]
         return [f'{self._relation_read(direction.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
@@ -557,7 +550,7 @@ class Walk:
 
         if isinstance(node, ParameterDefined):
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            if self.schema.parameters[node.name].dtype == 'bool':
+            if self.program.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
             return f'{indexed} {self.format.prose(" is defined")}', comparison
 
@@ -696,12 +689,10 @@ class Walk:
         — so it renders like any other, and the line carries no label: the
         block has no name, and the section heading already says what it is.
         """
-        block = self.schema.objective
-        if block is None:
-            return []
-        sense = self._op('minimize' if block.sense == 'minimize' else 'maximize')
         objective = self.program.objective
-        assert objective is not None, 'validation resolves the objective the file declares'
+        if objective is None:
+            return []
+        sense = self._op('minimize' if objective.sense == 'minimize' else 'maximize')
         return [Line(label='', left=sense, right=self._expression(objective.expression, self._context()))]
 
     def _constraints(self) -> list[Line]:
@@ -712,20 +703,19 @@ class Walk:
         the domains — where a set prints, being a property of one variable.
         """
         return [
-            *(self._constraint(name) for name in self.schema.constraints),
-            *(self._piecewise(name) for name in self.schema.piecewise),
+            *(self._constraint(name) for name in self.program.constraints),
+            *(self._piecewise(name) for name in self.program.piecewise),
         ]
 
     def _constraint(self, name: str) -> Line:
-        block = self.schema.constraints[name]
         constraint = self.program.constraints[name]
-        ctx = self._context(frame=block.dims)
+        ctx = self._context(frame=constraint.dims)
         condition = self._condition(ctx, constraint.where)
         return Line(
             label=name,
             left=self._expression(constraint.lhs, ctx),
             right=f'{self._op(_PREDICATES[constraint.sense])} {self._expression(constraint.rhs, ctx)}',
-            condition=self._quantifier(list(block.dims), condition),
+            condition=self._quantifier(list(constraint.dims), condition),
         )
 
     def _definitions(self) -> list[Line]:
@@ -746,10 +736,10 @@ class Walk:
         it — a ``cases`` block, and an entry the objective and constraints
         never read, which is a quantity reported back rather than solved for.
         """
-        if not self.inline_expressions:
-            return list(self.schema.expressions)
         entries = self.program.expressions
-        return [name for name, block in self.schema.expressions.items() if block.cases or not entries[name].in_math]
+        if not self.inline_expressions:
+            return list(entries)
+        return [name for name, entry in entries.items() if isinstance(entry.expression, Cases) or not entry.in_math]
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""
@@ -773,13 +763,13 @@ class Walk:
         method states is a line a reader can ask for before the curve is
         written out.
         """
-        if name in self.schema.expressions:
+        if name in self.program.expressions:
             return self.definition(name)
-        if name in self.schema.constraints:
+        if name in self.program.constraints:
             return self._constraint(name)
         if name in self.program.assumptions:
             return self._assumption(name)
-        if name in self.schema.piecewise:
+        if name in self.program.piecewise:
             return self._piecewise(name)
         return self._variable(name)
 
@@ -806,26 +796,25 @@ class Walk:
         variable it is a property of, rather than among the constraints, where
         it would read as a row a solver holds.
         """
-        sets = {block.variable: (key, block) for key, block in self.schema.sos.items()}
+        sets = {block.variable: (key, block) for key, block in self.program.sos.items()}
         lines = []
-        for name, block in self.schema.variables.items():
+        for name, block in self.program.variables.items():
             lines.append(self._variable(name))
             if name in sets:
                 lines.append(self._sos(name, *sets[name], self._context(frame=block.dims)))
         return lines
 
     def _variable(self, name: str) -> Line:
-        block = self.schema.variables[name]
+        block = self.program.variables[name]
         ctx = self._context(frame=block.dims)
         symbol = ctx.indexed(self.symbols.name[name], list(block.dims))
-        where = self.program.variables[name].where
-        condition = self._quantifier(list(block.dims), self._condition(ctx, where))
-        lower, upper = block.bounds.lower, block.bounds.upper
+        condition = self._quantifier(list(block.dims), self._condition(ctx, block.where))
+        lower, upper = block.lower, block.upper
 
         if block.domain == 'binary':
             left, right = symbol, f'{self._op("in")} {self._op("binary_set")}'
         else:
-            below, above = lower == float('-inf'), upper == float('inf')
+            below, above = lower == Constant(float('-inf')), upper == Constant(float('inf'))
             if below and above:
                 domain = self._op('integers' if block.domain == 'integer' else 'reals')
                 left, right = symbol, f'{self._op("in")} {domain}'
@@ -840,14 +829,14 @@ class Walk:
                 right = f'{right}, {symbol} {self._op("in")} {self._op("integers")}'
         return Line(label=name, left=left, right=right, condition=condition)
 
-    def _sos(self, name: str, key: str, block: SosBlock, ctx: _Context) -> Line:
+    def _sos(self, name: str, key: str, block: SosDeclaration, ctx: _Context) -> Line:
         """The variable's family along the set's dim, as one member of the SOS set, quantified over the other dims."""
-        dims = self.schema.variables[name].dims
+        dims = self.program.variables[name].dims
         family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(dims)))
         return Line(
             label=key,
             left=self.format.subscript(family, [self._membership(block.along)]),
-            right=f'{self._op("in")} {self._op("sos_set")}{block.type}',
+            right=f'{self._op("in")} {self._op("sos_set")}{block.sos_type}',
             condition=self._quantifier([d for d in dims if d != block.along], ''),
         )
 
@@ -883,9 +872,9 @@ class Walk:
         function of the pinned link that it is and the link's own sign says
         which side.
         """
-        block = self.schema.piecewise[name]
-        links, stated = curve(self.schema, name)
-        frame = list(stated)
+        block = self.program.piecewise[name]
+        links = [link.expression for link in block.links]
+        frame = list(block.frame)
         ctx = self._context([*frame, block.over])
         locus = self._locus(block, ctx)
         bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
@@ -899,7 +888,7 @@ class Walk:
             right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, ''))
 
-    def _locus(self, block: PiecewiseBlock, ctx: _Context) -> str:
+    def _locus(self, block: PiecewiseDeclaration, ctx: _Context) -> str:
         """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
 
         A gate multiplies it, which is what gating a curve does — the weights
@@ -910,7 +899,7 @@ class Walk:
         through = self.format.subscript(operator, [self._breakpoints(block, ctx)])
         values = self.format.joined(
             [
-                ctx.indexed(self.symbols.name[link.values], list(self.schema.parameters[link.values].dims))
+                ctx.indexed(self.symbols.name[link.values], list(self.program.parameters[link.values].dims))
                 for link in block.links
             ],
             '',
@@ -919,7 +908,7 @@ class Walk:
         gate = self._gate(block, ctx)
         return f'{gate} {self._op("cdot")} {locus}' if gate else locus
 
-    def _breakpoints(self, block: PiecewiseBlock, ctx: _Context) -> str:
+    def _breakpoints(self, block: PiecewiseDeclaration, ctx: _Context) -> str:
         """Which breakpoints the curve runs through: every one of the dimension, or the ones ``points:`` admits.
 
         A ``points:`` naming a boolean parameter reads as the flag it is, and
@@ -929,10 +918,10 @@ class Walk:
         over = self._membership(block.over)
         if block.points is None:
             return over
-        admitted = ParameterDefined(block.points, tuple(self.schema.parameters[block.points].dims))
+        admitted = ParameterDefined(block.points, tuple(self.program.parameters[block.points].dims))
         return f'{over} {self._op("such_that")} {self._predicate(admitted, ctx)}'
 
-    def _gate(self, block: PiecewiseBlock, ctx: _Context) -> str:
+    def _gate(self, block: PiecewiseDeclaration, ctx: _Context) -> str:
         """The factor an ``activity:`` puts on the locus, or ``''`` where the block has none.
 
         Where the gate is a variable that does not exist at every coordinate
@@ -944,9 +933,9 @@ class Walk:
         """
         if (activity := block.activity) is None:
             return ''
-        gate = self.schema.variables[activity]
+        gate = self.program.variables[activity]
         symbol = ctx.indexed(self.symbols.name[activity], list(gate.dims))
-        mask = self.program.variables[activity].where
+        mask = gate.where
         if mask is None or gate.absence == 'zero':
             return symbol
         where = self._predicate(mask.root, ctx, need=_WHERE_PRECEDENCE['and'])
@@ -954,13 +943,15 @@ class Walk:
             [(symbol, f'{self.format.prose("if ")} {where}'), ('1', self.format.prose('otherwise'))]
         )
 
-    def _bound(self, ctx: _Context, value: float | str) -> str:
-        if isinstance(value, str):
-            return ctx.indexed(self.symbols.name[value], list(self.schema.parameters[value].dims))
-        return self._number(value)
+    def _bound(self, ctx: _Context, value: Expression) -> str:
+        """A bound as the file wrote it: a number, or a parameter indexed over its dims."""
+        if isinstance(value, Parameter):
+            return ctx.indexed(self.symbols.name[value.name], list(self.program.parameters[value.name].dims))
+        assert isinstance(value, Constant), 'a bound is a number or the name of a parameter'
+        return self._number(value.value)
 
     def _sorted(self, dims: frozenset[str]) -> list[str]:
-        order = list(self.schema.dimensions)
+        order = list(self.program.dimensions)
         return sorted(dims, key=order.index)
 
     # -- legend ------------------------------------------------------------
@@ -973,19 +964,19 @@ class Walk:
                 f'index {fmt.math(self.symbols.index[d])} {fmt.dash} {fmt.mono(d)}{self._coords(d, noticed)}',
                 block.description,
             )
-            for d, block in self.schema.dimensions.items()
+            for d, block in self.program.dimensions.items()
         ]
         parameters = [
             self._entry(self.symbols.name[p], f'{fmt.mono(p)}{self._over(list(block.dims))}', block.description)
-            for p, block in self.schema.parameters.items()
+            for p, block in self.program.parameters.items()
         ]
         variables = [
             self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.dims))}', block.description)
-            for v, block in self.schema.variables.items()
+            for v, block in self.program.variables.items()
         ]
         definitions = [
             self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self._frame_of(e))}', block.description)
-            for e, block in self.schema.expressions.items()
+            for e, block in self.program.expressions.items()
             if e in self._defined()
         ]
         groups = (('Sets', sets), ('Parameters', parameters), ('Variables', variables), ('Definitions', definitions))
@@ -1001,17 +992,14 @@ class Walk:
         product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
         return f' over {self.format.math(product)}'
 
-    def _signature(self, name: str, lk: RelationBlock) -> str:
+    def _signature(self, name: str, lk: RelationDeclaration) -> str:
         """A relation in the legend: a function from its key sets to its value sets, or a relation inside the product."""
-        columns = dict(lk.pairs)
 
         def product(roles: Iterable[str]) -> str:
-            return self.format.joined([self.symbols.set[columns[r]] for r in roles], self._op('times'))
+            return self.format.joined([self.symbols.set[lk.dim(r)] for r in roles], self._op('times'))
 
-        if lk.value_roles:
-            return (
-                f'{self.format.upright(name)}: {product(lk.key_roles)} {self._op("maps_to")} {product(lk.value_roles)}'
-            )
+        if lk.values:
+            return f'{self.format.upright(name)}: {product(lk.key)} {self._op("maps_to")} {product(lk.values)}'
         return f'{self.format.upright(name)} {self._op("subset_of")} {product(lk.roles)}'
 
     def _coords(self, dim: str, noticed: Noticed) -> str:
@@ -1021,10 +1009,10 @@ class Walk:
         number, the one place "position 3" and "the coordinate 3" are both
         readings of a line.
         """
-        carried = self.schema.relations_of(dim)
+        carried = self.program.relations_of(dim)
         clauses = []
         if dim in noticed.numeric_coordinates:
-            clauses.append(f' ({self.format.mono(self.schema.dimensions[dim].dtype)} coordinates)')
+            clauses.append(f' ({self.format.mono(self.program.dimensions[dim].dtype)} coordinates)')
         if carried:
             maps = self.format.joined([self._signature(c, lk) for c, lk in carried.items()], '')
             clauses.append(f' with {self.format.math(maps)}')
@@ -1039,7 +1027,7 @@ class Walk:
         """
         derived = [
             next((n for n in names if n not in self.symbols.overridden), None)
-            for names in (self.schema.parameters, self.schema.variables)
+            for names in (self.program.parameters, self.program.variables)
         ]
         if not all(derived):
             return []
