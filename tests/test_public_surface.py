@@ -30,6 +30,8 @@ SURFACE = frozenset(
         'did_you_mean',
         # the verdicts a consumer asks for rather than re-deriving
         'advice', 'Advice',
+        # the closed operator set, the one vocabulary with no Literal form, which a consumer pins its table against
+        'BUILTIN_NAMES',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
     }

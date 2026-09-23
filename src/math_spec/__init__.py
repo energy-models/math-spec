@@ -15,6 +15,7 @@ from math_spec import program
 from math_spec.advice import advice
 from math_spec.errors import Advice, DimensionError, LanguageError, MathSpecError, SchemaError, did_you_mean
 from math_spec.model import Spec
+from math_spec.operators import BUILTIN_NAMES
 from math_spec.typesetting import (
     FORMATS,
     SymbolTable,
@@ -27,6 +28,7 @@ from math_spec.typesetting import (
 from math_spec.validation import to_spec
 
 __all__ = [
+    'BUILTIN_NAMES',
     'FORMATS',
     'Advice',
     'DimensionError',
