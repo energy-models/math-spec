@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec.lowering import to_program
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
@@ -125,7 +124,7 @@ def _rendered_trees() -> Iterator[object]:
     printed at all.
     """
     schema = to_spec(golden.MODEL)
-    program = to_program(schema)
+    program = schema.program
     assert program.objective is not None
     yield program.objective.expression
     for name in schema.constraints:

@@ -7,10 +7,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This page is for whoever writes an engine that builds models, a renderer, or a
 checker. You need none of it to write a model. A tool reads the model through
-two objects:
+two objects, and one door:
 
 ```text
-to_spec  →  Spec  →  to_program  →  Program
+to_spec  →  Spec  →  .program  →  Program
 ```
 
 ## `Spec` and `Program`
@@ -59,27 +59,28 @@ objective:
 ```
 
 ```python
-from math_spec import to_spec, to_program
+from math_spec import to_spec
 
 spec = to_spec('curve.yaml')
-program = to_program(spec)
+program = spec.program
 sorted(program.constraints)  # ['target']
 sorted(program.piecewise)  # ['curve']
 
-rows = to_program(spec.expand('piecewise'))
+rows = spec.expand('piecewise').program
 sorted(rows.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
 sorted(rows.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
-`to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
-on a `Program`, it returns the same object unchanged. Called on a `Spec`, it
-returns the program built when the model loaded, so two calls on one model
-return one object. The program mirrors the model: a `piecewise:` block the
-model still declares is a curve under `program.piecewise`, typed, and a `sos:`
-block is a set under `program.sos`. `spec.expand('piecewise')` is the model
-with each curve written out as rows, and `spec.expand()` writes the sets out
-too. Which to lower is the caller's to say, because a consumer printing a
-curve wants the curve and a consumer building rows wants the rows.
+`to_spec` takes a path, the YAML, a mapping or a `Spec`. `spec.program` is the
+program built when the model loaded, so every ask on one model returns one
+object. The program mirrors the model: a `piecewise:` block the model still
+declares is a curve under `program.piecewise`, typed, and a `sos:` block is a
+set under `program.sos`. `spec.expand('piecewise')` is the model with each
+curve written out as rows, and `spec.expand()` writes the sets out too. Which
+to read is the caller's to say, because a consumer printing a curve wants the
+curve and a consumer building rows wants the rows. A consumer building rows
+reads the sections it takes and refuses the rest: a curve or a set still on
+the program is a block it did not ask to have written out.
 
 | you are                                                             | take      | because                                      |
 | ------------------------------------------------------------------- | --------- | -------------------------------------------- |

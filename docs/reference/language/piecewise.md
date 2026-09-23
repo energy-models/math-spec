@@ -260,8 +260,8 @@ a model before and after, as whole files.
   emits a parameter. A curve under `points:` sits its rows on `where:`
   predicates over the mask the file named, and the expansion is a file like any
   other: `to_yaml()` writes it, and loading it back changes nothing.
-- **`to_program()` writes nothing out.** The program mirrors the model: a
-  curve the model still declares is under `program.piecewise`, typed, and the
-  program of `spec.expand('piecewise')` carries its rows instead. A consumer
-  building rows lowers the expansion; one that cannot take a set lowers
-  `spec.expand()`.
+- **`spec.program` writes nothing out.** The program mirrors the model: a
+  curve the model still declares is under `program.piecewise`, typed, and
+  `spec.expand('piecewise').program` carries its rows instead. A consumer
+  building rows reads the expansion's program, and refuses a curve it finds on
+  a program; one that cannot take a set reads `spec.expand().program`.

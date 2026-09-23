@@ -14,7 +14,6 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.lowering import to_program
 from math_spec.program import DimensionPosition
 from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
@@ -195,7 +194,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).expressions['lcoe'].in_math is False, (
+        assert to_spec(model).program.expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
@@ -2035,7 +2034,7 @@ def test_a_chain_of_named_expressions_is_held_to_the_resolved_depth_and_costs_no
     chain = _chain(150, deepest_first=deepest_first)
     constraint = {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) <= e149'}
     spec = to_spec(override(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
-    to_markdown(to_program(spec) and spec)
+    to_markdown(spec.program and spec)
 
     with pytest.raises(LanguageError, match='nests 301 deep with every named expression it reads written in') as caught:
         to_spec(override(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
@@ -2096,7 +2095,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
             },
         )
     )
-    to_program(spec)
+    _ = spec.program
     to_markdown(spec)
 
     assert sorted(seen) == [

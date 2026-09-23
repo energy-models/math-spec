@@ -20,7 +20,7 @@ from typing import get_args
 
 import pytest
 
-import math_spec as ms
+from math_spec import to_spec
 from math_spec.program import Expression, Program, walk
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
@@ -44,7 +44,7 @@ def _expressions(program: Program) -> list[Expression]:
 @pytest.fixture(scope='module')
 def kinds() -> tuple[set[str], set[str]]:
     """The node classes the fixture lowers to, and the ones `Expression` declares."""
-    program = ms.to_program(FIXTURE)
+    program = to_spec(FIXTURE).program
     reached = {type(node).__name__ for node in walk(*_expressions(program))}
     declared = {node.__name__ for node in get_args(Expression)}
     return reached, declared

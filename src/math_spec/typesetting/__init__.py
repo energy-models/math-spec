@@ -29,19 +29,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, TypedDict, Unpack
 
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.lowering import to_program
+from math_spec.program import Program
 from math_spec.typesetting.latex import LatexFormat
 from math_spec.typesetting.markdown import MarkdownFormat
 from math_spec.typesetting.symbols import Symbols, SymbolTable
 from math_spec.typesetting.typst import TypstFormat
 from math_spec.typesetting.walk import Walk
+from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from math_spec.model import Spec
-    from math_spec.program import Program
     from math_spec.typesetting.format import Format
 
 __all__ = [
@@ -87,7 +87,7 @@ def _walk(
     if fmt not in FORMATS:
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
-    program = to_program(model)
+    program = model if isinstance(model, Program) else to_spec(model).program
     format_ = FORMATS[fmt]
     if symbols is None:
         symbols = SymbolTable(format_.notation)
@@ -113,8 +113,8 @@ def typeset(
     """Render *model*'s math in *fmt*.
 
     Args:
-        model: Anything :func:`math_spec.to_program` accepts. A
-            :class:`~math_spec.model.Spec` or a :class:`~math_spec.program.Program`
+        model: Anything :func:`math_spec.to_spec` accepts, or a
+            :class:`~math_spec.program.Program`. A loaded model or a program
             is rendered as it stands, so printing one model in several formats
             reads and checks the file once rather than once per format, and a
             curve prints as the curve it states. Pass ``spec.expand()`` for the rows a solver holds
@@ -179,7 +179,7 @@ def typeset_declaration(
     one prints by symbol, and a second call with its name prints its block.
 
     Args:
-        model: Anything :func:`math_spec.to_program` accepts.
+        model: Anything :func:`math_spec.to_spec` accepts, or a :class:`~math_spec.program.Program`.
         name: A named expression, constraint, assumption, ``piecewise:``
             block or variable the model declares.
         fmt: What spells the math — a key of :data:`FORMATS`.

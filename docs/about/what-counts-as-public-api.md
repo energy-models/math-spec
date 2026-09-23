@@ -35,7 +35,8 @@ file, it is one.
 - **A value or an error, and nothing between.** `to_spec` either returns a
   `Spec` or raises an error that names the rewrite. `advice()` is separate: it
   talks about a file the language accepts, and changes nothing.
-- **Safe to call again.** `to_program(program)` returns `program` unchanged.
+- **Safe to call again.** `spec.program` is one object, however often it is
+  asked for.
 
 ## Three things a function never decides
 

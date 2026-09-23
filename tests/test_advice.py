@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import ADVICE_KINDS, LanguageError, advice, to_program, to_spec
+from math_spec import ADVICE_KINDS, LanguageError, advice, to_spec
 from tests.fixtures import SMALL_MODEL, override
 
 if TYPE_CHECKING:
@@ -92,7 +92,7 @@ def _written(model: dict, tmp_path: Path) -> Path:
         pytest.param(_written, id='a-path'),
         pytest.param(lambda model, _: model, id='a-mapping'),
         pytest.param(lambda model, _: to_spec(model), id='a-spec'),
-        pytest.param(lambda model, _: to_program(model), id='a-program'),
+        pytest.param(lambda model, _: to_spec(model).program, id='a-program'),
     ],
 )
 def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
@@ -110,10 +110,10 @@ def test_a_curve_is_written_out_before_advice_reads_it():
     with a block advise on the file's own rows as if the curve stated none.
     """
     from_file = advice(CURVED)
-    from_rows = advice(to_program(to_spec(CURVED).expand('piecewise')))
+    from_rows = advice(to_spec(CURVED).expand('piecewise').program)
     assert [(n.kind, n.subject) for n in from_file] == [(n.kind, n.subject) for n in from_rows], (
         'a file and the program of its expansion are advised alike'
     )
     with pytest.raises(LanguageError, match="piecewise: 'curve' states rows") as refusal:
-        advice(to_program(CURVED))
+        advice(to_spec(CURVED).program)
     assert "expand('piecewise')" in str(refusal.value), 'the refusal names the expansion to pass'

@@ -24,7 +24,7 @@ from math_spec import Spec, program, typesetting
 SURFACE = frozenset(
     {
         # the two public states, and the conversion to each
-        'Spec', 'to_spec', 'program', 'to_program',
+        'Spec', 'to_spec', 'program',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'did_you_mean', 'schema_error',
@@ -44,7 +44,7 @@ SURFACE = frozenset(
 #: What `Spec` promises beyond the sections a file declares: the two ways back
 #: out and the verb that writes a formulation out. A `model_`-prefixed name is
 #: pydantic's, not a contract this project keeps.
-SPEC_SURFACE = frozenset({'to_dict', 'to_yaml', 'expand'})
+SPEC_SURFACE = frozenset({'to_dict', 'to_yaml', 'expand', 'program'})
 
 #: The modules whose `__all__` a consumer imports from.
 MODULES = [

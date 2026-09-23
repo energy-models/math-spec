@@ -13,7 +13,6 @@ from __future__ import annotations
 import pytest
 
 from math_spec.boundedness import unbounded_notes
-from math_spec.lowering import to_program
 from math_spec.operators import BUILTIN_NAMES
 from tests.fixtures import SMALL_MODEL, override, schema_of
 
@@ -25,7 +24,7 @@ BASE = override(
 
 
 def _advice(**patch):
-    return unbounded_notes(to_program(schema_of(BASE, **patch).expand('piecewise')))
+    return unbounded_notes(schema_of(BASE, **patch).expand('piecewise').program)
 
 
 def _notes(**patch) -> list[str]:

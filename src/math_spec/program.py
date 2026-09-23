@@ -7,8 +7,8 @@
 The second public state, and the one a consumer reads. A :class:`Program` is
 the file typed, section for section: every declaration it makes, with names
 resolved, shapes fixed and every rule decidable without data checked, and no
-data at all. :func:`~math_spec.lowering.to_program` is the only thing that
-builds one, so nothing here re-checks a hand-built one.
+data at all. Lowering, as a :class:`~math_spec.model.Spec` loads, is the only
+thing that builds one, so nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
 node's structure does not show are :func:`children` and :func:`fan_in`; the

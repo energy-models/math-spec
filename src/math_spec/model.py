@@ -713,7 +713,8 @@ class Spec(_StrictBlock):
     The API is the eleven declaration sections plus ``version`` and
     ``description``, three ways back out — :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
-    same math with its formulations written out. Everything else on this
+    same math with its formulations written out — and :attr:`program`, the
+    model typed, which every reader after load walks. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
 
@@ -724,10 +725,9 @@ class Spec(_StrictBlock):
     #: that expands to itself is not stored: two of them compare by their
     #: private state, which a model holding itself cannot answer.
     _expansions: dict[tuple[Formulation, ...], Spec] = PrivateAttr(default_factory=dict)
-    #: What this model's own declarations lower to, built as the model loads:
-    #: computing it *is* the expression pass, so a model the language refuses
-    #: never holds one. :func:`~math_spec.lowering.to_program` answers with
-    #: the expansion's, since a curve's rows are on that model.
+    #: What :attr:`program` answers with, built as the model loads: computing
+    #: it *is* the expression pass, so a model the language refuses never
+    #: holds one.
     _program: Program | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
@@ -749,6 +749,20 @@ class Spec(_StrictBlock):
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
     assumptions: dict[str, AssumptionBlock] = {}
+
+    @property
+    def program(self) -> Program:
+        """This model typed, section for section — what every reader after load walks.
+
+        Built once, as the model loaded, so every ask is the same object. It
+        mirrors the model: a ``piecewise:`` block still in it is a curve under
+        ``program.piecewise`` and a ``sos:`` block a set under ``program.sos``,
+        and :meth:`expand` is what writes either out as rows, so a consumer
+        building rows reads ``spec.expand(...).program`` and refuses a block
+        it does not take.
+        """
+        assert self._program is not None, 'a model that loaded was lowered'
+        return self._program
 
     @classmethod
     @override

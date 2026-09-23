@@ -53,7 +53,7 @@ flowchart LR
     AST --> Q{"inside the<br/>language?"}
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
     Q -->|"yes"| M["Spec<br/>what the file says"]
-    M -->|"to_program"| P["Program<br/>names, dimensions and operators resolved"]
+    M -->|".program"| P["Program<br/>names, dimensions and operators resolved"]
     P --> ENG["an engine that builds → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
 
@@ -301,7 +301,7 @@ import math_spec as ms
 spec = ms.to_spec('dispatch.yaml')  # schema, names, dimensions, degree: all checked here
 sorted(spec.variables)  # ['dispatch']
 
-program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
+program = spec.expand().program  # curves expanded, names typed, operators resolved to nodes
 sorted(program.constraints)  # ['power_balance']
 ```
 

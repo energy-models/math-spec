@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from math_spec.errors import LanguageError
-from math_spec.lowering import to_program
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
@@ -513,14 +512,14 @@ def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
     schema = to_spec(golden.MODEL)
-    computed = set(schema.variables) | chosen_expressions(to_program(schema))
+    computed = set(schema.variables) | chosen_expressions(schema.program)
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= computed, (
         f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '
         f'solution — upright is what the model is given, italic what it computes'
     )
 
-    symbols = Symbols(to_program(schema), LATEX, SymbolTable('latex'))
+    symbols = Symbols(schema.program, LATEX, SymbolTable('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
     assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
         f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'

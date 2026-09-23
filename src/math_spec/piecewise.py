@@ -471,9 +471,7 @@ def expand_piecewise(schema: Spec) -> Spec:
     """
     if not schema.piecewise:
         return schema
-    from math_spec.lowering import to_program
-
-    program = to_program(schema)
+    program = schema.program
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
