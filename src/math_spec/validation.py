@@ -13,13 +13,12 @@ from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
 from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
-from math_spec.model import AssumptionBlock, Spec
+from math_spec.model import Spec
 from math_spec.piecewise import assumptions_of, curve_frame
-from math_spec.program import BooleanLiteral, Mask, VariableDefined
+from math_spec.program import BooleanLiteral, Holds, Mask, VariableDefined
 from math_spec.resolution import (
     Namespace,
     Resolved,
-    ResolvedAssumption,
     ResolvedConstraint,
     mask_of,
     resolve_expression,
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from math_spec._expression_parser import CasesNode, DefinitionNode
+    from math_spec.model import AssumptionBlock
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -136,15 +136,14 @@ def validate_expressions(schema: Spec) -> Resolved:
             schema.objective.expression, ns, 'The objective', errors, comparison=False, ceiling=2
         )
 
-    assumptions: dict[str, ResolvedAssumption] = {}
+    assumptions: dict[str, Holds] = {}
     for aname, adef in schema.assumptions.items():
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
 
     for block, pw in schema.piecewise.items():
         for aname, assumed in assumptions_of(block, pw).items():
-            entry = AssumptionBlock(holds=assumed.holds, where=assumed.where, description=assumed.description)
-            if (assumption := _assumption(aname, entry, ns, errors)) is not None:
+            if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
                 assumptions[aname] = assumption
 
     piecewise = {}
@@ -168,7 +167,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     return resolved
 
 
-def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> ResolvedAssumption | None:
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Holds | None:
     """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
 
     A predicate the connectives decide is refused: one that folds to true
@@ -198,7 +197,7 @@ def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[s
     if len(errors) > found:
         return None
     assert holds is not None, 'a where string that read to nothing appended an error'
-    return ResolvedAssumption(Mask(holds), mask_of(where), block.description)
+    return Holds(Mask(holds), mask_of(where), block.description)
 
 
 def _decided_assumption(context: str, text: str, *, value: bool) -> str:

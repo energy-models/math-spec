@@ -901,7 +901,8 @@ class Walk:
 
     def _assumption(self, name: str) -> Line:
         """One assumption: the predicate over the frame both its masks name, under its ``where``."""
-        holds, where, _ = self.schema.resolved.assumptions[name]
+        assumption = self.schema.resolved.assumptions[name]
+        holds, where = assumption.predicate, assumption.where
         frame = self._sorted(holds.dims | (where.dims if where is not None else frozenset()))
         ctx = self._context(frame)
         if isinstance(holds.root, AlignedComparison):

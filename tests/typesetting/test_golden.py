@@ -133,10 +133,10 @@ def _rendered_trees() -> Iterator[object]:
     for mask in resolved.variables.values():
         if mask is not None:
             yield mask.root
-    for holds, where, _ in resolved.assumptions.values():
-        yield holds.root
-        if where is not None:
-            yield where.root
+    for assumption in resolved.assumptions.values():
+        yield assumption.predicate.root
+        if assumption.where is not None:
+            yield assumption.where.root
     yield from resolved.expressions.values()
     for links in resolved.piecewise.values():
         yield from links

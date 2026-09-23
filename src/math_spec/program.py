@@ -40,7 +40,6 @@ __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'And',
-    'Assumption',
     'BooleanLiteral',
     'Cases',
     'Connective',
@@ -543,7 +542,7 @@ class PiecewiseDeclaration:
 
     The expansion lowered the links into constraints over the file's own
     parameters, and emitted none. What the block assumes of its numbers is an
-    :data:`Assumption` like any other, under :attr:`Program.assumptions`; what
+    :class:`Holds` like any other, under :attr:`Program.assumptions`; what
     is left here is the curve.
 
     Attributes:
@@ -576,15 +575,7 @@ class Holds:
     description: str | None = None
 
 
-#: One fact about the data a consumer has to check before it solves — the
-#: file's own, and every one a ``piecewise:`` method implies, which the
-#: expansion writes into ``assumptions:`` and a load derives for a block still
-#: declared. The data decides whether each holds, so the language states the
-#: condition and the consumer holding the numbers checks.
-Assumption = Holds
-
-
-def assumption_message(name: str, assumption: Assumption) -> str:
+def assumption_message(name: str, assumption: Holds) -> str:
     """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
@@ -840,7 +831,7 @@ class Program:
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
     #: language decides none of it, so the consumer binding the data checks
     #: each and refuses with :func:`assumption_message`.
-    assumptions: Mapping[str, Assumption] = Sealed({})
+    assumptions: Mapping[str, Holds] = Sealed({})
     #: Declared ``expressions:``, lowered, each saying whether the math reads
     #: it. None builds a row of its own — one the math reads is inlined where
     #: it is read — but all are lowered with the program, so a file whose

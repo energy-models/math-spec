@@ -185,7 +185,7 @@ def lower_program(expanded: Spec) -> program.Program:
     )
 
 
-def _assumptions(expanded: Spec) -> dict[str, program.Assumption]:
+def _assumptions(expanded: Spec) -> dict[str, program.Holds]:
     """Everything the data has to satisfy, in the order the model states it.
 
     One mapping rather than two, because a consumer binding data checks them
@@ -193,12 +193,12 @@ def _assumptions(expanded: Spec) -> dict[str, program.Assumption]:
     already here: the expansion writes them into ``assumptions:``, and a load
     derives the same text for a block the file still declares.
     """
-    assumptions: dict[str, program.Assumption] = {}
-    for name, (holds, where, description) in expanded.resolved.assumptions.items():
+    assumptions: dict[str, program.Holds] = {}
+    for name, holds in expanded.resolved.assumptions.items():
         lowering = _Lowering(expanded, f"assumption '{name}'")
-        predicate = lowering.mask(holds)
+        predicate = lowering.mask(holds.predicate)
         assert predicate is not None, 'a predicate that admits every row was refused as deciding nothing'
-        assumptions[name] = program.Holds(predicate, lowering.mask(where), description)
+        assumptions[name] = program.Holds(predicate, lowering.mask(holds.where), holds.description)
     return assumptions
 
 
