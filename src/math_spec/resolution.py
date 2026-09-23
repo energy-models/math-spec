@@ -15,7 +15,7 @@ import datetime
 import re
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
+from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast, overload
 
 import math_spec.degree as degree
 from math_spec._expression_parser import (
@@ -395,6 +395,66 @@ def resolve_where_text(
     return resolve_where(node, ns, context, errors, self_variable)
 
 
+@overload
+def resolve_expression_text(
+    text: str, ns: Namespace, context: str, errors: list[str], *, comparison: Literal[True], ceiling: int | None
+) -> ComparisonNode | None: ...
+@overload
+def resolve_expression_text(
+    text: str, ns: Namespace, context: str, errors: list[str], *, comparison: Literal[False], ceiling: int | None
+) -> ArithmeticNode | None: ...
+
+
+def resolve_expression_text(
+    text: str, ns: Namespace, context: str, errors: list[str], *, comparison: bool, ceiling: int | None
+) -> ParsedNode | None:
+    """Parse, expand, resolve and degree-check one expression string, as :func:`resolve_where_text` reads a where string.
+
+    *comparison* says what the position holds: a constraint carries exactly one
+    comparison, with a variable on a side (#1171), and every other position
+    carries none. *ceiling* is the degree the position honours, and ``None``
+    for an ``expressions:`` entry's body: what the math admits
+    (:func:`~math_spec.degree.check_expression`) is a rule about the position
+    that *reads* it, so it fires on the expanded tree of every constraint,
+    objective and piecewise link, and not where an entry is declared.
+
+    Returns:
+        The typed tree, or ``None`` once anything failed, the problem appended
+        to *errors*.
+    """
+    try:
+        ast = parse_and_expand(text, ns, context)
+    except ValueError as e:
+        errors.append(prefixed(context, e))
+        return None
+    if comparison and not isinstance(ast, ComparisonNode):
+        errors.append(
+            f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {text!r}'
+        )
+        return None
+    if not comparison and isinstance(ast, ComparisonNode):
+        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {text!r}')
+        return None
+    resolved = resolve_expression(ast, ns, context, errors)
+    if resolved is None or ceiling is None:
+        return resolved
+    try:
+        degree.check_expression(resolved, context, ceiling=ceiling)
+    except LanguageError as e:
+        errors.append(str(e))
+        return None
+    if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
+        errors.append(
+            f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
+            f'Got: {text!r}\n'
+            f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
+            f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
+            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
+        )
+        return None
+    return resolved
+
+
 def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) -> CasesNode | DefinitionNode | None:
     """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
 
@@ -404,7 +464,7 @@ def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) 
     context = f"Named expression '{name}'"
     if not block.cases:
         assert block.expression is not None
-        body = _value(block.expression, ns, context, errors)
+        body = resolve_expression_text(block.expression, ns, context, errors, comparison=False, ceiling=None)
         return None if body is None else DefinitionNode(name, body)
 
     found = len(errors)
@@ -417,30 +477,17 @@ def _named(name: str, block: ExpressionBlock, ns: Namespace, errors: list[str]) 
             errors.append(_constant_arm(arm_context, value=when.value))
         elif when is not None:
             masks[case_name] = when
-        value = _value(case.expression, ns, arm_context, errors)
+        value = resolve_expression_text(case.expression, ns, arm_context, errors, comparison=False, ceiling=None)
         if when is not None and value is not None:
             arms.append(CaseArm(case_name, when, value))
     assert block.otherwise is not None
-    fallback = _value(block.otherwise, ns, case_context(name, None), errors)
+    fallback = resolve_expression_text(
+        block.otherwise, ns, case_context(name, None), errors, comparison=False, ceiling=None
+    )
     if len(errors) > found or fallback is None:
         return None
     errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
     return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
-
-
-def _value(text: str, ns: Namespace, context: str, errors: list[str]) -> ArithmeticNode | None:
-    """One expression string that stands for a value, typed; ``None`` once anything in it failed."""
-    try:
-        ast = parse_and_expand(text, ns, context)
-    except ValueError as e:
-        errors.append(prefixed(context, e))
-        return None
-    if isinstance(ast, ComparisonNode):
-        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {text!r}')
-        return None
-    resolved = resolve_expression(ast, ns, context, errors)
-    assert not isinstance(resolved, ComparisonNode), 'an arithmetic tree resolves to arithmetic'
-    return resolved
 
 
 def _constant_arm(context: str, *, value: bool) -> str:
