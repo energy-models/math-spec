@@ -7,29 +7,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Literal, assert_never, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
-    BinaryOperatorNode,
     CaseArm,
     CasesNode,
     ComparisonNode,
     DefinitionNode,
-    DualNode,
-    FunctionCallNode,
-    KeywordNode,
-    KwargNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
     ParsedNode,
-    UnaryOperatorNode,
-    VariableNode,
     case_context,
-    children,
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
@@ -37,7 +25,6 @@ from math_spec.errors import LanguageError, SchemaError, prefixed
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import AssumptionBlock, Spec
-from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
 from math_spec.piecewise import assumptions_of
 from math_spec.program import BooleanLiteral, Mask, VariableDefined
 from math_spec.resolution import (
@@ -46,7 +33,6 @@ from math_spec.resolution import (
     ResolvedAssumption,
     ResolvedConstraint,
     mask_of,
-    names_in,
     resolve_expression,
     resolve_where_text,
 )
@@ -141,7 +127,7 @@ def validate_expressions(schema: Spec) -> Resolved:
             f'ambiguous with the dimension itself.'
             for f in sorted(formals & ns.dimensions)
         )
-        _check_template_names(body_ast, context, ns, formals, errors)
+        resolve_expression(body_ast, ns, context, errors, formals=formals)
 
     expressions: dict[str, CasesNode | DefinitionNode] = {}
     for ename, block in schema.expressions.items():
@@ -373,74 +359,3 @@ def _check_expression(
         )
         return None
     return resolved
-
-
-def _check_template_names(
-    node: ArithmeticNode,
-    context: str,
-    ns: Namespace,
-    formals: frozenset[str],
-    errors: list[str],
-) -> None:
-    """Check a macro body's names and call shapes, treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
-
-    An operator call is refused by its signature here, as at a call site, so a
-    keyword the operator does not declare is caught in a template nothing calls.
-    A case arm's value only: its ``when`` is the declaration's, checked there.
-    """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
-        return
-
-    if isinstance(node, NameNode):
-        if node.name not in formals and ns.kind(node.name) is None:
-            errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
-        return
-
-    if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | CasesNode | DefinitionNode):
-        for child in children(node):
-            _check_template_names(child, context, ns, formals, errors)
-        return
-
-    if isinstance(node, FunctionCallNode):
-        builtin = BUILTINS.get(node.name)
-        if builtin is None:
-            errors.append(f'{context}: {unknown_operator_message(node.name)}')
-        else:
-            shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
-            if shape_error is not None:
-                errors.append(f'{context}: {shape_error}')
-        if node.name == 'dual':
-            errors.extend(
-                ns.unknown_constraint(arg.name, context, formals=formals)
-                for arg in node.args
-                if isinstance(arg, NameNode) and arg.name not in formals and arg.name not in ns.constraints
-            )
-            return
-        for arg in node.args:
-            _check_template_names(arg, context, ns, formals, errors)
-        for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
-                case 'dimension':
-                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
-                        errors.append(
-                            f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                            f'declared dimension or a formal of this macro.'
-                        )
-                case 'relation':
-                    errors.extend(
-                        f'{context}: {node.name}({kwarg}={one}) does not name a relation or a formal of this macro.'
-                        for one in names_in(value)
-                        if one not in formals and ns.kind(one) != 'relation'
-                    )
-                case 'value':
-                    _check_template_names(value, context, ns, formals, errors)
-                case 'role':
-                    pass
-                case 'edge':
-                    pass  # a keyword or a number: nothing in it to name
-                case None:
-                    pass  # a keyword the operator does not declare; the shape error above named it
-        return
-
-    assert_never(node)

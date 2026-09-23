@@ -288,8 +288,13 @@ def resolve_expression(
     ns: Namespace,
     context: str,
     errors: list[str],
+    *,
+    formals: frozenset[str] = frozenset(),
 ) -> ParsedNode | None:
     """Rewrite every ``NameNode`` under *node* to a typed node, checking operator call shapes on the way.
+
+    A name in *formals* stays bare, so a macro template is checked by the
+    rules a call site is, before anything calls it.
 
     Returns:
         The typed tree, or ``None`` once anything failed — appending to
@@ -297,7 +302,7 @@ def resolve_expression(
         whole schema reports them together.
     """
     before = len(errors)
-    resolved = _Resolver(ns, context, errors).expression(node)
+    resolved = _Resolver(ns, context, errors, formals=formals).expression(node)
     return None if len(errors) > before else resolved
 
 
@@ -350,13 +355,19 @@ class _Resolver:
     appended to ``errors``; the public doors discard the tree once ``errors``
     grew, which is what lets a connective's children be typed as resolved.
     ``self_variable`` is the variable whose own ``where`` is being read, which
-    may not ask whether it exists.
+    may not ask whether it exists. ``formals`` are a macro template's formals,
+    which stay bare: a formal has no kind until a call site binds it.
     """
 
     ns: Namespace
     context: str
     errors: list[str]
     self_variable: str | None = None
+    formals: frozenset[str] = frozenset()
+
+    def _formal(self, value: ArithmeticNode) -> bool:
+        """Whether *value* is a formal, left for the call site to bind."""
+        return isinstance(value, NameNode) and value.name in self.formals
 
     # -- expressions -------------------------------------------------------
 
@@ -374,7 +385,7 @@ class _Resolver:
         numeric check here stands aside for it. A quoted keyword or a name list in
         arithmetic arrives through a macro formal bound to one.
         """
-        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode):
+        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode) or self._formal(node):
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
@@ -429,7 +440,7 @@ class _Resolver:
                 )
                 return node
             case _:
-                self.errors.append(self.ns.unknown(node.name, self.context, allow_dims=False))
+                self.errors.append(self.ns.unknown(node.name, self.context, allow_dims=False, formals=self.formals))
                 return node
 
     def _call(self, node: FunctionCallNode) -> ArithmeticNode:
@@ -495,6 +506,8 @@ class _Resolver:
 
     def _edge(self, value: ArithmeticNode, operator: str) -> ArithmeticNode:
         """``edge=``: the closed keyword ``wrap``, or a number to contribute; a name here is a typo."""
+        if self._formal(value):
+            return value
         if isinstance(value, KeywordNode):
             if value.value == EDGE_WRAP:
                 return EdgeNode()
@@ -519,11 +532,15 @@ class _Resolver:
 
     def _dim_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
         """An operator kwarg whose *value* must name a declared dimension."""
+        if self._formal(value):
+            return value
         if not isinstance(value, NameNode):
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a dimension.')
             return value
         if value.name not in self.ns.dimensions:
-            self.errors.append(_undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns))
+            self.errors.append(
+                _undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns, self.formals)
+            )
             return value
         return DimensionNode(value.name)
 
@@ -536,6 +553,8 @@ class _Resolver:
         (:mod:`math_spec.validation`); this pass only types the name.
         """
         (value,) = node.args
+        if self._formal(value):
+            return node
         if not isinstance(value, NameNode):
             self.errors.append(
                 f'{self.context}: dual() takes the name of a declared constraint, written bare — '
@@ -543,7 +562,7 @@ class _Resolver:
             )
             return node
         if value.name not in self.ns.constraints:
-            self.errors.append(self.ns.unknown_constraint(value.name, self.context))
+            self.errors.append(self.ns.unknown_constraint(value.name, self.context, formals=self.formals))
             return node
         return DualNode(value.name)
 
@@ -576,9 +595,12 @@ class _Resolver:
             )
             return value
         name = names[0]
-
+        if name in self.formals:
+            return value
         if (problem := self._not_a_relation(name, operator, key)) is not None:
             self.errors.append(problem)
+            return value
+        if any(n in self.formals for v in roles.values() for n in names_in(v)):
             return value
         read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
         if any(r is None for r in read.values()):
@@ -587,7 +609,7 @@ class _Resolver:
         if operator in ('shift', 'sum_back'):
             if 'within' not in named:
                 return value  # the call shape refused it already, with the wording that names the rewrite
-            over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
+            over_dim = over.name if isinstance(over, NameNode | DimensionNode) and not self._formal(over) else None
             partition = self._partition(name, operator, over_dim, named['within'])
             return value if partition is None else PartitionNode(partition)
         if not ({'over', 'into'} <= set(named)):
@@ -744,7 +766,7 @@ class _Resolver:
                 f'{key}= takes a relation — the named map out of a dimension.\n{hint}'
             )
         return (
-            f'{context}: {operator}({key}={name}) does not name a relation. '
+            f'{context}: {operator}({key}={name}) does not name a relation{_or_a_formal(self.formals)}. '
             f'{did_you_mean(name, ns.relations, label="Relations")}\n'
             f"Declare it under 'relations:' — {name}: {{key: <the columns a row is identified by>, "
             f'values: <the columns they determine>}}.'
@@ -1257,13 +1279,18 @@ def _not_a_number(name: str, dtype: str, context: str) -> str:
     )
 
 
-def _undeclared_dim(context: str, operator: str, call: str, name: str, ns: Namespace) -> str:
+def _undeclared_dim(context: str, operator: str, call: str, name: str, ns: Namespace, formals: frozenset[str]) -> str:
     return (
-        f'{context}: {operator}({call}) does not name a declared dimension. '
+        f'{context}: {operator}({call}) does not name a declared dimension{_or_a_formal(formals)}. '
         f'{did_you_mean(name, ns.dimensions, label="Dimensions")}\n'
         f"Declare '{name}' under 'dimensions:', or fix the typo — an unknown "
         f'dimension makes {operator}() a silent no-op rather than an error.'
     )
+
+
+def _or_a_formal(formals: frozenset[str]) -> str:
+    """The words a refusal inside a template adds, since a formal would have stood there too."""
+    return ' or a formal of this macro' if formals else ''
 
 
 def _declared_as(ns: Namespace, name: str) -> str:
