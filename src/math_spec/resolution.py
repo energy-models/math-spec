@@ -907,8 +907,6 @@ class _Resolver:
                 f'Precompute it as a parameter.'
             )
             return None
-        if self._formal(bare):
-            return None
         if self.ns.kind(bare.name) != 'parameter':
             if self._name(bare) is not None:
                 self.errors.append(f'{self.context}: {operator}({key}=...) {words.form}')
