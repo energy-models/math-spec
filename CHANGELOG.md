@@ -19,6 +19,20 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.118](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.117...v0.0.0-alpha.118) (2026-09-23)
+
+
+### Features
+
+* **language:** a where may read a predicate through a relation with at() ([#634](https://github.com/energy-models/math-spec/issues/634)) ([6190cf4](https://github.com/energy-models/math-spec/commit/6190cf4e3dae0f07455cb5a7f10c9bdb572f1b9b))
+
+## [0.0.0-alpha.117](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.116...v0.0.0-alpha.117) (2026-09-22)
+
+
+### Documentation
+
+* **limits:** a where cannot test a relation against its target dimension, and composition is a limit on the file ([#624](https://github.com/energy-models/math-spec/issues/624)) ([216208b](https://github.com/energy-models/math-spec/commit/216208b7dd548c99309ae409e34d264eb1b70421))
+
 ## [0.0.0-alpha.116](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.115...v0.0.0-alpha.116) (2026-09-22)
 
 

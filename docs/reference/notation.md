@@ -806,6 +806,21 @@ run_start:
 \mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} \text{ is defined} \wedge \neg \left( \mathrm{load}_{t - 1,b} \text{ is defined} \right)
 ```
 
+#### `zoned`
+
+a predicate read through a relation: a bus is held only where its zone has a cap at all
+
+```yaml
+zoned:
+  dims: [bus]
+  where: "at(zone_cap, by=zone_of, over=zone, into=bus)"
+  expression: theta <= budget
+```
+
+```math
+\theta_{b} \le \mathrm{budget} \qquad \forall\, b \in \mathcal{B} \,:\, \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \text{ is defined}
+```
+
 #### `capped`
 
 an expressions: entry on a side, read by the name the file gave it

@@ -140,6 +140,7 @@ That another tool has a feature is not by itself a reason to add it.
 | Normalisation, `x / sum(x)`                                              | dividing by a variable is not a polynomial, and no solver takes it                                                                         | write the ratio as a constraint, or fix the denominator                                                                                                                            |
 | An `if`, a loop, or declarations that depend on the data                 | `to_spec` could no longer read the file without the data                                                                                   | `where:` masks and `dims:` dimensions. A tool may loop over models                                                                                                                 |
 | A Python API for building models                                         | the model is the file you review and diff                                                                                                  | YAML, or a `dict` with the same keys ([below](#composition-component-libraries))                                                                                                   |
+| A `where` comparing a relation column against the dimension it maps into | the relation already pairs the two, and a mask over the pair is the same fact in a bigger shape                                            | place the quantity with `sum(by=)`, or read it with `at(by=)` ([operators](../reference/language/operators.md#sum))                                                                |
 
 ## Composition (component libraries)
 
@@ -154,5 +155,5 @@ grows with the number of component _types_.
 Merging happens before `to_spec`. Every function here takes a `dict` as well as
 a path, so a model assembled in Python is checked exactly as a file is, and
 `Spec.to_yaml()` writes the file a reviewer reads. A `dict` may hold only what a
-file may hold. A built-in merge, and namespaces so that two templates can each
-declare a `p`, are both things a library does before it hands over a `dict`.
+file may hold, so the file itself states no composition. A template names no
+sibling, and no key says which fragment wins where two declare a `p`.
