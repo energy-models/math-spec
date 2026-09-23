@@ -26,7 +26,7 @@ from math_spec.program import PiecewiseDeclaration
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from math_spec._expression_parser import ArithmeticNode
+    from math_spec.program import Expression
 
 
 #: The suffix on the second gate row, where the gate variable does not exist.
@@ -257,7 +257,7 @@ class Emitted:
         )
 
 
-def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[ArithmeticNode]) -> tuple[str, ...]:
+def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[Expression]) -> tuple[str, ...]:
     """The dimensions block *name* builds one curve per coordinate of: every one its links and its gate carry.
 
     In declaration order, because iterating a set would vary the emitted

@@ -340,8 +340,8 @@ class MacroBlock(_StrictBlock):
     """A parameterised expression template, defined in the YAML itself.
 
     Language, not code: formals (``args`` positional, ``kwargs`` keyword)
-    shadow model names inside the template, and every call site expands into
-    core AST before either backend sees the expression.
+    shadow model names inside the template, and every call site expands in
+    the syntax tree before resolution reads the expression.
     """
 
     _label: ClassVar[str] = 'a macro declaration'
