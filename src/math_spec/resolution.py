@@ -894,8 +894,6 @@ class _Resolver:
         every parameter an amount carries, and so that a program's
         ``offset`` and ``width`` are the ``int | str`` they say.
         """
-        if self._formal(value):
-            return None
         words = AMOUNTS[operator]
         if (literal := _literal(value)) is not None:
             if not (literal.value.is_integer() and literal.value >= words.minimum):
@@ -1029,15 +1027,13 @@ class _Resolver:
         if any(n in self.formals for v in roles.values() for n in names_in(v)):
             return None
         read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
-        if any(r is None for r in read.values()):
-            return None
         named = {k: r for k, r in read.items() if r is not None}
         if operator in ('shift', 'sum_back'):
             if 'within' not in named:
-                return None  # the call shape refused it already, with the wording that names the rewrite
+                return None  # refused already, by the call shape or by the role that named no column
             return self._partition(name, operator, along, named['within'])
         if not ({'over', 'into'} <= set(named)):
-            return None  # the call shape refused it already, with the wording that names the rewrite
+            return None  # refused already, by the call shape or by the role that named no column
         return self._direction(name, operator, named['over'], named['into'])
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:

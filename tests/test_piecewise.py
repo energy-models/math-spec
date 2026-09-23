@@ -239,6 +239,52 @@ def test_any_affine_expression_is_a_legal_link(link):
             "link 0: method: lp bounds the curve's domain by rows comparing this link's expression",
             id='lp-with-an-x-link-carrying-no-variable',
         ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'parameters.bp_x.dims': []},
+            "link 0 values parameter 'bp_x' must carry dim 'bp'",
+            id='a-breakpoint-parameter-without-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'piecewise.cost_curve.points': 'nope'},
+            "points references undeclared parameter 'nope'",
+            id='undeclared-points',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'parameters.reach': {'dims': [], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'},
+            "points parameter 'reach' must carry dim 'bp'",
+            id='points-without-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'piecewise.cost_curve.links': [['p + bp_x', 'bp_x'], ['op_cost', 'bp_y']]},
+            "link 0 expression already carries the breakpoint dim 'bp'",
+            id='a-link-carrying-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'variables.u': {'dims': ['snapshot', 'bp'], 'domain': 'binary'}, 'piecewise.cost_curve.activity': 'u'},
+            "activity already carries the breakpoint dim 'bp'",
+            id='a-gate-carrying-the-breakpoint-dim',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'dimensions.generator': {'dtype': 'str'}, 'parameters.bp_x.dims': ['generator', 'bp']},
+            r"values parameter 'bp_x' carries \['generator'\], which no link expression does",
+            id='a-breakpoint-varying-along-a-dim-no-link-carries',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {
+                'dimensions.generator': {'dtype': 'str'},
+                'parameters.reach': {'dims': ['generator', 'bp'], 'dtype': 'bool'},
+                'piecewise.cost_curve.points': 'reach',
+            },
+            r"points parameter 'reach' carries \['generator'\], which the links do not",
+            id='a-mask-adding-a-coordinate-the-curve-does-not-have',
+        ),
     ],
 )
 def test_a_malformed_block_is_refused(model, patch, match):

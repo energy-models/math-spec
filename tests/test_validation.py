@@ -339,6 +339,22 @@ class TestDimensionKwargs:
     def test_declared_dimensions_still_pass(self, expression, dims):
         to_spec(_kwarg_model(expression, dims))
 
+    @pytest.mark.parametrize(
+        ('expression', 'fragment'),
+        [
+            pytest.param('sum(p, over=1)', 'sum(over=...) must name a dimension', id='a-number-as-a-dimension'),
+            pytest.param("sum(p, by='lk', over=g, into=h)", 'sum(by=...) must name a relation', id='a-quoted-relation'),
+            pytest.param(
+                'sum(p, by=lk, over=1, into=h)',
+                'sum(over=...) names columns of the relation',
+                id='a-number-as-a-column',
+            ),
+        ],
+    )
+    def test_a_kwarg_that_names_nothing_is_refused(self, expression, fragment):
+        """A kwarg that takes a name and gets a number or a label is refused by the kind the operator declares for it."""
+        assert fragment in _refusal(objective={'expression': expression})
+
     def test_macro_formals_are_not_mistaken_for_dimensions(self):
         """A formal in a dim position is legal inside the template body."""
         _schema(
