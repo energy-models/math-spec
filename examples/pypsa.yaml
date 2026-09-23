@@ -13,7 +13,9 @@ description: >-
   model collapses to the standard one. A security-constrained run copies each
   branch flow limit once per outage in an `outage` set that a plain run leaves
   empty. Which snapshots an asset is active in, a scenario's weight, and the
-  outage factors are data prep.
+  outage factors are data prep. Under the `mga` flag the file is PyPSA's
+  `optimize_mga`: the system cost is capped at a budget above its optimum, and
+  weighted builds are the objective instead.
 
 dimensions:
   scenario:
@@ -407,6 +409,61 @@ parameters:
   CVaR_inv_tail:
     description: PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor
     dims: []
+  mga:
+    description: >-
+      whether the run is PyPSA's `optimize_mga` or `optimize_mga_in_direction`
+      — the system cost is capped by the `budget` row and the weighted builds
+      are the objective; false is a plain `n.optimize()`
+    dims: []
+    dtype: bool
+  mga_budget:
+    description: >-
+      the most the system cost may reach under MGA — PyPSA's `(1 + slack) *
+      optimal_cost - fixed_cost`, from the solved optimum's statistics, plus
+      the objective constant this file leaves out of the cost; data prep
+    dims: []
+  Generator_mga_weight:
+    description: >-
+      what one unit of a generator's build weighs in the MGA objective — PyPSA's
+      `weights['Generator']['p_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [generator]
+  Link_mga_weight:
+    description: >-
+      what one unit of a link's build weighs in the MGA objective — PyPSA's
+      `weights['Link']['p_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [link]
+  StorageUnit_mga_weight:
+    description: >-
+      what one unit of a storage unit's build weighs in the MGA objective — PyPSA's
+      `weights['StorageUnit']['p_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [storage_unit]
+  Store_mga_weight:
+    description: >-
+      what one unit of a store's build weighs in the MGA objective — PyPSA's
+      `weights['Store']['e_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [store]
+  Line_mga_weight:
+    description: >-
+      what one unit of a line's build weighs in the MGA objective — PyPSA's
+      `weights['Line']['s_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [line]
+  Process_mga_weight:
+    description: >-
+      what one unit of a process's build weighs in the MGA objective — PyPSA's
+      `weights['Process']['p_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [process]
+  Transformer_mga_weight:
+    description: >-
+      what one unit of a transformer's build weighs in the MGA objective — PyPSA's
+      `weights['Transformer']['s_nom']`, negated to maximise; a direction's weighted
+      dimensions fold into it, data prep
+    dims: [transformer]
   period_weight_objective:
     description: PyPSA's `investment_period_weightings.objective` — what a period's cost weighs
     dims: [period]
@@ -1674,6 +1731,33 @@ expressions:
     cases:
       line: { when: Outage_line, expression: "at(Line_s_monitored, by=Outage_line, over=line, into=outage)" }
     otherwise: at(Transformer_s_monitored, by=Outage_transformer, over=transformer, into=outage)
+  system_cost:
+    description: what `n.optimize()` minimises — capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
+    expression: >-
+      sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
+      + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
+      + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
+      + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
+      + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
+      + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
+      + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
+      + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
+      + CVaR_omega * CVaR
+  goal:
+    description: what the run minimises — the system cost, or under MGA the weighted builds within the budget
+    dims: []
+    cases:
+      mga:
+        when: mga
+        expression: >-
+          sum(Generator_p_nom_ext * Generator_mga_weight)
+          + sum(Link_p_nom_ext * Link_mga_weight)
+          + sum(StorageUnit_p_nom_ext * StorageUnit_mga_weight)
+          + sum(Store_e_nom_ext * Store_mga_weight)
+          + sum(Line_s_nom_ext * Line_mga_weight)
+          + sum(Process_p_nom_ext * Process_mga_weight)
+          + sum(Transformer_s_nom_ext * Transformer_mga_weight)
+    otherwise: system_cost
 
 constraints:
   Generator_fix_p_lower:
@@ -2978,17 +3062,13 @@ constraints:
     description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
     dims: []
     expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+  budget:
+    description: "`budget` — under MGA, the system cost stays within the slack above its optimum"
+    dims: []
+    where: mga
+    expression: system_cost <= mga_budget
 
 objective:
   sense: minimize
-  description: capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
-  expression: >-
-    sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
-    + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
-    + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
-    + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
-    + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
-    + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
-    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
-    + CVaR_omega * CVaR
+  description: the system cost; under MGA the weighted builds instead
+  expression: goal

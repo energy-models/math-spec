@@ -5,8 +5,9 @@
 """`examples/pypsa.yaml` is the superset that collapses to the standard PyPSA model.
 
 The file always declares a `scenario` axis, a mask-only `period` axis, a `carrier`
-axis and the CVaR rows. Fed one scenario, one period, all-active masks and unit
-weights, every addition is a no-op and the standard model returns. The repository
+axis, the CVaR rows and the MGA `budget` row. Fed one scenario, one period,
+all-active masks, unit weights and a false `mga` flag, every addition is a no-op
+and the standard model returns. The repository
 runs no solver, so the reduction is guarded structurally: `tests/fixtures/
 pypsa_standard_shape.yaml` freezes the standard model's names and frames, and the
 only frame change a standard row may carry is a leading `scenario`.
@@ -93,8 +94,16 @@ def test_the_extra_axes_and_rows_are_declared():
     assert 'scenario_opex' in ALL.expressions, 'the per-scenario operating cost is a named expression'
 
 
-def test_omega_blends_expectation_and_tail_in_the_objective():
-    expr = ALL.objective.expression
+def test_omega_blends_expectation_and_tail_in_the_system_cost():
+    expr = ALL.expressions['system_cost'].expression
     assert all(term in expr for term in ('CVaR_omega', 'scenario_weight', 'scenario_opex', 'CVaR')), (
-        'the objective prices expected opex by scenario weight and blends the tail by omega'
+        'the system cost prices expected opex by scenario weight and blends the tail by omega'
     )
+
+
+def test_a_run_without_the_mga_flag_minimises_the_system_cost_unbudgeted():
+    goal = ALL.expressions['goal']
+    assert ALL.objective.expression == 'goal', 'the objective is the goal'
+    assert goal.otherwise == 'system_cost', 'without the flag the goal is the system cost'
+    assert [case.when for case in goal.cases.values()] == ['mga'], 'only the mga flag switches the goal'
+    assert ALL.constraints['budget'].where == 'mga', 'without the flag there is no budget row'

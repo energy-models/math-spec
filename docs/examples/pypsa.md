@@ -86,8 +86,8 @@ def build():
 | [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | out    | the same balance rows, dealt into linopy containers by how many component columns name a bus — `meshed_thresholds`, an `n.optimize()` keyword defaulting to `[30, 100, 400]`. Same rows, same duals, another name; a modeler whose engine wants the split states it, the file does not (#123) |
-| [`marginal_cost`](#objective)                       | done   |                                                            |
-| [`marginal_cost_quadratic`](#objective)             | done   | rung 10, below; Generator and Link — PyPSA also carries it on storage units and stores, one more term each of the same shape |
+| [`marginal_cost`](#system_cost)                       | done   |                                                            |
+| [`marginal_cost_quadratic`](#system_cost)             | done   | rung 10, below; Generator and Link — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — rungs 11 and 13 carry a nonzero one, `21915277.52` and `160.0`, so the netting is under test |
 
 <!-- reference:rung_01_transport:begin -->
@@ -129,7 +129,7 @@ def build():
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance) | done | the charge carried into a snapshot is a cased quantity — cyclic, opening, carried; `(1-loss)**eh` is prep |
 | [`Store-energy_balance`](#store-energy_balance)       | done   | same                                                          |
 | [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set` |
-| [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
+| [`marginal_cost_storage`, `spill_cost`](#system_cost)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `4456.659315422356`, 103 rows.
@@ -203,7 +203,7 @@ def build():
 | [`{c}-ext-p_nom-lower/upper`](#generator-ext-p_nom-lower) | done |                                        |
 | [`{c}-p_nom_set`](#generator-p_nom_set) | done |                                                      |
 | [`Generator-e_sum_min/max`](#generator-e_sum_min) | done |                                            |
-| [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
+| [capital cost](#system_cost)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `7633.908502024292`, 184 rows.
@@ -604,7 +604,7 @@ def build():
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(window=min_up_time)`                    |
 | [`{c}-com-status-min_up_time_must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal |
 | [`{c}-com-status-min_down_time_must_stay_up`](#generator-com-status-min_down_time_must_stay_up) | done | the same prep mask over the down time brought in, status zero; PyPSA's name says `_must_stay_up`; rung 24 records it |
-| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
+| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#system_cost) | done |                                           |
 | [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
 
 <!-- reference:rung_07_commitment:begin -->
@@ -823,7 +823,7 @@ feeds zero, so the term vanishes and the objective stays linear.
 
 | PyPSA | status | note |
 | --- | --- | --- |
-| [`marginal_cost_quadratic`](#objective) | done | degree 2 in the objective; Generator and Link here |
+| [`marginal_cost_quadratic`](#system_cost) | done | degree 2 in the objective; Generator and Link here |
 
 <!-- reference:rung_10_quadratic_costs:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12587.437500000098`, 60 rows.
@@ -1304,7 +1304,7 @@ excess per scenario and the tail's average, blended into the objective at
 | [`CVaR-a`, `CVaR-theta`, `CVaR`](#variable-domains) | done | |
 | [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names a row per scenario; one block over the dimension |
 | [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` is data prep |
-| [objective](#objective) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
+| [objective](#system_cost) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
 
 <!-- reference:rung_14_stochastic:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `9267.386666666665`, 87 rows.
@@ -1357,7 +1357,7 @@ own dimensions.
 | [`Generator-p`](#variable-domains) | done | where the generator stands in the snapshot's period — `active`, data prep |
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | every extendable component of the carrier, counted in the first period a build stands in; `edge=0` at the first period |
-| [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
+| [objective](#system_cost) | done | period weight on operation; capacity once per period it stands in |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
 
 <!-- reference:rung_15_multi_period:begin -->
@@ -1548,7 +1548,7 @@ generator's and the link's, read over a converter.
 | [`Process-p_set`](#process-p_set) | done | a fixed internal power schedule |
 | [`Process-p_nom_set`](#process-p_nom_set) | done | a fixed built capacity |
 | [`Bus-nodal_balance`](#bus-nodal_balance) | done | each port enters at its `rate` |
-| [objective](#objective) | done | marginal cost on internal power; capital on capacity |
+| [objective](#system_cost) | done | marginal cost on internal power; capital on capacity |
 
 <!-- reference:rung_17_process:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `9730.0`, 70 rows.
@@ -1624,7 +1624,7 @@ transformer's built capacity.
 | [`Transformer-s_nom_set`](#transformer-s_nom_set) | done | a fixed built capacity |
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | rung 6, over `x_pu_eff` and a phase shift |
 | [`Transformer-phase_shift`](#variable-domains) | done | rung 20, an optimised phase shift |
-| [objective](#objective) | done | capital on capacity |
+| [objective](#system_cost) | done | capital on capacity |
 
 <!-- reference:rung_18_transformer:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12274.401472395122`, 106 rows.
@@ -2047,7 +2047,7 @@ extendable, modular, or both.
 | [`Link-com-status-min_up_time_must_stay_up`, `-min_down_time_must_stay_up`](#link-com-status-min_up_time_must_stay_up) | done | prep masks, as the generator's |
 | [`Link-p-ramp_limit_*`, `-*-bigM`](#link-p-ramp_limit_up) | done | the generator's cased allowance and big-M rows over flow |
 | [`Link-p_nom_modularity`](#link-p_nom_modularity) | done | |
-| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done | |
+| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#system_cost) | done | |
 
 <!-- reference:rung_25_committable_link:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `14013.0`, 235 rows.
@@ -2169,7 +2169,7 @@ time rules bind.
 | [`Process-com-status-min_up_time_must_stay_up`, `-min_down_time_must_stay_up`](#process-com-status-min_up_time_must_stay_up) | done | prep masks, as the generator's |
 | [`Process-p-ramp_limit_*`, `-*-bigM`](#process-p-ramp_limit_up) | done | the generator's cased allowance and big-M rows over internal power |
 | [`Process-p_nom_modularity`](#process-p_nom_modularity) | done | |
-| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done | |
+| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#system_cost) | done | |
 
 <!-- reference:rung_26_committable_process:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `15956.125`, 235 rows.
@@ -2552,6 +2552,77 @@ def build():
 </details>
 <!-- reference:rung_30_security_constrained:end -->
 
+### Rung 31 — MGA
+
+`optimize_mga` needs a solved network. It builds the model again, adds one
+`budget` row, and replaces the objective (`mga.py:343`, `:350`, `:372`). The row
+caps the model's objective plus `installed_capex` at `(1 + slack)` times
+`capex + opex` of the optimum (`mga.py:256`, `:270`). Net of the objective
+constant, that is `system_cost <= mga_budget`, and data prep computes the
+budget from the optimum. The slack also scales the capital cost of fixed
+assets, which the objective does not carry. In this rung, the 45 of fixed
+hydro capex adds 4.5 to the cap. The new objective is the weights times the
+variables they name, times `-1` to maximise (`mga.py:187`, `:372`).
+`optimize_mga_in_direction` builds the same row and minimises the negated sum
+of direction times dimension weights (`mga.py:508`, `:513`). Data prep folds
+the sense and the direction into `{c}_mga_weight`, so one `goal` case covers
+both.
+
+This rung maximises the wind build at a slack of 0.1. The optimum costs
+`9884.17` and builds 116.67 of wind. The MGA run builds 174.85, and the
+`budget` row holds with equality at dual `-0.05`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`budget`](#budget) | done | the `mga` flag builds the row; `mga_budget` is `(1 + slack) * optimal_cost - fixed_cost` plus the objective constant, data prep. The multi-period and stochastic budgets are PyPSA's `statistics` sums, data prep, and no rung records them |
+| [MGA objective](#goal) | done | `goal` is the weighted builds where `mga` holds and `system_cost` elsewhere; a plain run is the standard objective |
+| `weights` on a variable other than a build | open | PyPSA takes any `{c}-{attr}`, for example `Generator-p` per snapshot; each is one more parameter and one more term of the same shape |
+| `optimize_mga_in_multiple_directions`, `project_solved` | out | a loop of `optimize_mga_in_direction` runs, and a read-back of their solutions |
+
+<!-- reference:rung_31_mga:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `-174.8541663000001`, 63 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_31_mga.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 31: MGA — the most wind a network builds within a tenth above its least cost."""
+
+from __future__ import annotations
+
+import spine
+
+MGA = {'weights': {'Generator': {'p_nom': {'wind31': 1}}}, 'sense': 'max', 'slack': 0.1}
+
+
+def build():
+    """The spine plus a bus that extendable wind and gas and a fixed hydro unit with a capital cost serve; the wind carries a build already, so the objective has a constant."""
+    n = spine.build()
+    n.add('Bus', 'mga31')
+    n.add(
+        'Generator',
+        'wind31',
+        bus='mga31',
+        p_nom=10,
+        p_nom_extendable=True,
+        capital_cost=20,
+        p_max_pu=[0.3, 0.9, 0.5, 0.6],
+    )
+    n.add('Generator', 'gas31', bus='mga31', p_nom_extendable=True, capital_cost=8, marginal_cost=40)
+    n.add('Generator', 'hydro31', bus='mga31', p_nom=15, capital_cost=3, marginal_cost=5)
+    n.add('Load', 'mga31_load', bus='mga31', p_set=[50, 80, 60, 70])
+    return n
+```
+
+</details>
+<!-- reference:rung_31_mga:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2576,7 +2647,7 @@ concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 ## The file
 
 <!-- gallery:begin -->
-A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. Capacity is chosen once, before the future is known, and paid once per active period; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. A security-constrained run copies each branch flow limit once per outage in an `outage` set that a plain run leaves empty. Which snapshots an asset is active in, a scenario's weight, and the outage factors are data prep.
+A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. Capacity is chosen once, before the future is known, and paid once per active period; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. A security-constrained run copies each branch flow limit once per outage in an `outage` set that a plain run leaves empty. Which snapshots an asset is active in, a scenario's weight, and the outage factors are data prep. Under the `mga` flag the file is PyPSA's `optimize_mga`: the system cost is capped at a budget above its optimum, and weighted builds are the objective instead.
 
 #### Sets
 
@@ -2690,6 +2761,15 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\pi`$ | `scenario_weight` over $`\Xi`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
 | $`\mathrm{v}`$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
+| $`\mathrm{mga}`$ | `mga` (scalar) — whether the run is PyPSA's `optimize_mga` or `optimize_mga_in_direction` — the system cost is capped by the `budget` row and the weighted builds are the objective; false is a plain `n.optimize()` |
+| $`\overline{\mathrm{C}}`$ | `mga_budget` (scalar) — the most the system cost may reach under MGA — PyPSA's `(1 + slack) * optimal_cost - fixed_cost`, from the solved optimum's statistics, plus the objective constant this file leaves out of the cost; data prep |
+| $`\beta`$ | `Generator_mga_weight` over $`\mathcal{G}`$ — what one unit of a generator's build weighs in the MGA objective — PyPSA's `weights['Generator']['p_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
+| $`\beta^{f}`$ | `Link_mga_weight` over $`\mathcal{L}`$ — what one unit of a link's build weighs in the MGA objective — PyPSA's `weights['Link']['p_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
+| $`\beta^{h}`$ | `StorageUnit_mga_weight` over $`\mathcal{S}`$ — what one unit of a storage unit's build weighs in the MGA objective — PyPSA's `weights['StorageUnit']['p_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
+| $`\beta^{e}`$ | `Store_mga_weight` over $`\mathcal{V}`$ — what one unit of a store's build weighs in the MGA objective — PyPSA's `weights['Store']['e_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
+| $`\beta^{s}`$ | `Line_mga_weight` over $`\mathcal{K}`$ — what one unit of a line's build weighs in the MGA objective — PyPSA's `weights['Line']['s_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
+| $`\beta^{z}`$ | `Process_mga_weight` over $`\mathcal{J}`$ — what one unit of a process's build weighs in the MGA objective — PyPSA's `weights['Process']['p_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
+| $`\beta^{\sigma}`$ | `Transformer_mga_weight` over $`\mathcal{M}`$ — what one unit of a transformer's build weighs in the MGA objective — PyPSA's `weights['Transformer']['s_nom']`, negated to maximise; a direction's weighted dimensions fold into it, data prep |
 | $`\mathrm{w}^{y}`$ | `period_weight_objective` over $`\mathcal{Y}`$ — PyPSA's `investment_period_weightings.objective` — what a period's cost weighs |
 | $`\mathrm{on}`$ | `Generator_active` over $`\mathcal{T} \times \mathcal{G}`$ — whether a generator stands in a snapshot's period — PyPSA's `active`, from build year and lifetime, data prep |
 | $`\mathrm{on}^{f}`$ | `Link_active` over $`\mathcal{T} \times \mathcal{L}`$ — whether a link stands in a snapshot's period — PyPSA's `active`, data prep |
@@ -2908,6 +2988,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\check{s}`$ | `Line_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — the flow a line's post-contingency rows read — its flow where it stands, nothing where it does not, since PyPSA builds those rows for every branch of the sub-network in every snapshot |
 | $`\check{\sigma}`$ | `Transformer_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — the flow a transformer's post-contingency rows read, as a line's |
 | $`\hat{s}`$ | `Outage_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}^{\mathrm{out}}`$ — the flow an outage takes off its branch — the outaged line's or transformer's flow before it goes out |
+| $`\mathit{system\_cost}`$ | `system_cost` (scalar) — what `n.optimize()` minimises — capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail |
+| $`\mathit{goal}`$ | `goal` (scalar) — what the run minimises — the system cost, or under MGA the weighted builds within the budget |
 
 Upright is what the model is given — a parameter such as $`\mathrm{Transformer\_phase\_shift\_varying}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{Transformer\_phase\_shift}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
@@ -2926,21 +3008,12 @@ $`\mathrm{pos}_{\mathrm{relation}(t)}(t)`$ counts within the group a relation pu
 ```yaml
 objective:
   sense: minimize
-  description: capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
-  expression: >-
-    sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
-    + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
-    + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
-    + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
-    + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
-    + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
-    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
-    + CVaR_omega * CVaR
+  description: the system cost; under MGA the weighted builds instead
+  expression: goal
 ```
 
 ```math
-\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} \cdot \mathrm{W}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} \cdot \mathrm{W}^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} \cdot \mathrm{W}^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} \cdot \mathrm{W}^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} \cdot \mathrm{W}^{s}_{k} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{c}^{\mathrm{cap},z}_{j} \cdot \mathrm{W}^{z}_{j} + \sum_{m \in \mathcal{M}} \Sigma_{m} \cdot \mathrm{c}^{\mathrm{cap},\sigma}_{m} \cdot \mathrm{W}^{\sigma}_{m} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
+\min \mathit{goal}
 ```
 
 ### `Generator-fix-p-lower`
@@ -6269,6 +6342,22 @@ CVaR_def:
 \theta + \mathrm{v} \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot a_{\xi} \right) \le CVaR
 ```
 
+### `budget`
+
+`budget`
+
+```yaml
+budget:
+  description: "`budget` — under MGA, the system cost stays within the slack above its optimum"
+  dims: []
+  where: mga
+  expression: system_cost <= mga_budget
+```
+
+```math
+\mathit{system\_cost} \le \overline{\mathrm{C}} \qquad \text{where } \mathrm{mga}
+```
+
 ### `Generator_previous_status`
 
 ```yaml
@@ -7109,6 +7198,51 @@ Outage_s:
 
 ```math
 \hat{s}_{\xi,t,\kappa} = \begin{cases} \check{s}_{\xi,t,\mathrm{Outage\_line}(\kappa)} & \text{if } \mathrm{Outage\_line}(\kappa) \text{ is defined} \\ \check{\sigma}_{\xi,t,\mathrm{Outage\_transformer}(\kappa)} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ \kappa \in \mathcal{K}^{\mathrm{out}}
+```
+
+### `system_cost`
+
+```yaml
+system_cost:
+  description: what `n.optimize()` minimises — capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
+  expression: >-
+    sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
+    + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
+    + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
+    + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
+    + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
+    + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
+    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
+    + CVaR_omega * CVaR
+```
+
+```math
+\mathit{system\_cost} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} \cdot \mathrm{W}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} \cdot \mathrm{W}^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} \cdot \mathrm{W}^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} \cdot \mathrm{W}^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} \cdot \mathrm{W}^{s}_{k} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{c}^{\mathrm{cap},z}_{j} \cdot \mathrm{W}^{z}_{j} + \sum_{m \in \mathcal{M}} \Sigma_{m} \cdot \mathrm{c}^{\mathrm{cap},\sigma}_{m} \cdot \mathrm{W}^{\sigma}_{m} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
+```
+
+### `goal`
+
+```yaml
+goal:
+  description: what the run minimises — the system cost, or under MGA the weighted builds within the budget
+  dims: []
+  cases:
+    mga:
+      when: mga
+      expression: >-
+        sum(Generator_p_nom_ext * Generator_mga_weight)
+        + sum(Link_p_nom_ext * Link_mga_weight)
+        + sum(StorageUnit_p_nom_ext * StorageUnit_mga_weight)
+        + sum(Store_e_nom_ext * Store_mga_weight)
+        + sum(Line_s_nom_ext * Line_mga_weight)
+        + sum(Process_p_nom_ext * Process_mga_weight)
+        + sum(Transformer_s_nom_ext * Transformer_mga_weight)
+  otherwise: system_cost
+```
+
+```math
+\mathit{goal} = \begin{cases} \sum_{g \in \mathcal{G}} P_{g} \cdot \beta_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \beta^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \beta^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \beta^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \beta^{s}_{k} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \beta^{z}_{j} + \sum_{m \in \mathcal{M}} \Sigma_{m} \cdot \beta^{\sigma}_{m} & \text{if } \mathrm{mga} \\ \mathit{system\_cost} & \text{otherwise} \end{cases}
 ```
 
 #### Variable domains
