@@ -192,13 +192,18 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 #: and nowhere else, so the arm that would print one in place is the type's
 #: closure rather than a case. The absent objective is the arm a *different*
 #: model takes — a file declares at most one — and
-#: `test_a_model_with_no_objective_prints_the_rest` covers it.
+#: `test_a_model_with_no_objective_prints_the_rest` covers it. A refusal of
+#: the name asked for renders nothing, and `test_declaration.py` pins both.
 UNREACHABLE = {
     'return self.format.cases(self._arms(node, ctx)), _ATOM',
     'assert_never(node)',
     'assert_never(check)',
     'if block is None:',
     'return []',
+    'everything = {n for group, _ in kinds.values() for n in group}',
+    'msg = (',
+    'raise SchemaError(msg)',
+    'msg = f"\'{name}\' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."',
 }
 
 

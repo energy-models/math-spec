@@ -28,11 +28,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypedDict, Unpack
 
-from math_spec.errors import SchemaError, did_you_mean
 from math_spec.program import Program
 from math_spec.typesetting.latex import LatexFormat
+from math_spec.typesetting.legend import Legend, notice
 from math_spec.typesetting.markdown import MarkdownFormat
-from math_spec.typesetting.symbols import Symbols, SymbolTable
+from math_spec.typesetting.symbols import SymbolTable, symbols_for
 from math_spec.typesetting.typst import TypstFormat
 from math_spec.typesetting.walk import Walk
 from math_spec.validation import to_spec
@@ -94,7 +94,7 @@ def _walk(
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     return Walk(
         program,
-        Symbols(program, format_, table.checked_against(program)),
+        symbols_for(program, format_, table.checked_against(program)),
         format_,
         inline_expressions=inline_expressions,
     )
@@ -145,17 +145,22 @@ def typeset(
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     program, format_ = walk.program, walk.format
 
-    sections, noticed = walk.equations()
     rendered = [
-        format_.section(title, format_.equations(lines, numbered=numbered)) for title, lines in sections if lines
+        format_.section(title, format_.equations(lines, numbered=numbered))
+        for title, lines in walk.equations()
+        if lines
     ]
 
     blocks = [format_.note(format_.escape(program.description))] if program.description else []
     if legend:
-        blocks += [format_.section(title, format_.glossary(entries)) for title, entries in walk.glossaries(noticed)]
-        blocks += [format_.note(text) for text in walk.convention_notes()]
-        blocks += [format_.note(text) for text in walk.translation_notes(noticed)]
-        blocks += [format_.note(text) for text in walk.position_notes(noticed)]
+        explained, noticed = Legend(program, walk.symbols, format_), notice(program)
+        blocks += [
+            format_.section(title, format_.glossary(entries))
+            for title, entries in explained.glossaries(noticed, walk.defined())
+        ]
+        blocks += [format_.note(text) for text in explained.convention_notes()]
+        blocks += [format_.note(text) for text in explained.translation_notes(noticed)]
+        blocks += [format_.note(text) for text in explained.position_notes(noticed)]
     return format_.document([*blocks, *rendered], standalone=standalone)
 
 
@@ -200,25 +205,6 @@ def typeset_declaration(
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
-    program = walk.program
-    kinds = {
-        'named expression': program.expressions,
-        'constraint': program.constraints,
-        'assumption': program.assumptions,
-        'curve': program.piecewise,
-        'variable': program.variables,
-    }
-    found = [kind for kind, group in kinds.items() if name in group]
-    if not found:
-        everything = {n for group in kinds.values() for n in group}
-        msg = (
-            f"'{name}' is not a named expression, constraint, assumption, curve or variable. "
-            f'{did_you_mean(name, everything)}'
-        )
-        raise SchemaError(msg)
-    if len(found) > 1:
-        msg = f"'{name}' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."
-        raise SchemaError(msg)
     return walk.format.equation(walk.line(name))
 
 

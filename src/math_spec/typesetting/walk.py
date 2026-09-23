@@ -13,8 +13,9 @@ of it is about syntax, so none is duplicated per format.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, assert_never
 
+from math_spec.errors import SchemaError, did_you_mean
 from math_spec.program import (
     Add,
     And,
@@ -55,14 +56,15 @@ from math_spec.program import (
     VariableDefined,
     WindowSum,
 )
-from math_spec.typesetting.format import Entry, Line, OperatorName
+from math_spec.typesetting.format import Line, OperatorName
+from math_spec.typesetting.legend import TranslationPolicy, policy_of
 
 if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
     from math_spec._expression_parser import BinaryOperator
-    from math_spec.program import PiecewiseDeclaration, Program, RelationDeclaration, SosDeclaration
+    from math_spec.program import PiecewiseDeclaration, Program, SosDeclaration
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -97,13 +99,6 @@ _PREDICATES: dict[PredicateOperator, OperatorName] = {
     '>': 'gt',
 }
 
-
-#: What a translation does with the row the shift vacates. Three policies get
-#: three spellings because they are three different equations at the boundary.
-TranslationPolicy = Literal['plain', 'wrap', 'edge']
-
-#: The positional forms an equation can print, each of which the legend explains once.
-PositionForm = Literal['plain', 'grouped', 'from_end']
 
 #: Edge policy -> the operator pair that renders it, backward then forward —
 #: the vacated row dropped, wrapped, or filled.
@@ -218,22 +213,11 @@ def _unsigned(node: Expression) -> Expression | None:
     return None
 
 
-@dataclass
-class Noticed:
-    """What the equations printed that the legend has to explain."""
-
-    policies: set[TranslationPolicy] = field(default_factory=set)
-    grouped: bool = False
-    positions: set[PositionForm] = field(default_factory=set)
-    numeric_coordinates: set[str] = field(default_factory=set)
-
-
 class Walk:
     """Walks a program, emitting :class:`Line`s in one format.
 
-    :meth:`equations` prints every section and returns what it :class:`Noticed`;
-    the legend methods take that record, so they can only describe symbols the
-    equations printed.
+    :meth:`equations` prints every section; what those sections use, the
+    legend reads off the program (:func:`~math_spec.typesetting.legend.notice`).
     """
 
     def __init__(
@@ -250,7 +234,6 @@ class Walk:
         #: Substitute each plain named expression where it is used, rather than
         #: printing its symbol there and its definition once.
         self.inline_expressions = inline_expressions
-        self.noticed = Noticed()
 
     def _frame_of(self, name: str) -> list[str]:
         """The dims named expression *name* is read over, as its declaration carries them."""
@@ -272,7 +255,6 @@ class Walk:
             operator = self.format.subscript(operator, [step.fill])
         if not step.within:
             return operator
-        self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
     def _relation_read(self, name: str, at: Mapping[str, str], read: str) -> str:
@@ -454,17 +436,13 @@ class Walk:
         of their own; absent is the bare shift, whose vacated positions are
         absent.
         """
-        policy: TranslationPolicy = 'wrap' if node.wrap else 'edge' if node.fill is not None else 'plain'
         fill = '' if node.fill is None else self._number(node.fill)
-        self.noticed.policies.add(policy)
-        step = _Step(node.offset, policy, fill, self._group(node.partition))
+        step = _Step(node.offset, policy_of(node), fill, self._group(node.partition))
         return self._arithmetic(node.operand, ctx.translated(node.along, step))
 
     def _window_sum(self, node: WindowSum, ctx: _Context) -> tuple[str, int]:
         """``sum_back``: a sum over the positions behind the row, the lag written as a translation of the index."""
-        policy: TranslationPolicy = 'wrap' if node.wrap else 'plain'
-        step = _Step(1, policy, within=self._group(node.partition))
-        self.noticed.policies.add(step.policy)
+        step = _Step(1, policy_of(node), within=self._group(node.partition))
         source, inner = ctx.reducing(node.along)
         lag = f'{ctx.subscript(node.along)} {self._translation(step)} {source}'
         domain = (
@@ -603,8 +581,6 @@ class Walk:
         elif isinstance(node, ExpressionComparison):
             left, right = self._expression(node.left, ctx), self._expression(node.right, ctx)
         elif isinstance(node, DimensionComparison):
-            if isinstance(node.value, int | float):
-                self.noticed.numeric_coordinates.add(node.name)
             left, right = ctx.subscript(node.name), self._literal(node.value)
         elif isinstance(node, DimensionPosition):
             grouping = (
@@ -634,7 +610,6 @@ class Walk:
 
     def _position(self, index: str, grouping: str | None) -> str:
         """``position(dim)`` applied to the row, *grouping* as a subscript — as an argument it read as a second position."""
-        self.noticed.positions.add('grouped' if grouping is not None else 'plain')
         symbol = self._op('position')
         if grouping is not None:
             symbol = self.format.subscript(symbol, [grouping])
@@ -644,7 +619,6 @@ class Walk:
         """The position compared against; a negative one counts back from the size of the set it is a position in — the group's where grouped."""
         if at >= 0:
             return self._number(at)
-        self.noticed.positions.add('from_end')
         size = self.symbols.set[dimension]
         if grouping is not None:
             size = self.format.subscript(size, [grouping])
@@ -671,16 +645,15 @@ class Walk:
 
     # -- declarations ------------------------------------------------------
 
-    def equations(self) -> tuple[list[tuple[str, list[Line]]], Noticed]:
-        """Every titled section of equations, and what printing them noticed for the legend."""
-        sections = [
+    def equations(self) -> list[tuple[str, list[Line]]]:
+        """Every titled section of equations."""
+        return [
             ('Objective', self._objective()),
             ('Subject to', self._constraints()),
             ('Definitions', self._definitions()),
             ('Variable domains', self._variables()),
             ('Assumptions', self._assumptions()),
         ]
-        return sections, self.noticed
 
     def _objective(self) -> list[Line]:
         """The objective's line.
@@ -727,9 +700,9 @@ class Walk:
         no single body to substitute, and an entry the math never reads has
         nowhere to be substituted *into*, so both still print.
         """
-        return [self.definition(name) for name in self._defined()]
+        return [self.definition(name) for name in self.defined()]
 
-    def _defined(self) -> list[str]:
+    def defined(self) -> list[str]:
         """The named expressions that print under their own symbol: every one, or only the unsubstitutable when inlining.
 
         Inlining leaves a name standing only where substitution cannot reach
@@ -757,21 +730,35 @@ class Walk:
     def line(self, name: str) -> Line:
         """The one line *name* prints as: a named expression, a constraint, an assumption, a curve, or a variable's domain.
 
-        *name* is one of the five; :func:`~math_spec.typesetting.typeset_declaration`
-        refuses the rest, and a name declared as two of them. An assumption is
-        looked up where the document prints it from, so a condition a curve's
-        method states is a line a reader can ask for before the curve is
-        written out.
+        An assumption is looked up where the document prints it from, so a
+        condition a curve's method states is a line a reader can ask for
+        before the curve is written out.
+
+        Raises:
+            SchemaError: *name* is declared as none of the five, or as two — a
+                constraint may share a variable's name, and one line prints
+                one of them.
         """
-        if name in self.program.expressions:
-            return self.definition(name)
-        if name in self.program.constraints:
-            return self._constraint(name)
-        if name in self.program.assumptions:
-            return self._assumption(name)
-        if name in self.program.piecewise:
-            return self._piecewise(name)
-        return self._variable(name)
+        program = self.program
+        kinds = {
+            'named expression': (program.expressions, self.definition),
+            'constraint': (program.constraints, self._constraint),
+            'assumption': (program.assumptions, self._assumption),
+            'curve': (program.piecewise, self._piecewise),
+            'variable': (program.variables, self._variable),
+        }
+        found = [kind for kind, (group, _) in kinds.items() if name in group]
+        if not found:
+            everything = {n for group, _ in kinds.values() for n in group}
+            msg = (
+                f"'{name}' is not a named expression, constraint, assumption, curve or variable. "
+                f'{did_you_mean(name, everything)}'
+            )
+            raise SchemaError(msg)
+        if len(found) > 1:
+            msg = f"'{name}' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."
+            raise SchemaError(msg)
+        return kinds[found[0]][1](name)
 
     def _arms(self, node: Cases, ctx: _Context) -> list[tuple[str, str]]:
         """Each region as its value and the words saying where it applies.
@@ -953,152 +940,3 @@ class Walk:
     def _sorted(self, dims: frozenset[str]) -> list[str]:
         order = list(self.program.dimensions)
         return sorted(dims, key=order.index)
-
-    # -- legend ------------------------------------------------------------
-
-    def glossaries(self, noticed: Noticed) -> list[tuple[str, list[Entry]]]:
-        fmt = self.format
-        sets = [
-            self._entry(
-                self.symbols.set[d],
-                f'index {fmt.math(self.symbols.index[d])} {fmt.dash} {fmt.mono(d)}{self._coords(d, noticed)}',
-                block.description,
-            )
-            for d, block in self.program.dimensions.items()
-        ]
-        parameters = [
-            self._entry(self.symbols.name[p], f'{fmt.mono(p)}{self._over(list(block.dims))}', block.description)
-            for p, block in self.program.parameters.items()
-        ]
-        variables = [
-            self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.dims))}', block.description)
-            for v, block in self.program.variables.items()
-        ]
-        definitions = [
-            self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self._frame_of(e))}', block.description)
-            for e, block in self.program.expressions.items()
-            if e in self._defined()
-        ]
-        groups = (('Sets', sets), ('Parameters', parameters), ('Variables', variables), ('Definitions', definitions))
-        return [(title, entries) for title, entries in groups if entries]
-
-    def _entry(self, symbol: str, what: str, description: str | None) -> Entry:
-        meaning = f'{what} {self.format.dash} {self.format.escape(description)}' if description else what
-        return Entry(symbol, meaning)
-
-    def _over(self, dims: list[str]) -> str:
-        if not dims:
-            return ' (scalar)'
-        product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
-        return f' over {self.format.math(product)}'
-
-    def _signature(self, name: str, lk: RelationDeclaration) -> str:
-        """A relation in the legend: a function from its key sets to its value sets, or a relation inside the product."""
-
-        def product(roles: Iterable[str]) -> str:
-            return self.format.joined([self.symbols.set[lk.dim(r)] for r in roles], self._op('times'))
-
-        if lk.values:
-            return f'{self.format.upright(name)}: {product(lk.key)} {self._op("maps_to")} {product(lk.values)}'
-        return f'{self.format.upright(name)} {self._op("subset_of")} {product(lk.roles)}'
-
-    def _coords(self, dim: str, noticed: Noticed) -> str:
-        """The dimension's carried structure: each relation with a column over it, as the map or relation it is.
-
-        The dtype is named only where an equation compared the index against a
-        number, the one place "position 3" and "the coordinate 3" are both
-        readings of a line.
-        """
-        carried = self.program.relations_of(dim)
-        clauses = []
-        if dim in noticed.numeric_coordinates:
-            clauses.append(f' ({self.format.mono(self.program.dimensions[dim].dtype)} coordinates)')
-        if carried:
-            maps = self.format.joined([self._signature(c, lk) for c, lk in carried.items()], '')
-            clauses.append(f' with {self.format.math(maps)}')
-        return ''.join(clauses)
-
-    def convention_notes(self) -> list[str]:
-        """What the two faces mean, with the model's own symbols.
-
-        Only where the model has both, and quoting only derived symbols: a
-        table is the author's to write, so a symbol it supplies is not one this
-        note governs.
-        """
-        derived = [
-            next((n for n in names if n not in self.symbols.overridden), None)
-            for names in (self.program.parameters, self.program.variables)
-        ]
-        if not all(derived):
-            return []
-        given, chosen = (self.format.math(self.symbols.name[n]) for n in derived if n is not None)
-        return [
-            f'Upright is what the model is given {self.format.dash} a parameter such as {given}, a coordinate '
-            f'map, a label {self.format.dash} and italic is what the solver chooses, such as {chosen}. '
-            f'An index is italic too, being what a quantifier chooses, and a set is script.'
-        ]
-
-    def translation_notes(self, noticed: Noticed) -> list[str]:
-        """A sentence for each translation symbol the model printed; plain ``t-k`` needs none."""
-        notes = []
-        if 'wrap' in noticed.policies:
-            cyclic = self.format.math(f't {self._op("cyclic_minus")} k')
-            notes.append(
-                f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
-                f'the dimension ({self.format.mono("roll")}). Plain {self.format.math("t-k")} '
-                f'({self.format.mono("shift")}) has no wraparound {self.format.dash} terms translated past '
-                f'the edge are simply absent.'
-            )
-        if 'edge' in noticed.policies:
-            filled = self.format.math(f't {self.format.subscript(self._op("edge_minus"), ["v"])} k')
-            notes.append(
-                f'{filled} denotes translation with {self.format.math("v")} standing where index '
-                f'{self.format.math("t-k")} leaves the dimension ({self.format.mono("shift(edge=v)")}), so the row '
-                f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
-            )
-        if noticed.grouped:
-            applied = self.format.apply(self.format.upright('relation'), 't')
-            counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
-            note = (
-                f'{counted} denotes a translation counted inside the group a relation puts {self.format.math("t")} '
-                f'in ({self.format.mono("shift(by=relation)")}), so a term never crosses out of its own group.'
-            )
-            if 'edge' in noticed.policies:
-                both = self.format.superscript(self.format.subscript(self._op('edge_minus'), ['v']), applied)
-                note += (
-                    f' The two modifiers take different slots {self.format.dash} the group above, the fill '
-                    f'below {self.format.dash} so {self.format.math(f"t {both} k")} is both at once.'
-                )
-            notes.append(note)
-        return notes
-
-    def position_notes(self, noticed: Noticed) -> list[str]:
-        """A sentence for each positional symbol the model printed; the first says which of ``pos(t)`` and ``t`` is the position."""
-        notes = []
-        if noticed.positions:
-            index = self.format.math('t')
-            place = self.format.math(self.format.apply(self._op('position'), 't'))
-            dash = self.format.dash
-            notes.append(
-                f"{place} denotes where index {index} sits along its dimension's own order {dash} the order "
-                f'{self.format.mono("shift")} steps along, not the order labels sort in {dash} counted from '
-                f'{self.format.math("0")}. The index itself stays the coordinate, so {index} compares against '
-                f'labels and {place} against positions.'
-            )
-        if 'grouped' in noticed.positions:
-            applied = self.format.apply(self.format.upright('relation'), 't')
-            grouped = self.format.math(self.format.apply(self.format.subscript(self._op('position'), [applied]), 't'))
-            group = self.format.math(self.format.subscript(self.format.script('T'), [applied]))
-            notes.append(
-                f'{grouped} counts within the group a relation puts {self.format.math("t")} in: the subscript names '
-                f'the map, {group} is the group it lands in, and that group has a first position of its own.'
-            )
-        if 'from_end' in noticed.positions:
-            size = self.format.cardinality(self.format.script('T'))
-            last = self.format.math(f'{size} {self._op("minus")} {self._number(1)}')
-            notes.append(
-                f'{self.format.math(size)} denotes the size of the set being counted along, and a position '
-                f'counted from the end prints against it {self.format.dash} {last} is the last position, one '
-                f'less than the size because the first is {self.format.math("0")}.'
-            )
-        return notes
