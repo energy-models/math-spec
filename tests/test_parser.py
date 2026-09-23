@@ -27,6 +27,7 @@ from math_spec._expression_parser import (
     DualNode,
     EdgeNode,
     FunctionCallNode,
+    KeywordNode,
     NameListNode,
     NameNode,
     NumberNode,
@@ -38,9 +39,7 @@ from math_spec._expression_parser import (
 )
 from math_spec._where_parser import (
     ColumnNode,
-    QuotedNode,
     UnresolvedComparisonNode,
-    UnresolvedNameNode,
     parse_where,
 )
 from math_spec.errors import SchemaError
@@ -263,7 +262,7 @@ def test_a_name_may_begin_with_inf(name):
     ('text', 'node_type', 'attrs'),
     [
         pytest.param('True', BooleanLiteral, {'value': True}, id='a-literal'),
-        pytest.param('p_max', UnresolvedNameNode, {'name': 'p_max'}, id='a-bare-name'),
+        pytest.param('p_max', NameNode, {'name': 'p_max'}, id='a-bare-name'),
         pytest.param('p_max > 0', UnresolvedComparisonNode, {'op': '>', 'right': NumberNode(0)}, id='a-comparison'),
         pytest.param('a AND b', And, {}, id='and'),
         pytest.param('a OR b', Or, {}, id='or'),
@@ -280,9 +279,7 @@ def test_a_where_string_parses_to_its_node(text, node_type, attrs):
 
 
 def test_and_binds_tighter_than_or():
-    assert parse_where('a OR b AND c') == Or(
-        UnresolvedNameNode('a'), And(UnresolvedNameNode('b'), UnresolvedNameNode('c'))
-    )
+    assert parse_where('a OR b AND c') == Or(NameNode('a'), And(NameNode('b'), NameNode('c')))
 
 
 @pytest.mark.parametrize(
@@ -315,12 +312,12 @@ def test_conjuncts_does_not_split_or_or_not(text):
 @pytest.mark.parametrize(
     ('text', 'right'),
     [
-        ("g == 'wind'", QuotedNode('wind')),
-        ('g == "wind"', QuotedNode('wind')),
-        ("g == 'combined-cycle'", QuotedNode('combined-cycle')),
-        ("g == 'CCGT 400MW'", QuotedNode('CCGT 400MW')),
-        ("t > '2030-01-01'", QuotedNode('2030-01-01')),
-        ("g == 'it\\'s'", QuotedNode("it's")),
+        ("g == 'wind'", KeywordNode('wind')),
+        ('g == "wind"', KeywordNode('wind')),
+        ("g == 'combined-cycle'", KeywordNode('combined-cycle')),
+        ("g == 'CCGT 400MW'", KeywordNode('CCGT 400MW')),
+        ("t > '2030-01-01'", KeywordNode('2030-01-01')),
+        ("g == 'it\\'s'", KeywordNode("it's")),
         ('g == wind', NameNode('wind')),
     ],
     ids=['single', 'double', 'hyphen', 'space', 'date', 'escaped quote', 'bare'],
