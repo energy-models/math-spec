@@ -538,7 +538,9 @@ class _Resolver:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a dimension.')
             return value
         if value.name not in self.ns.dimensions:
-            self.errors.append(_undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns))
+            self.errors.append(
+                _undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns, self.formals)
+            )
             return value
         return DimensionNode(value.name)
 
@@ -593,11 +595,12 @@ class _Resolver:
             )
             return value
         name = names[0]
-        if name in self.formals or any(n in self.formals for v in roles.values() for n in names_in(v)):
+        if name in self.formals:
             return value
-
         if (problem := self._not_a_relation(name, operator, key)) is not None:
             self.errors.append(problem)
+            return value
+        if any(n in self.formals for v in roles.values() for n in names_in(v)):
             return value
         read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
         if any(r is None for r in read.values()):
@@ -606,7 +609,7 @@ class _Resolver:
         if operator in ('shift', 'sum_back'):
             if 'within' not in named:
                 return value  # the call shape refused it already, with the wording that names the rewrite
-            over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
+            over_dim = over.name if isinstance(over, NameNode | DimensionNode) and not self._formal(over) else None
             partition = self._partition(name, operator, over_dim, named['within'])
             return value if partition is None else PartitionNode(partition)
         if not ({'over', 'into'} <= set(named)):
@@ -763,7 +766,7 @@ class _Resolver:
                 f'{key}= takes a relation — the named map out of a dimension.\n{hint}'
             )
         return (
-            f'{context}: {operator}({key}={name}) does not name a relation. '
+            f'{context}: {operator}({key}={name}) does not name a relation{_or_a_formal(self.formals)}. '
             f'{did_you_mean(name, ns.relations, label="Relations")}\n'
             f"Declare it under 'relations:' — {name}: {{key: <the columns a row is identified by>, "
             f'values: <the columns they determine>}}.'
@@ -1276,13 +1279,18 @@ def _not_a_number(name: str, dtype: str, context: str) -> str:
     )
 
 
-def _undeclared_dim(context: str, operator: str, call: str, name: str, ns: Namespace) -> str:
+def _undeclared_dim(context: str, operator: str, call: str, name: str, ns: Namespace, formals: frozenset[str]) -> str:
     return (
-        f'{context}: {operator}({call}) does not name a declared dimension. '
+        f'{context}: {operator}({call}) does not name a declared dimension{_or_a_formal(formals)}. '
         f'{did_you_mean(name, ns.dimensions, label="Dimensions")}\n'
         f"Declare '{name}' under 'dimensions:', or fix the typo — an unknown "
         f'dimension makes {operator}() a silent no-op rather than an error.'
     )
+
+
+def _or_a_formal(formals: frozenset[str]) -> str:
+    """The words a refusal inside a template adds, since a formal would have stood there too."""
+    return ' or a formal of this macro' if formals else ''
 
 
 def _declared_as(ns: Namespace, name: str) -> str:

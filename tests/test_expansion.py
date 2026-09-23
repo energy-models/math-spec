@@ -226,10 +226,25 @@ def test_macro_collisions_rejected(patch, match):
             r"Macro 'grouped'.*sum\(by=\[nope, also\]\) names 2 relations",
             id='a-list-of-relations',
         ),
+        pytest.param(
+            {'grouped': {'args': ['x', 'a', 'b'], 'template': 'sum(x, by=nope, over=a, into=b)'}},
+            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation or a formal of this macro",
+            id='a-typo-in-a-relation-beside-formal-columns',
+        ),
+        pytest.param(
+            {'reduced': {'args': ['x'], 'template': 'sum(x, over=nope)'}},
+            r"Macro 'reduced'.*sum\(over=nope\) does not name a declared dimension or a formal of this macro",
+            id='a-typo-in-a-dimension',
+        ),
     ],
 )
 def test_macro_templates_validated_even_when_unused(macros, match):
-    """A typo in a template the model never calls is still caught at load."""
+    """A typo in a template the model never calls is still caught at load.
+
+    The relation beside formal columns loaded once the columns were formals,
+    because the formals sent the call back before the relation's name was
+    read.
+    """
     with pytest.raises(LanguageError, match=match):
         schema(macros=macros)
 
@@ -261,10 +276,30 @@ def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
         pytest.param(['row'], 'dual(row)', id='a-constraint'),
         pytest.param(['x', 'rel', 'a', 'b'], 'sum(x, by=rel, over=a, into=b)', id='a-relation-and-its-columns'),
         pytest.param(['x', 'a', 'b'], 'sum(x, by=lk, over=a, into=b)', id='the-columns-of-a-declared-relation'),
+        pytest.param(
+            ['x', 'd'], 'shift(x, along=d, offset=1, by=lk, within=h)', id='the-dimension-a-partition-steps-along'
+        ),
+        pytest.param(
+            ['x', 'd'], 'sum_back(x, along=d, window=2, by=lk, within=h)', id='the-dimension-a-window-runs-along'
+        ),
     ],
 )
 def test_a_formal_stands_where_a_call_site_will_bind_it(formals, template):
-    """A formal has no kind until a call binds it, so the template check leaves it bare in every slot."""
+    """A formal has no kind until a call binds it, so the template check leaves it bare in every slot.
+
+    A formal `along=` beside a `by=` was handed to the partition as if it were
+    a dimension, and refused as one the relation has no key column over.
+    """
     assert (
         schema_of(SMALL_MODEL, macros={'m': {'args': formals, 'template': template}}).macros['m'].template == template
+    )
+
+
+def test_a_call_binding_the_dimension_a_partition_steps_along_loads():
+    """The call site is where the formal gets its kind, so the partition is read there."""
+    template = 'shift(x, along=d, offset=1, by=lk, within=h)'
+    schema_of(
+        SMALL_MODEL,
+        macros={'m': {'args': ['x', 'd'], 'template': template}},
+        constraints={'c': {'dims': ['g'], 'expression': 'm(p, g) <= 1'}},
     )
