@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import ADVICE_KINDS, advice, to_program, to_spec
+from math_spec import ADVICE_KINDS, LanguageError, advice, to_program, to_spec
 from tests.fixtures import SMALL_MODEL, override
 
 if TYPE_CHECKING:
@@ -31,6 +31,16 @@ TARGET_ONLY = override(
 
 #: The same with the relation gone, so nothing reaches ``h`` at all.
 UNREACHED = override(TARGET_ONLY, relations={})
+
+#: A curve on ``p``, so the program of the file as written carries a block and
+#: the program of its expansion carries the rows.
+CURVED = override(
+    UNREACHED,
+    dimensions={'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}, 'bp': {'dtype': 'int'}},
+    parameters={'c': {'dims': ['g']}, 'bp_x': {'dims': ['bp']}, 'bp_y': {'dims': ['bp']}},
+    variables={'p': {'dims': ['g']}, 'cost': {'dims': ['g']}},
+    piecewise={'curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['cost', 'bp_y']]}},
+)
 
 
 def test_a_dimension_nothing_reaches_is_named():
@@ -91,3 +101,19 @@ def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
         ('never-an-axis', 'h'),
         ('unbounded', 'p'),
     ], 'one model, one answer, whichever of the four the caller happens to hold'
+
+
+def test_a_curve_is_written_out_before_advice_reads_it():
+    """Advice reads the rows a curve states, so a file is expanded first and a program still carrying one is refused.
+
+    The refusal was added without a test; deleting the guard let a program
+    with a block advise on the file's own rows as if the curve stated none.
+    """
+    from_file = advice(CURVED)
+    from_rows = advice(to_program(to_spec(CURVED).expand('piecewise')))
+    assert [(n.kind, n.subject) for n in from_file] == [(n.kind, n.subject) for n in from_rows], (
+        'a file and the program of its expansion are advised alike'
+    )
+    with pytest.raises(LanguageError, match="piecewise: 'curve' states rows") as refusal:
+        advice(to_program(CURVED))
+    assert "expand('piecewise')" in str(refusal.value), 'the refusal names the expansion to pass'
