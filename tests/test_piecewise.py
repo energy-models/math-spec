@@ -182,6 +182,24 @@ def test_any_affine_expression_is_a_legal_link(link):
         ),
         pytest.param(
             NONCONVEX_YAML,
+            {'piecewise.cost_curve.links': [['p', 'bp_x']]},
+            'at least two links',
+            id='a-single-link',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>='], ['p', 'bp_x']]},
+            "a non-'==' sign is only supported with exactly two links",
+            id='a-bound-link-among-three',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=', 'extra']]},
+            r'each link must be \[expression, values\] or \[expression, values, sign\]',
+            id='a-link-of-four-elements',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
             {
                 'piecewise.cost_curve.method': 'convex',
                 'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y'], ['p', 'bp_x']],
