@@ -19,6 +19,7 @@ dimensions:
   process: { index: j, set: '\mathcal{J}' }
   process_output: { index: r, set: '\mathcal{R}' }
   cycle: { index: c, set: '\mathcal{C}' }
+  outage: { index: '\kappa', set: '\mathcal{K}^{\mathrm{out}}' }
   scenario: { index: '\xi', set: '\Xi' }
   period: { index: y, set: '\mathcal{Y}' }
   carrier: { index: i, set: '\mathcal{I}' }
@@ -210,6 +211,11 @@ names:
   Transformer_loss_max: '\overline{\ell}^{\sigma}'
   Transformer_loss_slope: '\mathrm{a}^{\sigma}'
   Transformer_loss_offset: '\mathrm{b}^{\sigma}'
+  Line_BODF: '\beta'
+  Transformer_BODF: '\beta^{\sigma}'
+  Line_s_monitored: '\check{s}'
+  Transformer_s_monitored: '\check{\sigma}'
+  Outage_s: '\hat{s}'
   GlobalConstraint_type: '\mathrm{type}'
   GlobalConstraint_sense: '\mathrm{sense}'
   GlobalConstraint_constant: '\mathrm{K}'

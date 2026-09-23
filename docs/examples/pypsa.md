@@ -24,8 +24,9 @@ A row is **done** once the file states it as the one block PyPSA builds.
 **split** means the same feasible region and optimum under a different
 statement, such as several `where:` blocks. **open** means not stated yet.
 **out** means never stated, deliberately: emitted only under the keyword,
-scope or version the note names. A name carrying `{k}` or `{s}` stands for the
-family PyPSA numbers per segment or scenario.
+scope or version the note names. A name carrying `{k}`, `{s}`, `{c}` or `{n}` stands
+for the family PyPSA numbers per segment, scenario, outaged component or
+sub-network.
 
 Each rung's banner states what PyPSA solved its reference network to.
 
@@ -2478,6 +2479,79 @@ def build():
 </details>
 <!-- reference:rung_29_storage_per_period:end -->
 
+### Rung 30 — security-constrained
+
+`n.optimize.optimize_security_constrained(branch_outages=...)`: after any one
+outage of a listed passive branch, every branch of the same sub-network carries
+its flow within its rating. PyPSA computes the sub-network's branch outage
+distribution factors (BODF) and copies each flow limit row with the outaged
+branch's flow, times its factor, added to the left-hand side
+(`abstract.py:443-489`). The copy keeps the row's sense, right-hand side and
+loss term, and its extendable rating. An outage is a line or a transformer, and
+a plain list names lines. The outaged branch is monitored too, at the factor
+`-1`. The file states the copies over an `outage` axis, with the factors as
+data prep, `Line_BODF` and `Transformer_BODF`. A plain run supplies no outage,
+so no copy is built and the model collapses to the standard one.
+
+The rung outages two lines and a transformer of a meshed triangle and leaves
+the third line monitored only. A plain `n.optimize()` solves the same network
+at objective `17380.0`; the outages raise it to `22113.33` (#620). The cheap
+unit at `a` falls to 32 in every snapshot, the unit at `b` covers the rest, and
+the extendable line `ca` builds 20.7 instead of 2. Six of the 120 copied rows
+bind, in `Transformer-fix-s-lower` against a line outage and in
+`Line-ext-s-lower` against a transformer outage.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Line-fix-s-*-security-for-{c}-outage-in-sub-network-{n}`](#line-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Line-ext-s-*-security-…`](#line-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | PyPSA names a row per outaged component and sub-network; one block over the `outage` axis |
+| [`Transformer-fix-s-*-security-…`](#transformer-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Transformer-ext-s-*-security-…`](#transformer-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | the same for a transformer |
+| a branch not active in a period | done | PyPSA keeps the copy with that branch's flow dropped, so the file reads its flow as zero there; a copy left with no variable is not built here, where linopy counts it; no rung records it |
+| a security-constrained run over scenarios | out | PyPSA `1.3.0` raises, see [Refusals](#refusals) |
+
+<!-- reference:rung_30_security_constrained:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `22113.333333333332`, 240 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_30_security_constrained.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 30: security-constrained — a meshed triangle of lines and two transformers, one extendable, that must carry their flow within their rating after any one of three outages."""
+
+from __future__ import annotations
+
+import pandas as pd
+import spine
+
+BRANCH_OUTAGES = pd.MultiIndex.from_tuples([('Line', 'ab'), ('Line', 'ca'), ('Transformer', 'ca_t')])
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'a')
+    n.add('Bus', 'b')
+    n.add('Bus', 'c')
+    n.add('Generator', 'hydro30', bus='a', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'diesel30', bus='b', p_nom=100, marginal_cost=50)
+    n.add('Generator', 'peak30', bus='c', p_nom=100, marginal_cost=200)
+    n.add('Load', 'town30', bus='c', p_set=[40, 60, 80, 50])
+    n.add('Line', 'ab', bus0='a', bus1='b', x=0.1, s_nom=60)
+    n.add('Line', 'bc', bus0='b', bus1='c', x=0.1, s_nom=60, s_max_pu=0.9)
+    n.add('Line', 'ca', bus0='c', bus1='a', x=0.1, s_nom_extendable=True, capital_cost=5, s_nom_max=200)
+    n.add('Transformer', 'ca_t', bus0='c', bus1='a', x=0.2, s_nom=30)
+    n.add('Transformer', 'bc_t', bus0='b', bus1='c', x=0.3, s_nom_extendable=True, capital_cost=3, s_nom_max=50)
+    return n
+```
+
+</details>
+<!-- reference:rung_30_security_constrained:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2493,6 +2567,7 @@ data prep, or harness — is one open question. Line numbers are pinned pypsa
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
 | `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` and `Transformer_loss_max` | X4   |
 | `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
+| `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused | |
 
 Duals and solutions are read back by the harness on the lpspec side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
@@ -2501,7 +2576,7 @@ concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 ## The file
 
 <!-- gallery:begin -->
-A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. Capacity is chosen once, before the future is known, and paid once per active period; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. Which snapshots an asset is active in, and a scenario's weight, are data prep.
+A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. Capacity is chosen once, before the future is known, and paid once per active period; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. A security-constrained run copies each branch flow limit once per outage in an `outage` set that a plain run leaves empty. Which snapshots an asset is active in, a scenario's weight, and the outage factors are data prep.
 
 #### Sets
 
@@ -2518,9 +2593,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 | $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_carrier}: \mathcal{S} \to \mathcal{I},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
 | $`\mathcal{V}`$ | index $`v`$ — `store` with $`\mathrm{Store\_carrier}: \mathcal{V} \to \mathcal{I},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — pure energy stores, each on one bus |
-| $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_carrier}: \mathcal{K} \to \mathcal{I},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
-| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_carrier}: \mathcal{M} \to \mathcal{I},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised |
+| $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_carrier}: \mathcal{K} \to \mathcal{I},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Outage\_line}: \mathcal{K}^{\mathrm{out}} \to \mathcal{K}`$ — passive branches, each between two buses, their flow set by impedance |
+| $`\mathcal{M}`$ | index $`m`$ — `transformer` with $`\mathrm{Transformer\_carrier}: \mathcal{M} \to \mathcal{I},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N},\ \mathrm{Outage\_transformer}: \mathcal{K}^{\mathrm{out}} \to \mathcal{M}`$ — passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
+| $`\mathcal{K}^{\mathrm{out}}`$ | index $`\kappa`$ — `outage` with $`\mathrm{Outage\_line}: \mathcal{K}^{\mathrm{out}} \to \mathcal{K},\ \mathrm{Outage\_transformer}: \mathcal{K}^{\mathrm{out}} \to \mathcal{M}`$ — the passive branches a security-constrained run takes out one at a time — PyPSA's `branch_outages`, each a line or a transformer; none on a plain run |
 | $`\mathcal{B}`$ | index $`b`$ — `segment` — the cuts a passive branch's loss curve is held above — PyPSA's tangents, as many as its `segments` count, or its secants, as many as its tolerance loop places; none in a lossless run |
 | $`\mathcal{I}`$ | index $`i`$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 | $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
@@ -2699,6 +2775,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{s}^{\mathrm{nom,set}}`$ | `Line_s_nom_set` over $`\mathcal{K}`$ — a given nominal apparent power for an extendable line; one without a value has no row here |
 | $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
 | $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
+| $`\beta`$ | `Line_BODF` over $`\mathcal{K} \times \mathcal{K}^{\mathrm{out}}`$ — the share of an outaged branch's flow a line takes on when that branch goes out — PyPSA's `BODF`, from the sub-network's PTDF, data prep; a row only where the line and the outage share a sub-network, -1 at the outaged line itself |
 | $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` read as a flag; its mode, tangents or secants, only decides how data prep fills the `segment` axis, the rows are the same; false with no segments is a lossless run |
 | $`\overline{\ell}`$ | `Line_loss_max` over $`\mathcal{T} \times \mathcal{K}`$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
 | $`\mathrm{a}`$ | `Line_loss_slope` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k` at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between consecutive breakpoints, data prep |
@@ -2712,6 +2789,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\sigma^{\mathrm{nom,set}}`$ | `Transformer_s_nom_set` over $`\mathcal{M}`$ — a given nominal apparent power for an extendable transformer; one without a value has no row here |
 | $`\sigma^{\mathrm{set}}`$ | `Transformer_s_set` over $`\mathcal{T} \times \mathcal{M}`$ — a given flow schedule; a transformer without one has no row here |
 | $`\mathrm{x}^{\sigma}`$ | `Transformer_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's effective series reactance, `x` times its tap ratio, signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle basis, data prep; a transformer in no cycle has no row |
+| $`\beta^{\sigma}`$ | `Transformer_BODF` over $`\mathcal{M} \times \mathcal{K}^{\mathrm{out}}`$ — the share of an outaged branch's flow a transformer takes on when that branch goes out, as a line's; a row only where the transformer and the outage share a sub-network |
 | $`\vartheta`$ | `Transformer_phase_shift_weight` over $`\mathcal{M} \times \mathcal{C}`$ — a fixed transformer's phase shift in radians, signed by its orientation in the cycle — a constant added to the cycle sum, data prep; zero for a varying transformer, whose shift is a decision instead, so the constant and the variable term never both count a shift. A transformer with no shift or in no cycle has no row |
 | $`\mathrm{Transformer\_phase\_shift\_varying}`$ | `Transformer_phase_shift_varying` over $`\mathcal{M}`$ — whether a transformer's phase shift is a decision — PyPSA's `phase_shift_min < phase_shift_max`, read as a flag in data prep; false is a fixed shift carried by `phase_shift` |
 | $`\mathrm{Transformer\_phase\_shift\_min}`$ | `Transformer_phase_shift_min` over $`\mathcal{M}`$ — the least a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_min`; where it is below `phase_shift_max` the shift is a decision, otherwise the transformer keeps its fixed `phase_shift` |
@@ -2827,6 +2905,9 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
 | $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$ — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. PyPSA sums the components that carry a carrier attribute; the transformer term is the spec's own extension, since PyPSA gives a transformer no carrier |
+| $`\check{s}`$ | `Line_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — the flow a line's post-contingency rows read — its flow where it stands, nothing where it does not, since PyPSA builds those rows for every branch of the sub-network in every snapshot |
+| $`\check{\sigma}`$ | `Transformer_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — the flow a transformer's post-contingency rows read, as a line's |
+| $`\hat{s}`$ | `Outage_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}^{\mathrm{out}}`$ — the flow an outage takes off its branch — the outaged line's or transformer's flow before it goes out |
 
 Upright is what the model is given — a parameter such as $`\mathrm{Transformer\_phase\_shift\_varying}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{Transformer\_phase\_shift}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
@@ -5110,6 +5191,180 @@ Transformer_loss_tangents_reverse:
 \ell^{\sigma}_{\xi,t,m} - \mathrm{a}^{\sigma}_{t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
+### `Line-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+
+`Line_fix_s_lower_security`
+
+```yaml
+Line_fix_s_lower_security:
+  description: >-
+    `Line-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}` —
+    after any one outage, a fixed line carries at least the negative
+    of its rating: its flow takes on its share of the outaged branch's
+    flow. PyPSA names one row per outaged component `c` and
+    sub-network `n`; this block states them all over the outage
+    dimension
+  dims: [scenario, snapshot, line, outage]
+  where: not Line_s_nom_extendable AND Line_BODF
+  expression: Line_s_monitored - Line_loss + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom
+```
+
+```math
+\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+```
+
+### `Line-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+
+`Line_fix_s_upper_security`
+
+```yaml
+Line_fix_s_upper_security:
+  description: >-
+    `Line-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}` —
+    after any one outage, a fixed line carries at most its rating: its
+    flow takes on its share of the outaged branch's flow. PyPSA names
+    one row per outaged component `c` and sub-network `n`; this block
+    states them all over the outage dimension
+  dims: [scenario, snapshot, line, outage]
+  where: not Line_s_nom_extendable AND Line_BODF
+  expression: Line_s_monitored + Line_loss + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom
+```
+
+```math
+\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+```
+
+### `Line-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+
+`Line_ext_s_lower_security`
+
+```yaml
+Line_ext_s_lower_security:
+  description: >-
+    `Line-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}` —
+    after any one outage, an extendable line carries at least the
+    negative of its rating of the chosen build: its flow takes on its
+    share of the outaged branch's flow. PyPSA names one row per
+    outaged component `c` and sub-network `n`; this block states them
+    all over the outage dimension
+  dims: [scenario, snapshot, line, outage]
+  where: Line_s_nom_extendable AND Line_BODF
+  expression: Line_s_monitored - Line_loss + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom_ext
+```
+
+```math
+\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+```
+
+### `Line-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+
+`Line_ext_s_upper_security`
+
+```yaml
+Line_ext_s_upper_security:
+  description: >-
+    `Line-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}` —
+    after any one outage, an extendable line carries at most its rating
+    of the chosen build: its flow takes on its share of the outaged
+    branch's flow. PyPSA names one row per outaged component `c` and
+    sub-network `n`; this block states them all over the outage
+    dimension
+  dims: [scenario, snapshot, line, outage]
+  where: Line_s_nom_extendable AND Line_BODF
+  expression: Line_s_monitored + Line_loss + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom_ext
+```
+
+```math
+\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+```
+
+### `Transformer-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+
+`Transformer_fix_s_lower_security`
+
+```yaml
+Transformer_fix_s_lower_security:
+  description: >-
+    `Transformer-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+    — after any one outage, a fixed transformer carries at least the
+    negative of its rating: its flow takes on its share of the outaged
+    branch's flow. PyPSA names one row per outaged component `c` and
+    sub-network `n`; this block states them all over the outage
+    dimension
+  dims: [scenario, snapshot, transformer, outage]
+  where: not Transformer_s_nom_extendable AND Transformer_BODF
+  expression: Transformer_s_monitored - Transformer_loss + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom
+```
+
+```math
+\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+```
+
+### `Transformer-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+
+`Transformer_fix_s_upper_security`
+
+```yaml
+Transformer_fix_s_upper_security:
+  description: >-
+    `Transformer-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+    — after any one outage, a fixed transformer carries at most its
+    rating: its flow takes on its share of the outaged branch's flow.
+    PyPSA names one row per outaged component `c` and sub-network `n`;
+    this block states them all over the outage dimension
+  dims: [scenario, snapshot, transformer, outage]
+  where: not Transformer_s_nom_extendable AND Transformer_BODF
+  expression: Transformer_s_monitored + Transformer_loss + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom
+```
+
+```math
+\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+```
+
+### `Transformer-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+
+`Transformer_ext_s_lower_security`
+
+```yaml
+Transformer_ext_s_lower_security:
+  description: >-
+    `Transformer-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+    — after any one outage, an extendable transformer carries at least
+    the negative of its rating of the chosen build: its flow takes on
+    its share of the outaged branch's flow. PyPSA names one row per
+    outaged component `c` and sub-network `n`; this block states them
+    all over the outage dimension
+  dims: [scenario, snapshot, transformer, outage]
+  where: Transformer_s_nom_extendable AND Transformer_BODF
+  expression: Transformer_s_monitored - Transformer_loss + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+```
+
+```math
+\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+```
+
+### `Transformer-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+
+`Transformer_ext_s_upper_security`
+
+```yaml
+Transformer_ext_s_upper_security:
+  description: >-
+    `Transformer-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+    — after any one outage, an extendable transformer carries at most
+    its rating of the chosen build: its flow takes on its share of the
+    outaged branch's flow. PyPSA names one row per outaged component
+    `c` and sub-network `n`; this block states them all over the
+    outage dimension
+  dims: [scenario, snapshot, transformer, outage]
+  where: Transformer_s_nom_extendable AND Transformer_BODF
+  expression: Transformer_s_monitored + Transformer_loss + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom_ext
+```
+
+```math
+\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+```
+
 ### `Kirchhoff-Voltage-Law`
 
 `Kirchhoff_Voltage_Law`
@@ -6804,6 +7059,56 @@ Carrier_additions:
 
 ```math
 \mathit{Carrier\_additions}_{y,i} = \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} + \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_carrier}(l) = i} F_{l} \cdot \mathrm{new}^{f}_{y,l} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_carrier}(s) = i} H_{s} \cdot \mathrm{new}^{h}_{y,s} + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_carrier}(v) = i} E_{v} \cdot \mathrm{new}^{e}_{y,v} + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_carrier}(k) = i} S_{k} \cdot \mathrm{new}^{s}_{y,k} + \sum_{j \in \mathcal{J} \,:\, \mathrm{Process\_carrier}(j) = i} Z_{j} \cdot \mathrm{new}^{z}_{y,j} + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_carrier}(m) = i} \Sigma_{m} \cdot \mathrm{new}^{\sigma}_{y,m} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `Line_s_monitored`
+
+```yaml
+Line_s_monitored:
+  description: >-
+    the flow a line's post-contingency rows read — its flow where it stands,
+    nothing where it does not, since PyPSA builds those rows for every
+    branch of the sub-network in every snapshot
+  dims: [scenario, snapshot, line]
+  cases:
+    standing: { when: Line_active, expression: Line_s }
+  otherwise: 0
+```
+
+```math
+\check{s}_{\xi,t,k} = \begin{cases} s_{\xi,t,k} & \text{if } \mathrm{on}^{s}_{t,k} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K}
+```
+
+### `Transformer_s_monitored`
+
+```yaml
+Transformer_s_monitored:
+  description: the flow a transformer's post-contingency rows read, as a line's
+  dims: [scenario, snapshot, transformer]
+  cases:
+    standing: { when: Transformer_active, expression: Transformer_s }
+  otherwise: 0
+```
+
+```math
+\check{\sigma}_{\xi,t,m} = \begin{cases} \sigma_{\xi,t,m} & \text{if } \mathrm{on}^{\sigma}_{t,m} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M}
+```
+
+### `Outage_s`
+
+```yaml
+Outage_s:
+  description: >-
+    the flow an outage takes off its branch — the outaged line's or
+    transformer's flow before it goes out
+  dims: [scenario, snapshot, outage]
+  cases:
+    line: { when: Outage_line, expression: "at(Line_s_monitored, by=Outage_line, over=line, into=outage)" }
+  otherwise: at(Transformer_s_monitored, by=Outage_transformer, over=transformer, into=outage)
+```
+
+```math
+\hat{s}_{\xi,t,\kappa} = \begin{cases} \check{s}_{\xi,t,\mathrm{Outage\_line}(\kappa)} & \text{if } \mathrm{Outage\_line}(\kappa) \text{ is defined} \\ \check{\sigma}_{\xi,t,\mathrm{Outage\_transformer}(\kappa)} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ \kappa \in \mathcal{K}^{\mathrm{out}}
 ```
 
 #### Variable domains
