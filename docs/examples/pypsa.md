@@ -596,7 +596,7 @@ def build():
 
 | PyPSA                                        | status | note                                                          |
 | -------------------------------------------- | ------ | ------------------------------------------------------------- |
-| [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; Link in rung 25 |
+| [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; Link in rung 25, Process in rung 26 |
 | [`{c}-com-p-lower/upper`](#generator-com-p-lower) | done |                                                          |
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
 | [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
@@ -1543,7 +1543,7 @@ generator's and the link's, read over a converter.
 | --- | --- | --- |
 | [`Process-p`, `Process-p_nom`](#variable-domains) | done | internal power and capacity, as a link |
 | [`Process-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#process-fix-p-lower) | done | rungs 1 and 3, over a converter |
-| [`Process-p-ramp_limit_*`](#process-p-ramp_limit_up) | done | rung 4, on a non-committable converter |
+| [`Process-p-ramp_limit_*`](#process-p-ramp_limit_up) | done | rung 4, on a non-committable converter; committed in rung 26 |
 | [`Process-p_set`](#process-p_set) | done | a fixed internal power schedule |
 | [`Process-p_nom_set`](#process-p_nom_set) | done | a fixed built capacity |
 | [`Bus-nodal_balance`](#bus-nodal_balance) | done | each port enters at its `rate` |
@@ -2151,6 +2151,133 @@ def build():
 </details>
 <!-- reference:rung_25_committable_link:end -->
 
+### Rung 26 — committable processes
+
+A committable process carries the same unit commitment over its internal power
+`p`. The status gates `p`, not a port, so every port follows the status at its
+own `rate`. This rung restates rung 25's links as processes that draw a quarter
+more from the north than they deliver to the east. The same must-stay and up
+time rules bind.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Process-status`, `-start_up`, `-shut_down`, `-n_mod`](#variable-domains) | done | as the link's, rung 25 |
+| [`Process-com-p-*`, `-com-mod-p-*`, `-com-ext-p-*`](#process-com-p-lower) | done | a committable process leaves the `Process-fix-p-*` and `Process-ext-p-*` rows |
+| [`Process-*-p-fixed-upper`, `-*-p_nom-variable-upper`](#process-status-p-fixed-upper) | done | |
+| [`Process-com-transition-*`, `-com-up-time`, `-com-down-time`](#process-com-transition-start-up) | done | |
+| [`Process-com-status-min_up_time_must_stay_up`, `-min_down_time_must_stay_up`](#process-com-status-min_up_time_must_stay_up) | done | prep masks, as the generator's |
+| [`Process-p-ramp_limit_*`, `-*-bigM`](#process-p-ramp_limit_up) | done | the generator's cased allowance and big-M rows over internal power |
+| [`Process-p_nom_modularity`](#process-p_nom_modularity) | done | |
+| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done | |
+
+<!-- reference:rung_26_committable_process:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `15956.125`, 235 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_26_committable_process.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 26: committable processes — rung 25's committable links restated as processes that draw a quarter more than they deliver."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus an east bus that only committable processes serve."""
+    n = spine.build()
+    n.add('Bus', 'east')
+    n.add(
+        'Process',
+        'warm_conv',
+        bus0='north',
+        bus1='east',
+        rate0=-1.25,
+        committable=True,
+        p_nom=60,
+        p_min_pu=0.3,
+        marginal_cost=8,
+        min_up_time=3,
+        min_down_time=2,
+        up_time_before=1,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+        ramp_limit_start_up=0.6,
+        ramp_limit_shut_down=0.6,
+        start_up_cost=100,
+        shut_down_cost=50,
+        stand_by_cost=5,
+    )
+    n.add(
+        'Process',
+        'cold_conv',
+        bus0='north',
+        bus1='east',
+        rate0=-1.25,
+        committable=True,
+        p_nom=40,
+        p_min_pu=0.2,
+        min_up_time=2,
+        min_down_time=3,
+        up_time_before=0,
+        down_time_before=1,
+        start_up_cost=20,
+    )
+    n.add(
+        'Process',
+        'ext_conv',
+        bus0='north',
+        bus1='east',
+        rate0=-1.25,
+        committable=True,
+        p_nom_extendable=True,
+        p_nom_max=30,
+        capital_cost=5,
+        p_min_pu=0.2,
+        marginal_cost=2,
+        up_time_before=0,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+    )
+    n.add(
+        'Process',
+        'mod_conv',
+        bus0='south',
+        bus1='east',
+        rate0=-1.25,
+        committable=True,
+        p_nom_extendable=True,
+        p_nom_mod=10,
+        p_nom_max=40,
+        capital_cost=3,
+        p_min_pu=0.5,
+    )
+    n.add(
+        'Process',
+        'mod_fix',
+        bus0='north',
+        bus1='east',
+        rate0=-1.25,
+        committable=True,
+        p_nom=20,
+        p_nom_mod=10,
+        p_min_pu=0.5,
+        marginal_cost=1,
+    )
+    n.add('Load', 'east_load', bus='east', p_set=[20, 70, 60, 5])
+    return n
+```
+
+</details>
+<!-- reference:rung_26_committable_process:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2268,6 +2395,21 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_max` over $`\mathcal{J}`$ — most nominal power an extendable process may be built at |
 | $`\mathrm{c}^{\mathrm{cap},z}`$ | `Process_capital_cost` over $`\mathcal{J}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $`\mathrm{z}^{\mathrm{nom,set}}`$ | `Process_p_nom_set` over $`\mathcal{J}`$ — a given nominal power for an extendable process; one without a value has no row here |
+| $`\mathrm{com}^{z}`$ | `Process_committable` over $`\mathcal{J}`$ — whether internal power is gated by an on/off status decision |
+| $`\mathrm{ru}^{z,\mathrm{up}}`$ | `Process_ramp_limit_start_up` over $`\mathcal{J}`$ — most internal power in the snapshot a process starts, per unit of nominal power |
+| $`\mathrm{rd}^{z,\mathrm{dn}}`$ | `Process_ramp_limit_shut_down` over $`\mathcal{J}`$ — most internal power in the snapshot before a process stops, per unit of nominal power |
+| $`\mathrm{UT}^{z}`$ | `Process_min_up_time` over $`\mathcal{J}`$ — least snapshots a process stays on once started |
+| $`\mathrm{DT}^{z}`$ | `Process_min_down_time` over $`\mathcal{J}`$ — least snapshots a process stays off once stopped |
+| $`\mathrm{u}^{z,0}`$ | `Process_status_initial` over $`\mathcal{J}`$ — one where the process was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $`\mathrm{hold}^{z}`$ | `Process_must_stay_up` over $`\mathcal{T} \times \mathcal{J}`$ — true while the up time a process brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}^{z}`$ | `Process_must_stay_down` over $`\mathcal{T} \times \mathcal{J}`$ — true while the down time a process brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
+| $`\mathrm{c}^{z,\mathrm{up}}`$ | `Process_start_up_cost` over $`\mathcal{J}`$ — cost of one start |
+| $`\mathrm{c}^{z,\mathrm{dn}}`$ | `Process_shut_down_cost` over $`\mathcal{J}`$ — cost of one stop |
+| $`\mathrm{c}^{z,\mathrm{on}}`$ | `Process_stand_by_cost` over $`\mathcal{T} \times \mathcal{J}`$ — cost of one snapshot spent on |
+| $`\mathrm{z}^{\mathrm{mod}}`$ | `Process_p_nom_mod` over $`\mathcal{J}`$ — the module size a build comes in whole numbers of; no value means the build is continuous |
+| $`\mathrm{N}^{z,\mathrm{fix}}`$ | `Process_modules_installed` over $`\mathcal{J}`$ — how many whole modules a committable build has in place: `Process_p_nom / Process_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
+| $`\mathrm{M}^{z}`$ | `Process_big_m` over $`\mathcal{J}`$ — a bound safely above any feasible internal power — the build cap at full availability, data prep |
+| $`\mathrm{nonneg}^{z}`$ | `Process_p_min_pu_nonneg` over $`\mathcal{J}`$ — true where none of the process's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
 | $`\mathrm{load}`$ | `Load_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{D}`$ — demand |
 | $`\pi`$ | `scenario_weight` over $`\Xi`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
@@ -2416,6 +2558,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`u^{f}`$ | `Link_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-status` — how much of a committable link is on: an integer the rows below cap at one, or at the module count where the build is modular |
 | $`\mathit{up}^{f}`$ | `Link_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-start_up` — how much of a committable link turns on this snapshot, capped as the status is |
 | $`\mathit{dn}^{f}`$ | `Link_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-shut_down` — how much of a committable link turns off this snapshot, capped as the status is |
+| $`N^{z}`$ | `Process_n_mod` over $`\mathcal{J}`$ — `Process-n_mod` — how many modules of an extendable modular build |
+| $`u^{z}`$ | `Process_status` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-status` — how much of a committable process is on: an integer the rows below cap at one, or at the module count where the build is modular |
+| $`\mathit{up}^{z}`$ | `Process_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-start_up` — how much of a committable process turns on this snapshot, capped as the status is |
+| $`\mathit{dn}^{z}`$ | `Process_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-shut_down` — how much of a committable process turns off this snapshot, capped as the status is |
 | $`s`$ | `Line_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $`\ell`$ | `Line_loss` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the cuts; absent, and zero in the balance, where the network is lossless |
 | $`\sigma`$ | `Transformer_s` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — `Transformer-s` — PyPSA's `p0`, the flow measured at the `Transformer_bus0` end: a positive value withdraws there and injects at `Transformer_bus1`, lossless |
@@ -2447,6 +2593,10 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\Delta^{f,+}`$ | `Link_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may raise flow between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{f,-}`$ | `Link_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may lower flow between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\widetilde{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_effective` over $`\mathcal{J}`$ — the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\overleftarrow{u}^{z}`$ | `Process_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — the commitment state a process carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
+| $`\overleftarrow{z}`$ | `Process_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — the internal power a process carries into a snapshot — nothing at the start of the horizon, which is why a process that came in running carries no ramp row there |
+| $`\Delta^{z,+}`$ | `Process_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may raise internal power between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
+| $`\Delta^{z,-}`$ | `Process_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may lower internal power between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
@@ -2753,12 +2903,12 @@ F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\, l \in \mathcal{L} \,:
 Process_fix_p_lower:
   description: "`Process-fix-p-lower` — a fixed process runs at least its minimum, negative for the other way"
   dims: [scenario, snapshot, process]
-  where: not Process_p_nom_extendable AND Process_active
+  where: not Process_p_nom_extendable AND not Process_committable AND Process_active
   expression: Process_p >= Process_p_min_pu * Process_p_nom
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-fix-p-upper`
@@ -2769,12 +2919,12 @@ z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j}
 Process_fix_p_upper:
   description: "`Process-fix-p-upper` — a fixed process runs at most its nominal power"
   dims: [scenario, snapshot, process]
-  where: not Process_p_nom_extendable AND Process_active
+  where: not Process_p_nom_extendable AND not Process_committable AND Process_active
   expression: Process_p <= Process_p_max_pu * Process_p_nom
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-ext-p-lower`
@@ -2785,12 +2935,12 @@ z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} 
 Process_ext_p_lower:
   description: "`Process-ext-p-lower` — an extendable process runs at least its minimum of the chosen build, negative for the other way"
   dims: [scenario, snapshot, process]
-  where: Process_p_nom_extendable AND Process_active
+  where: Process_p_nom_extendable AND not Process_committable AND Process_active
   expression: Process_p >= Process_p_min_pu * Process_p_nom_ext
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-ext-p-upper`
@@ -2801,12 +2951,12 @@ z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \i
 Process_ext_p_upper:
   description: "`Process-ext-p-upper` — an extendable process runs at most the chosen build"
   dims: [scenario, snapshot, process]
-  where: Process_p_nom_extendable AND Process_active
+  where: Process_p_nom_extendable AND not Process_committable AND Process_active
   expression: Process_p <= Process_p_max_pu * Process_p_nom_ext
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-ext-p_nom-lower`
@@ -3885,6 +4035,471 @@ Link_shut_down_p_nom_variable_upper:
 \mathit{dn}^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
+### `Process-com-p-lower`
+
+`Process_com_p_lower`
+
+```yaml
+Process_com_p_lower:
+  description: "`Process-com-p-lower` — a committed process runs at least its minimum; off, at least nothing"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND not Process_p_nom_extendable AND Process_active
+  expression: Process_p >= Process_p_min_pu * Process_p_nom * Process_status
+```
+
+```math
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-p-upper`
+
+`Process_com_p_upper`
+
+```yaml
+Process_com_p_upper:
+  description: "`Process-com-p-upper` — a committed process runs at most what is available; off, at most nothing"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND not Process_p_nom_extendable AND Process_active
+  expression: Process_p <= Process_p_max_pu * Process_p_nom * Process_status
+```
+
+```math
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-transition-start-up`
+
+`Process_com_transition_start_up`
+
+```yaml
+Process_com_transition_start_up:
+  description: "`Process-com-transition-start-up` — turning on is a start, counted against the state the process carried into the snapshot"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_active
+  expression: Process_start_up >= Process_status - Process_previous_status
+```
+
+```math
+\mathit{up}^{z}_{\xi,t,j} \ge u^{z}_{\xi,t,j} - \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-transition-shut-down`
+
+`Process_com_transition_shut_down`
+
+```yaml
+Process_com_transition_shut_down:
+  description: "`Process-com-transition-shut-down` — turning off is a stop, counted against the state the process carried into the snapshot"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_active
+  expression: Process_shut_down >= Process_previous_status - Process_status
+```
+
+```math
+\mathit{dn}^{z}_{\xi,t,j} \ge \overleftarrow{u}^{z}_{\xi,t,j} - u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-up-time`
+
+`Process_com_up_time`
+
+```yaml
+Process_com_up_time:
+  description: >-
+    `Process-com-up-time` — a process started within its own minimum up time
+    is still on. The first snapshot's share of the window is the brought-in
+    up time's, which the must-stay-up mask carries
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_min_up_time > 0 AND position(snapshot) > 0 AND Process_active
+  expression: sum_back(Process_start_up, along=snapshot, window=Process_min_up_time) <= Process_status
+```
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{z}} \mathit{up}^{z}_{\xi,t',j} \le u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{UT}^{z}_{j} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-down-time`
+
+`Process_com_down_time`
+
+```yaml
+Process_com_down_time:
+  description: >-
+    `Process-com-down-time` — a process stopped within its own minimum down
+    time is still off. The first snapshot's share of the window is the
+    brought-in down time's, which the must-stay-down mask carries
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_min_down_time > 0 AND position(snapshot) > 0 AND Process_active
+  expression: sum_back(Process_shut_down, along=snapshot, window=Process_min_down_time) <= 1 - Process_status
+```
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{z}} \mathit{dn}^{z}_{\xi,t',j} \le 1 - u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{DT}^{z}_{j} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-status-min_up_time_must_stay_up`
+
+`Process_com_status_must_stay_up`
+
+```yaml
+Process_com_status_must_stay_up:
+  description: "`Process-com-status-min_up_time_must_stay_up` — a process still serving the up time it brought in stays on"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_must_stay_up AND Process_active
+  expression: Process_status == 1
+```
+
+```math
+u^{z}_{\xi,t,j} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{hold}^{z}_{t,j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-status-min_down_time_must_stay_up`
+
+`Process_com_status_must_stay_down`
+
+```yaml
+Process_com_status_must_stay_down:
+  description: >-
+    `Process-com-status-min_down_time_must_stay_up` — a process still serving
+    the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_must_stay_down AND Process_active
+  expression: Process_status == 0
+```
+
+```math
+u^{z}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{rest}^{z}_{t,j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-p-ramp_limit_up-run-bigM`
+
+`Process_p_ramp_limit_up_run_big_m`
+
+```yaml
+Process_p_ramp_limit_up_run_big_m:
+  description: >-
+    `Process-p-ramp_limit_up-run-bigM` — a committed extendable process
+    raises internal power no faster than its limit of the chosen build; the big M
+    releases the row in the snapshot it turns on
+  dims: [scenario, snapshot, process]
+  where: >-
+    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_up
+    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+  expression: >-
+    Process_p - Process_previous_p <=
+    Process_ramp_limit_up * Process_p_nom_ext
+    + Process_big_m - Process_big_m * Process_previous_status
+```
+
+```math
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \mathrm{ru}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-p-ramp_limit_up-start-bigM`
+
+`Process_p_ramp_limit_up_start_big_m`
+
+```yaml
+Process_p_ramp_limit_up_start_big_m:
+  description: >-
+    `Process-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
+    committed extendable process ramps no further than its start-up ramp of
+    the chosen build; the big M releases the row everywhere else
+  dims: [scenario, snapshot, process]
+  where: >-
+    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_up
+    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+  expression: >-
+    Process_p - Process_previous_p <=
+    Process_ramp_limit_start_up * Process_p_nom_ext
+    + Process_big_m - Process_big_m * Process_start_up
+```
+
+```math
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \mathrm{ru}^{z,\mathrm{up}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-p-ramp_limit_down-run-bigM`
+
+`Process_p_ramp_limit_down_run_big_m`
+
+```yaml
+Process_p_ramp_limit_down_run_big_m:
+  description: >-
+    `Process-p-ramp_limit_down-run-bigM` — a committed extendable process
+    lowers internal power no faster than its limit of the chosen build; the big M
+    releases the row in the snapshot it turns off
+  dims: [scenario, snapshot, process]
+  where: >-
+    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_down
+    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+  expression: >-
+    Process_previous_p - Process_p <=
+    Process_ramp_limit_down * Process_p_nom_ext
+    + Process_big_m - Process_big_m * Process_status
+```
+
+```math
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \mathrm{rd}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-p-ramp_limit_down-shut-bigM`
+
+`Process_p_ramp_limit_down_shut_big_m`
+
+```yaml
+Process_p_ramp_limit_down_shut_big_m:
+  description: >-
+    `Process-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
+    a committed extendable process ramps no further than its shut-down ramp of
+    the chosen build; the big M releases the row everywhere else
+  dims: [scenario, snapshot, process]
+  where: >-
+    Process_committable AND Process_p_nom_extendable AND Process_ramp_limit_down
+    AND (position(snapshot) > 0 OR Process_status_initial == 0) AND Process_active
+  expression: >-
+    Process_previous_p - Process_p <=
+    Process_ramp_limit_shut_down * Process_p_nom_ext
+    + Process_big_m - Process_big_m * Process_shut_down
+```
+
+```math
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \mathrm{rd}^{z,\mathrm{dn}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-p_nom_modularity`
+
+`Process_p_nom_modularity`
+
+```yaml
+Process_p_nom_modularity:
+  description: "`Process-p_nom_modularity` — the chosen build is a whole number of modules"
+  dims: [process]
+  where: Process_p_nom_extendable AND Process_p_nom_mod > 0
+  expression: Process_p_nom_ext == Process_p_nom_mod * Process_n_mod
+```
+
+```math
+Z_{j} = \mathrm{z}^{\mathrm{mod}}_{j} \cdot N^{z}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0
+```
+
+### `Process-com-ext-p-upper-cap`
+
+`Process_com_ext_p_upper_cap`
+
+```yaml
+Process_com_ext_p_upper_cap:
+  description: >-
+    `Process-com-ext-p-upper-cap` — a committed extendable process runs
+    at most what is available of the chosen build, whatever its status
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0) AND Process_active
+  expression: Process_p <= Process_p_max_pu * Process_p_nom_ext
+```
+
+```math
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot Z_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-ext-p-upper-bigM`
+
+`Process_com_ext_p_upper_big_m`
+
+```yaml
+Process_com_ext_p_upper_big_m:
+  description: "`Process-com-ext-p-upper-bigM` — off, a process does not run; on, the big M is no bound"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0) AND Process_active
+  expression: Process_p <= Process_big_m * Process_status
+```
+
+```math
+z_{\xi,t,j} \le \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-ext-p-lower`
+
+`Process_com_ext_p_lower`
+
+```yaml
+Process_com_ext_p_lower:
+  description: >-
+    `Process-com-ext-p-lower` — a committed extendable process runs at
+    least its minimum of the chosen build; off, the big M releases the row
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0) AND Process_active
+  expression: >-
+    Process_p >=
+    Process_p_min_pu * Process_p_nom_ext
+    + Process_big_m * Process_status - Process_big_m
+```
+
+```math
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot Z_{j} + \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} - \mathrm{M}^{z}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-ext-p-lower-nonneg`
+
+`Process_com_ext_p_lower_nonneg`
+
+```yaml
+Process_com_ext_p_lower_nonneg:
+  description: >-
+    `Process-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+    negative, internal power is also plainly non-negative, a row the big-M lower
+    cannot assert while the process is off
+  dims: [scenario, snapshot, process]
+  where: >-
+    Process_committable AND Process_p_nom_extendable
+    AND Process_p_min_pu_nonneg AND NOT (Process_p_nom_mod > 0) AND Process_active
+  expression: Process_p >= 0
+```
+
+```math
+z_{\xi,t,j} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{nonneg}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-mod-p-lower`
+
+`Process_com_mod_p_lower`
+
+```yaml
+Process_com_mod_p_lower:
+  description: >-
+    `Process-com-mod-p-lower` — a committed modular process runs at least
+    its minimum of one module, whether the build is fixed or a decision
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_mod > 0 AND Process_active
+  expression: Process_p >= Process_p_min_pu * Process_p_nom_mod * Process_status
+```
+
+```math
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{mod}}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-com-mod-p-upper`
+
+`Process_com_mod_p_upper`
+
+```yaml
+Process_com_mod_p_upper:
+  description: >-
+    `Process-com-mod-p-upper` — a committed modular process runs at most
+    one module's share, whether the build is fixed or a decision
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_mod > 0 AND Process_active
+  expression: Process_p <= Process_p_max_pu * Process_p_nom_mod * Process_status
+```
+
+```math
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{mod}}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-status-p-fixed-upper`
+
+`Process_status_p_fixed_upper`
+
+```yaml
+Process_status_p_fixed_upper:
+  description: >-
+    `Process-status-p-fixed-upper` — a status is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND NOT (Process_p_nom_extendable AND Process_p_nom_mod > 0) AND Process_active
+  expression: Process_status <= Process_modules_installed
+```
+
+```math
+u^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-start_up-p-fixed-upper`
+
+`Process_start_up_p_fixed_upper`
+
+```yaml
+Process_start_up_p_fixed_upper:
+  description: >-
+    `Process-start_up-p-fixed-upper` — a start is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND NOT (Process_p_nom_extendable AND Process_p_nom_mod > 0) AND Process_active
+  expression: Process_start_up <= Process_modules_installed
+```
+
+```math
+\mathit{up}^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-shut_down-p-fixed-upper`
+
+`Process_shut_down_p_fixed_upper`
+
+```yaml
+Process_shut_down_p_fixed_upper:
+  description: >-
+    `Process-shut_down-p-fixed-upper` — a stop is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND NOT (Process_p_nom_extendable AND Process_p_nom_mod > 0) AND Process_active
+  expression: Process_shut_down <= Process_modules_installed
+```
+
+```math
+\mathit{dn}^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-status-p_nom-variable-upper`
+
+`Process_status_p_nom_variable_upper`
+
+```yaml
+Process_status_p_nom_variable_upper:
+  description: "`Process-status-p_nom-variable-upper` — a modular process is on only where a module is built"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_extendable AND Process_p_nom_mod > 0 AND Process_active
+  expression: Process_status <= Process_n_mod
+```
+
+```math
+u^{z}_{\xi,t,j} \le N^{z}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-start_up-p_nom-variable-upper`
+
+`Process_start_up_p_nom_variable_upper`
+
+```yaml
+Process_start_up_p_nom_variable_upper:
+  description: "`Process-start_up-p_nom-variable-upper` — a modular process starts only where a module is built"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_extendable AND Process_p_nom_mod > 0 AND Process_active
+  expression: Process_start_up <= Process_n_mod
+```
+
+```math
+\mathit{up}^{z}_{\xi,t,j} \le N^{z}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+### `Process-shut_down-p_nom-variable-upper`
+
+`Process_shut_down_p_nom_variable_upper`
+
+```yaml
+Process_shut_down_p_nom_variable_upper:
+  description: "`Process-shut_down-p_nom-variable-upper` — a modular process stops only where a module is built"
+  dims: [scenario, snapshot, process]
+  where: Process_committable AND Process_p_nom_extendable AND Process_p_nom_mod > 0 AND Process_active
+  expression: Process_shut_down <= Process_n_mod
+```
+
+```math
+\mathit{dn}^{z}_{\xi,t,j} \le N^{z}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
 ### `Line-fix-s-lower`
 
 `Line_fix_s_lower`
@@ -4377,15 +4992,20 @@ Link_p_ramp_limit_down:
 Process_p_ramp_limit_up:
   description: >-
     `Process-p-ramp_limit_up` — a process raises internal power no faster than
-    its limit of the build. The translated term vacates the first snapshot,
-    where a plain optimize builds no row either
+    its ramp limit of the build, and a committed one no further than its
+    start-up ramp in the snapshot it turns on. A process that came into the
+    horizon running brought an unknown internal power, so it carries no row at the
+    first snapshot — nor does any process a big M releases instead
   dims: [scenario, snapshot, process]
-  where: Process_ramp_limit_up AND Process_active
-  expression: Process_p - shift(Process_p, along=snapshot, offset=1) <= Process_ramp_limit_up * Process_p_nom_effective
+  where: >-
+    Process_ramp_limit_up
+    AND NOT (Process_committable AND Process_p_nom_extendable)
+    AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
+  expression: Process_p - Process_previous_p <= Process_ramp_up_allowance
 ```
 
 ```math
-z_{\xi,t,j} - z_{\xi,t - 1,j} \le \mathrm{ru}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ru}^{z}_{j} \text{ is defined} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down`
@@ -4394,14 +5014,22 @@ z_{\xi,t,j} - z_{\xi,t - 1,j} \le \mathrm{ru}^{z}_{j} \cdot \widetilde{\mathrm{z
 
 ```yaml
 Process_p_ramp_limit_down:
-  description: "`Process-p-ramp_limit_down` — a process lowers internal power no faster than its limit of the build"
+  description: >-
+    `Process-p-ramp_limit_down` — a process lowers internal power no faster than
+    its ramp limit of the build, and a committed one no further than its
+    shut-down ramp in the snapshot it turns off. A process that came into the
+    horizon running brought an unknown internal power, so it carries no row at the
+    first snapshot — nor does any process a big M releases instead
   dims: [scenario, snapshot, process]
-  where: Process_ramp_limit_down AND Process_active
-  expression: shift(Process_p, along=snapshot, offset=1) - Process_p <= Process_ramp_limit_down * Process_p_nom_effective
+  where: >-
+    Process_ramp_limit_down
+    AND NOT (Process_committable AND Process_p_nom_extendable)
+    AND (position(snapshot) > 0 OR (Process_committable AND Process_status_initial == 0)) AND Process_active
+  expression: Process_previous_p - Process_p <= Process_ramp_down_allowance
 ```
 
 ```math
-z_{\xi,t - 1,j} - z_{\xi,t,j} \le \mathrm{rd}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{rd}^{z}_{j} \text{ is defined} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `StorageUnit-ext-p_dispatch-lower`
@@ -5340,6 +5968,87 @@ Process_p_nom_effective:
 \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} = \begin{cases} Z_{j} & \text{if } \mathrm{ext}^{z}_{j} \\ \mathrm{z}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
 ```
 
+### `Process_previous_status`
+
+```yaml
+Process_previous_status:
+  description: >-
+    the commitment state a process carries into a snapshot — the state it
+    brought into the horizon at the first, the previous snapshot's after that
+  dims: [scenario, snapshot, process]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: Process_status_initial }
+  otherwise: shift(Process_status, along=snapshot, offset=1)
+```
+
+```math
+\overleftarrow{u}^{z}_{\xi,t,j} = \begin{cases} \mathrm{u}^{z,0}_{j} & \text{if } \mathrm{pos}(t) = 0 \\ u^{z}_{\xi,t - 1,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+```
+
+### `Process_previous_p`
+
+```yaml
+Process_previous_p:
+  description: >-
+    the internal power a process carries into a snapshot — nothing at the start of
+    the horizon, which is why a process that came in running carries no ramp row
+    there
+  dims: [scenario, snapshot, process]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: 0 }
+  otherwise: shift(Process_p, along=snapshot, offset=1)
+```
+
+```math
+\overleftarrow{z}_{\xi,t,j} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ z_{\xi,t - 1,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+```
+
+### `Process_ramp_up_allowance`
+
+```yaml
+Process_ramp_up_allowance:
+  description: >-
+    how far a process may raise internal power between two snapshots — its ramp
+    limit of the build while it stays on, plus its start-up ramp in the
+    snapshot it turns on
+  dims: [scenario, snapshot, process]
+  cases:
+    committed:
+      when: Process_committable
+      expression: >-
+        Process_ramp_limit_up * Process_p_nom * Process_previous_status
+        + Process_ramp_limit_start_up * Process_p_nom
+        * (Process_status - Process_previous_status)
+  otherwise: Process_ramp_limit_up * Process_p_nom_effective
+```
+
+```math
+\Delta^{z,+}_{\xi,t,j} = \begin{cases} \mathrm{ru}^{z}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} + \mathrm{ru}^{z,\mathrm{up}}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \overleftarrow{u}^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \mathrm{ru}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+```
+
+### `Process_ramp_down_allowance`
+
+```yaml
+Process_ramp_down_allowance:
+  description: >-
+    how far a process may lower internal power between two snapshots — its ramp
+    limit of the build while it stays on, plus its shut-down ramp in the
+    snapshot it turns off
+  dims: [scenario, snapshot, process]
+  cases:
+    committed:
+      when: Process_committable
+      expression: >-
+        Process_ramp_limit_down * Process_p_nom * Process_status
+        + Process_ramp_limit_shut_down * Process_p_nom
+        * (Process_previous_status - Process_status)
+  otherwise: Process_ramp_limit_down * Process_p_nom_effective
+```
+
+```math
+\Delta^{z,-}_{\xi,t,j} = \begin{cases} \mathrm{rd}^{z}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot u^{z}_{\xi,t,j} + \mathrm{rd}^{z,\mathrm{dn}}_{j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( \overleftarrow{u}^{z}_{\xi,t,j} - u^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \mathrm{rd}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+```
+
 ### `StorageUnit_charge_carried_in`
 
 ```yaml
@@ -5537,10 +6246,13 @@ scenario_opex:
     + sum(sum(Link_status * Link_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
     + sum(sum(Link_start_up * Link_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
     + sum(sum(Link_shut_down * Link_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(Process_status * Process_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+    + sum(sum(Process_start_up * Process_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+    + sum(sum(Process_shut_down * Process_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
 ```
 
 ```math
-\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} u^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{on}}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{up}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{up}}_{j} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{dn}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{dn}}_{j} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
 ```
 
 ### `Carrier_additions`
@@ -5668,6 +6380,30 @@ u^{f}_{\xi,t,l} \ge 0, u^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \
 
 ```math
 \mathit{dn}^{f}_{\xi,t,l} \ge 0, \mathit{dn}^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Process_n_mod`**
+
+```math
+N^{z}_{j} \ge 0, N^{z}_{j} \in \mathbb{Z} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0
+```
+
+**`Process_status`**
+
+```math
+u^{z}_{\xi,t,j} \ge 0, u^{z}_{\xi,t,j} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_start_up`**
+
+```math
+\mathit{up}^{z}_{\xi,t,j} \ge 0, \mathit{up}^{z}_{\xi,t,j} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_shut_down`**
+
+```math
+\mathit{dn}^{z}_{\xi,t,j} \ge 0, \mathit{dn}^{z}_{\xi,t,j} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 **`Line_s`**

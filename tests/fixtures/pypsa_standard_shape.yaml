@@ -270,6 +270,48 @@ constraints:
   Link_status_p_nom_variable_upper:
     - snapshot
     - link
+  Process_com_down_time:
+    - snapshot
+    - process
+  Process_com_ext_p_lower:
+    - snapshot
+    - process
+  Process_com_ext_p_lower_nonneg:
+    - snapshot
+    - process
+  Process_com_ext_p_upper_big_m:
+    - snapshot
+    - process
+  Process_com_ext_p_upper_cap:
+    - snapshot
+    - process
+  Process_com_mod_p_lower:
+    - snapshot
+    - process
+  Process_com_mod_p_upper:
+    - snapshot
+    - process
+  Process_com_p_lower:
+    - snapshot
+    - process
+  Process_com_p_upper:
+    - snapshot
+    - process
+  Process_com_status_must_stay_down:
+    - snapshot
+    - process
+  Process_com_status_must_stay_up:
+    - snapshot
+    - process
+  Process_com_transition_shut_down:
+    - snapshot
+    - process
+  Process_com_transition_start_up:
+    - snapshot
+    - process
+  Process_com_up_time:
+    - snapshot
+    - process
   Process_ext_p_lower:
     - snapshot
     - process
@@ -286,15 +328,47 @@ constraints:
   Process_fix_p_upper:
     - snapshot
     - process
+  Process_p_nom_modularity:
+    - process
   Process_p_nom_set:
     - process
   Process_p_ramp_limit_down:
     - snapshot
     - process
+  Process_p_ramp_limit_down_run_big_m:
+    - snapshot
+    - process
+  Process_p_ramp_limit_down_shut_big_m:
+    - snapshot
+    - process
   Process_p_ramp_limit_up:
     - snapshot
     - process
+  Process_p_ramp_limit_up_run_big_m:
+    - snapshot
+    - process
+  Process_p_ramp_limit_up_start_big_m:
+    - snapshot
+    - process
   Process_p_set:
+    - snapshot
+    - process
+  Process_shut_down_p_fixed_upper:
+    - snapshot
+    - process
+  Process_shut_down_p_nom_variable_upper:
+    - snapshot
+    - process
+  Process_start_up_p_fixed_upper:
+    - snapshot
+    - process
+  Process_start_up_p_nom_variable_upper:
+    - snapshot
+    - process
+  Process_status_p_fixed_upper:
+    - snapshot
+    - process
+  Process_status_p_nom_variable_upper:
     - snapshot
     - process
   StorageUnit_energy_balance:
@@ -407,6 +481,10 @@ expressions:
   - Link_ramp_up_allowance
   - Process_output_arrival
   - Process_p_nom_effective
+  - Process_previous_p
+  - Process_previous_status
+  - Process_ramp_down_allowance
+  - Process_ramp_up_allowance
   - StorageUnit_charge_carried_in
   - Store_energy_carried_in
   - operational_limit
@@ -624,11 +702,27 @@ parameters:
   Process_active:
     - snapshot
     - process
+  Process_big_m:
+    - process
   Process_capital_cost:
     - process
   Process_capital_weight:
     - process
+  Process_committable:
+    - process
   Process_marginal_cost:
+    - snapshot
+    - process
+  Process_min_down_time:
+    - process
+  Process_min_up_time:
+    - process
+  Process_modules_installed:
+    - process
+  Process_must_stay_down:
+    - snapshot
+    - process
+  Process_must_stay_up:
     - snapshot
     - process
   Process_output_cyclic_delay:
@@ -641,6 +735,8 @@ parameters:
   Process_p_min_pu:
     - snapshot
     - process
+  Process_p_min_pu_nonneg:
+    - process
   Process_p_nom:
     - process
   Process_p_nom_extendable:
@@ -649,6 +745,8 @@ parameters:
     - process
   Process_p_nom_min:
     - process
+  Process_p_nom_mod:
+    - process
   Process_p_nom_set:
     - process
   Process_p_set:
@@ -656,10 +754,23 @@ parameters:
     - process
   Process_ramp_limit_down:
     - process
+  Process_ramp_limit_shut_down:
+    - process
+  Process_ramp_limit_start_up:
+    - process
   Process_ramp_limit_up:
     - process
   Process_rate:
     - process_output
+  Process_shut_down_cost:
+    - process
+  Process_stand_by_cost:
+    - snapshot
+    - process
+  Process_start_up_cost:
+    - process
+  Process_status_initial:
+    - process
   Process_tech_capacity_weight:
     - global_constraint
     - process
@@ -874,10 +985,21 @@ variables:
   Link_status:
     - snapshot
     - link
+  Process_n_mod:
+    - process
   Process_p:
     - snapshot
     - process
   Process_p_nom_ext:
+    - process
+  Process_shut_down:
+    - snapshot
+    - process
+  Process_start_up:
+    - snapshot
+    - process
+  Process_status:
+    - snapshot
     - process
   StorageUnit_p_dispatch:
     - snapshot

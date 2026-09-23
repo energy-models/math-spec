@@ -28,6 +28,7 @@ ALL = to_spec(str(EXAMPLES / 'pypsa.yaml'))
 SCENARIO_FREE_VARIABLES = {
     'Generator_n_mod',
     'Link_n_mod',
+    'Process_n_mod',
     'Generator_p_nom_ext',
     'Link_p_nom_ext',
     'StorageUnit_p_nom_ext',
