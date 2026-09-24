@@ -18,7 +18,7 @@ from typing import get_args
 import pytest
 
 from math_spec import AdviceKind, advice, to_spec
-from tests.fixtures import SMALL_MODEL, override
+from tests.fixtures import SMALL_MODEL, override, raw_of
 
 EXAMPLES = Path(__file__).resolve().parents[1] / 'examples'
 
@@ -107,7 +107,15 @@ def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
     ], 'one model, one answer, whichever of the four the caller happens to hold'
 
 
-def test_a_curve_is_read_as_the_rows_it_states_however_the_model_arrives():
+@pytest.mark.parametrize(
+    'arrive',
+    [
+        pytest.param(lambda model: model, id='a-mapping'),
+        pytest.param(to_spec, id='a-spec'),
+        pytest.param(lambda model: to_spec(model).program, id='a-program'),
+    ],
+)
+def test_a_curve_is_read_as_the_rows_it_states_however_the_model_arrives(arrive):
     """Advice expanded a curve on the caller's behalf, then refused one left as written; a program with a
     block was once let through and advised on the file's rows as if the curve stated none.
 
@@ -116,13 +124,24 @@ def test_a_curve_is_read_as_the_rows_it_states_however_the_model_arrives():
     """
     rows = [(n.kind, n.subject) for n in advice(to_spec(CURVED).expand('piecewise'))]
     assert rows == [('never-an-axis', 'h')], 'the link row holds p, so only the unreached dimension draws a note'
-    for arrived in (CURVED, to_spec(CURVED), to_spec(CURVED).program):
-        assert [(n.kind, n.subject) for n in advice(arrived)] == rows, 'the block and its rows get one answer'
+    assert [(n.kind, n.subject) for n in advice(arrive(CURVED))] == rows, 'the block and its rows get one answer'
 
 
 @pytest.mark.parametrize('example', ['piecewise', 'piecewise_lp', 'piecewise_ragged', 'sos'])
 def test_every_shipped_formulation_gets_the_answer_its_expansion_gets(example):
-    """The claim of the test above on every model the repository ships with a block."""
-    spec = to_spec(EXAMPLES / f'{example}.yaml')
+    """The claim of the test above on every model the repository ships with a block.
+
+    As shipped, each example's constraints hold its variables, so the answer
+    was empty however the curve was read and the test passed with the curve
+    ignored. With the constraints gone and the cost maximized, the curve is
+    all that holds ``op_cost``.
+    """
+    raw = override(raw_of(EXAMPLES / f'{example}.yaml'), constraints={}, **{'objective.sense': 'maximize'})
+    assert [(n.kind, n.subject) for n in advice(override(raw, piecewise={}))] == [('unbounded', 'op_cost')], (
+        'without its curve nothing holds op_cost, so the answer below turns on reading the curve'
+    )
+    spec = to_spec(raw)
     as_written = [(n.kind, n.subject) for n in advice(spec)]
-    assert as_written == [(n.kind, n.subject) for n in advice(spec.expand())], 'one model, one answer, block or rows'
+    assert as_written == [(n.kind, n.subject) for n in advice(spec.expand())] == [], (
+        'one model, one answer, block or rows'
+    )

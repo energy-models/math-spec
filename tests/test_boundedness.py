@@ -171,14 +171,3 @@ def test_every_unopposed_variable_is_named():
 def test_the_note_names_the_rewrite():
     (note,) = _notes()
     assert 'Give it a finite bounds.lower, or the constraint that was meant to define it.' in note
-
-
-def test_a_curve_holds_its_variables_through_the_rows_it_emits():
-    """A piecewise block names no constraint in the file; its expansion does."""
-    curve = {
-        'dimensions.bp': {'dtype': 'int'},
-        'parameters.bx': {'dims': ['bp']},
-        'parameters.by': {'dims': ['bp']},
-        'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bx'], ['w', 'by']]}},
-    }
-    assert _notes(**curve) == [], 'the emitted link rows pin v and w, so neither is unopposed'
