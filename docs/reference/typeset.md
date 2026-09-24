@@ -50,7 +50,7 @@ a flag.
 - A `piecewise:` block prints as one line: the curve it states, over the frame
   it states one curve per coordinate of. To print the variables and constraints
   it stands for instead, print
-  [`spec.expand()`](language/piecewise.md#writing-a-formulation-out).
+  [`spec.expand()`](language/piecewise.md#expanding-a-formulation).
 - An [`assumptions:`](language/assumptions.md) entry prints under an
   **Assumptions** heading, last, beside what each curve assumes of its
   breakpoints. A model that assumes nothing of its data prints no such
@@ -112,9 +112,9 @@ because one line can print only one of them.
 ## Printing what a formulation states
 
 A `piecewise:` block and a `sos:` block each state variables and constraints
-([formulations](language/piecewise.md#writing-a-formulation-out)). Printing
+([formulations](language/piecewise.md#expanding-a-formulation)). Printing
 those rows is printing a different model, so it is
-[`expand()`](language/piecewise.md#writing-a-formulation-out) that produces it
+[`expand()`](language/piecewise.md#expanding-a-formulation) that produces it
 and not an option on the render:
 
 ```python

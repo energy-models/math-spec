@@ -29,7 +29,7 @@ costs to add.
   variables and constraints, states what it assumes of the data as ordinary
   assumptions, and emits no parameter — so the same data binds a model and its
   expansion, and
-  [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
+  [`spec.expand()`](../reference/language/piecewise.md#expanding-a-formulation)
   needs no source a reader has to supply.
 
 A request that is none of the three is refused, and the
@@ -67,15 +67,15 @@ the table `a` says which pairs exist.
 
 A new primitive is finished when lowering builds it, the typesetter prints
 it in all three formats, and an engine's build of a model that uses it matches
-the same model written out by hand.
+the same model expanded by hand.
 
 ### Three kinds of refusal
 
-| The language refuses it because…           | Examples                                                                                                                                                                        | Can it change?                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| **one solver cannot take it**              | indicator constraints; a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a model for a solver without is written out first | yes, solver by solver                      |
-| **the file would stop being the artifact** | arbitrary Python, whose content no loader can check and no typesetter can print                                                                                                 | no                                         |
-| **this project puts the work elsewhere**   | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                                       | it could; this project does not want it to |
+| The language refuses it because…           | Examples                                                                                                                                                                     | Can it change?                             |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **one solver cannot take it**              | indicator constraints; a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a model for a solver without is expanded first | yes, solver by solver                      |
+| **the file would stop being the artifact** | arbitrary Python, whose content no loader can check and no typesetter can print                                                                                              | no                                         |
+| **this project puts the work elsewhere**   | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                                    | it could; this project does not want it to |
 
 Three things never appear inside one model: an `if`, a loop, and a set of
 declarations that depends on the data. A dimension computed before the model
@@ -95,13 +95,13 @@ and every other solver would inherit them.
 
 - HiGHS has no special-ordered sets. Gurobi does. An engine handing a model to
   Gurobi passes the set through; one handing it to HiGHS refuses it, and the
-  author writes the set out with `spec.expand('sos')` first.
+  author expands the set with `spec.expand('sos')` first.
 - A quadratic constraint is accepted by some solvers only when it is convex,
   and convexity depends on the numbers, which the file does not have.
 
 So `sos:` entered the language on the first question alone. Each engine then
-decides whether it takes a set, and the language decides what a set is written
-out as.
+decides whether it takes a set, and the language decides what a set expands
+into.
 
 ## What counts as data preparation
 

@@ -721,7 +721,7 @@ class Link:
 
 @dataclass(frozen=True)
 class PiecewiseDeclaration:
-    """A ``piecewise:`` block as the curve it states, which :meth:`~math_spec.model.Spec.expand` writes out as rows.
+    """A ``piecewise:`` block as the curve it states, which :meth:`~math_spec.model.Spec.expand` expands into rows.
 
     A program of a model that still declares one carries it here, typed; a
     program of the expanded model carries the rows instead, under
@@ -916,7 +916,7 @@ class Program:
     relations: Mapping[str, RelationDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
     #: Each ``piecewise:`` block the model still declares, as the curve it
-    #: states; empty on a program of a model whose curves are written out.
+    #: states; empty on a program of a model whose curves are expanded.
     piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
     #: What the data has to satisfy for the answer to mean anything, by the
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then

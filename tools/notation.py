@@ -212,7 +212,7 @@ def block() -> str:
         if section == 'sos':
             parts.append(
                 'A set prints beside the variable it restricts, because it restricts that variable rather than '
-                'adding a row of its own. Under it are the rows it is written out as.'
+                'adding a row of its own. Under it are the rows it expands into.'
             )
             parts += [f'{_row(one, printed)}\n\n{_written_out(one.name, written)}' for one in found]
             continue
@@ -224,7 +224,7 @@ def _curves() -> list[str]:
     """One row per ``method:``, each captioned with what that method restricts.
 
     Both readings come from one model and one symbol table: the block as the
-    file states it, and the rows ``expand('piecewise')`` writes out — which for
+    file states it, and the rows ``expand('piecewise')`` expands it into — which for
     ``sos2`` keeps the set and for ``adjacency`` is the binaries that set states.
     """
     rows = []
@@ -265,7 +265,7 @@ def _written_out(name: str, printed: dict[str, str]) -> str:
     rows = [math for label, math in printed.items() if label == name or label.startswith(f'{name}_')]
     assert rows, f'{name} states rows and its expansion printed none of them'
     body = '\n\n'.join(rows)
-    return f'Written out by `spec.expand()`:\n\n{body}'
+    return f'Expanded by `spec.expand()`:\n\n{body}'
 
 
 def _table_shown(table: Path | None) -> str:

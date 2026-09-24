@@ -36,8 +36,8 @@ Four rules follow from the test:
 
 A `piecewise:` block and a `sos:` block each state ordinary variables and
 constraints, so the language decides what they state, and
-[`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
-writes it out the same way for every tool.
+[`spec.expand()`](../reference/language/piecewise.md#expanding-a-formulation)
+expands it the same way for every tool.
 
 ## What each tool decides for itself
 

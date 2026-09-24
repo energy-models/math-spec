@@ -40,7 +40,7 @@ nav:
       - State a rule that differs by regime: howto/regimes.md
       - Declare a column of data: howto/declare-a-column.md
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
-      - Write a piecewise curve out by hand: howto/curve-by-hand.md
+      - Expand a piecewise curve by hand: howto/curve-by-hand.md
       - See what a curve or a set expands to: howto/see-an-expansion.md
   - Reference:
       - Language:

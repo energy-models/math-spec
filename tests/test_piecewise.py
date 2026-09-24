@@ -111,7 +111,7 @@ def test_the_file_keeps_its_curve_and_the_expansion_has_none():
 def test_a_program_mirrors_the_model_it_was_lowered_from():
     """A model still declaring a curve lowers to a program carrying the curve, and its expansion to one carrying the rows.
 
-    Writing a formulation out is the caller's: a curve is one thing to a
+    Expanding a formulation is the caller's: a curve is one thing to a
     consumer printing it and another to one building rows, as a set is.
     """
     schema = schema_of(NONCONVEX_YAML)
@@ -127,7 +127,7 @@ def test_a_program_mirrors_the_model_it_was_lowered_from():
         'the expansion carries the rows and no curve'
     )
     assert schema.expand().program.sos == {} and rows.sos == {}, (
-        'an adjacency block writes its own set out; a caller writes the rest out with expand()'
+        'an adjacency block expands its own set; a caller expands the rest with expand()'
     )
 
 
@@ -350,7 +350,7 @@ def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expre
     ],
 )
 def test_a_block_is_refused_on_the_link_the_file_wrote_and_not_on_a_row_it_would_emit(model, patch):
-    """Both were refused only once written out, under `cost_curve_increasing` or `cost_curve_domain_lo` — rows the file never declared."""
+    """Both were refused only once expanded, under `cost_curve_increasing` or `cost_curve_domain_lo` — rows the file never declared."""
     with pytest.raises(SchemaError) as exc:
         schema_of(model, **patch)
     assert "piecewise 'cost_curve'" in str(exc.value) and 'link 0' in str(exc.value)

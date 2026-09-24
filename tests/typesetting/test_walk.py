@@ -928,7 +928,7 @@ def test_a_condition_a_method_states_is_a_line_that_may_be_asked_for_before_it_i
 
     assert 'is defined' not in line, 'the increasing condition is a comparison, not a definedness test'
     assert line == typeset_declaration(curve.expand('piecewise'), 'cost_curve_increasing', 'latex'), (
-        'and it prints the same line whether or not the curve has been written out'
+        'and it prints the same line whether or not the curve has been expanded'
     )
 
 

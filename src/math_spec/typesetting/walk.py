@@ -732,7 +732,7 @@ class Walk:
 
         An assumption is looked up where the document prints it from, so a
         condition a curve's method states is a line a reader can ask for
-        before the curve is written out.
+        before the curve is expanded.
 
         Raises:
             SchemaError: *name* is declared as none of the five, or as two — a
