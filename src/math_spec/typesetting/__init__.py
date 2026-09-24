@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, TypedDict, Unpack
 
 from math_spec.errors import SchemaError, did_you_mean
+from math_spec.lowering import to_program
 from math_spec.typesetting.latex import LatexFormat
 from math_spec.typesetting.markdown import MarkdownFormat
 from math_spec.typesetting.symbols import Symbols, SymbolTable
@@ -87,13 +88,15 @@ def _walk(
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
     schema = to_spec(model)
+    program = to_program(schema)
     format_ = FORMATS[fmt]
     if symbols is None:
         symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     return Walk(
         schema,
-        Symbols(schema, format_, table.checked_against(schema)),
+        program,
+        Symbols(schema, program, format_, table.checked_against(schema)),
         format_,
         inline_expressions=inline_expressions,
     )
@@ -203,7 +206,7 @@ def typeset_declaration(
     kinds = {
         'named expression': schema.expressions,
         'constraint': schema.constraints,
-        'assumption': schema.resolved.assumptions,
+        'assumption': walk.program.assumptions,
         'curve': schema.piecewise,
         'variable': schema.variables,
     }

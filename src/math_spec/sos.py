@@ -92,9 +92,7 @@ def expand_sets(schema: Spec) -> Spec:
     raw = schema.model_dump()
     for name in list(schema.sos):
         emit(raw, name)
-    expanded = Model.model_validate(raw)
-    expanded._expanded_piecewise = dict(schema._expanded_piecewise)
-    return expanded
+    return Model.model_validate(raw)
 
 
 def emit(raw: dict[str, object], name: str) -> None:

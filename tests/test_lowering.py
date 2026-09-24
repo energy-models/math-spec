@@ -18,8 +18,6 @@ import pytest
 from math_spec import LanguageError, Spec, to_program
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
-from math_spec.lowering import lower_program
-from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
@@ -122,7 +120,7 @@ def dispatch_schema() -> Spec:
 
 @pytest.fixture
 def dispatch_program(dispatch_schema) -> Program:
-    return lower_program(expand_piecewise(dispatch_schema))
+    return to_program(dispatch_schema)
 
 
 @pytest.fixture
@@ -135,7 +133,7 @@ def shapes_schema() -> Spec:
 # ---------------------------------------------------------------------------
 
 
-def test_lower_program_structure(dispatch_program):
+def test_program_structure(dispatch_program):
     assert list(dispatch_program.parameters) == ['capacity', 'load', 'cost'], 'keyed by name, in declaration order'
     ((vname, v),) = dispatch_program.variables.items()
     assert vname == 'dispatch'
@@ -227,10 +225,8 @@ def test_a_where_is_one_resolved_predicate_with_every_literal_folded(dispatch_sc
 
 def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have():
     """The fold is the program's, not a helper's: two files, one declaration."""
-    written_out = lower_program(
-        expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 AND True'}))
-    )
-    plain = lower_program(expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})))
+    written_out = to_program(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 AND True'}))
+    plain = to_program(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'}))
     assert written_out.variables['p'] == plain.variables['p'], 'the same mask, so the same declaration'
 
 
@@ -846,6 +842,7 @@ FAN_IN = {
     WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',
     Dual('balance'): 'one-to-one',
+    Named('total', Sum(Variable('p'), ('g',))): 'many-to-one',
 }
 
 
@@ -863,7 +860,7 @@ def test_a_node_answers_its_fan_in(node, expected):
 
 
 def test_fan_in_reads_through_a_named_expression():
-    """`fan_in` on a `Spec.resolved` tree, which holds `Named`, ended in `assert_never`."""
+    """`fan_in` on a tree holding a `Named` ended in `assert_never`."""
     named = Named('total', Sum(Variable('p'), ('g',)))
     assert fan_in(named) == 'many-to-one', 'a use of an entry fans in as the entry does'
 

@@ -15,7 +15,9 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
+from math_spec.lowering import to_program
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.piecewise import curve
 from math_spec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
@@ -123,24 +125,27 @@ def _rendered_trees() -> Iterator[object]:
     curve's links are trees of its own, and the rows it stands for are not
     printed at all.
     """
-    resolved = to_spec(golden.MODEL).resolved
-    assert resolved.objective is not None
-    yield resolved.objective.expression
-    for constraint in resolved.constraints.values():
+    schema = to_spec(golden.MODEL)
+    program = to_program(schema)
+    assert program.objective is not None
+    yield program.objective.expression
+    for name in schema.constraints:
+        constraint = program.constraints[name]
         yield constraint.lhs
         yield constraint.rhs
         if constraint.where is not None:
             yield constraint.where.root
-    for mask in resolved.variables.values():
-        if mask is not None:
+    for name in schema.variables:
+        if (mask := program.variables[name].where) is not None:
             yield mask.root
-    for assumption in resolved.assumptions.values():
+    for assumption in program.assumptions.values():
         yield assumption.predicate.root
         if assumption.where is not None:
             yield assumption.where.root
-    yield from resolved.expressions.values()
-    for links in resolved.piecewise.values():
-        yield from links
+    for name in schema.expressions:
+        yield program.expressions[name].expression
+    for name in schema.piecewise:
+        yield from curve(schema, name).links
 
 
 #: A dataclass the walk steps *through* rather than renders: a region has no

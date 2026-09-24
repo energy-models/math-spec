@@ -15,13 +15,14 @@ its frame in :func:`curve_frame`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 import math_spec.sos as sos
 from math_spec.dimensions import dims_of
 from math_spec.errors import DimensionError
 from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, PiecewiseMethod, Spec
-from math_spec.program import PiecewiseDeclaration
+from math_spec.program import carries_variable
+from math_spec.resolution import Namespace, resolve_expression_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -55,13 +56,61 @@ def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     return 'convex' if sign == '>=' else 'concave'
 
 
-def declaration_of(pw: PiecewiseBlock) -> PiecewiseDeclaration:
-    """The curve of one expanded block, as a program carries it."""
-    return PiecewiseDeclaration(
-        over=pw.over,
-        method=pw.method,
-        breakpoints=tuple(link.values for link in pw.links),
+def resolve_links(name: str, pw: PiecewiseBlock, ns: Namespace, errors: list[str]) -> tuple[Expression, ...] | None:
+    """Block *name*'s link expressions typed, in link order, or ``None`` once one failed, its refusal appended.
+
+    A link is read affinely, so it is held to degree 1 where it is read.
+    """
+    links = [
+        resolve_expression_text(link.expression, ns, f"piecewise '{name}' link {i}", errors, ceiling=1)
+        for i, link in enumerate(pw.links)
+    ]
+    if any(link is None for link in links):
+        return None
+    return tuple(link for link in links if link is not None)
+
+
+def lp_domain_refusal(name: str, pw: PiecewiseBlock, links: tuple[Expression, ...]) -> str | None:
+    """The refusal for a ``method: lp`` curve whose x-link carries no variable, or ``None``.
+
+    The method bounds the curve's domain with two rows comparing the x-link
+    against the first and the last breakpoint, and a row with no variable
+    decides nothing. Decided on the link the file wrote, rather than on the
+    row the expansion would write under a name the file never declared.
+    """
+    x = pw.curve[0]
+    i = next(i for i, link in enumerate(pw.links) if link is x)
+    if carries_variable(links[i]):
+        return None
+    return (
+        f"piecewise '{name}' link {i}: method: lp bounds the curve's domain by rows comparing this link's expression "
+        f'against its first and last breakpoint, and {x.expression!r} carries no variable, so those rows decide '
+        f'nothing. Name a variable in the link, or use method: convex, sos2 or adjacency, whose weights pin the '
+        f'domain themselves.'
     )
+
+
+class Curve(NamedTuple):
+    """One ``piecewise:`` block as the curve it states: its links typed, and the frame it builds one curve per coordinate of."""
+
+    links: tuple[Expression, ...]
+    frame: tuple[str, ...]
+
+
+def curve(schema: Spec, name: str) -> Curve:
+    """Block *name* of *schema* as the curve it states.
+
+    Read off the model rather than kept on it: a program holds the rows a
+    curve states and not the curve, and the two readers of the curve itself
+    — the expansion writing those rows and the typesetter printing the block
+    — each ask here. Nothing here can fail: *schema* loaded, so its links
+    resolved and its frame held.
+    """
+    ns = Namespace(schema)
+    errors: list[str] = []
+    links = resolve_links(name, schema.piecewise[name], ns, errors)
+    assert links is not None and not errors, 'a loaded model resolved every link'
+    return Curve(links, curve_frame(schema, name, schema.piecewise[name], links))
 
 
 def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, AssumptionBlock]:
@@ -262,8 +311,7 @@ def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[Exp
 
     In declaration order, because iterating a set would vary the emitted
     ``dims`` — and every column index behind it — per process. *links* are the
-    block's link expressions typed, as
-    :attr:`~math_spec.resolution.Resolved.piecewise` holds them.
+    block's link expressions typed, as :func:`resolve_links` answers.
 
     Raises:
         DimensionError: A link or the gate carries the breakpoint dimension, or
@@ -316,7 +364,7 @@ class _Block:
         self.pw = pw
         self.emitted = Emitted.of(name, pw)
         self.mask = pw.points
-        self.frame = curve_frame(schema, name, pw, schema.resolved.piecewise[name])
+        self.frame = curve(schema, name).frame
 
     def expand(self) -> None:
         """Write the block's declarations into the raw model."""
@@ -448,6 +496,4 @@ def expand_piecewise(schema: Spec) -> Spec:
     for name, pw in schema.piecewise.items():
         if pw.method == 'adjacency':
             sos.emit(raw, name)
-    expanded = Spec.model_validate(raw)
-    expanded._expanded_piecewise = dict(schema.piecewise)
-    return expanded
+    return Spec.model_validate(raw)

@@ -110,8 +110,6 @@ def test_the_adjacency_method_is_the_sos2_curve_with_its_set_written_out():
     assert sos2.variables == adjacency.variables
     assert sos2.constraints == adjacency.constraints
     assert not sos2.sos and not adjacency.sos, 'neither hands a solver a set'
-    assert sos2.piecewise['cost_curve'].method == 'sos2', 'the block still records the method it declared'
-    assert adjacency.piecewise['cost_curve'].method == 'adjacency'
 
 
 @pytest.mark.parametrize(

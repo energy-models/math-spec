@@ -15,7 +15,6 @@ from __future__ import annotations
 import datetime
 import re
 from dataclasses import dataclass
-from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
 import math_spec.degree as degree
@@ -60,11 +59,9 @@ from math_spec.operators import (
 from math_spec.program import (
     Add,
     And,
-    Assumption,
     BooleanLiteral,
     Cases,
     Constant,
-    ConstraintDeclaration,
     CountComparison,
     DimensionComparison,
     DimensionPosition,
@@ -79,7 +76,6 @@ from math_spec.program import (
     Named,
     Negate,
     Not,
-    ObjectiveDeclaration,
     Or,
     Parameter,
     ParameterComparison,
@@ -308,61 +304,6 @@ class Namespace:
             f'  Constraints: {sorted(self.constraints)}\n'
             f"Check for typos, or declare '{name}' under 'constraints:'."
         )
-
-
-@dataclass(frozen=True)
-class Resolved:
-    """Every expression and where string of one schema, typed once at load, in the program's own vocabulary.
-
-    :func:`~math_spec.validation.validate_expressions` builds it, and every
-    reader after — the dim rules, lowering, the typesetter — walks these trees
-    rather than parsing, expanding and resolving the text again. Each mapping
-    is keyed as the schema's own section is. A ``where`` the file did not
-    write, or one every row passes, is ``None``. What a program does not carry
-    is here alone: every use of an ``expressions:`` entry stands as the
-    :class:`~math_spec.program.Named` node resolution built for it, which
-    lowering inlines.
-
-    Attributes:
-        expressions: Each ``expressions:`` entry as the node every use of it
-            holds — a plain entry's body, or a cased one's
-            :class:`~math_spec.program.Cases` with every region's mask typed
-            and the ``otherwise`` carrying the negation of the rest.
-        variables: Each variable's ``where``.
-        constraints: Each constraint, as a program declares it.
-        objective: The objective, ``None`` where the file declares none.
-        relations: Each relation's columns and key, as declared — the one
-            copy, which every :class:`~math_spec.program.Direction` and
-            :class:`~math_spec.program.Partition` in the trees holds.
-        assumptions: Each ``assumptions:`` entry's predicate and the mask it
-            is checked under.
-        piecewise: Each ``piecewise:`` block's link expressions, in link order.
-    """
-
-    expressions: dict[str, Named]
-    variables: dict[str, Mask | None]
-    constraints: dict[str, ConstraintDeclaration]
-    objective: ObjectiveDeclaration | None
-    relations: dict[str, RelationDeclaration]
-    assumptions: dict[str, Assumption]
-    piecewise: dict[str, tuple[Expression, ...]]
-
-    @cached_property
-    def read_by_the_math(self) -> frozenset[str]:
-        """The named expressions the math reads: every entry the objective, a constraint or a curve reaches, transitively.
-
-        Read off those three positions alone: a bound and a ``where`` name no
-        entry. The rest of the ``expressions:`` section is read back after a
-        solve and never fed to one
-        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`). A curve
-        counts because it states rows, so the answer does not move when the
-        curve is written out (:meth:`~math_spec.model.Spec.expand`).
-        """
-        roots = [side for constraint in self.constraints.values() for side in (constraint.lhs, constraint.rhs)]
-        if self.objective is not None:
-            roots.append(self.objective.expression)
-        roots.extend(link for links in self.piecewise.values() for link in links)
-        return frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
 
 
 # ---------------------------------------------------------------------------

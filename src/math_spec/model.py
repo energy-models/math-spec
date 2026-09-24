@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from functools import cached_property
 from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
@@ -41,7 +40,8 @@ if TYPE_CHECKING:
     from pydantic.config import ExtraValues
     from pydantic_core import CoreSchema
 
-    from math_spec.resolution import Resolved
+    # program.py imports this module at runtime, so the import is type-only
+    from math_spec.program import Program  # noqa: TC004
 
 
 class _StrictBlock(BaseModel):
@@ -751,8 +751,7 @@ class Spec(_StrictBlock):
     The API is the eleven declaration sections plus ``version`` and
     ``description``, three ways back out — :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
-    same math with its formulations written out — and :attr:`resolved`, the
-    typed trees every reader in this package walks. Everything else on this
+    same math with its formulations written out. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
 
@@ -763,10 +762,11 @@ class Spec(_StrictBlock):
     #: that expands to itself is not stored: two of them compare by their
     #: private state, which a model holding itself cannot answer.
     _expansions: dict[tuple[Formulation, ...], Spec] = PrivateAttr(default_factory=dict)
-    #: Each ``piecewise:`` block of the model this one expanded, as written,
-    #: which is what a program keeps of a curve. Empty on a model that is not
-    #: an expansion. Written by :func:`~math_spec.piecewise.expand_piecewise`.
-    _expanded_piecewise: dict[str, PiecewiseBlock] = PrivateAttr(default_factory=dict)
+    #: What this model's own declarations lower to, built as the model loads:
+    #: computing it *is* the expression pass, so a model the language refuses
+    #: never holds one. :func:`~math_spec.lowering.to_program` answers with
+    #: the expansion's, since a curve's rows are on that model.
+    _program: Program | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
@@ -898,19 +898,6 @@ class Spec(_StrictBlock):
         if expanded is not self:
             self._expansions[wanted] = expanded
         return expanded
-
-    @cached_property
-    def resolved(self) -> Resolved:
-        """Every expression and where string this model declares, typed once — what every reader after validation walks.
-
-        Computing it *is* the expression pass, so a model the language refuses
-        raises here; loading forces it, so a spec in hand already holds it. It
-        holds what *this* model declares: the rows a formulation states are on
-        :meth:`expand`'s result instead.
-        """
-        from math_spec.validation import validate_expressions
-
-        return validate_expressions(self)
 
     @model_validator(mode='after')
     def _names_are_names(self) -> Spec:
@@ -1189,15 +1176,16 @@ class Spec(_StrictBlock):
             )
 
     @model_validator(mode='after')
-    def _validate_expressions(self) -> Spec:
+    def _lower(self) -> Spec:
         """Every expression and where string — this file's own, and every one a curve emits.
 
         This file's own first, so a fault in a link is named against the link
-        the file wrote, and the expansion reads the typed links rather than the
-        text again. A curve's expansion is a model in its own right, so
+        the file wrote. A curve's expansion is a model in its own right, so
         validating it is what holds the declarations it writes to the language.
         """
-        _ = self.resolved
+        from math_spec.lowering import lower
+
+        self._program = lower(self)
         self.expand('piecewise')
         return self
 

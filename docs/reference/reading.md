@@ -64,23 +64,24 @@ from math_spec import to_spec, to_program
 spec = to_spec('curve.yaml')
 sorted(spec.constraints)  # ['target']
 
-program = to_program(spec.expand('piecewise'))
+program = to_program(spec)
 sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
 sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
-on a `Program`, it returns the same object unchanged. It lowers the model as it
-arrived and writes nothing out: a model still carrying a `piecewise:` block is
-refused, and the refusal names `spec.expand('piecewise')`, which keeps every
-`sos:` block, and `spec.expand()`, which writes the sets out too. Which one is
-the caller's to say, because a consumer with the concept of a set takes one
-whole and a consumer without it does not.
+on a `Program`, it returns the same object unchanged. Called on a `Spec`, it
+returns the program built when the model loaded, so two calls on one model
+return one object. It writes every `piecewise:` block out as the rows the block
+states: `to_program(spec)` and `to_program(spec.expand('piecewise'))` are the
+same program. It keeps every `sos:` block, because a consumer with the concept
+of a set takes one whole. A consumer without it calls `spec.expand()` first,
+which writes the sets out too.
 
-| you are                                                                      | take      | because                                  |
-| ---------------------------------------------------------------------------- | --------- | ---------------------------------------- |
-| building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved |
-| reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts          |
+| you are                                                                      | take      | because                                       |
+| ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
+| building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
+| reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program holds a curve's rows, not the curve |
 
 ## Formulations written out
 
@@ -100,9 +101,9 @@ carries a set for a consumer that has the concept. A consumer without one
 refuses the model and names `spec.expand('sos')`; what that emits is on the
 [piecewise page](language/piecewise.md#what-a-set-is-written-out-as).
 
-`program.piecewise` keeps the curve: its breakpoint dimension, its method and
-its values parameters. Every parameter the program declares is one the file
-declared, and the engine binds each from its data.
+Every parameter the program declares is one the file declared, and the engine
+binds each from its data. A program does not keep the curve: the rows, the
+weights and the conditions the method states are declarations like any other.
 
 ## What the data has to satisfy
 
@@ -138,9 +139,10 @@ node's operands, and `where_children()` walks a predicate's. `walk()` yields
 every node under an expression, parents first. `walk_regions()` yields each node
 with the `cases:` regions it stands inside, outermost first.
 
-`Named` is the one node no program carries. A `Spec.resolved` tree holds it
-where an `expressions:` entry is used, and lowering inlines the entry's body
-there before the program is built, so `Expression` does not name it.
+A `Named` stands where an `expressions:` entry is used. Its `body` is the
+entry's expression, the same object that `program.expressions[name].expression`
+holds, and its value is the body's value. `children()` steps into the body, so
+a walk reads through it; a renderer prints the name where the file wrote it.
 
 Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate. The
 mask also answers four questions:
