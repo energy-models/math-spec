@@ -194,6 +194,13 @@ def test_merge_composes_the_model_and_override_configures_the_run():
     assert to_spec(run).variables['gen_p'].where == 'gen_p_max > 0'
 
 
+def test_every_section_a_fragment_owns_reaches_the_composition():
+    """`merge` listed its sections by hand, so `assumptions:` fell out of every composed model."""
+    assumed = {**DEMAND, 'assumptions': {'dem_load_positive': 'dem_load >= 0'}}
+    composed = to_spec(merge({**LIBRARY, 'demand': assumed}))
+    assert sorted(composed.assumptions) == ['dem_load_positive'], "the fragment's assumption is in the one model"
+
+
 def test_a_fragment_is_a_path_as_readily_as_a_mapping(tmp_path):
     surface = tmp_path / 'surface.yaml'
     surface.write_text(to_spec(SURFACE).to_yaml(), encoding='utf-8')

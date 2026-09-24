@@ -62,7 +62,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import TYPE_CHECKING, cast, get_args
+from typing import TYPE_CHECKING, cast, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
 
@@ -79,8 +79,13 @@ if TYPE_CHECKING:
 #: may not say something else about it, and it may not remove it.
 SHARED_SECTIONS = ('dimensions', 'relations')
 
-#: The declarations a patch edits, creates or removes.
-OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macros', 'piecewise', 'sos')
+#: The declarations a patch edits, creates or removes: every other section of
+#: the schema keyed by declaration name, read off it so that none is left out.
+OWNED_SECTIONS = tuple(
+    name
+    for name, field in Spec.model_fields.items()
+    if get_origin(field.annotation) is dict and name not in SHARED_SECTIONS
+)
 
 #: What ``given:`` holds, by the key each kind sits under and what one entry of
 #: it is called. The key is the introducing section's name too, which is what
