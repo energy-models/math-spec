@@ -17,11 +17,12 @@ from typing import TYPE_CHECKING, cast
 
 from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError, did_you_mean
+from math_spec.piecewise import Emitted
 from math_spec.program import Dual, Variable, walk
+from math_spec.sos import Emitted as EmittedSet
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
     from math_spec.program import Program
     from math_spec.typesetting.format import Format, Notation
 
@@ -102,15 +103,15 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: Spec, program: Program, fmt: Format, table: SymbolTable) -> None:
+    def __init__(self, program: Program, fmt: Format, table: SymbolTable) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        chosen = frozenset(schema.variables) | chosen_expressions(program)
-        names = (*schema.parameters, *schema.variables, *schema.expressions)
+        chosen = frozenset(program.variables) | chosen_expressions(program)
+        names = (*program.parameters, *program.variables, *program.expressions)
         declared = frozenset(names)
 
         #: Names the table spelled; the convention note quotes only derived symbols.
@@ -130,13 +131,13 @@ class Symbols:
         #: overrides it.
         self.constraint: dict[str, str] = {
             name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
-            for name in schema.constraints
+            for name in program.constraints
         }
 
         self.index: dict[str, str] = {}
         self.set: dict[str, str] = {}
         taken_index, taken_set = set(spoken_for), set()
-        for dim in schema.dimensions:
+        for dim in program.dimensions:
             overridden = dim in table.indices
             letter = table.indices[dim] if overridden else _first_free(_index_candidates(dim), taken_index)
             taken_index.add(letter)
@@ -237,18 +238,15 @@ class SymbolTable:
             names={k: str(v) for k, v in _section(raw, 'names').items()},
         )
 
-    def checked_against(self, schema: Spec) -> SymbolTable:
-        """Reject entries naming nothing in *schema* or in what its formulations state, with the near miss.
+    def checked_against(self, program: Program) -> SymbolTable:
+        """Reject entries naming nothing in *program* or in what its formulations state, with the near miss.
 
         A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
         one table spells both readings of a model: the blocks as the file states
-        them, and the rows :meth:`~math_spec.model.Spec.expand` writes out. The
-        expansion is built only where an entry needs it.
+        them, and the rows :meth:`~math_spec.model.Spec.expand` writes out.
         """
-        dims = set(schema.dimensions)
-        everything = dims | _declared(schema)
-        if set(self.names) - everything:
-            everything |= _declared(schema.expand())
+        dims = set(program.dimensions)
+        everything = dims | _declared(program) | _emitted(program)
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),
@@ -258,9 +256,18 @@ class SymbolTable:
         return self
 
 
-def _declared(schema: Spec) -> set[str]:
-    """Every name *schema* declares that a table entry may spell."""
-    return set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
+def _declared(program: Program) -> set[str]:
+    """Every name *program* declares that a table entry may spell."""
+    return set(program.parameters) | set(program.variables) | set(program.expressions) | set(program.constraints)
+
+
+def _emitted(program: Program) -> set[str]:
+    """Every name writing *program*'s curves and sets out would declare."""
+    emitted = [
+        *(Emitted.of(name, curve).by_kind for name, curve in program.piecewise.items()),
+        *(EmittedSet.of(name, block.sos_type).by_kind for name, block in program.sos.items()),
+    ]
+    return {name for by_kind in emitted for _, names in by_kind for name in names}
 
 
 def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:

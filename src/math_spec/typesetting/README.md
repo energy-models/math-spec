@@ -6,8 +6,7 @@ SPDX-License-Identifier: MIT
 # `typesetting/` — the model, printed
 
 This package is a consumer of the program. It builds no model and binds no
-data. It walks the trees `to_program` lowers a model to, reads what the file
-says about each declaration from the `Spec`, and prints both.
+data. It walks the program `to_program` lowers a model to, and prints it.
 
 | Module        | Role                                                                                                   |
 | ------------- | ------------------------------------------------------------------------------------------------------ |

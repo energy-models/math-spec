@@ -17,7 +17,7 @@ from math_spec import CURVATURES
 from math_spec.errors import LanguageError, SchemaError
 from math_spec.lowering import to_program
 from math_spec.piecewise import expand_piecewise
-from math_spec.program import Assumption, assumption_message
+from math_spec.program import Assumption, Variable, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
@@ -107,20 +107,25 @@ def test_the_file_keeps_its_curve_and_the_expansion_has_none():
     assert not schema.expand('piecewise').piecewise, 'the block is spent once its declarations are emitted'
 
 
-def test_a_program_holds_the_rows_a_curve_states_and_not_the_curve():
-    """A curve states rows and a program holds them, so lowering a model writes every block out.
+def test_a_program_mirrors_the_model_it_was_lowered_from():
+    """A model still declaring a curve lowers to a program carrying the curve, and its expansion to one carrying the rows.
 
-    Writing a set out stays the caller's: a set is one thing to a consumer
-    that takes it and another to one that does not.
+    Writing a formulation out is the caller's: a curve is one thing to a
+    consumer printing it and another to one building rows, as a set is.
     """
     schema = schema_of(NONCONVEX_YAML)
-    program = to_program(schema)
-    assert program is to_program(schema.expand('piecewise')), 'the program of a model is the program of its rows'
-    assert {'cost_curve_lam', 'p', 'op_cost'} <= set(program.variables), 'the weights the block states'
-    assert 'cost_curve_link0' in program.constraints and not hasattr(program, 'piecewise'), (
-        'the rows are declarations like any other, and nothing records the block they came from'
+    program, rows = to_program(schema), to_program(schema.expand('piecewise'))
+
+    curve = program.piecewise['cost_curve']
+    assert [link.values for link in curve.links] == ['bp_x', 'bp_y'] and curve.frame == ('snapshot',), (
+        'the curve as the file states it, with its links typed and its frame decided'
     )
-    assert to_program(schema.expand()).sos == {} and program.sos == {}, (
+    assert curve.links[0].expression == Variable('p'), 'a link is the tree the file wrote'
+    assert 'cost_curve_lam' not in program.variables, 'the rows are on the expansion'
+    assert not rows.piecewise and {'cost_curve_lam', 'p', 'op_cost'} <= set(rows.variables), (
+        'the expansion carries the rows and no curve'
+    )
+    assert to_program(schema.expand()).sos == {} and rows.sos == {}, (
         'an adjacency block writes its own set out; a caller writes the rest out with expand()'
     )
 
@@ -510,7 +515,7 @@ def test_a_masked_lp_curve_sits_its_rows_on_predicates_rather_than_on_parameters
     caller never supplied and a derivation in private state filled. The ``where``
     language writes each of them, so the rows carry the predicate and the program
     declares the file's parameters and no other."""
-    program = to_program(schema_of(LP_MASKED))
+    program = to_program(schema_of(LP_MASKED).expand('piecewise'))
     rows = {name: program.constraints[f'cost_curve_{name}'].where for name in ('chord', 'domain_lo', 'domain_hi')}
 
     assert set(program.parameters) == {'bp_x', 'bp_y', 'load'}, 'every parameter is one the file declared'

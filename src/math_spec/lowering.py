@@ -7,9 +7,10 @@
 One lowering, on the language side, run when a :class:`~math_spec.model.Spec`
 loads: it reads every expression and where string into the program's own
 nodes, checks every rule decidable without data, and packages the
-declarations. A ``piecewise:`` block states rows, so a program is lowered
-from the model with its curves written out
-(:meth:`~math_spec.model.Spec.expand`).
+declarations, section for section. The program mirrors the model it was
+lowered from: a ``piecewise:`` block the model still declares is a curve on
+the program, and :meth:`~math_spec.model.Spec.expand` is what writes it out
+as rows.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from typing import TYPE_CHECKING
 from math_spec.dimensions import check_schema, dims_of
 from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
-from math_spec.piecewise import curve_frame, lp_domain_refusal, resolve_links
+from math_spec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, resolve_links
 from math_spec.program import (
     Assumption,
     BooleanLiteral,
@@ -28,11 +29,13 @@ from math_spec.program import (
     ConstraintDeclaration,
     DimensionDeclaration,
     ExpressionDeclaration,
+    Link,
     Mask,
     Named,
     ObjectiveDeclaration,
     Parameter,
     ParameterDeclaration,
+    PiecewiseDeclaration,
     Program,
     SosDeclaration,
     VariableDeclaration,
@@ -64,9 +67,10 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | Program) -> Prog
     model, or a program already. Idempotent, so a caller that does not know
     which it holds can call this and be sure, and one object per model: the
     program was built when the model loaded, and a second ask is the same
-    object. Every ``piecewise:`` block is written out as the rows it states;
-    a ``sos:`` block lowers as itself, since a program carries a set and
-    :meth:`~math_spec.model.Spec.expand` is what states one as binaries.
+    object. The program mirrors the model as it arrived: a ``piecewise:``
+    block still in it is a curve on the program and a ``sos:`` block a set,
+    and :meth:`~math_spec.model.Spec.expand` is what writes either out as
+    rows for a consumer that takes rows alone.
 
     Args:
         spec: What to read the declarations from.
@@ -82,7 +86,7 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | Program) -> Prog
     """
     if isinstance(spec, Program):
         return spec
-    program = to_spec(spec).expand('piecewise')._program
+    program = to_spec(spec)._program
     assert program is not None, 'a model that loaded was lowered'
     return program
 
@@ -104,12 +108,12 @@ def lower(schema: Spec) -> Program:
 
     A ``piecewise:`` block's links are resolved and its frame checked here, on
     the link the file wrote, so the expansion writes rows the language has
-    already held to every rule. The rows themselves are on the expanded
-    model's program, which :func:`to_program` answers with.
+    already held to every rule; what its method assumes of the breakpoints
+    stands under the program's assumptions with the file's own, so a model
+    states what it assumes whether or not its curves are written out.
 
     Returns:
-        The program of what *schema* declares, a ``piecewise:`` block's rows
-        not among them.
+        The program of what *schema* declares, section for section.
 
     Raises:
         SchemaError: Listing every problem found, one per line.
@@ -156,6 +160,7 @@ def lower(schema: Spec) -> Program:
             upper=upper_bound,
             domain=vdef.domain,
             absence=vdef.absence,
+            description=vdef.description,
         )
 
     constraints: dict[str, ConstraintDeclaration] = {}
@@ -164,13 +169,15 @@ def lower(schema: Spec) -> Program:
         where = resolve_where_text(cdef.where, ns, context, errors)
         if (sides := resolve_constraint_text(cdef.expression, ns, context, errors)) is not None:
             lhs, sense, rhs = sides
-            constraints[cname] = ConstraintDeclaration(tuple(cdef.dims), lhs, sense, rhs, mask_of(where))
+            constraints[cname] = ConstraintDeclaration(
+                tuple(cdef.dims), lhs, sense, rhs, mask_of(where), description=cdef.description
+            )
 
     objective = None
     if schema.objective is not None:
         expression = resolve_expression_text(schema.objective.expression, ns, 'The objective', errors, ceiling=2)
         if expression is not None:
-            objective = ObjectiveDeclaration(schema.objective.sense, expression)
+            objective = ObjectiveDeclaration(schema.objective.sense, expression, schema.objective.description)
 
     assumptions: dict[str, Assumption] = {}
     for aname, adef in schema.assumptions.items():
@@ -179,6 +186,9 @@ def lower(schema: Spec) -> Program:
 
     curves: dict[str, tuple[Expression, ...]] = {}
     for pname, pdef in schema.piecewise.items():
+        for aname, assumed in assumptions_of(pname, pdef).items():
+            if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
+                assumptions[aname] = assumption
         links = resolve_links(pname, pdef, ns, errors)
         if links is None:
             continue
@@ -195,25 +205,49 @@ def lower(schema: Spec) -> Program:
     roots.extend(link for links in curves.values() for link in links)
     in_math = frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
 
+    piecewise = {}
+    for pname, links in curves.items():
+        pdef = schema.piecewise[pname]
+        piecewise[pname] = PiecewiseDeclaration(
+            over=pdef.over,
+            links=tuple(Link(node, link.values, link.sign) for node, link in zip(links, pdef.links, strict=True)),
+            method=pdef.method,
+            frame=curve_frame(schema, pname, pdef, links),
+            activity=pdef.activity,
+            points=pdef.points,
+            description=pdef.description,
+        )
+
     program = Program(
         parameters={
-            name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in schema.parameters.items()
+            name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype, pdef.description)
+            for name, pdef in schema.parameters.items()
         },
         variables=variables,
         constraints=constraints,
         objective=objective,
-        dimensions={name: DimensionDeclaration(ddef.dtype) for name, ddef in schema.dimensions.items()},
+        dimensions={
+            name: DimensionDeclaration(ddef.dtype, ddef.description) for name, ddef in schema.dimensions.items()
+        },
         relations=ns.relations,
-        sos={name: SosDeclaration(sdef.variable, sdef.along, sos_type=sdef.type) for name, sdef in schema.sos.items()},
+        sos={
+            name: SosDeclaration(sdef.variable, sdef.along, sos_type=sdef.type, description=sdef.description)
+            for name, sdef in schema.sos.items()
+        },
+        piecewise=piecewise,
         assumptions=assumptions,
         expressions={
-            name: ExpressionDeclaration(entry.body, _frame_of(name, entry, schema), in_math=name in in_math)
+            name: ExpressionDeclaration(
+                entry.body,
+                _frame_of(name, entry, schema),
+                in_math=name in in_math,
+                description=schema.expressions[name].description,
+            )
             for name, entry in entries.items()
         },
+        description=schema.description,
     )
     check_schema(schema, program)
-    for pname, links in curves.items():
-        curve_frame(schema, pname, schema.piecewise[pname], links)
     return program
 
 

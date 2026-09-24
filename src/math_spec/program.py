@@ -5,10 +5,10 @@
 """The program: what a file declares, with names resolved and shapes fixed.
 
 The second public state, and the one a consumer reads. A :class:`Program` is
-every declaration a file makes and no data at all, with every ``piecewise:``
-block written out as the rows it states;
-:func:`~math_spec.lowering.to_program` is the only thing that builds one, so
-nothing here re-checks a hand-built one.
+the file typed, section for section: every declaration it makes, with names
+resolved, shapes fixed and every rule decidable without data checked, and no
+data at all. :func:`~math_spec.lowering.to_program` is the only thing that
+builds one, so nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
 node's structure does not show are :func:`children` and :func:`fan_in`; the
@@ -62,6 +62,7 @@ __all__ = [
     'FanIn',
     'Footprint',
     'GroupSum',
+    'Link',
     'Mask',
     'Multiply',
     'Named',
@@ -76,6 +77,7 @@ __all__ = [
     'ParameterDefined',
     'ParameterDtype',
     'Partition',
+    'PiecewiseDeclaration',
     'Power',
     'Predicate',
     'PredicateOperator',
@@ -455,6 +457,7 @@ class RelationDeclaration:
 
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...]
+    description: str | None = None
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -556,6 +559,7 @@ class DimensionDeclaration:
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
     #: about a value column, one axis over.
     dtype: DimensionDtype = 'str'
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -602,6 +606,7 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -612,6 +617,7 @@ class VariableDeclaration:
     upper: Expression = field(default_factory=lambda: Constant(float('inf')))
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -628,6 +634,7 @@ class ConstraintDeclaration:
     sense: ConstraintSense
     rhs: Expression
     where: Mask | None = None
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -644,6 +651,7 @@ class SosDeclaration:
     variable: str
     along: str
     sos_type: Literal[1, 2]
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -652,6 +660,7 @@ class ObjectiveDeclaration:
 
     sense: ObjectiveSense
     expression: Expression
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -671,6 +680,61 @@ class ExpressionDeclaration:
     #: declares, or the dims a plain entry's body carries.
     dims: tuple[str, ...]
     in_math: bool
+    description: str | None = None
+
+
+@dataclass(frozen=True)
+class Link:
+    """One link of a ``piecewise:`` block: an expression tied to the breakpoints a values parameter holds.
+
+    ``sign`` is ``'=='`` where the link is pinned to the curve, and one side
+    of it where the link is bounded by the curve instead.
+    """
+
+    expression: Expression
+    values: str
+    sign: ConstraintSense = '=='
+
+
+@dataclass(frozen=True)
+class PiecewiseDeclaration:
+    """A ``piecewise:`` block as the curve it states, which :meth:`~math_spec.model.Spec.expand` writes out as rows.
+
+    A program of a model that still declares one carries it here, typed; a
+    program of the expanded model carries the rows instead, under
+    :attr:`Program.variables` and :attr:`Program.constraints`, and what the
+    method assumes of the breakpoints under :attr:`Program.assumptions`. A
+    consumer building rows takes the expanded model.
+
+    Attributes:
+        over: The breakpoint dimension.
+        links: The links, in the order the file wrote them.
+        method: How the weights are restricted.
+        activity: The binary the weights sum to, or ``None`` where they sum
+            to 1.
+        points: The parameter saying how far each curve runs, or ``None``.
+        frame: The dimensions the block builds one curve per coordinate of,
+            in declaration order.
+    """
+
+    over: str
+    links: tuple[Link, ...]
+    method: _model.PiecewiseMethod
+    frame: tuple[str, ...]
+    activity: str | None = None
+    points: str | None = None
+    description: str | None = None
+
+    @property
+    def nominated(self) -> str | None:
+        """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
+        return self.points if self.points in {link.values for link in self.links} else None
+
+    @property
+    def curve(self) -> tuple[Link, Link]:
+        """The two links as ``(x, y)``, the bounded one last. Two-link blocks only."""
+        x, y = self.links
+        return (y, x) if x.sign != '==' else (x, y)
 
 
 @dataclass(frozen=True)
@@ -828,6 +892,9 @@ class Program:
     dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
     relations: Mapping[str, RelationDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
+    #: Each ``piecewise:`` block the model still declares, as the curve it
+    #: states; empty on a program of a model whose curves are written out.
+    piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
     #: What the data has to satisfy for the answer to mean anything, by the
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
@@ -840,6 +907,8 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    #: What the file as a whole is, as its ``description:`` says.
+    description: str | None = None
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""
@@ -852,6 +921,10 @@ class Program:
         """The row-building expressions, grouped by the position they stand in."""
         yield 'objective', (self.objective.expression,) if self.objective is not None else ()
         yield 'constraint', tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
+
+    def relations_of(self, dimension: str) -> Mapping[str, RelationDeclaration]:
+        """The relations with a column over *dimension*, by name."""
+        return Sealed({n: lk for n, lk in self.relations.items() if dimension in lk.dims})
 
     @property
     def roots(self) -> tuple[Expression, ...]:
