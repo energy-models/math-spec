@@ -94,9 +94,9 @@ def undeclared_dimension(kind: str, name: str, dimension: str) -> str:
     return f"{kind} '{name}' references undeclared dimension '{dimension}'. Declare it under 'dimensions:'."
 
 
-def _name_collisions(schema: Spec) -> Iterator[str]:
-    """A name is declared once, and never as a built-in operator."""
-    kinds: list[tuple[str, Iterable[str]]] = [
+def _flat_namespace(schema: Spec) -> list[tuple[str, Iterable[str]]]:
+    """Each kind of declaration whose names share the one namespace an expression reads, in declaration order."""
+    return [
         ('dimension', schema.dimensions),
         ('relation', schema.relations),
         ('parameter', schema.parameters),
@@ -104,8 +104,12 @@ def _name_collisions(schema: Spec) -> Iterator[str]:
         ('named expression', schema.expressions),
         ('macro', schema.macros),
     ]
+
+
+def _name_collisions(schema: Spec) -> Iterator[str]:
+    """A name is declared once, and never as a built-in operator."""
     seen: dict[str, str] = {}
-    for kind, group in kinds:
+    for kind, group in _flat_namespace(schema):
         for name in group:
             if name in BUILTIN_NAMES:
                 yield (
@@ -311,16 +315,22 @@ def _piecewise_references(schema: Spec) -> Iterator[str]:
 
 
 def _collisions(schema: Spec, context: str, by_kind: Iterable[tuple[str, Iterable[str]]]) -> Iterator[str]:
-    """The refusal for each name *context*'s expansion writes that the file already declares, by kind."""
-    declared: dict[str, Iterable[str]] = {
-        'variable': schema.variables,
-        'constraint': schema.constraints,
-        'sos': schema.sos,
-        'assumption': schema.assumptions,
+    """The refusal for each name *context*'s expansion writes that the file already declares, by kind.
+
+    An emitted variable joins the flat namespace, so any declaration there
+    takes its name; a constraint, a set and an assumption each have their own.
+    """
+    sections = {'named expression': 'expressions', 'sos': 'sos'}
+    declared: dict[str, dict[str, str]] = {
+        'variable': {name: kind for kind, group in _flat_namespace(schema) for name in group},
+        'constraint': dict.fromkeys(schema.constraints, 'constraint'),
+        'sos': dict.fromkeys(schema.sos, 'sos'),
+        'assumption': dict.fromkeys(schema.assumptions, 'assumption'),
     }
     for kind, names in by_kind:
         yield from (
-            f"{context}: its expansion writes {kind} '{one}', which this file already declares. Rename one of them."
+            f"{context}: its expansion writes {kind} '{one}', which this file already declares under "
+            f"'{sections.get(declared[kind][one], declared[kind][one] + 's')}:'. Rename one of them."
             for one in names
             if one in declared[kind]
         )
