@@ -39,13 +39,10 @@ file, it is one.
   asked for.
 - **Nothing is written out unasked.** A `piecewise:` or `sos:` block is the
   block until a caller writes it out with `spec.expand(...)`. No door, verb or
-  check expands a model on the caller's behalf: `spec.program` mirrors the
-  file, `advice` reads a block as the rows it states, and `--expand` on a
-  typeset verb is how the shell asks for the rows as a document of their own.
-  A program's `footprint`, `separability` and `roots` answer for the rows it
-  holds, so a curve counts there once it is written out.
-  An engine that writes curves out at its
-  own door makes that choice for its users, not for the language.
+  check expands a model on the caller's behalf.
+  [The file and the program](file-and-program.md) says which tool reads the
+  block and which reads the rows. An engine that writes curves out at its own
+  door makes that choice for its users, not for the language.
 
 ## Three things a function never decides
 
