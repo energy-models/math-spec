@@ -1153,6 +1153,12 @@ def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
     assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'
 
 
+def test_a_spec_answers_with_one_program_however_often_it_is_asked():
+    """The public-API page promises one object, so a cache a reader may key on it holds."""
+    spec = to_spec(DISPATCH_MODEL)
+    assert spec.program is spec.program
+
+
 def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
     """A model crosses a process the same whether or not it has been lowered.
 

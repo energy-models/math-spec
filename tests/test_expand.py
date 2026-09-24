@@ -91,7 +91,11 @@ def test_each_set_of_kinds_is_expanded_once():
     assert schema.expand() is not schema.expand('piecewise'), 'a set left standing is a different model'
 
 
-def test_the_curves_are_written_out_once_however_they_are_asked_for(monkeypatch):
+@pytest.mark.parametrize(
+    'asks',
+    [pytest.param(((), ('piecewise',)), id='everything-first'), pytest.param((('piecewise',), ()), id='curves-first')],
+)
+def test_the_curves_are_written_out_once_however_they_are_asked_for(monkeypatch, asks):
     """`expand()` called the curve expander directly, so the model `expand('piecewise')` had
     already written out and cached was built again, and validated again, on every full ask.
 
@@ -104,8 +108,8 @@ def test_the_curves_are_written_out_once_however_they_are_asked_for(monkeypatch)
     monkeypatch.setattr(piecewise, 'expand_piecewise', lambda spec: asked.append(spec) or written_out(spec))
 
     assert asked == [], 'loading a model writes no curve out'
-    assert not schema.expand().piecewise
-    assert not schema.expand('piecewise').piecewise
+    for kinds in asks:
+        assert not schema.expand(*kinds).piecewise
     assert asked == [schema], 'the curves were written out once, and that model is the one the sets are written out of'
 
 
