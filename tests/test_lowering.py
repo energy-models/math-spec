@@ -1163,7 +1163,7 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
 def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
     """`program.constraints | program.variables` is a dict of both, as it was
     when the groups were `MappingProxyType`s — a consumer that walks every
-    declaration this way (lpspec's parity harness does) broke on alpha.78,
+    declaration this way (specsolve's parity harness does) broke on alpha.78,
     where the seal answered `|` with a `TypeError`."""
     program = to_spec(
         {

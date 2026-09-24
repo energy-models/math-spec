@@ -1200,7 +1200,7 @@ data prep, or harness — is one open question. Line numbers are pinned pypsa
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
 | `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
 
-Duals and solutions are read back by the harness on the lpspec side:
+Duals and solutions are read back by the harness on the specsolve side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
 concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 
