@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice, LanguageError
-from math_spec.lowering import to_program
 from math_spec.program import GroupSum, Program, Pullback, walk
 from math_spec.validation import to_spec
 
@@ -41,14 +40,12 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
         LanguageError: A :class:`Program` with a ``piecewise:`` block still
             in it, naming the expansion to pass instead.
     """
-    if not isinstance(model, Program):
-        model = to_spec(model).expand('piecewise')
-    program = to_program(model)
+    program = model if isinstance(model, Program) else to_spec(model).expand('piecewise').program
     if program.piecewise:
         named = ', '.join(f"'{name}'" for name in program.piecewise)
         msg = (
-            f'piecewise: {named} states rows, and advice reads the rows. Pass '
-            f"to_program(spec.expand('piecewise')), which writes each block out as the variables and "
+            f'piecewise: {named} states rows rather than being one, and advice reads the rows. Pass '
+            f"spec.expand('piecewise').program, which writes each block out as the variables and "
             f'constraints it states.'
         )
         raise LanguageError(msg)

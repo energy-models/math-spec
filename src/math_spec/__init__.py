@@ -5,9 +5,10 @@
 """The language: what a YAML file may say, and what it means.
 
 Two public states — a :class:`~math_spec.model.Spec` is what the file *says*,
-a :class:`~math_spec.program.Program` is what it *means* — and a conversion to
-each. Everything between them — both grammars and the tree they build — is
-package-private, because a consumer reads a program instead.
+and its :attr:`~math_spec.model.Spec.program` is what it *means* — and
+:func:`to_spec`, the one door to both. Everything between them — both grammars
+and the tree they build — is package-private, because a consumer reads a
+program instead.
 """
 
 from math_spec import program
@@ -22,7 +23,6 @@ from math_spec.errors import (
     did_you_mean,
     schema_error,
 )
-from math_spec.lowering import to_program
 from math_spec.model import (
     CURVATURES,
     DIMENSION_DTYPES,
@@ -76,7 +76,6 @@ __all__ = [
     'schema_error',
     'to_latex',
     'to_markdown',
-    'to_program',
     'to_spec',
     'to_typst',
     'typeset',

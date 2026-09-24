@@ -50,45 +50,11 @@ from math_spec.resolution import (
     resolve_expression_text,
     resolve_where_text,
 )
-from math_spec.validation import reference_errors, to_spec
+from math_spec.validation import reference_errors
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-    from pathlib import Path
-
     from math_spec.model import AssumptionBlock, Spec
     from math_spec.program import Expression
-
-
-def to_program(spec: str | Path | Mapping[str, object] | Spec | Program) -> Program:
-    """*spec* as a :class:`~math_spec.program.Program` — the public door.
-
-    Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
-    model, or a program already. Idempotent, so a caller that does not know
-    which it holds can call this and be sure, and one object per model: the
-    program was built when the model loaded, and a second ask is the same
-    object. The program mirrors the model as it arrived: a ``piecewise:``
-    block still in it is a curve on the program and a ``sos:`` block a set,
-    and :meth:`~math_spec.model.Spec.expand` is what writes either out as
-    rows for a consumer that takes rows alone.
-
-    Args:
-        spec: What to read the declarations from.
-
-    Returns:
-        Every declaration the file makes, with names resolved and shapes
-        fixed.
-
-    Raises:
-        SchemaError: The file is not a valid model.
-        LanguageError: A construct outside the language, named with its
-            rewrite.
-    """
-    if isinstance(spec, Program):
-        return spec
-    program = to_spec(spec)._program
-    assert program is not None, 'a model that loaded was lowered'
-    return program
 
 
 def lower(schema: Spec) -> Program:

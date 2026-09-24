@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec import piecewise, to_spec
-from math_spec.lowering import to_program
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
 from tests.test_sos import CURVE
 from tools.render_tex import models
@@ -138,8 +137,8 @@ def test_what_a_curve_assumes_of_its_numbers_rides_on_the_expansion_too(model):
     decides. The program carries the condition for the consumer that has the numbers,
     and writing the curve out must not be the way a model loses it."""
     spec = schema_of(model)
-    stated = to_program(spec.expand('piecewise')).assumptions
-    written_out = to_program(spec.expand()).assumptions
+    stated = spec.expand('piecewise').program.assumptions
+    written_out = spec.expand().program.assumptions
 
     assert {'cost_curve_increasing', 'cost_curve_curvature'} <= set(stated), (
         'the breakpoints increase and the curve bends one way, both checked where the data is'
@@ -153,7 +152,7 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
     neither a set nor a curve emits a parameter. A consumer's `sources` argument
     is therefore the same either way."""
     spec = schema_of(model)
-    supplied = set(to_program(spec.expand('piecewise')).parameters)
-    written_out = set(to_program(spec.expand()).parameters)
+    supplied = set(spec.expand('piecewise').program.parameters)
+    written_out = set(spec.expand().program.parameters)
 
     assert written_out == supplied, 'writing a formulation out asks for data the model it came from did not'
