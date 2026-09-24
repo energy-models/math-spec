@@ -75,17 +75,26 @@ def test_a_standard_constraint_changes_frame_only_by_a_leading_scenario():
     assert not wrong, f'a standard row may gain only a leading scenario; these differ: {wrong}'
 
 
-#: the standard parameters PyPSA reads per scenario
-SCENARIO_PARAMETERS = {'Load_p_set', 'GlobalConstraint_sense', 'GlobalConstraint_constant'}
-
-
-def test_only_the_scenario_parameters_carry_scenario_among_standard_parameters():
+def test_a_standard_parameter_changes_frame_only_by_a_leading_scenario():
     wrong = {
         name: _dims(ALL.parameters[name])
         for name, dims in STANDARD['parameters'].items()
-        if _dims(ALL.parameters[name]) != (['scenario', *dims] if name in SCENARIO_PARAMETERS else dims)
+        if _dims(ALL.parameters[name]) not in (dims, ['scenario', *dims])
     }
-    assert not wrong, f'only {sorted(SCENARIO_PARAMETERS)} gain scenario; these differ: {wrong}'
+    assert not wrong, f'a standard parameter may gain only a leading scenario; these differ: {wrong}'
+
+
+#: PyPSA refuses a difference across scenarios in these attributes and in what is derived from them
+INVARIANT_SUFFIXES = ('_extendable', '_committable', '_nom_mod', '_active', '_capital_weight', '_type')
+
+
+def test_what_pypsa_holds_equal_across_scenarios_spans_no_scenario():
+    spanning = sorted(
+        name
+        for name, block in ALL.parameters.items()
+        if name.endswith(INVARIANT_SUFFIXES) and 'scenario' in _dims(block)
+    )
+    assert not spanning, f'PyPSA refuses these to differ by scenario, so they carry no scenario: {spanning}'
 
 
 def test_the_extra_axes_and_rows_are_declared():
