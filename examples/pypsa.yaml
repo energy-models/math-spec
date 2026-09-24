@@ -2024,6 +2024,15 @@ expressions:
       + sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
       + sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
       + sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
+  Carrier_relative_growth:
+    description: >-
+      the share of the previous period's additions a carrier's growth limit
+      reads — PyPSA's `max_relative_growth` clipped at zero, so a negative
+      share adds nothing and never tightens the limit
+    dims: [carrier]
+    cases:
+      positive: { when: Carrier_max_relative_growth > 0, expression: Carrier_max_relative_growth }
+    otherwise: 0
   Line_s_monitored:
     description: >-
       the flow a line's post-contingency rows read — its flow where it stands,
@@ -3572,7 +3581,7 @@ constraints:
     where: Carrier_max_growth
     expression: >-
       Carrier_additions
-      - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_max_relative_growth
+      - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_relative_growth
       <= Carrier_max_growth
   CVaR_excess:
     description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"

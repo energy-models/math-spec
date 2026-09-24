@@ -318,6 +318,7 @@ names:
   Process_first_active: '\mathrm{new}^{z}'
   Carrier_max_growth: '\overline{\Delta}'
   Carrier_max_relative_growth: '\mathrm{r}'
+  Carrier_relative_growth: '\mathrm{r}^{+}'
   Generator_maintainable: '\mathrm{mnt}'
   Link_maintainable: '\mathrm{mnt}^{f}'
   Process_maintainable: '\mathrm{mnt}^{z}'

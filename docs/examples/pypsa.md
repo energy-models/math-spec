@@ -1359,6 +1359,7 @@ own dimensions.
 | [`Generator-p`](#variable-domains) | done | where the generator stands in the snapshot's period — `active`, data prep |
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | every extendable component of the carrier, counted in the first period a build stands in; `edge=0` at the first period |
+| [`Carrier-growth_limit`](#carrier-growth_limit) with a negative `max_relative_growth` | done | rung 39 |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) for storage built in a later period or retired early | done | rung 32 |
@@ -3241,6 +3242,96 @@ def build():
 </details>
 <!-- reference:rung_38_delay_per_period:end -->
 
+### Rung 39 — a negative relative growth
+
+`n.optimize(multi_investment_periods=True)` with a carrier whose
+`max_relative_growth` is negative. PyPSA clips the share at zero before it
+builds `Carrier-growth_limit` (`global_constraints.py:237`), so a negative
+share adds nothing and does not tighten the limit. `Carrier_relative_growth`
+states the clip as a case: the given share where it is positive, zero
+otherwise. A plain run has one period and builds no growth row.
+
+The rung builds a battery carrier with `max_growth=20` and
+`max_relative_growth=-0.5`, and two stores built in 2020 and 2030. The earlier
+file read the share as given, so the 2030 row added half of the 2020 build to
+the left side. With that row patched into PyPSA through `extra_functionality`,
+the network solves to `9347.5` (#620).
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Carrier-growth_limit`](#carrier-growth_limit), `max_relative_growth.clip(min=0)` | done | `Carrier_relative_growth` is `Carrier_max_relative_growth` where it is positive, `0` otherwise |
+
+<!-- reference:rung_39_negative_relative_growth:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `8600.0`, 44 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_39_negative_relative_growth.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 39: a negative relative growth adds nothing to a carrier's growth limit — PyPSA clips it at zero."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def build():
+    """A whole network, not the spine: a battery carrier with `max_relative_growth=-0.5` builds in both periods."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(2)] + [(2030, datetime(2030, 1, 1, t)) for t in range(2)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', 'grid')
+    n.add('Carrier', 'solar')
+    n.add('Carrier', 'gas')
+    n.add('Carrier', 'battery', max_growth=20, max_relative_growth=-0.5)
+    n.add('Generator', 'solar', bus='grid', carrier='solar', p_nom=100, marginal_cost=1, p_max_pu=[1, 0, 1, 0])
+    n.add('Generator', 'backup', bus='grid', carrier='gas', p_nom=200, marginal_cost=80)
+    n.add(
+        'Store',
+        'tank20',
+        bus='grid',
+        carrier='battery',
+        e_nom_extendable=True,
+        e_nom_max=100,
+        capital_cost=10,
+        build_year=2020,
+        lifetime=30,
+    )
+    n.add(
+        'Store',
+        'tank30',
+        bus='grid',
+        carrier='battery',
+        e_nom_extendable=True,
+        e_nom_max=100,
+        capital_cost=8,
+        build_year=2030,
+        lifetime=30,
+    )
+    n.add('Load', 'town', bus='grid', p_set=[40, 60, 40, 80])
+    return n
+```
+
+</details>
+<!-- reference:rung_39_negative_relative_growth:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -3641,6 +3732,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
 | $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$ — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. Like PyPSA, it sums only the components that carry a carrier attribute, so a transformer, which has none, counts in no carrier |
+| $`\mathrm{r}^{+}`$ | `Carrier_relative_growth` over $`\mathcal{I}`$ — the share of the previous period's additions a carrier's growth limit reads — PyPSA's `max_relative_growth` clipped at zero, so a negative share adds nothing and never tightens the limit |
 | $`\check{s}`$ | `Line_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — the flow a line's post-contingency rows read — its flow where it stands, nothing where it does not, since PyPSA builds those rows for every branch of the sub-network in every snapshot |
 | $`\check{\sigma}`$ | `Transformer_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — the flow a transformer's post-contingency rows read, as a line's |
 | $`\hat{s}`$ | `Outage_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}^{\mathrm{out}}`$ — the flow an outage takes off its branch — the outaged line's or transformer's flow before it goes out |
@@ -7662,12 +7754,12 @@ Carrier_growth_limit:
   where: Carrier_max_growth
   expression: >-
     Carrier_additions
-    - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_max_relative_growth
+    - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_relative_growth
     <= Carrier_max_growth
 ```
 
 ```math
-\mathit{Carrier\_additions}_{y,i} - \mathit{Carrier\_additions}_{y \boxminus_{0} 1,i} \cdot \mathrm{r}_{i} \le \overline{\Delta}_{i} \qquad \forall\, i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \overline{\Delta}_{i} \text{ is defined}
+\mathit{Carrier\_additions}_{y,i} - \mathit{Carrier\_additions}_{y \boxminus_{0} 1,i} \cdot \mathrm{r}^{+}_{i} \le \overline{\Delta}_{i} \qquad \forall\, i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \overline{\Delta}_{i} \text{ is defined}
 ```
 
 ### `CVaR-excess-{s}`
@@ -8598,6 +8690,24 @@ Carrier_additions:
 
 ```math
 \mathit{Carrier\_additions}_{y,i} = \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} + \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_carrier}(l) = i} F_{l} \cdot \mathrm{new}^{f}_{y,l} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_carrier}(s) = i} H_{s} \cdot \mathrm{new}^{h}_{y,s} + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_carrier}(v) = i} E_{v} \cdot \mathrm{new}^{e}_{y,v} + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_carrier}(k) = i} S_{k} \cdot \mathrm{new}^{s}_{y,k} + \sum_{j \in \mathcal{J} \,:\, \mathrm{Process\_carrier}(j) = i} Z_{j} \cdot \mathrm{new}^{z}_{y,j} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `Carrier_relative_growth`
+
+```yaml
+Carrier_relative_growth:
+  description: >-
+    the share of the previous period's additions a carrier's growth limit
+    reads — PyPSA's `max_relative_growth` clipped at zero, so a negative
+    share adds nothing and never tightens the limit
+  dims: [carrier]
+  cases:
+    positive: { when: Carrier_max_relative_growth > 0, expression: Carrier_max_relative_growth }
+  otherwise: 0
+```
+
+```math
+\mathrm{r}^{+}_{i} = \begin{cases} \mathrm{r}_{i} & \text{if } \mathrm{r}_{i} > 0 \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I}
 ```
 
 ### `Line_s_monitored`
