@@ -199,8 +199,7 @@ The sign travels in the values: `offset=-lead` is refused.
 Each row is generated from one model in
 [`examples/operators/`](https://github.com/energy-models/math-spec/tree/main/examples/operators),
 printed by the [typesetter](../typeset.md). The models themselves are on
-[One construct per model](../../examples/operators.md), and the rest of the
-language prints on [Every construct, as math](../notation.md).
+[One construct per model](../../examples/operators.md).
 
 <!-- operator-math:begin -->
 | Operator | Renders as |
