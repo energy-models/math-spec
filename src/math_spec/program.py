@@ -954,13 +954,21 @@ class Program:
     def roots(self) -> tuple[Expression, ...]:
         """Every tree a row is built from — the objective and both sides of each constraint.
 
-        An :attr:`expressions` entry builds no row and is not among them.
+        An :attr:`expressions` entry builds no row and is not among them. Nor is
+        a curve still under :attr:`piecewise`: it is not a row until
+        :meth:`~math_spec.model.Spec.expand` writes it out, and its rows are in
+        the program of the expansion.
         """
         return tuple(e for _, group in self._by_position() for e in group)
 
     @cached_property
     def footprint(self) -> Footprint:
-        """Which constructs this program uses — walked once, then held."""
+        """Which constructs this program uses — walked once, then held.
+
+        It answers for the rows this program holds. A curve still under
+        :attr:`piecewise` is not counted, so a ``sos2`` curve adds no set order
+        here; ask the program of ``spec.expand('piecewise')`` for its rows.
+        """
         return Footprint(
             quadratic=frozenset(
                 position for position, group in self._by_position() if any(is_quadratic(e) for e in group)
@@ -989,6 +997,11 @@ class Program:
         for the same reason — a program cannot change after construction — and
         answering for every axis costs what answering for one did, every
         construct that ties an axis naming the axis it ties (#248).
+
+        It answers for the rows this program holds, as :attr:`footprint` does.
+        A curve still under :attr:`piecewise` ties nothing here, although its
+        rows sum over its breakpoint dimension; ask the program of
+        ``spec.expand('piecewise')``.
         """
         from math_spec.separability import separabilities
 

@@ -201,8 +201,9 @@ arrives as a `Mask` too. The node classes live in `math_spec.program`.
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one model uses.
-Ask it of the rows a solver takes, since a curve written out uses more of the
-language than the block did:
+It answers for the rows the program holds, and a curve still on the program is
+not a row. Ask it of the rows a solver takes, since a curve written out uses
+more of the language than the block did:
 
 ```python
 footprint = rows.footprint
@@ -223,9 +224,12 @@ quadratic form is convex is not reported, because it depends on the numbers.
 
 `program.separability` says, per axis, whether every row of the model fits
 inside one window along it: a storage balance that reads the previous snapshot
-does, and an annual emissions cap does not.
+does, and an annual emissions cap does not. Like the footprint, it answers for
+the rows the program holds. The curve's rows sum over `bp`, so only the rows
+show that tie:
 
 ```python
+program.separability['bp'].windowable  # True
 rows.separability['bp'].windowable  # False
 rows.separability['generator'].linking_rows  # ('target',)
 rows.separability['generator'].linking_columns  # ()

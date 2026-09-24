@@ -42,6 +42,8 @@ file, it is one.
   check expands a model on the caller's behalf: `spec.program` mirrors the
   file, `advice` reads a block as the rows it states, and `--expand` on a
   typeset verb is how the shell asks for the rows as a document of their own.
+  A program's `footprint`, `separability` and `roots` answer for the rows it
+  holds, so a curve counts there once it is written out.
   An engine that writes curves out at its
   own door makes that choice for its users, not for the language.
 
