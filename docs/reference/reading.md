@@ -104,7 +104,7 @@ rather than the curve:
 ```python
 sorted(spec.expand().variables)  # ['cost', 'curve_lam', 'p']
 sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
-spec.expand() is spec.expand()  # True
+spec.expand() == spec.expand()  # True
 ```
 
 A consumer that takes a set reads the program of `spec.expand('piecewise')`,

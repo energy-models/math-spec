@@ -19,7 +19,6 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
-    PrivateAttr,
     ValidationError,
     ValidationInfo,
     ValidatorFunctionWrapHandler,
@@ -715,11 +714,6 @@ class Spec(_StrictBlock):
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: What :meth:`expand` returned for each set of formulations asked for, so
-    #: a second ask is the same object rather than a second expansion. A model
-    #: that expands to itself is not stored: two of them compare by their
-    #: private state, which a model holding itself cannot answer.
-    _expansions: dict[tuple[Formulation, ...], Spec] = PrivateAttr(default_factory=dict)
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
     #: any release — and declaring it is what lets a later reader refuse a file
@@ -848,19 +842,12 @@ class Spec(_StrictBlock):
             ValueError: *kinds* names something that is not a formulation.
         """
         wanted = _formulations(kinds)
-        if (found := self._expansions.get(wanted)) is not None:
-            return found
         from math_spec.piecewise import expand_piecewise
         from math_spec.sos import expand_sets
 
-        if wanted == ('piecewise',):
-            expanded = expand_piecewise(self)
-        else:
-            expanded = self.expand('piecewise') if 'piecewise' in wanted else self
-            if expanded.sos:
-                expanded = expand_sets(expanded)
-        if expanded is not self:
-            self._expansions[wanted] = expanded
+        expanded = expand_piecewise(self) if 'piecewise' in wanted else self
+        if 'sos' in wanted and expanded.sos:
+            expanded = expand_sets(expanded)
         return expanded
 
     @model_validator(mode='after')

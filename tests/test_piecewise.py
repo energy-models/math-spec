@@ -175,11 +175,11 @@ def test_a_program_mirrors_the_model_it_was_lowered_from():
     )
 
 
-def test_expansion_is_memoised_and_idempotent():
-    """One object per set of formulations asked for, and a model with none to expand is its own expansion."""
+def test_expansion_is_idempotent():
+    """One model per set of formulations asked for, and a model with none to expand is its own expansion."""
     schema = schema_of(NONCONVEX_YAML)
     expanded = schema.expand('piecewise')
-    assert schema.expand('piecewise') is expanded
+    assert schema.expand('piecewise') == expanded
     assert expanded.expand('piecewise') is expanded
 
     curveless = schema_of(DISPATCH_MODEL)
