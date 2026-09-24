@@ -53,7 +53,7 @@ flowchart LR
     AST --> Q{"inside the<br/>language?"}
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
     Q -->|"yes"| M["Spec<br/>what the file says"]
-    M -->|"to_program"| P["Program<br/>names, dimensions and operators resolved"]
+    M -->|".program"| P["Program<br/>names, dimensions and operators resolved"]
     P --> ENG["an engine that builds → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
 
@@ -301,19 +301,21 @@ import math_spec as ms
 spec = ms.to_spec('dispatch.yaml')  # schema, names, dimensions, degree: all checked here
 sorted(spec.variables)  # ['dispatch']
 
-program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
+program = spec.expand().program  # curves expanded, names typed, operators resolved to nodes
 sorted(program.constraints)  # ['power_balance']
 ```
 
 Neither needs data or a solver, so a repository of models compiles in CI with
 nothing bound to any of them. **A `Spec` holds the file as written, and a
 `Program` holds the model it builds**, with every macro expanded and every curve
-turned into its variables and constraints. An engine reads the `Program`.
+kept as the block it is. `spec.expand()` turns each curve into its variables and
+constraints; an engine that builds rows reads that model's `Program`.
 
 <!--- --8<-- [end:load] -->
 
-[Reading a loaded model](docs/reference/reading.md) says what a tool
-gets from each.
+[Reading a loaded model](docs/reference/reading.md) says what a tool gets
+from each, and [the file and the program](docs/about/file-and-program.md) says
+why there are two.
 
 ## Why
 

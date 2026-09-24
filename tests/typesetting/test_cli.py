@@ -76,6 +76,21 @@ def test_check_accepts_the_model_that_carries_every_construct(capsys):
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
+def test_check_reads_a_curve_as_written(capsys):
+    """`check` expanded every curve on the user's behalf, then refused a curve without `--expand`; either way
+    it read a file differently from the typeset verbs, which print it as written.
+
+    Advice reads a block as the rows it states, so `check` takes the file as
+    written and has no `--expand`: the rows are a different document to
+    print, not a different model to advise on.
+    """
+    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 0, 'a curve left as written is checked as written'
+    assert capsys.readouterr() == ('', ''), 'no advice, no output'
+    with pytest.raises(SystemExit) as left:
+        front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand'])
+    assert left.value.code == 2, 'check has no --expand, since it would change nothing'
+
+
 def _carries(stream: str, said: str) -> bool:
     """*stream* mentions *said*, or is silent where *said* is empty."""
     return said in stream if said else stream == ''

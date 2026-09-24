@@ -14,7 +14,7 @@ import pytest
 from math_spec.errors import LanguageError
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
+from math_spec.typesetting.symbols import _derive_name_symbol, chosen_expressions, symbols_for
 from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -172,6 +172,27 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     assert fmt.subscript(fmt.operators['edge_minus'], ['0', group]) not in text, (
         'the fill and the group are sharing one subscript again'
     )
+
+
+@pytest.mark.parametrize('name', ['latex', 'typst', 'markdown'])
+def test_a_translation_by_nothing_takes_no_legend_note(name: FormatName):
+    """A shift by 0 prints no operator, but the legend read every partitioned
+    translation as printed and explained a grouped operator the page never shows."""
+    model = {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
+        'relations': {'season_of': {'key': 'snapshot', 'values': 'season'}},
+        'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
+        'constraints': {
+            'held': {
+                'dims': ['snapshot'],
+                'expression': 'p <= shift(p, along=snapshot, offset=0, edge=0, by=season_of, within=season)',
+            }
+        },
+        'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
+    }
+    text = typeset(model, name)
+    assert 'denotes a translation counted inside the group' not in text
+    assert 'denotes translation with' not in text, 'no fill note for a translation that vacates nothing'
 
 
 @EVERY_FORMAT
@@ -512,14 +533,14 @@ def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
     schema = to_spec(golden.MODEL)
-    computed = set(schema.variables) | chosen_expressions(schema)
+    computed = set(schema.variables) | chosen_expressions(schema.program)
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= computed, (
         f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '
         f'solution — upright is what the model is given, italic what it computes'
     )
 
-    symbols = Symbols(schema, LATEX, SymbolTable('latex'))
+    symbols = symbols_for(schema.program, LATEX, SymbolTable('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
     assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
         f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'

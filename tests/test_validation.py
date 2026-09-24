@@ -14,7 +14,6 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.lowering import to_program
 from math_spec.program import DimensionPosition
 from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
@@ -195,7 +194,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).expressions['lcoe'].in_math is False, (
+        assert to_spec(model).program.expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
@@ -1508,6 +1507,67 @@ class TestRulesDecidedWithoutData:
                 ('a bare dimension name is true at every coordinate',),
                 id='where-a-bare-dimension',
             ),
+            pytest.param(
+                {
+                    'macros.scaled': {'args': ['x'], 'kwargs': ['n'], 'template': 'x * n'},
+                    'constraints': {'cap': {'dims': ['g'], 'expression': "scaled(p, n='wrap') <= c"}},
+                },
+                ("'wrap' is a quoted keyword", 'In an expression, quote nothing'),
+                id='a-quoted-keyword-as-an-operand',
+            ),
+            pytest.param(
+                {
+                    'macros.scaled': {'args': ['x'], 'kwargs': ['n'], 'template': 'x * n'},
+                    'constraints': {'cap': {'dims': ['g'], 'expression': 'scaled(p, n=[c, k]) <= c'}},
+                },
+                ('[c, k] is a list of names', 'write the terms out and add them'),
+                id='a-name-list-as-an-operand',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'shift(p, along=g, offset=p) <= c'}}},
+                ('shift(offset=...) must be a whole number, or the name of an integer parameter',),
+                id='a-shift-offset-naming-a-variable',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'shift(p, along=g, offset=1, edge=clip) <= c'}}},
+                ('shift(edge=clip) is not an edge policy', "Write edge='wrap'"),
+                id='an-edge-that-is-a-bare-name-other-than-wrap',
+            ),
+            pytest.param(
+                {'variables.p.where': 'shift(flag, along=c, offset=1)'},
+                ('shift(<predicate>, along=) names the dimension', 'Name a declared dimension'),
+                id='where-a-shifted-predicate-along-a-parameter',
+            ),
+            pytest.param(
+                {'macros.half': {'args': ['x'], 'template': 'x / 2'}, 'variables.p.where': 'c > half(k, k)'},
+                ("Variable 'p': macro 'half' expects 1 positional argument(s), got 2",),
+                id='where-a-side-whose-macro-call-does-not-expand',
+            ),
+            pytest.param(
+                {'variables.p.where': "c.h == 'x'"},
+                ("'c.h' reads a column of 'c', which is a parameter", 'Only a relation has columns'),
+                id='where-a-column-of-a-parameter',
+            ),
+            pytest.param(
+                {'variables.p.where': 'r > 0'},
+                ("where references variable 'r'", 'built before variables exist'),
+                id='where-a-variable-on-the-left',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'relations.lk.values': ['h', 'z'], 'variables.p.where': "lk == 'x'"},
+                ("'lk' has 2 value columns (['h', 'z'])", 'say which the comparison reads: lk.h'),
+                id='where-a-relation-of-two-value-columns-read-bare',
+            ),
+            pytest.param(
+                {'variables.p.where': "lk.zz == 'x'"},
+                ("'zz' is not a column of 'lk', whose columns are ['g', 'h']",),
+                id='where-a-column-the-relation-lacks',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'relations.lz': {'key': 'g', 'values': 'z'}, 'variables.p.where': 'lk == lz'},
+                ("compares 'lk' (a column over 'h') with 'lz' (a column over 'z')", 'can only mask everything out'),
+                id='where-two-relations-whose-columns-are-over-different-dimensions',
+            ),
         ],
     )
     def test_a_rule_decided_without_data(self, patch, fragments):
@@ -2035,7 +2095,7 @@ def test_a_chain_of_named_expressions_is_held_to_the_resolved_depth_and_costs_no
     chain = _chain(150, deepest_first=deepest_first)
     constraint = {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) <= e149'}
     spec = to_spec(override(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
-    to_markdown(to_program(spec) and spec)
+    to_markdown(spec.program and spec)
 
     with pytest.raises(LanguageError, match='nests 301 deep with every named expression it reads written in') as caught:
         to_spec(override(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
@@ -2060,13 +2120,14 @@ def test_a_name_may_open_with_an_underscore():
 def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     """Loading, lowering and typesetting a model resolve each expression and where string once.
 
-    Every reader after validation — the dim rules, lowering, the typesetter —
-    used to parse, expand and resolve the declaration's text again, so one
-    constraint was resolved four times per load and the trees the readers
-    walked were built apart from the one the language checked (#401). They
-    read the trees validation built now.
+    Every reader after validation — the dim rules, the typesetter — used to
+    parse, expand and resolve the declaration's text again, so one constraint
+    was resolved four times per load and the trees the readers walked were
+    built apart from the one the language checked (#401). They read the
+    program lowering built now. A curve's links were resolved again for its
+    rules at load and again when printed.
     """
-    from math_spec import resolution, validation
+    from math_spec import lowering, resolution
 
     seen: list[tuple[str, str]] = []
 
@@ -2078,7 +2139,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         return record
 
     doors = (resolution.resolve_expression, resolution.resolve_constraint_text, resolution.resolve_where_text)
-    for module in (validation, resolution):
+    for module in (lowering, resolution):
         for door in doors:
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
@@ -2093,10 +2154,15 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
                     'otherwise': 'p_max - p',
                 },
                 'constraints.spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+                'dimensions.bp': {'dtype': 'int'},
+                'parameters.bp_x': {'dims': ['generator', 'bp']},
+                'parameters.bp_y': {'dims': ['generator', 'bp']},
+                'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+                'piecewise.curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
             },
         )
     )
-    to_program(spec)
+    _ = spec.program
     to_markdown(spec)
 
     assert sorted(seen) == [
@@ -2105,8 +2171,29 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         ('resolve_expression', "Named expression 'headroom', case 'opening'"),
         ('resolve_expression', "Named expression 'headroom', otherwise"),
         ('resolve_expression', 'The objective'),
+        ('resolve_expression', "piecewise 'curve' link 0"),
+        ('resolve_expression', "piecewise 'curve' link 1"),
+        ('resolve_where_text', "Assumption 'curve_complete'"),
+        ('resolve_where_text', "Assumption 'curve_complete', where"),
         ('resolve_where_text', "Constraint 'balance'"),
         ('resolve_where_text', "Constraint 'spare'"),
         ('resolve_where_text', "Named expression 'headroom', case 'opening'"),
+        ('resolve_where_text', "Variable 'op_cost'"),
         ('resolve_where_text', "Variable 'p'"),
     ], 'every expression and where position once, under the context validation reads it in, and nothing after'
+
+
+@pytest.mark.parametrize(
+    'constraints',
+    [
+        pytest.param({}, id='an-entry-nothing-reads'),
+        pytest.param({'c': {'dims': ['g'], 'expression': 'p <= bad'}}, id='an-entry-a-constraint-reads'),
+    ],
+)
+def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_name(constraints):
+    """An entry nothing read loaded and failed only when printed, and one a constraint read was
+    refused under the constraint's name. The program reads an entry's frame off its body at
+    load, so the fault is the entry's, wherever it is read."""
+    model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
+    with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
+        to_spec(model)

@@ -300,8 +300,7 @@ def test_the_form_declares_the_same_model(path):
     differently by a consumer that reads that order.
     """
     original, rewritten = (
-        ms.to_program(ms.to_spec(source).expand('piecewise'))
-        for source in (path, ms.to_spec(path).to_yaml(canonical=True))
+        ms.to_spec(source).expand('piecewise').program for source in (path, ms.to_spec(path).to_yaml(canonical=True))
     )
     groups = (
         'parameters',

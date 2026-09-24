@@ -5,14 +5,15 @@ SPDX-License-Identifier: MIT
 
 # `typesetting/` — the model, printed
 
-This package is a consumer of the resolved core syntax tree. It builds no model
-and binds no data. It walks the typed tree that `to_spec` validates, and prints
-it.
+This package is a consumer of the program. It builds no model and binds no
+data. It walks a program, the one a loaded `Spec` holds or one handed to it,
+and prints it.
 
 | Module        | Role                                                                                                   |
 | ------------- | ------------------------------------------------------------------------------------------------------ |
 | `__init__.py` | `typeset` / `to_latex` / `to_markdown` / `to_typst`, `typeset_declaration`, and the `FORMATS` registry |
-| `walk.py`     | resolved syntax tree to `Line`s. Every decision about the **math**, written once                       |
+| `walk.py`     | the program's trees to `Line`s. Every decision about the **math**, written once                        |
+| `legend.py`   | the notes under the equations, read off what the program uses                                          |
 | `format.py`   | the boundary: what a format must spell, and the operator vocabulary                                    |
 | `symbols.py`  | which symbol a name gets, and the `SymbolTable` sidecar that overrides it                              |
 | `latex.py`    | amsmath, the format that lands in a journal                                                            |
