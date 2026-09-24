@@ -1,0 +1,22 @@
+dimensions:
+  g: { dtype: str }
+
+variables:
+  p:
+    dims: [g]
+    bounds: { lower: -5, upper: 10 }
+  pick_seg:
+    dims: [g]
+    domain: binary
+    description: a binary per member, 1 where that member may be nonzero
+
+constraints:
+  pick_pick:
+    dims: []
+    expression: sum(pick_seg, over=g) <= 1
+  pick_nonzero:
+    dims: [g]
+    expression: p <= 10.0 * (pick_seg)
+  pick_nonzero_below:
+    dims: [g]
+    expression: p >= -5.0 * (pick_seg)

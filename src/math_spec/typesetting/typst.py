@@ -55,7 +55,6 @@ class TypstFormat:
     notation: ClassVar[Notation] = 'typst'
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
-    cases_row: ClassVar[str] = ', '
 
     operators: ClassVar[Mapping[OperatorName, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 
@@ -106,8 +105,11 @@ class TypstFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'
 
+    def set_of(self, members: str, condition: str) -> str:
+        return f'{{{members} {self.operators["such_that"]} {condition}}}'
+
     def cases(self, arms: list[tuple[str, str]]) -> str:
-        return 'cases({})'.format(self.cases_row.join(f'{value} & {condition}' for value, condition in arms))
+        return 'cases({})'.format(', '.join(f'{value} & {condition}' for value, condition in arms))
 
     def summation(self, domain: str, body: str) -> str:
         return f'sum_({domain}) {body}'
@@ -130,9 +132,8 @@ class TypstFormat:
         numbering = '#set math.equation(numbering: "(1)")\n' if numbered else ''
         return f'{numbering}$ {body} $'
 
-    def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(f'/ {self.math(e.symbol)}: {e.meaning}' for e in entries)
-        return f'== {title}\n{rows}'
+    def glossary(self, entries: list[Entry]) -> str:
+        return '\n'.join(f'/ {self.math(e.symbol)}: {e.meaning}' for e in entries)
 
     def section(self, title: str, body: str) -> str:
         return f'== {title}\n{body}'

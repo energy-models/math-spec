@@ -10,11 +10,16 @@ import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from math_spec import Spec
+from math_spec._expression_parser import ComparisonNode
 from math_spec._yaml import parse_yaml, read_yaml
+from math_spec.errors import SchemaError
+from math_spec.expansion import parse_and_expand
+from math_spec.resolution import Namespace, mask_of, resolve_expression, resolve_where_text
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from math_spec import Spec
+    from math_spec.program import Expression, Mask
 
 EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
 
@@ -79,8 +84,47 @@ def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Spec:
     return to_spec(override(raw, **patch) if patch else raw)
 
 
+def expanded(source: str | Path | dict[str, Any] | Spec, *kinds: Any, **patch: Any) -> Spec:
+    """:func:`schema_of` with its formulations written out — what ``to_program`` takes from a model with a curve."""
+    schema = source if isinstance(source, Spec) else schema_of(source, **patch)
+    return schema.expand(*kinds)
+
+
 def raw_of(source: str | Path | dict[str, Any]) -> dict[str, Any]:
     """The parsed mapping behind a path / YAML text / dict, unvalidated."""
     if isinstance(source, dict):
         return source
     return read_yaml(source) if isinstance(source, Path) else parse_yaml(source)
+
+
+def expression_of(text: str, ns: Namespace, context: str) -> Expression:
+    """Parse, expand and resolve one expression into its program tree, raising every problem at once as `to_spec` would."""
+    errors: list[str] = []
+    ast = parse_and_expand(text, ns, context)
+    assert not isinstance(ast, ComparisonNode), 'a comparison is a constraint, which comparison_of reads'
+    resolved = resolve_expression(ast, ns, context, errors)
+    if errors:
+        raise SchemaError('\n'.join(errors))
+    assert resolved is not None
+    return resolved
+
+
+def comparison_of(text: str, ns: Namespace, context: str) -> tuple[Expression, str, Expression]:
+    """Parse, expand and resolve one comparison into its two program trees and the sense between them."""
+    errors: list[str] = []
+    ast = parse_and_expand(text, ns, context)
+    assert isinstance(ast, ComparisonNode), 'a value is an expression, which expression_of reads'
+    left, right = (resolve_expression(side, ns, context, errors) for side in (ast.left, ast.right))
+    if errors:
+        raise SchemaError('\n'.join(errors))
+    assert left is not None and right is not None
+    return left, ast.op, right
+
+
+def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> Mask | None:
+    """Parse and resolve one where string into the mask a declaration carries, raising every problem at once."""
+    errors: list[str] = []
+    resolved = resolve_where_text(text, ns, context, errors, self_variable)
+    if errors:
+        raise SchemaError('\n'.join(errors))
+    return mask_of(resolved)

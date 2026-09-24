@@ -23,36 +23,25 @@ can name the rewrite.
 
 from __future__ import annotations
 
-from math_spec._expression_parser import (
-    BinaryOperatorNode,
-    DualNode,
-    FunctionCallNode,
-    ParsedNode,
-    UnresolvedNode,
-    VariableNode,
-    children,
-    nodes,
-)
 from math_spec.errors import LanguageError
+from math_spec.program import (
+    Add,
+    Divide,
+    Dual,
+    Expression,
+    GroupSum,
+    Multiply,
+    Power,
+    Sum,
+    Variable,
+    WindowSum,
+    carries_variable,
+    children,
+    walk,
+)
 
 
-def carries_variable(node: ParsedNode) -> bool:
-    """Whether *node* contains a decision variable, over the core AST.
-
-    :func:`math_spec.program.carries_variable` answers the same question over a
-    program. An unresolved node reaching here is a resolution bug, so it is refused
-    rather than silently answered.
-    """
-    for found in nodes(node):
-        if isinstance(found, UnresolvedNode):
-            msg = f'{found!r} reached the degree check. Expressions go through resolution.expression_of() first.'
-            raise AssertionError(msg)
-        if isinstance(found, VariableNode):
-            return True
-    return False
-
-
-def _adds(node: ParsedNode) -> bool:
+def _adds(node: Expression) -> bool:
     """Whether *node* adds anywhere inside it.
 
     Anywhere, not only at its head: every operator over a variable-free
@@ -60,14 +49,14 @@ def _adds(node: ParsedNode) -> bool:
     under a ``sum`` or a product reaches the quotient as two factors just as
     one at the top does.
     """
-    return any(isinstance(found, BinaryOperatorNode) and found.op in ('+', '-') for found in nodes(node))
+    return any(isinstance(found, Add) for found in walk(node))
 
 
-def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> None:
+def check_binary(node: Multiply | Divide | Power, context: str, *, ceiling: int) -> None:
     """Check that *node* stays inside the degree its position allows.
 
     Args:
-        node: The product, quotient or sum to judge.
+        node: The product, quotient or power to judge.
         context: What to name in the message — the declaration being read.
         ceiling: The highest degree this position can honour — 2 in an
             objective or a constraint, 1 everywhere else.
@@ -79,26 +68,29 @@ def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> Non
             a variable or adding.
     """
     where = f'{context}: ' if context else ''
-    if node.op == '**':
+    if isinstance(node, Power):
         if carries_variable(node):
             raise LanguageError(_a_variable_under_a_power_message(where))
-        if _adds(node.left) or _adds(node.right):
+        if _adds(node.base) or _adds(node.exponent):
             raise LanguageError(
                 f'{where}a base and an exponent must each be a single Constant/Parameter factor, '
                 f'not a sum — addition does not distribute over `**`, so `(1 + rate) ** period` is '
                 f'refused where `growth ** period` is not. Bind the factor itself.'
             )
-    if node.op == '/' and carries_variable(node.right):
-        raise LanguageError(
-            f'{where}the divisor contains variables, which is not affine. '
-            f'Divide by a parameter, or precompute the reciprocal as one.'
-        )
-    if node.op == '/' and _adds(node.right):
-        raise LanguageError(
-            f'{where}a divisor must be a single Constant/Parameter factor, '
-            f'not a sum — rewrite as multiplication by a precomputed parameter'
-        )
-    if node.op != '*' or not (carries_variable(node.left) and carries_variable(node.right)):
+        return
+    if isinstance(node, Divide):
+        if carries_variable(node.divisor):
+            raise LanguageError(
+                f'{where}the divisor contains variables, which is not affine. '
+                f'Divide by a parameter, or precompute the reciprocal as one.'
+            )
+        if _adds(node.divisor):
+            raise LanguageError(
+                f'{where}a divisor must be a single Constant/Parameter factor, '
+                f'not a sum — rewrite as multiplication by a precomputed parameter'
+            )
+        return
+    if not (carries_variable(node.left) and carries_variable(node.right)):
         return
     if ceiling < 2:
         raise LanguageError(_degree_two_here_message(where))
@@ -107,7 +99,7 @@ def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> Non
     _check_single_term_factor(node, where)
 
 
-def _degree(node: ParsedNode) -> int:
+def _degree(node: Expression) -> int:
     """The polynomial degree *node* stands for, counted structurally.
 
     A product adds its factors' degrees and a division keeps the dividend's
@@ -117,12 +109,12 @@ def _degree(node: ParsedNode) -> int:
     what stops a cubic from reaching a consumer to be refused by whichever one
     happens to notice.
     """
-    if isinstance(node, VariableNode):
+    if isinstance(node, Variable):
         return 1
-    if isinstance(node, BinaryOperatorNode) and node.op == '*':
+    if isinstance(node, Multiply):
         return _degree(node.left) + _degree(node.right)
-    if isinstance(node, BinaryOperatorNode) and node.op == '/':
-        return _degree(node.left)
+    if isinstance(node, Divide):
+        return _degree(node.numerator)
     return max((_degree(child) for child in children(node)), default=0)
 
 
@@ -157,7 +149,7 @@ def _degree_two_here_message(where: str) -> str:
     )
 
 
-def _check_single_term_factor(node: BinaryOperatorNode, where: str) -> None:
+def _check_single_term_factor(node: Multiply, where: str) -> None:
     """Refuse a degree-2 product of two multi-term factors."""
     if not (_multi_term(node.left) and _multi_term(node.right)):
         return
@@ -170,38 +162,31 @@ def _check_single_term_factor(node: BinaryOperatorNode, where: str) -> None:
     )
 
 
-def _multi_term(node: ParsedNode) -> bool:
+def _multi_term(node: Expression) -> bool:
     """Whether *node* stands for more than one variable term at a coordinate.
 
     A reduction does, and so does an addition of two variable-carrying
     operands; a product is multi-term exactly when one of its factors is, a
     coefficient not multiplying the count. Structural, so it needs no data.
     """
-    return any(_joins_terms(found) for found in nodes(node))
+    return any(_joins_terms(found) for found in walk(node))
 
 
-def _joins_terms(node: ParsedNode) -> bool:
-    """Whether *node* itself makes several terms of one: a reduction over a variable, or a sum of two variable-carrying sides."""
-    if isinstance(node, FunctionCallNode):
-        return node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args)
-    return (
-        isinstance(node, BinaryOperatorNode)
-        and node.op in ('+', '-')
-        and carries_variable(node.left)
-        and carries_variable(node.right)
-    )
+def _joins_terms(node: Expression) -> bool:
+    """Whether *node* itself makes several terms of one: a reduction over a variable, or a sum of two variable-carrying sides.
+
+    A pullback and a translation re-index and are not reductions: they move a
+    term, leaving one term where there was one.
+    """
+    if isinstance(node, Sum | GroupSum | WindowSum):
+        return carries_variable(node.operand)
+    return isinstance(node, Add) and carries_variable(node.left) and carries_variable(node.right)
 
 
-#: The operators that fold several coordinates onto one, and so turn a term
-#: into a sum of terms. ``at`` and ``shift`` re-index and are not here: they
-#: move a term, leaving one term where there was one.
-_REDUCTIONS = frozenset({'sum', 'sum_back'})
+def check_expression(node: Expression, context: str, *, ceiling: int = 1) -> None:
+    """What the math admits at one position: no dual anywhere under *node*, then :func:`check_binary` everywhere in it.
 
-
-def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> None:
-    """What the math admits at one position: no ``dual()`` anywhere under *node*, then :func:`check_binary` everywhere in it.
-
-    Asked of the *expanded* tree, so a dual or a product inlined through a
+    Asked of the resolved tree, so a dual or a product inlined through a
     macro or a named expression is caught alongside one written in place.
     What a plan node can represent is the consumer's question, not this one's.
 
@@ -209,16 +194,16 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
         LanguageError: A dual, which exists only after a solve; or what
             :func:`check_binary` refuses.
     """
-    for found in nodes(node):
-        if isinstance(found, DualNode):
+    for found in walk(node):
+        if isinstance(found, Dual):
             raise LanguageError(
                 f'{context}: a dual exists only after a solve; the math cannot read one — '
                 f'keep the entry that carries it out of constraints, the objective, bounds and where.'
             )
-        if isinstance(found, BinaryOperatorNode):
+        if isinstance(found, Multiply | Divide | Power):
             check_binary(found, context, ceiling=ceiling)
 
 
-def calls_dual(node: ParsedNode) -> bool:
-    """Whether a :class:`DualNode` stands anywhere in the resolved *node*."""
-    return any(isinstance(found, DualNode) for found in nodes(node))
+def calls_dual(node: Expression) -> bool:
+    """Whether a :class:`~math_spec.program.Dual` stands anywhere under *node*."""
+    return any(isinstance(found, Dual) for found in walk(node))

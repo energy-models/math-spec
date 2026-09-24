@@ -4,58 +4,27 @@
 
 """Lower a validated model to a :class:`~math_spec.program.Program`.
 
-One lowering, on the language side: it reads the typed AST and emits
-declarations with names resolved and shapes fixed, and reaches no consumer. A
-construct with no lowering raises :class:`~math_spec.errors.LanguageError`
-naming its rewrite.
+One lowering, on the language side: it packages the declarations a model
+resolved to, with every named expression inlined where the math reads it, and
+reaches no consumer. A construct with no lowering raises
+:class:`~math_spec.errors.LanguageError` naming its rewrite.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import replace
 from typing import TYPE_CHECKING, assert_never
 
 import math_spec.program as program
-from math_spec._expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    CasesNode,
-    DefinitionNode,
-    DimensionNode,
-    DirectionNode,
-    DualNode,
-    EdgeNode,
-    FunctionCallNode,
-    KwargNode,
-    NumberNode,
-    ParameterNode,
-    PartitionNode,
-    UnaryOperatorNode,
-    UnresolvedNode,
-    VariableNode,
-)
-from math_spec.dimensions import dims_of
-from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
+from math_spec.errors import LanguageError
+from math_spec.piecewise import declaration_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Mapping
     from pathlib import Path
 
-    from math_spec.model import Spec, _ExpandedSpec
-
-
-def _none_of(masks: list[program.Mask]) -> program.Mask:
-    """The region left over: where not one of *masks* holds.
-
-    The ``otherwise`` arm's own mask, built rather than written. An empty list
-    cannot reach here — ``cases:`` carries at least one case — so there is no
-    vacuous truth to spell.
-    """
-    remainder = ~masks[0]
-    for mask in masks[1:]:
-        remainder = remainder & ~mask
-    return remainder
+    from math_spec.model import Spec
 
 
 def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program) -> program.Program:
@@ -63,9 +32,9 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program)
 
     Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
     model, or a program already. Idempotent, so a caller that does not know
-    which it holds can call this and be sure.
-
-    Not memoised; :func:`~math_spec.piecewise.expand_piecewise` is.
+    which it holds can call this and be sure. The model is lowered as it
+    arrived: nothing is written out here, so a ``piecewise:`` block still in
+    it is refused, naming :meth:`~math_spec.model.Spec.expand`.
 
     Args:
         spec: What to read the declarations from.
@@ -77,31 +46,47 @@ def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program)
     Raises:
         SchemaError: The file is not a valid model.
         LanguageError: A construct outside the language, named with its
-            rewrite.
+            rewrite, or a ``piecewise:`` block left as written.
     """
     if isinstance(spec, program.Program):
         return spec
-    return lower_program(expand_piecewise(to_spec(spec)))
+    return lower_program(to_spec(spec))
 
 
-def lower_program(expanded: _ExpandedSpec) -> program.Program:
-    """Compile an expanded model into a :class:`~math_spec.program.Program`.
+def curve_left_as_written_message(blocks: list[str]) -> str:
+    """The refusal for a model lowered with its ``piecewise:`` blocks still to be written out."""
+    named = ', '.join(f"'{block}'" for block in blocks)
+    return (
+        f'piecewise: {named} states rows rather than being one, and a program holds the rows. Pass '
+        f"spec.expand('piecewise'), which writes each block out as the variables and constraints it states "
+        f'and keeps every sos: block for a consumer that takes a set — or spec.expand(), which writes the '
+        f'sets out as binaries and linking rows too.'
+    )
 
-    A ``domain: binary`` variable lowers with fixed 0/1 bounds.
+
+def lower_program(expanded: Spec) -> program.Program:
+    """Compile a model whose curves are written out into a :class:`~math_spec.program.Program`.
+
+    A ``domain: binary`` variable lowers with fixed 0/1 bounds. A ``sos:``
+    block lowers as itself — a program carries a set, and
+    :meth:`~math_spec.model.Spec.expand` is what states one as binaries
+    instead. A ``piecewise:`` block does not lower at all: it states rows, and
+    :meth:`~math_spec.model.Spec.expand` is what writes them, so a model still
+    carrying one is refused rather than written out on the caller's behalf.
+
+    Args:
+        expanded: A model with no ``piecewise:`` block left, which
+            :meth:`~math_spec.model.Spec.expand` returns.
 
     Raises:
         LanguageError: A construct outside the language, named with its
-            rewrite.
+            rewrite, or a ``piecewise:`` block left as written.
     """
+    if expanded.piecewise:
+        raise LanguageError(curve_left_as_written_message(sorted(expanded.piecewise)))
     resolved = expanded.resolved
-    derivations = {
-        name: how
-        for block, ex in expanded.expanded_piecewise.items()
-        for name, how in derivations_of(block, ex).items()
-    }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
-        for name, pdef in expanded.parameters.items()
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
     }
 
     variables = {}
@@ -113,48 +98,34 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.dims),
-            where=resolved.variables[vname],
+            where=_inlined_mask(resolved.variables[vname]),
             lower=lower,
             upper=upper,
             domain=domain,
             absence=vdef.absence,
         )
 
-    constraints = {}
-    for cname, cdef in expanded.constraints.items():
-        expression, where = resolved.constraints[cname]
-        lowering = _Lowering(expanded, f"constraint '{cname}'")
-        constraints[cname] = program.ConstraintDeclaration(
-            tuple(cdef.dims),
-            lhs=lowering.expr(expression.left),
-            sense=expression.op,
-            rhs=lowering.expr(expression.right),
-            where=where,
-        )
-
+    constraints = {
+        cname: replace(c, lhs=inline(c.lhs), rhs=inline(c.rhs), where=_inlined_mask(c.where))
+        for cname, c in resolved.constraints.items()
+    }
     objective = None
-    if (odef := expanded.objective) is not None:
-        assert resolved.objective is not None, 'validation resolves the objective the file declares'
-        objective = program.ObjectiveDeclaration(
-            odef.sense,
-            _Lowering(expanded, 'the objective').expr(resolved.objective),
-        )
+    if resolved.objective is not None:
+        objective = replace(resolved.objective, expression=inline(resolved.objective.expression))
 
     dimensions = {dname: program.DimensionDeclaration(ddef.dtype) for dname, ddef in expanded.dimensions.items()}
     sos = {
-        sname: program.SosDeclaration(
-            sdef.variable,
-            sdef.over,
-            sos_type=sdef.type,
-            big_m=sdef.big_m,
-        )
+        sname: program.SosDeclaration(sdef.variable, sdef.along, sos_type=sdef.type)
         for sname, sdef in expanded.sos.items()
     }
-    expressions: dict[str, program.ExpressionDeclaration] = {}
-    for name, ast in resolved.expressions.items():
-        expressions[name] = program.ExpressionDeclaration(
-            _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
-        )
+    expressions = {
+        name: program.ExpressionDeclaration(inline(entry), in_math=name in resolved.read_by_the_math)
+        for name, entry in resolved.expressions.items()
+    }
+    assumptions = {
+        name: replace(holds, predicate=inline_mask(holds.predicate), where=_inlined_mask(holds.where))
+        for name, holds in resolved.assumptions.items()
+    }
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -163,188 +134,62 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         dimensions=dimensions,
         relations=resolved.relations,
         sos=sos,
-        piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
+        piecewise={name: declaration_of(pw) for name, pw in expanded._expanded_piecewise.items()},
+        assumptions=assumptions,
         expressions=expressions,
     )
 
 
-# ---------------------------------------------------------------------------
-# expression lowering
-# ---------------------------------------------------------------------------
+def inline(node: program.Expression | program.Named) -> program.Expression:
+    """*node* with every :class:`~math_spec.program.Named` replaced by its body — the tree a program carries.
 
-
-@dataclass(frozen=True)
-class _Lowering:
-    """One expression walk, and the two things every step of it reads."""
-
-    schema: _ExpandedSpec
-    context: str
-
-    def expr(self, node: ArithmeticNode) -> program.Expression:
-        """Rewrite one resolved core-AST expression as a program expression."""
-        if isinstance(node, NumberNode):
-            return program.Constant(node.value)
-
-        if isinstance(node, VariableNode):
-            return program.Variable(node.name)
-
-        if isinstance(node, ParameterNode):
-            return program.Parameter(node.name)
-
-        if isinstance(node, UnresolvedNode | KwargNode):
-            msg = f'{node!r} reached lowering. Expressions go through resolution.expression_of() first.'
-            raise AssertionError(msg)
-
-        if isinstance(node, DualNode):
-            return program.Dual(node.constraint)
-
-        if isinstance(node, UnaryOperatorNode):
-            inner = self.expr(node.operand)
-            return program.Negate(inner) if node.op == '-' else inner
-
-        if isinstance(node, BinaryOperatorNode):
-            left = self.expr(node.left)
-            right = self.expr(node.right)
-            match node.op:
-                case '+':
-                    return program.Add(left, right)
-                case '-':
-                    return program.Add(left, program.Negate(right))
-                case '*':
-                    return program.Multiply(left, right)
-                case '/':
-                    return program.Divide(left, right)
-                case '**':
-                    return program.Power(left, right)
-                case _:  # pragma: no cover — the parser admits no other operator
-                    raise AssertionError(f'{self.context}: operator {node.op!r} reached lowering')
-
-        if isinstance(node, FunctionCallNode):
-            return _CALLS[node.name](self, node)
-
-        if isinstance(node, CasesNode):
-            return self._cases(node)
-
-        if isinstance(node, DefinitionNode):
-            return self.expr(node.body)
-
-        assert_never(node)
-
-    def _cases(self, node: CasesNode) -> program.Cases:
-        """A cased expression, with every region carrying the mask it applies under.
-
-        The ``otherwise`` arm carries no ``when`` in the file; here it carries
-        the negation of every other region's, so a consumer adds regions rather
-        than working out which one is left. The language proved the rest apart
-        before this ran, so the negation is exactly the remainder and the
-        regions stay disjoint and total.
-
-        Every ``when`` arrives folded from resolution, and an arm that folded
-        to a literal was refused at load — so no literal reaches a region.
-        """
-        stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
-        regions = []
-        for arm in node.arms:
-            when = program.Mask(arm.when) if arm.when is not None else _none_of(stated)
-            regions.append(program.Region(when, self.expr(arm.value)))
-        return program.Cases(tuple(regions))
-
-    def sum(self, node: FunctionCallNode) -> program.Expression:
-        """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
-
-        Two program nodes under one surface verb: reducing a dim away and reducing it
-        *into* another are different relational shapes, so ``by=`` decides which
-        before anything else is read.
-        """
-        by_node = node.kwargs.get('by')
-        operand = self.expr(node.args[0])
-        if by_node is None and 'over' not in node.kwargs:
-            return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
-        if by_node is None:
-            consumed = node.kwargs['over']
-            assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
-            return program.Sum(operand, (consumed.name,))
-        assert isinstance(by_node, DirectionNode), 'resolution reads sum(by=) in a direction'
-        return program.GroupSum(operand, direction=by_node.direction)
-
-    def at(self, node: FunctionCallNode) -> program.Expression:
-        """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
-        by_node = node.kwargs['by']
-        assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
-        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction)
-
-    def sum_back(self, node: FunctionCallNode) -> program.Expression:
-        """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
-
-        *window* is an integer literal of at least one, or a parameter naming a
-        per-entity width, which the language holds to the two rules that make it
-        mean one thing before this is reached.
-
-        ``by=`` names the relation the window stops at the edges of, and rides on
-        the node the way it rides on a translation — the dim rules have already
-        held it to one relation over the dimension stepped along.
-        """
-        over_node = node.kwargs['along']
-        assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
-        window_node = node.kwargs['window']
-        operand = self.expr(node.args[0])
-        wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
-        width: int | str
-        if isinstance(window_node, ParameterNode):
-            width = window_node.name
-        else:
-            assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
-            width = int(window_node.value)
-        return program.WindowSum(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
-
-    def shift(self, node: FunctionCallNode) -> program.Expression:
-        """``shift(x, along=d, offset=n)`` — the value at *t - offset* along one dim.
-
-        What the vacated positions contribute is ``edge=``'s to say, and the
-        language has already held it to the keyword or a number.
-        """
-        over_node = node.kwargs['along']
-        assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
-        by_node = node.kwargs['offset']
-        operand = self.expr(node.args[0])
-        edge = node.kwargs.get('edge')
-        by: int | str
-        if isinstance(by_node, ParameterNode):
-            by = by_node.name
-        else:
-            assert isinstance(by_node, NumberNode), 'an offset= that is neither is refused at load'
-            by = int(by_node.value)
-        return program.Translate(
-            operand,
-            over_node.name,
-            offset=by,
-            wrap=isinstance(edge, EdgeNode),
-            fill=edge.value if isinstance(edge, NumberNode) else None,
-            partition=_partition_of(node),
-        )
-
-
-#: One lowering per name in the language's ``BUILTIN_NAMES``.
-_CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.Expression]] = {
-    'sum': _Lowering.sum,
-    'at': _Lowering.at,
-    'sum_back': _Lowering.sum_back,
-    'shift': _Lowering.shift,
-}
-
-
-def _partition_of(node: FunctionCallNode) -> program.Partition | None:
-    """The partition a translation steps inside, if the call names a relation.
-
-    That it is a *single* relation, stepped *along the translated dimension*, is
-    checked with the other dim rules (``math_spec.dimensions``), where a model
-    is refused before any data is read.
+    A region's ``when`` is inlined with its value, since a mask may compare
+    expressions that name an entry.
     """
-    by_node = node.kwargs.get('by')
-    if by_node is None:
-        return None
-    assert isinstance(by_node, PartitionNode), "resolution reads a translation's by= as a partition"
-    return by_node.partition
+    if isinstance(node, program.Named):
+        return inline(node.body)
+    if isinstance(node, program.Constant | program.Parameter | program.Variable | program.Dual):
+        return node
+    if isinstance(node, program.Negate):
+        return program.Negate(inline(node.operand))
+    if isinstance(node, program.Add):
+        return program.Add(inline(node.left), inline(node.right))
+    if isinstance(node, program.Multiply):
+        return program.Multiply(inline(node.left), inline(node.right))
+    if isinstance(node, program.Power):
+        return program.Power(inline(node.base), inline(node.exponent))
+    if isinstance(node, program.Divide):
+        return program.Divide(inline(node.numerator), inline(node.divisor))
+    if isinstance(node, program.Sum | program.GroupSum | program.Pullback | program.Translate | program.WindowSum):
+        return replace(node, operand=inline(node.operand))
+    if isinstance(node, program.Cases):
+        return program.Cases(tuple(program.Region(inline_mask(r.when), inline(r.value)) for r in node.regions))
+    assert_never(node)
+
+
+def inline_mask(mask: program.Mask) -> program.Mask:
+    """*mask* with every named expression its comparisons read inlined, as :func:`inline` does for a tree."""
+    return program.Mask(_inline_predicate(mask.root))
+
+
+def _inlined_mask(mask: program.Mask | None) -> program.Mask | None:
+    return None if mask is None else inline_mask(mask)
+
+
+def _inline_predicate(node: program.Predicate) -> program.Predicate:
+    if isinstance(node, program.ExpressionComparison):
+        return replace(node, left=inline(node.left), right=inline(node.right))
+    if isinstance(node, program.CountComparison):
+        return replace(node, predicate=inline_mask(node.predicate))
+    if isinstance(node, program.TranslatedPredicate | program.PulledBackPredicate):
+        return replace(node, operand=inline_mask(node.operand))
+    if isinstance(node, program.Not):
+        return program.Not(_inline_predicate(node.operand))
+    if isinstance(node, program.And):
+        return program.And(_inline_predicate(node.left), _inline_predicate(node.right))
+    if isinstance(node, program.Or):
+        return program.Or(_inline_predicate(node.left), _inline_predicate(node.right))
+    return node
 
 
 def _bound_expression(value: float | str) -> program.Expression:

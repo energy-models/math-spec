@@ -7,53 +7,39 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Literal, assert_never, overload
+from typing import TYPE_CHECKING
 
-import math_spec.degree as degree
-from math_spec._expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    CaseArm,
-    CasesNode,
-    ComparisonNode,
-    DefinitionNode,
-    DualNode,
-    FunctionCallNode,
-    KeywordNode,
-    KwargNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
-    ParsedNode,
-    UnaryOperatorNode,
-    VariableNode,
-    case_context,
-    children,
-)
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError
-from math_spec.exclusivity import overlapping
-from math_spec.expansion import expand, parse_and_expand, parse_template
+from math_spec.errors import SchemaError, prefixed
+from math_spec.expansion import expand, parse_template
 from math_spec.model import Spec
-from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.program import BooleanLiteral
+from math_spec.piecewise import assumptions_of, curve_frame
+from math_spec.program import (
+    Assumption,
+    BooleanLiteral,
+    ConstraintDeclaration,
+    Mask,
+    ObjectiveDeclaration,
+    VariableDefined,
+    carries_variable,
+)
 from math_spec.resolution import (
     Namespace,
     Resolved,
-    ResolvedConstraint,
     mask_of,
-    names_in,
+    resolve_constraint_text,
     resolve_expression,
+    resolve_expression_text,
     resolve_where_text,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
-    from math_spec.model import ExpressionBlock
-    from math_spec.program import Predicate
+    from math_spec.model import AssumptionBlock, PiecewiseBlock
+    from math_spec.program import Expression, Named
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -84,17 +70,6 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
 
 
-def _once(errors: list[str]) -> str:
-    """The errors as one message, an identical sentence kept only the first time.
-
-    A cased expression is expanded at every use, so a fault in one of its arms
-    is found again at each constraint naming it. Every error carries the
-    context it was found in, so two that differ at all are two faults and an
-    exact repeat is one seen twice.
-    """
-    return '\n'.join(dict.fromkeys(errors))
-
-
 def validate_expressions(schema: Spec) -> Resolved:
     """Validate and resolve every expression and where string in *schema*, once for every reader.
 
@@ -110,6 +85,10 @@ def validate_expressions(schema: Spec) -> Resolved:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
+    A ``piecewise:`` block's links are resolved here too, and its frame
+    checked, so the typesetter reads the curve a file states without expanding
+    it and the expansion reads the typed links.
+
     Returns:
         Every declaration's typed tree — what the dim rules, lowering and the
         typesetter read instead of resolving the text again.
@@ -119,16 +98,16 @@ def validate_expressions(schema: Spec) -> Resolved:
         DimensionError: The first dim rule a declaration breaks, once every
             name resolves.
     """
-    ns = Namespace.of(schema)
+    ns = Namespace(schema)
     errors: list[str] = []
 
     for mname, macro in schema.macros.items():
         context = f"Macro '{mname}'"
         formals = frozenset((*macro.args, *macro.kwargs))
         try:
-            body_ast = expand(parse_template(mname, macro, context), schema, context, shadow=formals)
+            body_ast = expand(parse_template(mname, macro, context), ns, context)
         except ValueError as e:
-            errors.append(_prefixed(context, e))
+            errors.append(prefixed(context, e))
             continue
         errors.extend(
             f"{context}: formal '{f}' collides with declared dimension '{f}'. "
@@ -136,11 +115,13 @@ def validate_expressions(schema: Spec) -> Resolved:
             f'ambiguous with the dimension itself.'
             for f in sorted(formals & ns.dimensions)
         )
-        _check_template_names(body_ast, context, ns, formals, errors)
+        resolve_expression(body_ast, ns, context, errors, formals=formals)
 
-    expressions: dict[str, CasesNode | DefinitionNode] = {}
-    for ename, block in schema.expressions.items():
-        if (node := _named(ename, block, schema, ns, errors)) is not None:
+    expressions: dict[str, Named] = {}
+    for ename in schema.expressions:
+        node, refusals = ns.named_entry(ename)
+        errors.extend(refusals)
+        if node is not None:
             expressions[ename] = node
 
     variables = {
@@ -148,230 +129,124 @@ def validate_expressions(schema: Spec) -> Resolved:
         for vname, vdef in schema.variables.items()
     }
 
-    constraints: dict[str, ResolvedConstraint] = {}
+    constraints: dict[str, ConstraintDeclaration] = {}
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         where = resolve_where_text(cdef.where, ns, context, errors)
-        expression = _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
-        if expression is not None:
-            constraints[cname] = ResolvedConstraint(expression, mask_of(where))
+        if (sides := resolve_constraint_text(cdef.expression, ns, context, errors)) is not None:
+            lhs, sense, rhs = sides
+            constraints[cname] = ConstraintDeclaration(tuple(cdef.dims), lhs, sense, rhs, mask_of(where))
 
     objective = None
     if schema.objective is not None:
-        objective = _check_expression(
-            schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
-        )
+        expression = resolve_expression_text(schema.objective.expression, ns, 'The objective', errors, ceiling=2)
+        if expression is not None:
+            objective = ObjectiveDeclaration(schema.objective.sense, expression)
+
+    assumptions: dict[str, Assumption] = {}
+    for aname, adef in schema.assumptions.items():
+        if (assumption := _assumption(aname, adef, ns, errors)) is not None:
+            assumptions[aname] = assumption
+
+    for block, pw in schema.piecewise.items():
+        for aname, assumed in assumptions_of(block, pw).items():
+            if (assumption := _assumption(aname, assumed, ns, errors)) is not None:
+                assumptions[aname] = assumption
+
+    piecewise = {}
+    for pname, pdef in schema.piecewise.items():
+        links = [
+            resolve_expression_text(link.expression, ns, f"piecewise '{pname}' link {i}", errors, ceiling=1)
+            for i, link in enumerate(pdef.links)
+        ]
+        if any(link is None for link in links):
+            continue
+        typed = tuple(link for link in links if link is not None)
+        if pdef.method == 'lp':
+            errors.extend(_domain_decides_nothing(pname, pdef, typed))
+        piecewise[pname] = typed
 
     if errors:
-        raise SchemaError(_once(errors))
+        raise SchemaError('\n'.join(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
+    resolved = Resolved(expressions, variables, constraints, objective, ns.relations, assumptions, piecewise)
     check_schema(schema, resolved)
+    for pname, pdef in schema.piecewise.items():
+        curve_frame(schema, pname, pdef, resolved.piecewise[pname])
     return resolved
 
 
-def _named(
-    name: str, block: ExpressionBlock, schema: Spec, ns: Namespace, errors: list[str]
-) -> CasesNode | DefinitionNode | None:
-    """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
+def _domain_decides_nothing(name: str, pw: PiecewiseBlock, links: tuple[Expression, ...]) -> Iterator[str]:
+    """The refusal for a ``method: lp`` curve whose x-link carries no variable.
 
-    A cased entry's arms are checked one by one, so every fault is collected
-    rather than the first, and proved apart only once all of them resolve.
+    The method bounds the curve's domain with two rows comparing the x-link
+    against the first and the last breakpoint, and a row with no variable
+    decides nothing. Decided here, on the link the file wrote, rather than on
+    the row the expansion would write under a name the file never declared.
     """
-    context = f"Named expression '{name}'"
-    if not block.cases:
-        assert block.expression is not None
-        body = _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
-        return None if body is None else DefinitionNode(name, body)
-
-    found = len(errors)
-    arms: list[CaseArm] = []
-    masks: dict[str, Predicate] = {}
-    for case_name, case in block.cases.items():
-        arm_context = case_context(name, case_name)
-        when = resolve_where_text(case.when, ns, arm_context, errors)
-        if isinstance(when, BooleanLiteral):
-            errors.append(_constant_arm(arm_context, value=when.value))
-        elif when is not None:
-            masks[case_name] = when
-        value = _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
-        if when is not None and value is not None:
-            arms.append(CaseArm(case_name, when, value))
-    assert block.otherwise is not None
-    fallback = _check_expression(
-        block.otherwise, schema, ns, case_context(name, None), errors, comparison=False, ceiling=None
+    x = pw.curve[0]
+    i = next(i for i, link in enumerate(pw.links) if link is x)
+    if carries_variable(links[i]):
+        return
+    yield (
+        f"piecewise '{name}' link {i}: method: lp bounds the curve's domain by rows comparing this link's expression "
+        f'against its first and last breakpoint, and {x.expression!r} carries no variable, so those rows decide '
+        f'nothing. Name a variable in the link, or use method: convex, sos2 or adjacency, whose weights pin the '
+        f'domain themselves.'
     )
-    if len(errors) > found or fallback is None:
-        return None
-    errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
-    return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
 
 
-def _prefixed(context: str, e: ValueError) -> str:
-    """*e* under *context*, once — expansion errors already carry it."""
-    return str(e) if str(e).startswith(context) else f'{context}: {e}'
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:
+    """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
 
-
-def _constant_arm(context: str, *, value: bool) -> str:
-    """The refusal for a case arm whose mask the connectives already decided.
-
-    Cases are proved apart rather than ranked, so an always-true arm is not
-    one that shadows the arms under it — it is one no other arm can be proved
-    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
-    is the plainer half: nothing to apply to.
+    A predicate the connectives decide is refused: one that folds to true
+    assumes nothing, and one that folds to false refuses every dataset. A
+    variable is refused too, since an assumption is about the data and a
+    variable is what the solver decides from it.
     """
+    context = f"Assumption '{name}'"
+    found = len(errors)
+    holds = resolve_where_text(block.holds, ns, context, errors)
+    where = resolve_where_text(block.where, ns, f'{context}, where', errors)
+    if isinstance(holds, BooleanLiteral):
+        errors.append(_decided_assumption(context, block.holds, value=holds.value))
+    if isinstance(where, BooleanLiteral):
+        assert block.where is not None, 'a where the file did not write resolves to nothing'
+        errors.append(_decided_where(context, block.where, value=where.value))
+    for mask, part in ((holds, 'assumes'), (where, 'is checked where')):
+        if mask is None or isinstance(mask, BooleanLiteral):
+            continue
+        errors.extend(
+            f"{context}: variable '{atom.name}' stands in what the assumption {part}, and an assumption is "
+            f'about the data — a variable is what the solver decides from it. Name a parameter, or state the '
+            f'rule as a constraint.'
+            for atom in Mask(mask).atoms
+            if isinstance(atom, VariableDefined)
+        )
+    if len(errors) > found:
+        return None
+    assert holds is not None, 'a where string that read to nothing appended an error'
+    return Assumption(Mask(holds), mask_of(where), block.description)
+
+
+def _decided_assumption(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a predicate the connectives already decided, whose data is never read."""
     if value:
         return (
-            f'{context}: the mask admits every row, so no other arm can hold anywhere '
-            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
-            f'or narrow the `when`.'
+            f'{context}: the predicate {text!r} folds to true, so it assumes nothing of the data. '
+            f'Delete it, or name a parameter it constrains.'
         )
-    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
+    return (
+        f'{context}: the predicate {text!r} folds to false, so it holds on no data at all. '
+        f'Delete it, or write the predicate the data can satisfy.'
+    )
 
 
-@overload
-def _check_expression(
-    expression: str,
-    schema: Spec,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: Literal[True],
-    ceiling: int | None,
-) -> ComparisonNode | None: ...
-@overload
-def _check_expression(
-    expression: str,
-    schema: Spec,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: Literal[False],
-    ceiling: int | None,
-) -> ArithmeticNode | None: ...
-
-
-def _check_expression(
-    expression: str,
-    schema: Spec,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: bool,
-    ceiling: int | None,
-) -> ParsedNode | None:
-    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
-
-    Returns the typed tree, or ``None`` once anything failed, the problem
-    appended to *errors*. ``ceiling`` is the degree the position honours, and
-    ``None`` for an ``expressions:`` entry's body: what the math admits
-    (:func:`~math_spec.degree.check_expression`) is a rule about the position
-    that *reads* it, so it fires on the expanded tree of every constraint,
-    objective, bound, where and piecewise link, and not where an entry is
-    declared.
-    """
-    try:
-        ast = parse_and_expand(expression, schema, context)
-    except ValueError as e:
-        errors.append(_prefixed(context, e))
-        return None
-    if comparison and not isinstance(ast, ComparisonNode):
-        errors.append(
-            f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {expression!r}'
-        )
-        return None
-    if not comparison and isinstance(ast, ComparisonNode):
-        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
-        return None
-    resolved = resolve_expression(ast, ns, context, errors)
-    if resolved is None or ceiling is None:
-        return resolved
-    try:
-        degree.check_expression(resolved, context, ceiling=ceiling)
-    except LanguageError as e:
-        errors.append(str(e))
-        return None
-    if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
-        errors.append(
-            f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
-            f'Got: {expression!r}\n'
-            f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
-            f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or drop the declaration and check the fact where the data is prepared.'
-        )
-        return None
-    return resolved
-
-
-def _check_template_names(
-    node: ArithmeticNode,
-    context: str,
-    ns: Namespace,
-    formals: frozenset[str],
-    errors: list[str],
-) -> None:
-    """Check a macro body's names and call shapes, treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
-
-    An operator call is refused by its signature here, as at a call site, so a
-    keyword the operator does not declare is caught in a template nothing calls.
-    A case arm's value only: its ``when`` is the declaration's, checked there.
-    """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
-        return
-
-    if isinstance(node, NameNode):
-        if node.name not in formals and ns.kind(node.name) is None:
-            errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
-        return
-
-    if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | CasesNode | DefinitionNode):
-        for child in children(node):
-            _check_template_names(child, context, ns, formals, errors)
-        return
-
-    if isinstance(node, FunctionCallNode):
-        builtin = BUILTINS.get(node.name)
-        if builtin is None:
-            errors.append(f'{context}: {unknown_operator_message(node.name)}')
-        else:
-            shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
-            if shape_error is not None:
-                errors.append(f'{context}: {shape_error}')
-        if node.name == 'dual':
-            errors.extend(
-                ns.unknown_constraint(arg.name, context, formals=formals)
-                for arg in node.args
-                if isinstance(arg, NameNode) and arg.name not in formals and arg.name not in ns.constraints
-            )
-            return
-        for arg in node.args:
-            _check_template_names(arg, context, ns, formals, errors)
-        for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
-                case 'dimension':
-                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
-                        errors.append(
-                            f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                            f'declared dimension or a formal of this macro.'
-                        )
-                case 'relation':
-                    errors.extend(
-                        f'{context}: {node.name}({kwarg}={one}) does not name a relation or a formal of this macro.'
-                        for one in names_in(value)
-                        if one not in formals and ns.kind(one) != 'relation'
-                    )
-                case 'value':
-                    _check_template_names(value, context, ns, formals, errors)
-                case 'role':
-                    pass
-                case 'edge':
-                    pass  # a keyword or a number: nothing in it to name
-                case None:
-                    pass  # a keyword the operator does not declare; the shape error above named it
-        return
-
-    assert_never(node)
+def _decided_where(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a ``where`` the connectives already decided, which narrows nothing or everything."""
+    if value:
+        return f'{context}: the where {text!r} folds to true, so it narrows nothing. Delete the where.'
+    return (
+        f'{context}: the where {text!r} folds to false, so the assumption is checked on no row. '
+        f'Delete the entry, or write the where the data can satisfy.'
+    )

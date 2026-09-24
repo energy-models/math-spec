@@ -5,7 +5,9 @@
 """``python -m math_spec <verb> model.yaml`` — the shell front.
 
 ``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
+per typeset format, read off :data:`math_spec.typesetting.FORMATS`. Those verbs
+take ``--expand``, because a shell cannot compose
+:meth:`~math_spec.model.Spec.expand` the way a caller does.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from pathlib import Path
 from math_spec.advice import advice
 from math_spec.errors import MathSpecError
 from math_spec.typesetting import FORMATS, typeset
+from math_spec.validation import to_spec
 
 
 def parser() -> argparse.ArgumentParser:
@@ -38,25 +41,32 @@ def parser() -> argparse.ArgumentParser:
         verb.add_argument(
             '--inline-expressions', action='store_true', help='substitute each named expression where it is used'
         )
+        verb.add_argument(
+            '--expand',
+            action='store_true',
+            help='print the variables and constraints the piecewise: and sos: blocks state, not the blocks',
+        )
     return front
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run one verb; a refused file is its message on stderr and exit status 1.
 
-    Advice is not a refusal: ``check`` prints it and exits 0.
+    Advice is not a refusal: ``check`` prints it and exits 0. It reads the
+    model with its curves written out, since a curve holds its variables
+    through the rows it states and nothing lowers a block left as written.
     """
     args = parser().parse_args(argv)
     if args.verb == 'check':
         try:
-            notes = advice(args.model)
+            notes = advice(to_spec(args.model).expand('piecewise'))
         except MathSpecError as e:
             sys.stderr.write(f'{e}\n')
             return 1
         sys.stdout.write(''.join(f'{note}\n' for note in notes))
         return 0
     text = typeset(
-        args.model,
+        to_spec(args.model).expand() if args.expand else args.model,
         args.verb,
         symbols=args.symbols,
         standalone=args.standalone,

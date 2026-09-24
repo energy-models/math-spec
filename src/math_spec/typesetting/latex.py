@@ -47,7 +47,6 @@ class LatexFormat:
     notation: ClassVar[Notation] = 'latex'
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
-    cases_row: ClassVar[str] = r' \\ '
 
     operators: ClassVar[Mapping[OperatorName, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
 
@@ -98,8 +97,11 @@ class LatexFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return rf'\frac{{{numerator}}}{{{denominator}}}'
 
+    def set_of(self, members: str, condition: str) -> str:
+        return rf'\{{ {members} {self.operators["such_that"]} {condition} \}}'
+
     def cases(self, arms: list[tuple[str, str]]) -> str:
-        rows = self.cases_row.join(f'{value} & {condition}' for value, condition in arms)
+        rows = r' \\ '.join(f'{value} & {condition}' for value, condition in arms)
         return rf'\begin{{cases}} {rows} \end{{cases}}'
 
     def summation(self, domain: str, body: str) -> str:
@@ -122,9 +124,9 @@ class LatexFormat:
         body = ' \\\\\n'.join(aligned_rows(lines, self, gap=' && '))
         return f'\\begin{{{environment}}}\n{body}\n\\end{{{environment}}}'
 
-    def glossary(self, title: str, entries: list[Entry]) -> str:
+    def glossary(self, entries: list[Entry]) -> str:
         rows = '\n'.join(rf'\item[{{{self.math(e.symbol)}}}] {e.meaning}' for e in entries)
-        return f'\\paragraph{{{title}}}\n\\begin{{description}}\n{rows}\n\\end{{description}}'
+        return f'\\begin{{description}}\n{rows}\n\\end{{description}}'
 
     def section(self, title: str, body: str) -> str:
         return f'\\paragraph{{{title}}}\n{body}'

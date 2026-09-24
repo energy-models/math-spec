@@ -180,7 +180,8 @@ macros:
   collide with a declared dimension.
 - The number of arguments is checked at each call site. A cycle is reported with
   its reference chain.
-- Every template is parsed and name-checked at load, whether or not it is called.
+- Every template is held at load to every rule a call site is, whether or not it
+  is called. A formal is left for the call site to bind.
 
 Anything composed out of the [built-in operators](operators.md) belongs here.
 What the language cannot express is under

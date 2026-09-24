@@ -11,33 +11,36 @@ it is the contract consumers are written against.
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from typing import TYPE_CHECKING, get_args
+from typing import get_args
 
 import pytest
 
 from math_spec import LanguageError, Spec, to_program
-from math_spec._expression_parser import FunctionCallNode, NumberNode
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
-from math_spec.lowering import _Lowering, lower_program
+from math_spec.lowering import lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
     And,
+    Assumption,
     BooleanLiteral,
     Cases,
     Constant,
+    CountComparison,
     DimensionComparison,
     DimensionDeclaration,
     Direction,
     Divide,
     Dual,
     Expression,
+    ExpressionComparison,
     Footprint,
     GroupSum,
     Mask,
     Multiply,
+    Named,
     Negate,
     Not,
     Or,
@@ -48,12 +51,14 @@ from math_spec.program import (
     Power,
     Program,
     Pullback,
+    PulledBackPredicate,
     Region,
     RelationDeclaration,
     Sum,
     Translate,
     Variable,
     WindowSum,
+    assumption_message,
     children,
     divisor_parameters,
     fan_in,
@@ -63,11 +68,8 @@ from math_spec.program import (
     walk_regions,
     where_children,
 )
-from math_spec.resolution import Namespace, expression_of, where_of
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
-
-if TYPE_CHECKING:
-    from math_spec._expression_parser import ArithmeticNode
+from math_spec.resolution import Namespace
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, override, schema_of, where_of
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
@@ -104,14 +106,13 @@ SHAPES_MODEL = override(
 )
 
 
-def resolved(text: str, schema: Spec) -> ArithmeticNode:
-    """Parse, expand and resolve — exactly what the lowering pass receives.
+def resolved(text: str, schema: Spec) -> Expression:
+    """Parse, expand and resolve — the program tree a declaration holds.
 
-    A raw ``parse_expression`` result still holds ``NameNode``s, and lowering
-    asserts those never reach it. The ``'t'`` is the error-context label the
-    resolver stamps on refusals, not a dimension.
+    The ``'t'`` is the error-context label the resolver stamps on refusals,
+    not a dimension.
     """
-    return expression_of(text, schema, Namespace.of(schema), 't')
+    return expression_of(text, Namespace(schema), 't')
 
 
 @pytest.fixture
@@ -171,10 +172,10 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
-    ns = Namespace.of(dispatch_schema)
-    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
-    assert isinstance(node, FunctionCallNode)
-    assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
+    ns = Namespace(dispatch_schema)
+    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+0)', ns, 't')
+    assert isinstance(node, Translate)
+    assert (node.offset, node.fill) == (-1, 0.0)
 
 
 @pytest.mark.parametrize(
@@ -218,7 +219,7 @@ def test_a_where_is_one_resolved_predicate_with_every_literal_folded(dispatch_sc
 
     A `BooleanLiteral` is a node a consumer meets at the root or nowhere.
     """
-    mask = where_of(where, Namespace.of(dispatch_schema), 't')
+    mask = where_of(where, Namespace(dispatch_schema), 't')
     assert (mask.root if mask is not None else None) == expected, (
         'the Mask carries exactly the resolved predicate, folded at resolution however the file spelled it'
     )
@@ -237,7 +238,7 @@ def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
     """It used to be a scalar-False mask in the eager lane: a model that
     builds, solves, and is silently empty. Resolution makes it a load error."""
     with pytest.raises(LanguageError, match="'no_such_param' not found"):
-        where_of('no_such_param', Namespace.of(dispatch_schema), 't')
+        where_of('no_such_param', Namespace(dispatch_schema), 't')
 
 
 def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_program):
@@ -262,9 +263,8 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_program):
 def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
     """The `where` a lowering carries is a `Mask`, and its questions are its root's.
 
-    A consumer asks the mask — `where.names_read`, `where.conjuncts` — the way it
-    asks a dimension `dimension.targets`, rather than reaching for a free function
-    with the raw node.
+    A consumer asks the mask — `where.names_read`, `where.conjuncts` — rather
+    than reaching for a free function with the raw node.
     """
     (v,) = dispatch_program.variables.values()
 
@@ -401,9 +401,176 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     assert c.where == Mask(ParameterComparison('load', '>', 0.0, ('snapshot',)))
 
 
-def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
-    lowered = _Lowering(dispatch_schema, 't').expr(resolved('cost ** cost', dispatch_schema))
-    assert isinstance(lowered, Power), 'a variable-free power has a plan node of its own'
+def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides():
+    """The resolved tree holds the core syntax tree; the program holds the vocabulary a consumer reads, and every mask is rebuilt so."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'parameters.zc': {'dims': ['z']},
+                'variables.p.where': 'c <= 0.5 * k',
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'c <= at(zc, by=lk2, over=z, into=g) + sum_back(c, along=g, window=2, by=lk2, within=z)',
+                    'expression': 'p <= c',
+                },
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.root == ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)), (
+        'the sides are lowered as a constraint side is, and the dims are what either side carries'
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, ExpressionComparison)
+    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Pullback)
+    assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
+        'the relation a pullback and a partition read through is data the consumer binds too'
+    )
+
+
+def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
+    """A comparison of expressions inside a count is rebuilt too, so a program mask is program vocabulary throughout."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{'constraints.w': {'dims': ['g'], 'where': 'count(c <= 0.5 * k, over=g) >= 2', 'expression': 'p <= c'}},
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, CountComparison)
+    assert mask.root.predicate.root == ExpressionComparison(
+        Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
+    ), 'the counted predicate is rebuilt, not handed through with the resolved comparison still in it'
+    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer binds'
+
+
+def test_a_translated_predicate_keeps_what_it_reads_in_reach():
+    """A walk that asks a mask what it names has to see through the translation, or the column is silently dropped."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'flag AND NOT shift(flag, along=g, offset=1)',
+                    'expression': 'p <= c',
+                }
+            },
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None
+    assert mask.names_read == frozenset({'flag'}), 'the translated half reads the same column as the plain one'
+    assert sorted(mask.dims) == ['g']
+
+
+def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_in_reach():
+    """The comparison under the read is rebuilt, and the relation is data the consumer binds as well as the operand."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'parameters.zcap': {'dims': ['z']},
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'at(zcap <= 0.5 * k, by=lk2, over=z, into=g)',
+                    'expression': 'p <= c',
+                },
+            },
+        )
+    )
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, PulledBackPredicate)
+    assert mask.root.operand.root == ExpressionComparison(
+        Parameter('zcap'), '<=', Multiply(Constant(0.5), Parameter('k')), ('z',)
+    ), 'the read predicate is rebuilt, not handed through with the resolved comparison still in it'
+    assert mask.names_read == frozenset({'zcap', 'k', 'lk2'})
+    assert sorted(mask.dims) == ['g'], 'z is read at lk2(g), so the mask is over g alone'
+
+
+def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
+    """One mapping holds every fact about the data, so a consumer binding it has one loop and one refusal.
+
+    The file's entries come first, in the order it wrote them; each
+    ``piecewise:`` block's conditions follow under the name a refusal quotes.
+    """
+    program = to_program(expanded(EXAMPLES / 'piecewise_lp.yaml', 'piecewise'))
+    derived = [name for name in program.assumptions if name.startswith('cost_curve_')]
+
+    assert all(isinstance(a, Assumption) for a in program.assumptions.values()), (
+        'a method states its conditions in the language the file writes, so one kind stands in the mapping'
+    )
+    assert derived == [
+        'cost_curve_complete',
+        'cost_curve_increasing',
+        'cost_curve_curvature',
+        'cost_curve_breakpoints',
+    ], 'an lp curve over a whole axis assumes four things of its breakpoints, completeness first'
+
+
+def test_an_assumption_lowers_both_of_its_masks():
+    """The predicate and the ``where`` are rebuilt on program expressions, as every other mask is."""
+    program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}}))
+    assumption = program.assumptions['sound']
+
+    assert assumption == Assumption(
+        Mask(ExpressionComparison(Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',))),
+        Mask(ParameterDefined('flag', ('g',))),
+    ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
+    assert assumption_message('sound', assumption) == (
+        "assumption 'sound' does not hold for the data bound to 'c', 'k'"
+    ), 'the refusal names what the consumer bound, so it can say which column is wrong'
+
+
+def test_an_assumption_refuses_in_the_words_the_file_wrote():
+    """``description:`` reached no consumer: the block held it and neither the program nor the sentence did.
+
+    The names alone say which columns are wrong. What the author wrote says
+    why the rule is there, which is what the reader of a refusal needs, so
+    the sentence quotes it where the file wrote one.
+    """
+    reason = 'a shape with no room between its bounds cannot be cut'
+    program = to_program(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= k', 'description': reason}}))
+    assumption = program.assumptions['sound']
+
+    assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
+    assert assumption_message('sound', assumption) == (
+        f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
+    ), 'the sentence trails what the author wrote'
+
+
+def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
+    """`names_read` promised every parameter and relation the sides read, and dropped the
+    `when:` of a cased entry: the walk descends a `Cases` by its values alone."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'expressions.e': {
+                    'dims': ['g'],
+                    'cases': {'linked': {'when': 'flag AND lk2', 'expression': 'c'}},
+                    'otherwise': 'k',
+                },
+                'variables.p.where': 'e > 0',
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.names_read == frozenset({'c', 'k', 'flag', 'lk2'}), (
+        'the flag and the relation decide which region applies, so the consumer binds them too'
+    )
+
+
+def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):
+    """Every other predicate node is already the program's own, so lowering hands it through unchanged."""
+    assert dispatch_program.variables['dispatch'].where == Mask(CAPACITY_POSITIVE)
+
+
+def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
+    assert isinstance(resolved('cost ** cost', dispatch_schema), Power), 'a variable-free power has a node of its own'
 
 
 @pytest.mark.parametrize(
@@ -437,6 +604,11 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
+            "shift(p, along=g, offset=+lead, edge='wrap')",
+            Translate(Variable('p'), 'g', offset='lead', wrap=True, fill=None),
+            id='a-named-offset-written-with-a-plus-is-the-parameter',
+        ),
+        pytest.param(
             'shift(p, along=g, offset=1, by=lk, within=h, edge=0)',
             Translate(
                 Variable('p'),
@@ -454,8 +626,8 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-window-is-one-node-rather-than-a-fold-of-translations',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=k)',
-            WindowSum(Variable('p'), 'g', width='k', wrap=False),
+            'sum_back(p, along=g, window=lead)',
+            WindowSum(Variable('p'), 'g', width='lead', wrap=False),
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
@@ -471,10 +643,9 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
     ],
 )
-def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
+def test_a_construct_resolves_to_its_node(shapes_schema, expression, expected):
     """Which node each surface construct becomes, and every field it arrives with."""
-    lowered = _Lowering(shapes_schema, 't').expr(resolved(expression, shapes_schema))
-    assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
+    assert resolved(expression, shapes_schema) == expected, 'the whole frozen node, so no field is asserted by omission'
 
 
 def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
@@ -691,6 +862,12 @@ def test_a_node_answers_its_fan_in(node, expected):
     assert fan_in(node) == expected
 
 
+def test_fan_in_reads_through_a_named_expression():
+    """`fan_in` on a `Spec.resolved` tree, which holds `Named`, ended in `assert_never`."""
+    named = Named('total', Sum(Variable('p'), ('g',)))
+    assert fan_in(named) == 'many-to-one', 'a use of an entry fans in as the entry does'
+
+
 def test_a_relation_is_declared_as_the_file_declares_it():
     """One group keyed by name, each entry its columns and its key, and nothing nested under a dimension."""
     program = to_program(
@@ -897,11 +1074,11 @@ def test_the_lowered_regions_are_still_proved_apart():
     regions = _cases_in(to_program(spec)).regions
     named = {f'region{i}': r.when.root for i, r in enumerate(regions)}
 
-    assert list(overlapping(named, Namespace.of(spec).dtypes)) == [], 'no two lowered regions can claim one coordinate'
+    assert list(overlapping(named, Namespace(spec).dtypes)) == [], 'no two lowered regions can claim one coordinate'
 
 
 def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
-    """`Program.expressions` carries it, so a consumer reads it back whole."""
+    """`Program.expressions` carries it under its name, so a consumer reads it back whole."""
     program = to_program(CASED)
 
     assert isinstance(program.expressions['previous'].expression, Cases), (

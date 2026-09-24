@@ -56,6 +56,8 @@ OperatorName = Literal[
     'integers',
     'binary_set',
     'sos_set',
+    'curve',
+    'hull',
     'position',
     'dual',
     'minimize',
@@ -66,9 +68,11 @@ OperatorName = Literal[
 #: LaTeX spelling first and its Typst spelling second — one row per operator,
 #: so no format can be missing one. ``such_that`` is the colon in
 #: "∀ t ∈ T : condition", ``times`` sits between sets in the legend,
-#: ``maps_to`` is the → in a coordinate map, and the three translations are
-#: three models: plain leaves the vacated position absent, ``cyclic_*`` wraps,
-#: ``edge_*`` fills it with the value it carries as a subscript.
+#: ``maps_to`` is the → in a coordinate map, ``curve`` and ``hull`` are the two
+#: sets a ``piecewise:`` block states its links lie on, and the three
+#: translations are three models: plain leaves the vacated position absent,
+#: ``cyclic_*`` wraps, ``edge_*`` fills it with the value it carries as a
+#: subscript.
 OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'cdot': (r'\cdot', 'dot'),
     'plus': ('+', '+'),
@@ -98,6 +102,8 @@ OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'integers': (r'\mathbb{Z}', 'ZZ'),
     'binary_set': (r'\{0, 1\}', '{0, 1}'),
     'sos_set': (r'\mathrm{SOS}', 'upright("SOS")'),
+    'curve': (r'\mathrm{pwl}', 'upright("pwl")'),
+    'hull': (r'\mathrm{conv}', 'upright("conv")'),
     'position': (r'\mathrm{pos}', 'upright("pos")'),
     'dual': (r'\lambda', 'lambda'),
     'minimize': (r'\min', 'min'),
@@ -131,14 +137,6 @@ class Entry:
     meaning: str
 
 
-@dataclass(frozen=True)
-class Glossary:
-    """One legend section: its title, and the entries under it."""
-
-    title: str
-    entries: list[Entry]
-
-
 #: The one notation author prose carries: a name in backticks, set in monospace.
 _CODE_SPAN = re.compile(r'`([^`]+)`')
 
@@ -163,8 +161,6 @@ class Format(Protocol):
     operators: ClassVar[Mapping[OperatorName, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
-    #: Between the rows of a ``cases`` block.
-    cases_row: ClassVar[str]
 
     # -- atoms -------------------------------------------------------------
 
@@ -223,6 +219,10 @@ class Format(Protocol):
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
 
+    def set_of(self, members: str, condition: str) -> str:
+        """A set by comprehension: ``{ k ∈ K : condition }``."""
+        ...
+
     def summation(self, domain: str, body: str) -> str: ...
 
     def cases(self, arms: list[tuple[str, str]]) -> str:
@@ -245,7 +245,9 @@ class Format(Protocol):
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str: ...
 
-    def glossary(self, title: str, entries: list[Entry]) -> str: ...
+    def glossary(self, entries: list[Entry]) -> str:
+        """A legend section's rows; :meth:`section` sets its title, as it does for the equations."""
+        ...
 
     def section(self, title: str, body: str) -> str: ...
 

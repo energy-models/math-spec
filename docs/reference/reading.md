@@ -45,6 +45,10 @@ piecewise:
       - [p, bp_x]
       - [cost, bp_y, ">="]
     method: convex
+assumptions:
+  cost_is_never_negative:
+    holds: "bp_y >= 0"
+    description: a negative cost is a gain the objective would chase
 constraints:
   target:
     dims: []
@@ -60,24 +64,71 @@ from math_spec import to_spec, to_program
 spec = to_spec('curve.yaml')
 sorted(spec.constraints)  # ['target']
 
-program = to_program(spec)
+program = to_program(spec.expand('piecewise'))
 sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
 sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
-on a `Program`, it returns the same object unchanged.
+on a `Program`, it returns the same object unchanged. It lowers the model as it
+arrived and writes nothing out: a model still carrying a `piecewise:` block is
+refused, and the refusal names `spec.expand('piecewise')`, which keeps every
+`sos:` block, and `spec.expand()`, which writes the sets out too. Which one is
+the caller's to say, because a consumer with the concept of a set takes one
+whole and a consumer without it does not.
 
 | you are                                                                      | take      | because                                  |
 | ---------------------------------------------------------------------------- | --------- | ---------------------------------------- |
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts          |
 
-`program.piecewise` keeps what the block assumed about the numbers, such as
-"the breakpoints in `bp_x` increase", as a `checks` tuple. The engine, which has
-the numbers, runs each check, and `check_message` gives it the sentence to
-raise. `ParameterDeclaration.derivation` says how a parameter is filled, and
-`None` means the engine binds it from its data.
+## Formulations written out
+
+`Spec.expand()` returns a `Spec` whose formulations — `piecewise:` and `sos:` —
+are stated as the variables and constraints they stand for. It is the same math,
+bound by the same data, and it is what to print for a reader who wants the rows
+rather than the curve:
+
+```python
+sorted(spec.expand().variables)  # ['cost', 'curve_lam', 'p']
+sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+spec.expand() is spec.expand()  # True
+```
+
+`to_program` writes the curves out and leaves the sets, because a program
+carries a set for a consumer that has the concept. A consumer without one
+refuses the model and names `spec.expand('sos')`; what that emits is on the
+[piecewise page](language/piecewise.md#what-a-set-is-written-out-as).
+
+`program.piecewise` keeps the curve: its breakpoint dimension, its method and
+its values parameters. Every parameter the program declares is one the file
+declared, and the engine binds each from its data.
+
+## What the data has to satisfy
+
+`program.assumptions` holds every fact the numbers have to meet, by the name a
+refusal quotes. The engine, which has the numbers, runs each one and raises
+`assumption_message` where it fails:
+
+```python
+from math_spec.program import Assumption, assumption_message
+
+sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_complete', 'curve_curvature', 'curve_increasing']
+isinstance(program.assumptions['curve_increasing'], Assumption)  # True
+message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
+message  # "assumption 'curve_increasing' does not hold for the data bound to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+written = assumption_message('cost_is_never_negative', program.assumptions['cost_is_never_negative'])
+written  # "assumption 'cost_is_never_negative' does not hold for the data bound to 'bp_y' — a negative cost is a gain the objective would chase"
+```
+
+One kind stands in that mapping. An `Assumption` carries a predicate as two masks —
+`predicate`, and the `where` it is checked under — and the sentence a refusal
+trails under `description`. What a `piecewise:` block's method implies about
+its breakpoints is written in the same language and stands beside what the
+file wrote: `expand()` emits those entries, and a model that still declares
+the block derives the same text at load. So a consumer reads one kind, and a
+condition a method adds later is a row in that mapping rather than a case to
+handle.
 
 ## Nodes and masks
 
@@ -87,6 +138,10 @@ node's operands, and `where_children()` walks a predicate's. `walk()` yields
 every node under an expression, parents first. `walk_regions()` yields each node
 with the `cases:` regions it stands inside, outermost first.
 
+`Named` is the one node no program carries. A `Spec.resolved` tree holds it
+where an `expressions:` entry is used, and lowering inlines the entry's body
+there before the program is built, so `Expression` does not name it.
+
 Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate. The
 mask also answers four questions:
 
@@ -94,6 +149,26 @@ mask also answers four questions:
 - `.names_read` gives the declarations the mask names.
 - `.atoms` gives its leaves, with the connectives removed.
 - `.dims` gives the dimensions the mask is read at.
+
+A comparison of expressions arrives as an `ExpressionComparison`. Its two
+sides are program expressions like a constraint's, and its `dims` are every
+dimension either side carries. Its `names_read` are every parameter and relation
+the sides read, the relation a grouping reads through included.
+
+A name compared against a literal does not arrive this way. `p_max > 5` is a
+`ParameterComparison` and `1 * p_max > 5` is an `ExpressionComparison`, though
+both mask the same coordinates. Match both where you read a comparison over
+parameters.
+
+Three predicates read another predicate rather than a declaration. A
+`CountComparison` carries the mask it counts and the dimension it counts away.
+A `TranslatedPredicate` carries the mask it reads at a neighbouring
+coordinate. A `PulledBackPredicate` carries the mask it reads through a
+relation, and the `Direction` it reads in. Each holds that mask as a `Mask`,
+where a connective holds a bare predicate: the walk recurses through a
+connective and stops at these, so read the field where you need what is
+inside. `.names_read` and `.dims` already see through all three, and the
+relation a `PulledBackPredicate` reads is in its `.names_read`.
 
 A predicate you build yourself answers the same four questions: wrap it in
 `Mask`, or build it there with `~`, `&` and `|`. A mask folds as it is built,

@@ -79,6 +79,16 @@ constraints:
       dispatch - shift(dispatch, along=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
+assumptions:
+  output_floor_fits_under_the_cap:
+    holds: "min_output <= capacity"
+    where: "committable"
+    description: >-
+      `lower` and `upper` hold one dispatch between them, so a floor above the
+      cap makes a running unit infeasible rather than expensive. A unit that
+      cannot be switched off is held to its floor in every snapshot, so the
+      check is the committable ones'.
+
 objective:
   sense: minimize
   expression: sum(dispatch * cost)
@@ -177,6 +187,14 @@ $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own ord
 
 ```math
 \mathit{status}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### Assumptions
+
+**`output_floor_fits_under_the_cap`**
+
+```math
+\mathrm{min\_output}_{g} \le \mathrm{capacity}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{committable}_{g}
 ```
 <!-- gallery:end -->
 

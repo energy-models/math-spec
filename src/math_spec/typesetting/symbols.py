@@ -15,13 +15,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import math_spec.degree as degree
 from math_spec._yaml import read_yaml
+from math_spec.degree import calls_dual
 from math_spec.errors import SchemaError, did_you_mean
+from math_spec.program import carries_variable
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
-    from math_spec.model import _ExpandedSpec
+    from math_spec.model import Spec
     from math_spec.typesetting.format import Format, Notation
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -72,7 +73,7 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
     return _word(name, fmt, given=given)
 
 
-def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
+def chosen_expressions(schema: Spec) -> frozenset[str]:
     """The named expressions the solver decides, rather than is handed.
 
     A ``when`` does not move one: a variable there asks whether the variable
@@ -84,8 +85,8 @@ def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
     """
     return frozenset(
         name
-        for name, node in schema.resolved.expressions.items()
-        if degree.carries_variable(node) or degree.calls_dual(node)
+        for name, entry in schema.resolved.expressions.items()
+        if carries_variable(entry.body) or calls_dual(entry.body)
     )
 
 
@@ -101,7 +102,7 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: _ExpandedSpec, fmt: Format, table: SymbolTable) -> None:
+    def __init__(self, schema: Spec, fmt: Format, table: SymbolTable) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
@@ -236,12 +237,18 @@ class SymbolTable:
             names={k: str(v) for k, v in _section(raw, 'names').items()},
         )
 
-    def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
-        """Reject entries naming nothing in *schema*, with the near miss."""
+    def checked_against(self, schema: Spec) -> SymbolTable:
+        """Reject entries naming nothing in *schema* or in what its formulations state, with the near miss.
+
+        A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
+        one table spells both readings of a model: the blocks as the file states
+        them, and the rows :meth:`~math_spec.model.Spec.expand` writes out. The
+        expansion is built only where an entry needs it.
+        """
         dims = set(schema.dimensions)
-        everything = (
-            dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
-        )
+        everything = dims | _declared(schema)
+        if set(self.names) - everything:
+            everything |= _declared(schema.expand())
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),
@@ -249,6 +256,11 @@ class SymbolTable:
         if errors:
             raise SchemaError('\n'.join(sorted(errors)))
         return self
+
+
+def _declared(schema: Spec) -> set[str]:
+    """Every name *schema* declares that a table entry may spell."""
+    return set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
 
 
 def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:

@@ -1,0 +1,68 @@
+dimensions:
+  bp: { dtype: int }
+
+parameters:
+  x_bp: { dims: [bp] }
+  y_bp: { dims: [bp] }
+
+variables:
+  x: { dims: [], bounds: { lower: 0 } }
+  y: { dims: [], bounds: { lower: 0 } }
+
+constraints:
+  curve_chord:
+    dims: [bp]
+    where: x_bp AND shift(x_bp, along=bp, offset=1)
+    expression: >-
+      (y) * (x_bp - shift(x_bp, along=bp, offset=1, edge=0))
+      >= (y_bp - shift(y_bp, along=bp, offset=1, edge=0)) * ((x) - x_bp)
+      + y_bp * (x_bp - shift(x_bp, along=bp, offset=1, edge=0))
+  curve_domain_lo:
+    dims: [bp]
+    where: x_bp AND NOT shift(x_bp, along=bp, offset=1)
+    expression: (x) >= x_bp
+  curve_domain_hi:
+    dims: [bp]
+    where: x_bp AND NOT shift(x_bp, along=bp, offset=-1)
+    expression: (x) <= x_bp
+
+assumptions:
+  curve_complete:
+    where: x_bp
+    holds: x_bp AND y_bp
+    description: >-
+      piecewise 'curve': every breakpoint the curve runs through needs a row in
+      'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
+      curve, so it sits the curve on the origin. Bind the rows, or narrow
+      points: 'x_bp' to where the curve runs.
+  curve_increasing:
+    where: x_bp AND shift(x_bp, along=bp, offset=1)
+    holds: shift(x_bp, along=bp, offset=1, edge=0) < x_bp
+    description: >-
+      piecewise 'curve': method: lp requires strictly increasing breakpoints
+      in 'x_bp' along 'bp'
+  curve_curvature:
+    where: x_bp AND shift(x_bp, along=bp, offset=1) AND shift(x_bp, along=bp, offset=-1)
+    holds: >-
+      (y_bp - shift(y_bp, along=bp, offset=1, edge=0))
+      * (shift(x_bp, along=bp, offset=-1, edge=0) - x_bp)
+      <= (shift(y_bp, along=bp, offset=-1, edge=0) - y_bp)
+      * (x_bp - shift(x_bp, along=bp, offset=1, edge=0))
+    description: >-
+      piecewise 'curve': method: lp is exact only for a convex curve, and
+      'y_bp' over 'x_bp' along 'bp' is not one, so the answer is wrong rather
+      than loose. Use method: adjacency or sos2, which take a curve of any
+      shape.
+  curve_breakpoints:
+    holds: count(x_bp, over=bp) >= 2
+    description: >-
+      piecewise 'curve': method: lp needs at least two breakpoints per curve —
+      the method *is* its segment lines, so a curve with no segment states
+      nothing and leaves the bounded link on its own bound. Use method:
+      adjacency, sos2 or convex, which pin it to the points it does have.
+  curve_contiguous:
+    holds: count(x_bp AND NOT shift(x_bp, along=bp, offset=1), over=bp) == 1
+    description: >-
+      piecewise 'curve': points: 'x_bp' must mark a consecutive run of at least
+      one breakpoint per curve — the chord row joins a breakpoint to the one
+      before it, and the domain rows sit on the curve's own first and last.
