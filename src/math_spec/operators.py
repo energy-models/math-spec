@@ -4,8 +4,8 @@
 
 """The closed set of built-in operators and their call shapes.
 
-One home for each signature: a composition is a macro, and math the language
-cannot say is a declared ``escape:``.
+One home for each signature: a composition is a macro, and the set is closed
+to a file.
 """
 
 from __future__ import annotations
@@ -230,6 +230,6 @@ def unknown_operator_message(name: str) -> str:
     return (
         f"Unknown operator '{name}'.\n"
         f'Available: {sorted(BUILTIN_NAMES)}\n'
-        f"Define '{name}' as a macro under 'macros:' if it composes built-ins; "
-        f'if the math is not sayable in the language, use a declared escape.'
+        f"Define '{name}' as a macro under 'macros:' if it composes built-ins. "
+        f'A file cannot add an operator: see docs/about/limits.md.'
     )
