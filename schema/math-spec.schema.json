@@ -345,6 +345,22 @@
       "additionalProperties": false,
       "description": "A declared parameter with dims and dtype.",
       "properties": {
+        "coverage": {
+          "anyOf": [
+            {
+              "enum": [
+                "total",
+                "masked"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage"
+        },
         "description": {
           "anyOf": [
             {
@@ -498,6 +514,22 @@
       "additionalProperties": false,
       "description": "A named relation between dimensions: the columns a row is keyed by, and the columns that key determines.\n\nEach side is a dimension, a list of them, or a mapping of column name to\ndimension where two columns share one. ``key:`` is the claim the language\nchecks at bind: one row per key tuple, so every ``values:`` column is a\nfunction of it. A relation with no ``values:`` is **bare** \u2014 every column is\nin its key, a row is its own identity, and nothing reads it::\n\n    relations:\n      gen_bus: {key: generator, values: bus}\n      gen_bt: {key: [generator], values: [bus, technology]}\n      zone_of: {key: [generator, period], values: zone}\n      ends: {key: line, values: {bus0: bus, bus1: bus}}\n      connection: {key: [generator, bus]}\n\nAn operator reads the table in the direction the call names\n(``over=``, ``into=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives at bind\ntime under the relation's name, one column per role.",
       "properties": {
+        "coverage": {
+          "anyOf": [
+            {
+              "enum": [
+                "total",
+                "masked"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage"
+        },
         "description": {
           "anyOf": [
             {

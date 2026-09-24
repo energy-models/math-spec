@@ -101,7 +101,8 @@ class Namespace:
         }
         #: relation name -> its columns and key, as declared.
         self.relations: dict[str, RelationDeclaration] = {
-            n: RelationDeclaration(lk.pairs, lk.key_roles, lk.description) for n, lk in schema.relations.items()
+            n: RelationDeclaration(lk.pairs, lk.key_roles, lk.description, lk.coverage_or_default)
+            for n, lk in schema.relations.items()
         }
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto

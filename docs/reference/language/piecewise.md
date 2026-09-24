@@ -258,8 +258,10 @@ a model before and after, as whole files.
   second call with the same kinds.
 - **The same data binds a model and its expansion.** Neither a set nor a curve
   emits a parameter. A curve under `points:` sits its rows on `where:`
-  predicates over the mask the file named, and the expansion is a file like any
-  other: `to_yaml()` writes it, and loading it back changes nothing.
+  predicates over the mask the file named, and declares the parameters it reads
+  `coverage: masked`, since its rows read them only where the mask holds. The
+  expansion is a file like any other: `to_yaml()` writes it, and loading it
+  back changes nothing.
 - **`spec.program` writes nothing out.** The program mirrors the model: a
   curve the model still declares is under `program.piecewise`, typed, and
   `spec.expand('piecewise').program` carries its rows instead. A consumer

@@ -1237,3 +1237,30 @@ def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
     assert isinstance(merged, dict), 'a merge is a plain dict, as the proxy gave'
     assert list(merged) == ['meet', 'p'], 'both groups, the left one first'
     assert list({'q': None} | program.variables) == ['q', 'p'], 'and a dict on the left merges too'
+
+
+def test_a_parameter_covers_every_coordinate_unless_it_says_otherwise():
+    """The default is the strict reading: a table carries what its dims reach. ``masked`` is the file saying the
+    missing row was meant, and which of the two a declaration means survives lowering, because whatever binds the
+    table reads it off the program rather than off the file."""
+    program = to_spec(override(SMALL_MODEL, **{'parameters.k.coverage': 'masked'})).program
+    assert program.parameters['c'].coverage == 'total', 'a parameter that says nothing covers its dims'
+    assert program.parameters['k'].coverage == 'masked', 'and one that says so is carried through unchanged'
+
+
+def test_a_parameter_a_curve_owns_answers_for_no_coverage():
+    """``coverage:`` is refused on a curve's own parameters at load, since ``points:`` already says how far each
+    curve runs. The refusal is a fact about the file, and whatever binds the table reads the program: reporting
+    the unwritten default there would tell a consumer to require every coordinate the dims reach, which a ragged
+    curve does not carry."""
+    curve = {
+        'parameters.bx': {'dims': ['h']},
+        'parameters.by': {'dims': ['h']},
+        'variables.s': {'dims': ['g']},
+        'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex', 'points': 'bx'},
+    }
+    program = to_spec(override(SMALL_MODEL, **curve)).program
+    coverage = {name: p.coverage for name, p in program.parameters.items()}
+    assert coverage == {'c': 'total', 'k': 'total', 'flag': 'total', 'tag': 'total', 'bx': None, 'by': None}, (
+        "the parameters the block consumes answer for no coverage; every other parameter's declaration is carried"
+    )

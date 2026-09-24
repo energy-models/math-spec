@@ -27,6 +27,7 @@ parameters:
 | ------------- | -------------------------------------------------------------- | --------------- |
 | `dims`        | required. The dimensions it is indexed by. `[]` means a scalar |                 |
 | `dtype`       | `float`, `int`, `bool`, `str`                                  | default `float` |
+| `coverage`    | `total`, `masked` ([below](#coverage))                         | default `total` |
 | `description` | free text                                                      | default `null`  |
 
 The column has to match the `dtype`:
@@ -43,6 +44,44 @@ parameter is a mask: each selects rows in a
 [`where`](expressions.md#where-strings), and writing either as a coefficient,
 a term or a divisor is a load error. A `0` or `1` that is meant to be
 multiplied by is declared `dtype: int`.
+
+### Coverage
+
+**`coverage` says whether a missing row was meant.** A table that lost a row in
+preparation and a table that never had one look the same in the data, and they
+mean opposite things. `total` claims that every coordinate the `dims` reach has
+a value, so a missing row is an error when the data binds. `masked` says the gap
+is the point. A coordinate the table leaves out reads as the value that
+contributes nothing: `0` as a coefficient, and `false` in a `where`
+([absence](absence.md)).
+
+```yaml
+dimensions:
+  generator: { dtype: str }
+parameters:
+  cost: { dims: [generator] } # total: every generator has one
+  ramp_limit: { dims: [generator], coverage: masked } # no row means no limit
+```
+
+**The default is `total`.** A model that never considered the question wants
+the strict reading: a lost row is an error, and a mask is a thing you write
+down. The declaration says which reading holds, so two consumers binding one
+table build one model.
+
+A `bounds:` entry and a divisor have no value that contributes nothing
+([absence](absence.md)). A `masked` parameter there must still carry a row
+wherever the declaration that reads it exists. The declaration's own `where:`
+may already guarantee that, as it does for a variable masked on the parameter
+that bounds it. The file does not settle it, so whatever binds the table checks
+it row by row.
+
+**A parameter a `piecewise:` block reads declares no `coverage:`.** The block
+owns the shape of its curve: [`points:`](piecewise.md) says how far each curve
+runs, and a breakpoint it leaves out is not asked for. So a values parameter is
+total over the points its block admits. That is neither `total` over every
+coordinate its `dims` reach nor a mask, and writing `coverage:` on one is a load
+error that names `points:`. The program reports no coverage for such a
+parameter.
 
 ## `variables`
 

@@ -75,6 +75,7 @@ parameters:
       the line's series impedance, signed by its orientation in the cycle —
       the cycle basis, data prep; a line in no cycle has no row
     dims: [line, cycle]
+    coverage: masked
   Line_loss_max:
     description: the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep
     dims: [snapshot, line]

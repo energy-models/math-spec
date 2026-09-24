@@ -2,8 +2,8 @@ dimensions:
   bp: { dtype: int }
 
 parameters:
-  x_bp: { dims: [bp] }
-  y_bp: { dims: [bp] }
+  x_bp: { dims: [bp], coverage: masked }
+  y_bp: { dims: [bp], coverage: masked }
 
 variables:
   x: { dims: [], bounds: { lower: 0 } }

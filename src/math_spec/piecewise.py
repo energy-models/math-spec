@@ -489,6 +489,12 @@ def expand_piecewise(schema: Spec) -> Spec:
     binaries are what the method *is*, so the model that comes back carries no
     set of its own (:func:`math_spec.sos.emit` is where they are spelled).
     Each block's frame and names are read off the program *schema* lowered to.
+
+    A parameter only curves with ``points:`` consume is read only where their
+    mask holds, since the weights and the segment rows stand on it, so the
+    expansion declares it ``coverage: masked``; the ``<block>_complete``
+    assumption states where it must carry a row. A parameter a curve over
+    every breakpoint reads stays ``total``.
     """
     if not schema.piecewise:
         return schema
@@ -498,6 +504,10 @@ def expand_piecewise(schema: Spec) -> Spec:
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
         _Block(schema, raw, name, pw, program.piecewise[name]).expand()
+    masked = {n for pw in schema.piecewise.values() if pw.points for n in pw.consumes}
+    masked -= {n for pw in schema.piecewise.values() if not pw.points for n in pw.consumes}
+    for parameter in masked:
+        raw['parameters'][parameter]['coverage'] = 'masked'
     raw['piecewise'].clear()
     for name, pw in schema.piecewise.items():
         if pw.method == 'adjacency':

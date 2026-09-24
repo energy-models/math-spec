@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec import piecewise, to_spec
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
 from tests.test_sos import CURVE
 from tools.render_tex import models
 
@@ -122,7 +122,9 @@ def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
     schema = schema_of(MASKED)
     expanded = schema.expand()
 
-    assert expanded.parameters == schema.parameters, 'a curve emits no parameter, so the same data binds both'
+    assert {name: (p.dims, p.dtype) for name, p in expanded.parameters.items()} == {
+        name: (p.dims, p.dtype) for name, p in schema.parameters.items()
+    }, 'a curve emits no parameter, so the same data binds both'
     assert schema_of(expanded.to_yaml()).to_dict() == expanded.to_dict(), (
         'the expansion is a file like any other, and loading it back changes nothing'
     )
@@ -161,3 +163,29 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
     written_out = set(spec.expand().program.parameters)
 
     assert written_out == supplied, 'writing a formulation out asks for data the model it came from did not'
+
+
+@pytest.mark.parametrize(
+    ('points', 'coverage'),
+    [
+        pytest.param({'piecewise.curve.points': 'bx'}, 'masked', id='a-curve-that-says-how-far-it-runs'),
+        pytest.param({}, 'total', id='a-curve-over-every-breakpoint'),
+    ],
+)
+def test_the_expansion_says_how_much_of_a_curve_table_it_reads(points, coverage):
+    """A curve's own parameters answer for no coverage, because the block owns their shape. The expansion keeps
+    no block: its weights stand on `points:` and its assumptions ask for a value only where the mask holds, so
+    the rows read a curve table only there. Left unwritten, lowering would report `total` and a consumer binding
+    the rows would refuse the ragged curve the block admits; a curve with no `points:` reads every breakpoint."""
+    curve = {
+        'parameters.bx': {'dims': ['h']},
+        'parameters.by': {'dims': ['h']},
+        'variables.s': {'dims': ['g']},
+        'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
+    }
+    rows = schema_of(override(SMALL_MODEL, **curve, **points)).expand('piecewise').program
+    assert {name: rows.parameters[name].coverage for name in ('bx', 'by', 'c')} == {
+        'bx': coverage,
+        'by': coverage,
+        'c': 'total',
+    }, "the expansion reads the curve's tables as the block did, and every other parameter as declared"

@@ -1108,7 +1108,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'relations.tag': {'key': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a relation declaration. Valid keys: description, key, values.",),
+                ("unknown key 'dtype' in a relation declaration. Valid keys: coverage, description, key, values.",),
                 id='relation-with-a-dtype-of-its-own',
             ),
             pytest.param({'relations.tag': {'key': 'g'}}, ('has 1 column(s)',), id='relation-with-one-column'),
@@ -2197,3 +2197,48 @@ def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_n
     model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
     with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
         to_spec(model)
+
+
+#: `fixtures.SMALL_MODEL` plus a two-link curve over its second dimension, so a
+#: block's own parameters stand beside ordinary ones in one model.
+CURVE: dict[str, Any] = {
+    'parameters.bx': {'dims': ['h']},
+    'parameters.by': {'dims': ['h']},
+    'variables.s': {'dims': ['g']},
+    'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
+}
+
+
+class TestCoverage:
+    """A table short of a row and a table that never had one look identical in the data, so the declaration says which was meant."""
+
+    def test_a_relation_covers_every_key_coordinate_unless_it_says_otherwise(self):
+        """A key coordinate a relation leaves out lands its terms in no group, which is the wiring mistake a composed model cannot otherwise be told about."""
+        spec = to_spec(
+            override(
+                SMALL_MODEL,
+                relations={
+                    'lk': {'key': 'g', 'values': 'h'},
+                    'open': {'key': 'g', 'values': 'h', 'coverage': 'masked'},
+                },
+            )
+        )
+        declared = {name: relation.coverage for name, relation in spec.program.relations.items()}
+        assert declared == {'lk': 'total', 'open': 'masked'}, (
+            'a relation that says nothing covers its key, and one that says so is carried through'
+        )
+
+    def test_a_curve_and_its_parameters_load_when_neither_declares_coverage(self):
+        to_spec(override(SMALL_MODEL, **CURVE))
+
+    @pytest.mark.parametrize('coverage', ['masked', 'total'])
+    def test_coverage_on_a_parameter_a_curve_consumes_is_refused(self, coverage):
+        """`points:` is already the third answer: a breakpoint it leaves out declares no weight and its values are
+        not asked for, so a values parameter is total over the points its block admits. `total` would claim every
+        coordinate the dims reach, which a curve shorter than its axis does not carry, and `masked` would say the
+        gap is a mask; either contradicts the block."""
+        with pytest.raises(LanguageError) as exc:
+            to_spec(override(SMALL_MODEL, **CURVE, **{'parameters.bx.coverage': coverage}))
+        assert "parameter 'bx'" in str(exc.value), 'the message names the parameter that has to change'
+        assert "'curve'" in str(exc.value), 'and the block that already owns the answer'
+        assert "'points:'" in str(exc.value), 'and names the rewrite'

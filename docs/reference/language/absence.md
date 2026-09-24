@@ -35,9 +35,12 @@ This page says what the mask means for the rows that are built.
 | `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))                   |
 | a label a relation does not map               | that label's group membership ([relations](relations.md#the-data-contract)) |
 
-Nothing else creates absence. **A missing parameter row is not absence.** It
-reads as the value that contributes nothing: `0` as a coefficient, and `false`
-in a `where`.
+Nothing else creates absence. **A missing parameter row is not absence.** The
+parameter's [`coverage`](declarations.md#coverage) says what it is instead.
+Under `total`, the default, a coordinate the `dims` reach with no row is an
+error when the data binds, and the error names the coordinate. Under `masked`,
+the missing row reads as the value that contributes nothing: `0` as a
+coefficient, and `false` in a `where`.
 
 Where no such value exists, loading is refused. There are four such positions:
 a divisor, a `bounds:` entry, the whole constant side of a comparison, and a

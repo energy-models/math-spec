@@ -195,9 +195,15 @@ def lower(schema: Spec) -> Program:
             assert assumption is not None and not errors, 'what a method assumes is stated in the language'
             assumptions[aname] = assumption
 
+    owned = {name for block in schema.piecewise.values() for name in block.consumes}
     program = Program(
         parameters={
-            name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype, pdef.description)
+            name: ParameterDeclaration(
+                tuple(pdef.dims),
+                pdef.dtype,
+                pdef.description,
+                None if name in owned else pdef.coverage_or_default,
+            )
             for name, pdef in schema.parameters.items()
         },
         variables=variables,

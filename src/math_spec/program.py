@@ -47,6 +47,7 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'CountComparison',
+    'Coverage',
     'DeclaredDtype',
     'DimensionComparison',
     'DimensionDeclaration',
@@ -146,6 +147,13 @@ ParameterDtype = Literal['float', 'int', 'bool', 'str']
 #: dimension's, since a relation's is its target's. The union rather than either
 #: half, because a mask names all three kinds and reads the dtype the same way.
 DeclaredDtype = ParameterDtype | DimensionDtype
+
+#: What a table must carry: a parameter's values, or a relation's rows.
+#: ``total`` is every coordinate a parameter's ``dims`` reach, or every key
+#: coordinate of a relation; ``masked`` says a missing row is deliberate. The
+#: two are indistinguishable in the data, which is why the declaration says
+#: which was meant rather than a consumer guessing.
+Coverage = Literal['total', 'masked']
 
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
@@ -475,6 +483,8 @@ class RelationDeclaration:
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...]
     description: str | None = None
+    #: Whether the table carries a row for every coordinate of :attr:`key`.
+    coverage: Coverage = 'total'
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -624,6 +634,13 @@ class ParameterDeclaration:
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
     description: str | None = None
+    #: Whether the table carries every coordinate of *dims*. ``masked`` says a
+    #: missing row is a gap the model means, so the declaration rather than the
+    #: data decides how a short table reads. ``None`` where a ``piecewise:``
+    #: block consumes the parameter and so owns its shape: a curve runs as far
+    #: as ``points:`` says, which is neither of the two, and a consumer checking
+    #: coverage there would refuse a ragged curve the block admits.
+    coverage: Coverage | None = 'total'
 
 
 @dataclass(frozen=True)
