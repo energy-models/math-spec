@@ -148,9 +148,9 @@ def test_the_spine_weightings_are_generic():
         assert 1.0 not in values, f'{name} carries a 1.0 — the identity a missing factor hides behind'
 
 
-@pytest.mark.parametrize('row', sorted(row for row in RECORDED_ROWS if row.startswith('GlobalConstraint-')), ids=str)
-def test_a_global_constraint_row_has_a_block_of_its_recorded_type_and_sense(row: str):
-    gc = GC_RECORDED[row.removeprefix('GlobalConstraint-')]
+@pytest.mark.parametrize('label', sorted(GC_RECORDED), ids=str)
+def test_a_global_constraint_row_has_a_block_of_its_recorded_type_and_sense(label: str):
+    gc = GC_RECORDED[label]
     matching = [
         name
         for m in MODELS

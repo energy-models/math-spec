@@ -75,13 +75,17 @@ def test_a_standard_constraint_changes_frame_only_by_a_leading_scenario():
     assert not wrong, f'a standard row may gain only a leading scenario; these differ: {wrong}'
 
 
-def test_only_load_carries_scenario_among_standard_parameters():
+#: the standard parameters PyPSA reads per scenario
+SCENARIO_PARAMETERS = {'Load_p_set', 'GlobalConstraint_sense', 'GlobalConstraint_constant'}
+
+
+def test_only_the_scenario_parameters_carry_scenario_among_standard_parameters():
     wrong = {
         name: _dims(ALL.parameters[name])
         for name, dims in STANDARD['parameters'].items()
-        if _dims(ALL.parameters[name]) != (['scenario', *dims] if name == 'Load_p_set' else dims)
+        if _dims(ALL.parameters[name]) != (['scenario', *dims] if name in SCENARIO_PARAMETERS else dims)
     }
-    assert not wrong, f'only Load_p_set gains scenario; these differ: {wrong}'
+    assert not wrong, f'only {sorted(SCENARIO_PARAMETERS)} gain scenario; these differ: {wrong}'
 
 
 def test_the_extra_axes_and_rows_are_declared():

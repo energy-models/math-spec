@@ -414,9 +414,9 @@ each type is three blocks by sense.
 
 | PyPSA type                            | status      | note                                              |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
-| [`primary_energy`](#primary_energy)   | split       | a block per sense — sense as data is beyond #70; carrier weights are prep; one period in rung 35 |
-| [`operational_limit`](#operational_limit) | split   | a block per sense; one period in rung 35          |
-| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | split | a block per sense; membership from PyPSA's carrier string is prep |
+| [`primary_energy`](#primary_energy)   | split       | a block per sense — sense as data is beyond #70; carrier weights are prep; one period in rung 35; per scenario in rung 40 |
+| [`operational_limit`](#operational_limit) | split   | a block per sense; one period in rung 35; per scenario in rung 40 |
+| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | split | a block per sense; membership from PyPSA's carrier string is prep; per scenario in rung 40 |
 | [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
 | `Bus-nom_min/max_{carrier}`           | out         | deprecated in PyPSA                               |
@@ -3332,6 +3332,100 @@ def build():
 </details>
 <!-- reference:rung_39_negative_relative_growth:end -->
 
+### Rung 40 — a global constraint per scenario
+
+`n.set_scenarios(...)` with `GlobalConstraint` rows whose `constant` and
+`sense` differ between the scenarios. PyPSA builds one `GlobalConstraint-{name}`
+row per scenario for `primary_energy`, `operational_limit` and
+`transmission_volume_expansion_limit`, and reads each scenario's own sense and
+constant (`global_constraints.py:361-371`, `:556-557`, `:748-749`,
+`:786-795`, `:860-861`). The file states `GlobalConstraint_constant` and
+`GlobalConstraint_sense` over `scenario` as well, so each row takes its own
+value in each future. A row with no scenario axis in its total, such as the
+transmission volume, repeats the same capacity sum under each scenario's
+constant. A plain run feeds one scenario, and the rows collapse to the standard
+ones.
+
+The rung puts an extendable line under a volume limit of `60` in the calm
+future and `20` in the stormy one, and a CO2 row that is at most `250` in the
+calm future and exactly `200` in the stormy one. All three bind. With the same
+network and the calm values in both futures, PyPSA solves to
+`12943.333333333334`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit), [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) with a constant and sense per scenario | done | `GlobalConstraint_constant` and `GlobalConstraint_sense` over `scenario` |
+| `transmission_expansion_cost_limit` on a network with scenarios | out | PyPSA `1.3.0` builds no row: it matches extendable names against a table indexed by scenario and name, and finds none (`global_constraints.py:916`). The file builds the row per scenario |
+| `transmission_volume_expansion_limit` on a network with scenarios and `multi_investment_periods` | out | PyPSA `1.3.0` builds no row: the active-asset filter reindexes a table indexed by scenario and name by the names alone, and keeps none (`global_constraints.py:828`, `descriptors.py:261-263`). The file builds the row per scenario |
+| a `carrier_attribute` or `investment_period` per scenario | out | PyPSA reads both per scenario (`global_constraints.py:797-802`); the file states both per row, in the weights and in `GlobalConstraint_counts_snapshot` |
+
+<!-- reference:rung_40_scenario_global_constraints:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `15106.666666666666`, 86 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_40_scenario_global_constraints.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 40: a global constraint takes its own constant and sense in each scenario."""
+
+from __future__ import annotations
+
+import spine
+
+#: each scenario's own constant and sense, per row
+PER_SCENARIO = {
+    ('calm', 'volume40'): {'constant': 60},
+    ('stormy', 'volume40'): {'constant': 20},
+    ('calm', 'co2_40'): {'constant': 250, 'sense': '<='},
+    ('stormy', 'co2_40'): {'constant': 200, 'sense': '=='},
+}
+
+
+def build():
+    """The spine over two futures, with an extendable line under a volume limit and a CO2 row that differ by scenario."""
+    n = spine.build()
+    n.add('Carrier', 'AC')
+    n.add('Carrier', 'coalc', co2_emissions=0.5)
+    n.c.generators.static.loc['coal', 'carrier'] = 'coalc'
+    n.add(
+        'Line',
+        'tie40',
+        bus0='north',
+        bus1='south',
+        x=0.1,
+        carrier='AC',
+        length=2,
+        s_nom_extendable=True,
+        capital_cost=1,
+    )
+    n.add('Load', 'port40', bus='south', p_set=30)
+    n.add(
+        'GlobalConstraint',
+        'volume40',
+        type='transmission_volume_expansion_limit',
+        carrier_attribute='AC',
+        sense='<=',
+        constant=60,
+    )
+    n.add(
+        'GlobalConstraint', 'co2_40', type='primary_energy', carrier_attribute='co2_emissions', sense='<=', constant=250
+    )
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    for row, values in PER_SCENARIO.items():
+        for column, value in values.items():
+            n.c.global_constraints.static.loc[row, column] = value
+    return n
+```
+
+</details>
+<!-- reference:rung_40_scenario_global_constraints:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -3611,8 +3705,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{a}^{\sigma}`$ | `Transformer_loss_slope` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — the slope of a cut to a transformer's loss curve — a tangent's `2 * r_pu_eff * p_k`, a secant's `r_pu_eff * (p_k + p_k+1)`, as a line's, over the transformer's own `r_pu_eff` and rating, data prep |
 | $`\mathrm{b}^{\sigma}`$ | `Transformer_loss_offset` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
 | $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{I}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
-| $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{I}`$ — which way the row binds — `<=`, `>=` or `==` |
-| $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, times its period's years for each counted period where the storage reopens per period, or a non-extendable build — is folded in here by data prep |
+| $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\Xi \times \mathcal{I}`$ — which way the row binds in each scenario — `<=`, `>=` or `==`; PyPSA reads a row's sense per scenario (`global_constraints.py:556`, `:748`, `:860`) |
+| $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\Xi \times \mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, times its period's years for each counted period where the storage reopens per period, or a non-extendable build — is folded in here by data prep. PyPSA reads it per scenario (`global_constraints.py:557`, `:749`, `:861`) |
 | $`\mathrm{in}`$ | `GlobalConstraint_counts_snapshot` over $`\mathcal{I} \times \mathcal{T}`$ — whether a row counts a snapshot — PyPSA's `investment_period`: every snapshot where the row names none, and only that period's where it names one, data prep. A row that names a period the run does not model has no label here, as PyPSA skips it (`global_constraints.py:377`); PyPSA reads the column only under `multi_investment_periods`, and fails on a row that names a period without it (`global_constraints.py:375`) |
 | $`\mathrm{a}`$ | `Generator_primary_energy_weight` over $`\mathcal{I} \times \mathcal{G}`$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
 | $`\mathrm{a}^{h}`$ | `StorageUnit_primary_energy_weight` over $`\mathcal{I} \times \mathcal{S}`$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
@@ -7474,7 +7568,7 @@ GlobalConstraint_primary_energy_ub:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,i} \le \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
+\mathit{primary\_energy}_{\xi,i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `primary_energy`
@@ -7490,7 +7584,7 @@ GlobalConstraint_primary_energy_lb:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,i} \ge \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
+\mathit{primary\_energy}_{\xi,i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `primary_energy`
@@ -7506,7 +7600,7 @@ GlobalConstraint_primary_energy_eq:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,i} = \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
+\mathit{primary\_energy}_{\xi,i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `operational_limit`
@@ -7522,7 +7616,7 @@ GlobalConstraint_operational_limit_ub:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,i} \le \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
+\mathit{operational\_limit}_{\xi,i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `operational_limit`
@@ -7538,7 +7632,7 @@ GlobalConstraint_operational_limit_lb:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,i} \ge \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
+\mathit{operational\_limit}_{\xi,i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `operational_limit`
@@ -7554,7 +7648,7 @@ GlobalConstraint_operational_limit_eq:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,i} = \mathrm{K}_{i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
+\mathit{operational\_limit}_{\xi,i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -7564,13 +7658,13 @@ GlobalConstraint_operational_limit_eq:
 ```yaml
 GlobalConstraint_transmission_volume_expansion_limit_ub:
   description: "`transmission_volume_expansion_limit` — its total, at most its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
   expression: transmission_volume_expansion <= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} \le \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
+\mathit{transmission\_volume\_expansion}_{i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -7580,13 +7674,13 @@ GlobalConstraint_transmission_volume_expansion_limit_ub:
 ```yaml
 GlobalConstraint_transmission_volume_expansion_limit_lb:
   description: "`transmission_volume_expansion_limit` — its total, at least its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
   expression: transmission_volume_expansion >= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} \ge \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
+\mathit{transmission\_volume\_expansion}_{i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -7596,13 +7690,13 @@ GlobalConstraint_transmission_volume_expansion_limit_lb:
 ```yaml
 GlobalConstraint_transmission_volume_expansion_limit_eq:
   description: "`transmission_volume_expansion_limit` — its total, at its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
   expression: transmission_volume_expansion == GlobalConstraint_constant
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} = \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
+\mathit{transmission\_volume\_expansion}_{i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -7612,13 +7706,13 @@ GlobalConstraint_transmission_volume_expansion_limit_eq:
 ```yaml
 GlobalConstraint_transmission_expansion_cost_limit_ub:
   description: "`transmission_expansion_cost_limit` — its total, at most its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
   expression: transmission_expansion_cost <= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} \le \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
+\mathit{transmission\_expansion\_cost}_{i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -7628,13 +7722,13 @@ GlobalConstraint_transmission_expansion_cost_limit_ub:
 ```yaml
 GlobalConstraint_transmission_expansion_cost_limit_lb:
   description: "`transmission_expansion_cost_limit` — its total, at least its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
   expression: transmission_expansion_cost >= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} \ge \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
+\mathit{transmission\_expansion\_cost}_{i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -7644,13 +7738,13 @@ GlobalConstraint_transmission_expansion_cost_limit_lb:
 ```yaml
 GlobalConstraint_transmission_expansion_cost_limit_eq:
   description: "`transmission_expansion_cost_limit` — its total, at its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
   expression: transmission_expansion_cost == GlobalConstraint_constant
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} = \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
+\mathit{transmission\_expansion\_cost}_{i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -7660,13 +7754,13 @@ GlobalConstraint_transmission_expansion_cost_limit_eq:
 ```yaml
 GlobalConstraint_tech_capacity_expansion_limit_ub:
   description: "`tech_capacity_expansion_limit` — its total, at most its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
   expression: tech_capacity_expansion <= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{i} \le \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{<=}\text{'}
+\mathit{tech\_capacity\_expansion}_{i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -7676,13 +7770,13 @@ GlobalConstraint_tech_capacity_expansion_limit_ub:
 ```yaml
 GlobalConstraint_tech_capacity_expansion_limit_lb:
   description: "`tech_capacity_expansion_limit` — its total, at least its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
   expression: tech_capacity_expansion >= GlobalConstraint_constant
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{i} \ge \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{>=}\text{'}
+\mathit{tech\_capacity\_expansion}_{i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -7692,13 +7786,13 @@ GlobalConstraint_tech_capacity_expansion_limit_lb:
 ```yaml
 GlobalConstraint_tech_capacity_expansion_limit_eq:
   description: "`tech_capacity_expansion_limit` — its total, at its constant"
-  dims: [global_constraint]
+  dims: [scenario, global_constraint]
   where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
   expression: tech_capacity_expansion == GlobalConstraint_constant
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{i} = \mathrm{K}_{i} \qquad \forall\, i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{i} = \text{'}\mathrm{==}\text{'}
+\mathit{tech\_capacity\_expansion}_{i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `Bus-nodal_balance`
