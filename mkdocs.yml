@@ -31,9 +31,8 @@ nav:
   # follow the same split. There is no tutorial yet; the first one opens a
   # `Tutorials:` section here, above the how-to guides. The model pages are
   # reference in their own form and sit at the end of the Reference section,
-  # after the pages a reader looks things up in; `docs/static/hooks.py` puts
-  # the Python API in front of them. The Development section, last, is outside
-  # the four kinds.
+  # after the pages a reader looks things up in. The Development section, last,
+  # is outside the four kinds.
   - How-to guides:
       - Installation: howto/installation.md
       - Check a model without data: howto/check.md
@@ -60,6 +59,7 @@ nav:
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
       - Reading a loaded model: reference/reading.md
+      - Python API: reference/api.md
       - Examples:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md
@@ -74,7 +74,8 @@ nav:
       - Changelog: CHANGELOG.md
   # Outside the four kinds: proof-of-concept pages and contributor material,
   # which a reader writing a model does not need. The PyPSA pages stay in
-  # `docs/examples/`, where `tools/gallery.py` writes them.
+  # `docs/examples/`, where `tools/gallery.py` writes them. `docs/static/hooks.py`
+  # appends one page per module under `src/math_spec/`, as `Modules`.
   - Development:
       - Contributing: contributing.md
       - PyPSA parity:

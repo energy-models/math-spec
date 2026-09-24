@@ -45,13 +45,13 @@ Two questions decide it, and they work on a paragraph as well as a page:
 1. Does it inform **action** or **cognition**?
 2. Does it serve **acquiring** a skill or **applying** one?
 
-| Kind        | Informs   | Serves  | Answers                                                       | Nav section · folder                                                  |
-| ----------- | --------- | ------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Tutorial    | action    | acquire | "Get me a first file that loads and prints"                   | Tutorials · `docs/`                                                   |
-| How-to      | action    | apply   | "I have this task"                                            | How-to guides · `docs/howto/`                                         |
-| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?"         | Reference · `docs/reference/`, model pages in `docs/examples/`        |
-| Explanation | cognition | acquire | "Why is it like this?"                                        | About · `docs/about/`                                                 |
-| (none)      | —         | —       | "How do I contribute, and what does a proof of concept show?" | Development · `docs/contributing.md`, PyPSA pages in `docs/examples/` |
+| Kind        | Informs   | Serves  | Answers                                                       | Nav section · folder                                                                          |
+| ----------- | --------- | ------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Tutorial    | action    | acquire | "Get me a first file that loads and prints"                   | Tutorials · `docs/`                                                                           |
+| How-to      | action    | apply   | "I have this task"                                            | How-to guides · `docs/howto/`                                                                 |
+| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?"         | Reference · `docs/reference/`, model pages in `docs/examples/`                                |
+| Explanation | cognition | acquire | "Why is it like this?"                                        | About · `docs/about/`                                                                         |
+| (none)      | —         | —       | "How do I contribute, and what does a proof of concept show?" | Development · `docs/contributing.md`, PyPSA pages in `docs/examples/`, module pages generated |
 
 The nav and the tree are both arranged by kind. A new page goes in the folder
 of its kind and under the nav section of the same name; the first tutorial
@@ -93,9 +93,12 @@ and `tests/test_docs.py` holds each block to its generator byte for byte. The ca
 `docs/examples/index.md` is hand-written: one bullet per page in the Examples
 section, saying why a reader would open it.
 
-**The Python API pages are built, not written.** mkdocs renders
-`reference/math_spec/` from the docstrings at build time, so their prose is
-the docstring rules in `AGENTS.md`.
+**The Python API is rendered from the docstrings.**
+`docs/reference/api.md` holds one `:::` entry per name in `math_spec.__all__`,
+and mkdocstrings renders each from its docstring. `docs/static/hooks.py`
+renders one page per module under `src/math_spec/`, and puts them in the
+Development section as `Modules`. The prose of both is the docstring rules in
+`AGENTS.md`.
 
 Mixing kinds is the most common failure. Rationale inside a reference section
 makes the rules unskimmable, and rules inside an explanation page make the
