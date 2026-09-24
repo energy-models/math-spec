@@ -1777,8 +1777,8 @@ extendable component of that carrier, not the generators alone. Here a battery
 carrier caps a storage unit and a store built in the first period, and the two
 builds fill the cap together. A store built in the later period adds its
 allowance plus half of what the carrier added before. PyPSA counts the
-components that carry a carrier attribute; the spec extends the same limit to
-transformers, which PyPSA leaves out.
+components that carry a carrier attribute, and so does the spec, so a
+transformer counts in no carrier.
 
 <!-- reference:rung_21_carrier_growth:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `8452.5`, 74 rows.
