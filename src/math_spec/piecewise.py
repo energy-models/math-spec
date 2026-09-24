@@ -23,7 +23,8 @@ from typing import TYPE_CHECKING, Literal
 
 import math_spec.sos as sos
 from math_spec._expression_parser import NAME
-from math_spec.dimensions import dims_of
+from math_spec._expression_resolver import ExpressionResolver
+from math_spec.dimensions import dims_of, pulled_back_dims
 from math_spec.errors import DimensionError
 from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, PiecewiseLink, Spec, VariableBlock
 from math_spec.program import Link, PiecewiseDeclaration, PiecewiseMethod, VariableDeclaration, carries_variable
@@ -32,7 +33,7 @@ from math_spec.resolution import resolve_expression_text
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from math_spec.program import Expression, Mask
+    from math_spec.program import Direction, Expression, Mask
     from math_spec.resolution import Namespace
 
 
@@ -154,11 +155,12 @@ def assumptions_of(name: str, curve: PiecewiseDeclaration, where: str | None) ->
     """
     d = curve.along
     mask, frame, exists = _masks(where, d, ragged=curve.ragged)
-    rewrite = (
-        f'Bind the rows, or narrow where: {mask!r} to where the curve runs.'
-        if mask is not None
-        else 'Bind the rows, or declare where: to say how far the curve runs.'
-    )
+    if mask is not None:
+        rewrite = f'Bind the rows, or narrow where: {mask!r} to where the curve runs.'
+    elif where is not None:
+        rewrite = f"Bind the rows, or let where: {where!r} test '{d}' too, to say how far each curve runs."
+    else:
+        rewrite = 'Bind the rows, or declare where: to say how far the curve runs.'
     assumed: dict[str, AssumptionBlock] = {}
     if values := [link.values for link in curve.links if not link.walks]:
         assumed[f'{name}_complete'] = AssumptionBlock(
@@ -408,6 +410,31 @@ def resolve_links(name: str, pw: PiecewiseBlock, ns: Namespace, errors: list[str
     return tuple(link for link in links if link is not None)
 
 
+def resolve_walks(name: str, pw: PiecewiseBlock, ns: Namespace, errors: list[str]) -> dict[str, Direction] | None:
+    """Block *name*'s walks by link key, each read as ``at`` reads its relation, or ``None`` once one failed.
+
+    The expansion writes a walked row as ``at(<block>_lam, by=, over=,
+    into=)``, so a walk is held to every rule that call is held to, and
+    refused here on the link the file wrote. Each refusal is appended to
+    *errors*.
+    """
+    walks: dict[str, Direction] = {}
+    failed = False
+    for key, link in pw.links.items():
+        if not link.walks:
+            continue
+        assert link.by is not None
+        resolver = ExpressionResolver(ns, f"piecewise '{name}' link '{key}'", errors)
+        if (problem := resolver.not_a_relation(link.by, 'at', 'by')) is not None:
+            errors.append(problem)
+            failed = True
+        elif (direction := resolver.direction(link.by, 'at', _named(link.over), _named(link.into))) is None:
+            failed = True
+        else:
+            walks[key] = direction
+    return None if failed else walks
+
+
 def lp_domain_refusal(name: str, pw: PiecewiseBlock, links: tuple[Expression, ...]) -> str | None:
     """The refusal for a ``method: lp`` curve whose x-link carries no variable, or ``None``.
 
@@ -429,30 +456,40 @@ def lp_domain_refusal(name: str, pw: PiecewiseBlock, links: tuple[Expression, ..
 
 
 def declaration_of(
-    schema: Spec, name: str, pw: PiecewiseBlock, links: tuple[Expression, ...], where: Mask | None
+    schema: Spec,
+    name: str,
+    pw: PiecewiseBlock,
+    links: tuple[Expression, ...],
+    walks: dict[str, Direction],
+    where: Mask | None,
 ) -> PiecewiseDeclaration:
-    """Block *name* as the program carries it, with *links* and *where* typed, every fit rule decided.
+    """Block *name* as the program carries it, with *links*, *walks* and *where* typed, every fit rule decided.
 
-    Each link's row is ``dims:``, or its refinement through the link's
-    relation; its expression carries exactly that row, its values parameter
+    A walk reads the curve's weights at the block's own dims, so it consumes
+    dims of ``dims:``, joins on dims of ``dims:``, and produces dims of its
+    own. Each link's row is ``dims:``, or its refinement through the link's
+    walk; its expression carries exactly that row, its values parameter
     varies along it and the breakpoint dim and nothing else, and the
     ``where:`` tests ``dims:`` and the breakpoint dim alone. A walked row
-    reads the where through its relation when the mask carries every dim the
-    walk reads the curve at. Decided here, on the link the file wrote, rather
-    than on the emitted declarations, whose refusal would name ``<block>_lam``
-    — a variable the author never wrote.
+    reads the where through its relation when the mask carries a dim the
+    walk consumes. Decided here, on the link the file wrote, rather than on
+    the emitted declarations, whose refusal would name ``<block>_lam`` — a
+    variable the author never wrote.
 
     Raises:
-        DimensionError: A link that does not fit its row, a where outside
-            ``dims:``, or a mask carrying part of what a walk reads through.
+        DimensionError: A walk that does not fit ``dims:``, a link that does
+            not fit its row, a where outside ``dims:``, or a mask carrying
+            part of what a walk reads through.
     """
     ctx = f"piecewise '{name}'"
-    rows = {key: _row(schema, pw, link) for key, link in pw.links.items()}
+    for key, walk in walks.items():
+        _walk_fits(f"{ctx} link '{key}'", pw, walk)
+    rows = {key: _row(schema, pw, walks.get(key)) for key in pw.links}
     for node, (key, row) in zip(links, rows.items(), strict=True):
         _link_fits(ctx, key, pw, dims_of(node, schema, f"{ctx} link '{key}'"), row)
     for (key, link), row in zip(pw.links.items(), rows.values(), strict=True):
         _values_fit(schema, ctx, key, pw, link, row)
-    _where_fits(ctx, pw, where)
+    _where_fits(ctx, pw, where, walks)
     carried = (where.dims if where is not None else frozenset()) - {pw.along}
     typed = tuple(
         Link(
@@ -464,7 +501,7 @@ def declaration_of(
             link.by,
             _named(link.over),
             _named(link.into),
-            _reads(schema, ctx, key, pw, link, carried),
+            _reads(ctx, key, pw, walks.get(key), carried),
         )
         for node, (key, link) in zip(links, pw.links.items(), strict=True)
     )
@@ -473,15 +510,49 @@ def declaration_of(
     )
 
 
-def _row(schema: Spec, block: PiecewiseBlock, link: PiecewiseLink) -> tuple[str, ...]:
-    """The dims one link's row is built over: ``dims:``, or its refinement through the link's relation.
+def _walk_fits(ctx: str, block: PiecewiseBlock, walk: Direction) -> None:
+    """A walk reads the curve's weights, which are over ``dims:`` and the breakpoint dim, as ``at`` would.
+
+    The rules ``at`` holds its operand to are :func:`pulled_back_dims`'s.
+    The ones checked first are the same rules, refused in terms of the
+    block, since there the rewrite is an edit to ``dims:``.
+    """
+    consumed, produced = set(walk.consumed_dims), set(walk.produced_dims)
+    if missing := sorted(consumed - set(block.dims)):
+        raise DimensionError(
+            f"{ctx}: over reaches {missing}, which the block's dims {block.dims} do not carry. A walk "
+            f"consumes one of the curve's own dimensions — name a column over one of {block.dims}, or declare "
+            f'it in dims:.'
+        )
+    if framed := sorted(produced & set(block.dims)):
+        raise DimensionError(
+            f"{ctx}: into reaches {framed}, which the block's dims {block.dims} already carry. The block "
+            f"builds one curve per coordinate of dims:, so {framed} cannot also index this link's rows — drop "
+            f'it from dims:, or walk into a dimension of its own.'
+        )
+    if block.along in produced:
+        raise DimensionError(
+            f"{ctx}: into reaches '{block.along}', the breakpoint dim. A walk indexes the link's rows, "
+            f'and every row runs along the breakpoints.'
+        )
+    if joined := sorted(set(walk.joined_dims) - set(block.dims)):
+        raise DimensionError(
+            f"{ctx}: '{walk.name}' is keyed on {joined} too, which the block's dims {block.dims} do not carry. "
+            f'A walk reads the curve at every key column it does not name, so the curve varies along them — add '
+            f'{joined} to dims:, or walk through a relation keyed by the columns into names.'
+        )
+    pulled_back_dims(walk, frozenset((*block.dims, block.along)), ctx, "the curve's weights")
+
+
+def _row(schema: Spec, block: PiecewiseBlock, walk: Direction | None) -> tuple[str, ...]:
+    """The dims one link's row is built over: ``dims:``, or its refinement through the link's walk.
 
     The produced dims stand where the consumed ones did, so a walked row
     reads in the shape of the curve it ties rather than in relation order.
     """
-    if not link.walks:
+    if walk is None:
         return tuple(block.dims)
-    consumed, produced = _walk(schema, link)
+    consumed, produced = set(walk.consumed_dims), set(walk.produced_dims)
     refined: list[str] = []
     for d in block.dims:
         if d in consumed:
@@ -491,45 +562,34 @@ def _row(schema: Spec, block: PiecewiseBlock, link: PiecewiseLink) -> tuple[str,
     return tuple(refined)
 
 
-def _reads(
-    schema: Spec, ctx: str, key: str, block: PiecewiseBlock, link: PiecewiseLink, carried: frozenset[str]
-) -> bool:
+def _reads(ctx: str, key: str, block: PiecewiseBlock, walk: Direction | None, carried: frozenset[str]) -> bool:
     """Whether a walked link's row reads the block's ``where:`` through its relation; ``False`` for one that does not walk.
 
-    A walked row is over the dims the walk produces, where a mask over the
-    ones it consumes cannot be read as written. Read through the relation it
-    can, as ``at`` reads it, when the mask carries every dim the walk consumes
-    or joins on (*carried* is what the mask carries, the breakpoint dim
-    aside). A mask carrying none of them is over dims the row keeps, and
-    reads as written.
+    A walked row is over the dims the walk produces, where a mask over a
+    dim it consumes cannot be read as written. Read through the relation it
+    can, as ``at`` reads it, when the mask carries every dim the walk
+    consumes or joins on (*carried* is what the mask carries, the breakpoint
+    dim aside). A mask carrying none the walk consumes is over dims the row
+    keeps, the joined ones among them, and reads as written.
 
     Raises:
-        DimensionError: The mask carries some of the dims the walk reads
-            through and not the rest.
+        DimensionError: The mask carries a dim the walk consumes, and not
+            every dim the walk reads through.
     """
-    if not link.walks:
+    if walk is None:
         return False
-    assert link.by is not None
-    consumed, _ = _walk(schema, link)
-    relation = schema.relations[link.by]
-    roles = dict(relation.pairs)
-    written = {*_named(link.over), *_named(link.into)}
-    needed = consumed | {roles[c] for c in relation.key_roles if c not in written}
-    if (partial := sorted(needed - carried)) and needed & carried:
+    consumed = frozenset(walk.consumed_dims)
+    if not consumed & carried:
+        return False
+    needed = consumed | frozenset(walk.joined_dims)
+    if partial := sorted(needed - carried):
         raise DimensionError(
             f"{ctx} link '{key}': where {block.where!r} carries {sorted(needed & carried)} and not {partial}, and "
-            f"the link reads the curve through '{link.by}' at all of {sorted(needed)}. Carry all of them in the "
-            f'where, so the row reads it through the relation, or none, so the row reads it as written.'
+            f"the link reads the curve through '{walk.name}' at all of {sorted(needed)}. Carry all of them in the "
+            f'where, so the row reads it through the relation, or none of {sorted(consumed)}, so the row reads it '
+            f'as written.'
         )
-    return bool(needed & carried)
-
-
-def _walk(schema: Spec, link: PiecewiseLink) -> tuple[frozenset[str], frozenset[str]]:
-    """The dims one walked link consumes and produces, read off the relation it names."""
-    assert link.by is not None
-    roles = dict(schema.relations[link.by].pairs)
-    consumed, produced = (frozenset(roles[c] for c in _named(written)) for written in (link.over, link.into))
-    return consumed, produced
+    return True
 
 
 def _named(written: str | list[str] | None) -> tuple[str, ...]:
@@ -588,14 +648,25 @@ def _values_fit(
         )
 
 
-def _where_fits(ctx: str, block: PiecewiseBlock, where: Mask | None) -> None:
+def _where_fits(ctx: str, block: PiecewiseBlock, where: Mask | None, walks: dict[str, Direction]) -> None:
     """A block's ``where:`` tests ``dims:`` and the breakpoint dim, and nothing else.
 
     A walked link's values parameter carries the link's own row, so a where
-    naming it is refused here too: raggedness is the curve's.
+    naming it is refused here too: raggedness is the curve's. A dim a walk
+    produces is refused without the advice to add it to ``dims:``, which the
+    walk would then refuse.
     """
     dims = where.dims if where is not None else frozenset()
-    if stray := sorted(dims - set(block.dims) - {block.along}):
+    stray = sorted(dims - set(block.dims) - {block.along})
+    for key, walk in walks.items():
+        if into := [d for d in stray if d in walk.produced_dims]:
+            raise DimensionError(
+                f"{ctx}: where {block.where!r} tests {into}, and {into} is what link '{key}' walks into — the "
+                f'where says which curves exist, one per coordinate of dims {block.dims}, and {into} indexes only '
+                f"that link's rows. Test {block.dims} in the where, or mask the link's own variable over {into} "
+                f'to leave its rows unbuilt.'
+            )
+    if stray:
         raise DimensionError(
             f'{ctx}: where {block.where!r} tests {stray}, which dims {block.dims} does not carry — a mask says '
             f'which of the curves the block builds exist, and cannot add coordinates. Add {stray} to dims:, '

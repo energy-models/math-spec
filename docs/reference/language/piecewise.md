@@ -65,7 +65,9 @@ curve, and the [typeset output](../typeset.md) prints the curve itself.
 their own, which is the model a consumer that builds rows reads.
 
 A link names the row it writes, so a link may not take a name the block
-already writes for itself, such as `convexity` or `lam`.
+already writes for itself, such as `convexity` or `lam`. No two blocks may write
+the same name: in a file with blocks `a` and `a_b`, a link `b_x` of `a` is
+refused, because its row `a_b_x` is also the row of the link `x` of `a_b`.
 
 The breakpoint order is the declared order of `along`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
@@ -222,9 +224,14 @@ writes `at(coupling_lam, by=generator_of, over=generator, into=flow)` into that
 row, so the weights stay on `dims:` and the model never names them.
 
 `by:`, `over:` and `into:` are written together. A walk states the relation, the
-columns it consumes and the columns it produces, and none is defaulted. A link
-whose row is finer than `dims:` is always a walk: a link that names only
-`into:` is refused.
+columns it consumes and the columns it produces, and none is defaulted. Each of
+`over:` and `into:` names at least one column. A link whose row is finer than
+`dims:` is always a walk: a link that names only `into:` is refused.
+
+A walk is held to every rule of `at`, as the model loads, and a refusal names
+the link. `into:` names key columns of the relation, and the read has one value
+at each coordinate it lands on. A key column that the walk does not name is
+joined on, so its dimension is one of `dims:`.
 
 A block whose only link walks a relation is a curve. Two links is what a curve
 needs when a link is one row; a walked link is one row per fine coordinate, so
@@ -250,17 +257,21 @@ The `power` row is built where
 `at(has_curve, by=generator_of, over=generator, into=flow)` holds, which is at
 every flow of a generator with a curve. The values of a walked link are asked
 for at the same rows, so a flow of a generator with no curve needs no row in
-`bp_power`. A mask over dimensions the walk keeps, such as `snapshot` alone,
-reaches the row as written. A mask that carries some of the dimensions the walk
-reads through and not the others is refused, and the message names the ones
-missing.
+`bp_power`. A mask that carries no dimension the walk consumes, such as
+`snapshot` alone, reaches the row as written. This is also true when the
+relation is keyed on `snapshot` too, because the row keeps every dimension the
+walk joins on. A mask that carries a dimension the walk consumes and not every
+dimension the walk joins on is refused, and the message names the ones missing.
+A mask over a dimension a walk produces, such as `flow`, is refused: the mask
+says which curves exist, and there is one curve per coordinate of `dims:`.
 
 | A walked link |                                                                                                                                                            |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | _over_        | names a column over a dimension of `dims:`                                                                                                                 |
-| _into_        | names a column over a dimension that `dims:` does not carry, and that is not `along`                                                                       |
+| _into_        | names key columns over dimensions that `dims:` does not carry, and that are not `along`                                                                    |
+| _by_          | a relation whose other key columns are over dimensions of `dims:`                                                                                          |
 | _values_      | follows the **link's** row: `bp_power` is per flow, not per generator                                                                                      |
-| `where:`      | on the block reaches the link's row read through the relation, or as written where the mask carries none of the dimensions the walk reads through          |
+| `where:`      | on the block reaches the link's row read through the relation, or as written where the mask carries none of the dimensions the walk consumes               |
 | `method:`     | `adjacency` or `sos2`. `lp` loses the abscissa its segment line is written against, and `convex` loses the pair of values parameters it reads a shape from |
 
 ### Signs

@@ -67,25 +67,38 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
 
 
 def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
-    """Every name a set or curve of *program* would write out that *schema* already declares.
+    """Every name a set or curve of *program* would write out that *schema* declares, or another one writes too.
 
     Read off the program rather than the file, since what a curve writes is
     decided by the curve as lowered — its links, its method, its mask.
     """
-    errors = [
-        error
-        for name, block in program.sos.items()
-        for error in _collisions(schema, f"Sos '{name}'", EmittedSet.of(name, block.sos_type).by_kind)
+    emitters = [
+        *((f"Sos '{name}'", EmittedSet.of(name, block.sos_type).by_kind) for name, block in program.sos.items()),
+        *((f"piecewise '{name}'", EmittedCurve.of(name, curve).by_kind) for name, curve in program.piecewise.items()),
     ]
-    for name, curve in program.piecewise.items():
-        written = EmittedCurve.of(name, curve)
-        errors.extend(
-            f"piecewise '{name}': link '{row.removeprefix(f'{name}_')}' names its row '{row}', which the block "
-            f'already writes for itself. Rename the link.'
-            for row in written.reused
-        )
-        errors.extend(_collisions(schema, f"piecewise '{name}'", written.by_kind))
+    errors = [
+        f"piecewise '{name}': link '{row.removeprefix(f'{name}_')}' names its row '{row}', which the block "
+        f'already writes for itself. Rename the link.'
+        for name, curve in program.piecewise.items()
+        for row in EmittedCurve.of(name, curve).reused
+    ]
+    for context, by_kind in emitters:
+        errors.extend(_collisions(schema, context, by_kind))
+    errors.extend(_shared(emitters))
     return errors
+
+
+def _shared(emitters: Iterable[tuple[str, Iterable[tuple[str, Iterable[str]]]]]) -> Iterator[str]:
+    """The refusal for each name two expansions both write, since the second would overwrite the first."""
+    first: dict[tuple[str, str], str] = {}
+    for context, by_kind in emitters:
+        for kind, names in by_kind:
+            for one in names:
+                if (owner := first.setdefault((kind, one), context)) != context:
+                    yield (
+                        f"{context}: its expansion writes {kind} '{one}', which {owner} also writes. Rename one of "
+                        f'the blocks, or the link whose row it is.'
+                    )
 
 
 def reference_errors(schema: Spec) -> list[str]:
@@ -286,9 +299,9 @@ def _piecewise_references(schema: Spec) -> Iterator[str]:
     """Every declaration a block names by key exists and has the shape the block needs.
 
     The breakpoint dim, the frame ``dims:`` states, each link's values
-    parameter, the relation and columns a walk reads through, and the gate.
-    What a link's expression and the where carry is resolution's to say, and
-    whether the pieces fit together is decided as the block is lowered
+    parameter, and the gate. What a link's expression, its walk and the
+    where carry is resolution's to say, and whether the pieces fit together
+    is decided as the block is lowered
     (:func:`math_spec.piecewise.declaration_of`).
     """
     for name, block in schema.piecewise.items():
@@ -328,7 +341,7 @@ def _piecewise_references(schema: Spec) -> Iterator[str]:
 def _piecewise_link_shape(
     schema: Spec, name: str, block: PiecewiseBlock, key: str, link: PiecewiseLink
 ) -> Iterator[str]:
-    """One link's values parameter, and the relation its walk names, exist as the link needs them."""
+    """One link's values parameter exists as the link needs it."""
     context = f"piecewise '{name}' link '{key}'"
     if link.values not in schema.parameters:
         yield f"{context}: values references undeclared parameter '{link.values}'"
@@ -341,53 +354,6 @@ def _piecewise_link_shape(
         yield (
             f"{context}: values parameter '{link.values}' must carry dim "
             f"'{block.along}' (has {schema.parameters[link.values].dims})"
-        )
-    if link.walks:
-        yield from _piecewise_walk_shape(schema, context, block, link)
-
-
-def _piecewise_walk_shape(schema: Spec, context: str, block: PiecewiseBlock, link: PiecewiseLink) -> Iterator[str]:
-    """A walk's relation is declared, it consumes the block's own dims, and it produces dims of its own."""
-    assert link.by is not None and link.over is not None and link.into is not None
-    if link.by not in schema.relations:
-        yield (
-            f"{context}: by references undeclared relation '{link.by}'. A walked link reads the curve's "
-            f'weights through a declared relation — declare it, or drop by, over and into.'
-        )
-        return
-    roles = dict(schema.relations[link.by].pairs)
-    sides: list[frozenset[str]] = []
-    for side, written in (('over', link.over), ('into', link.into)):
-        named = [written] if isinstance(written, str) else list(written)
-        if stray := [c for c in named if c not in roles]:
-            yield f"{context}: {side} names {stray}, which relation '{link.by}' has no column for (it has {sorted(roles)})"
-            return
-        if len(set(named)) != len(named):
-            yield f'{context}: {side} repeats a column: {named}'
-            return
-        sides.append(frozenset(roles[c] for c in named))
-    consumed, produced = sides
-    if shared := sorted(consumed & produced):
-        yield (
-            f'{context}: over and into both reach {shared}, so the walk consumes and produces one dimension. '
-            f'Name different columns on each side.'
-        )
-    elif missing := sorted(consumed - set(block.dims)):
-        yield (
-            f"{context}: over reaches {missing}, which the block's dims {block.dims} do not carry. A walk "
-            f"consumes one of the curve's own dimensions — name a column over one of {block.dims}, or declare "
-            f'it in dims:.'
-        )
-    elif framed := sorted(produced & set(block.dims)):
-        yield (
-            f"{context}: into reaches {framed}, which the block's dims {block.dims} already carry. The block "
-            f"builds one curve per coordinate of dims:, so {framed} cannot also index this link's rows — drop "
-            f'it from dims:, or walk into a dimension of its own.'
-        )
-    elif block.along in produced:
-        yield (
-            f"{context}: into reaches '{block.along}', the breakpoint dim. A walk indexes the link's rows, "
-            f'and every row runs along the breakpoints.'
         )
 
 

@@ -643,6 +643,28 @@ def test_a_curves_conditions_cannot_collide_with_a_written_assumption():
         expanded(override(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}), 'piecewise')
 
 
+@pytest.mark.parametrize(
+    ('where', 'advice'),
+    [
+        pytest.param(None, 'declare where: to say how far the curve runs', id='no-where'),
+        pytest.param('curved', "let where: 'curved' test 'bp' too", id='a-where-over-dims'),
+        pytest.param('curved AND bp_power_on', "narrow where: 'curved AND bp_power_on'", id='a-ragged-where'),
+    ],
+)
+def test_a_missing_breakpoint_names_a_rewrite_the_block_can_take(where, advice):
+    """A block with a `where:` over `dims:` was told to declare `where:`, which it already had."""
+    model = override(
+        WALKED,
+        **{
+            'parameters.curved': {'dims': ['generator'], 'dtype': 'bool'},
+            'parameters.bp_power_on': {'dims': ['generator', 'bp'], 'dtype': 'bool'},
+        },
+    )
+    assumptions = expand_piecewise(schema_of(model, **{'piecewise.coupling.where': where})).assumptions
+    for name in ('coupling_complete', 'coupling_power_complete'):
+        assert advice in assumptions[name].description, f'{name} names the rewrite for its own where'
+
+
 @pytest.mark.parametrize('suffix', ['increasing', 'curvature', 'breakpoints', 'contiguous'])
 def test_every_check_has_a_sentence(suffix):
     assumptions = expanded(LP_MASKED, 'piecewise').program.assumptions
@@ -773,6 +795,16 @@ def test_a_ragged_where_is_grouped_where_an_edge_row_shifts_it():
 def test_a_where_the_block_cannot_read_is_refused(patch, match):
     with pytest.raises(LanguageError, match=match):
         schema_of(MASKED, **patch)
+
+
+def test_a_where_over_a_dim_a_link_walks_into_is_not_sent_to_dims():
+    """The refusal said to add `flow` to `dims:`, and the walk into `flow` was then refused for that very edit."""
+    with pytest.raises(LanguageError, match=r"\['flow'\] is what link 'power' walks into") as refused:
+        schema_of(
+            WALKED,
+            **{'parameters.on_flow': {'dims': ['flow'], 'dtype': 'bool'}, 'piecewise.coupling.where': 'on_flow'},
+        )
+    assert 'to dims:' not in str(refused.value), 'no advice the walk refuses'
 
 
 def test_segment_lines_carry_the_mask_that_no_weight_can_hand_them():
@@ -944,7 +976,7 @@ def _walk(**written: object) -> dict[str, object]:
             r"link 'power': into reaches \['flow'\], which the block's dims .* already carry",
             id='a-walk-into-a-dim-the-block-has',
         ),
-        pytest.param(_walk(into=['flow', 'flow']), r"link 'power': into repeats a column", id='a-repeated-column'),
+        pytest.param(_walk(into=['flow', 'flow']), r"link 'power': .*names a column twice", id='a-repeated-column'),
         pytest.param(
             {'relations.slot_of': {'key': 'bp', 'values': 'generator'}}
             | _walk(by='slot_of', over='generator', into='bp'),
@@ -955,6 +987,56 @@ def _walk(**written: object) -> dict[str, object]:
             {'piecewise.coupling.links.fuel': ['fuel', 'bp_fuel', '>=']} | _walk(sign='<='),
             'nothing pins the operating point',
             id='every-row-bounded',
+        ),
+        pytest.param(
+            _walk(over=[])
+            | {
+                'variables.power.dims': ['generator', 'snapshot'],
+                'parameters.bp_power.dims': ['generator', 'bp'],
+                'constraints.balance.expression': 'sum(power, over=generator) == load',
+            },
+            r'links.power: over: \[\] names no column',
+            id='an-empty-over',
+        ),
+        pytest.param(
+            _walk(into=[])
+            | {
+                'variables.power.dims': ['snapshot'],
+                'parameters.bp_power.dims': ['bp'],
+                'constraints.balance.expression': 'power == load',
+            },
+            r'links.power: into: \[\] names no column',
+            id='an-empty-into',
+        ),
+        pytest.param(
+            {
+                'piecewise.coupling.dims': ['flow', 'snapshot'],
+                'piecewise.coupling.links': {
+                    'power': ['power', 'bp_power'],
+                    'fuel': {
+                        'expression': 'fuel',
+                        'values': 'bp_fuel',
+                        'by': 'generator_of',
+                        'over': 'flow',
+                        'into': 'generator',
+                    },
+                },
+            },
+            r"link 'fuel': at\(by=generator_of\): into=\['generator'\] names \['generator'\], which the key",
+            id='a-walk-landing-off-the-key',
+        ),
+        pytest.param(
+            {
+                'dimensions.period': {'dtype': 'int'},
+                'relations.generator_of': {'key': ['flow', 'period'], 'values': 'generator'},
+            },
+            r"link 'power': 'generator_of' is keyed on \['period'\] too, which the block's dims",
+            id='a-walk-joining-on-a-dim-the-block-lacks',
+        ),
+        pytest.param(
+            {'relations.generator_of': {'key': {'flow': 'flow', 'site': 'generator'}, 'values': 'generator'}},
+            r"link 'power': at\(by=generator_of\) joins 'generator_of' on \['generator'\] through more than one",
+            id='a-walk-joining-on-the-dim-it-consumes',
         ),
     ],
 )
@@ -990,6 +1072,52 @@ def test_a_link_that_only_gains_a_dimension_is_refused_and_names_the_walk():
 def test_a_link_named_after_a_row_the_block_writes_is_refused(link, match):
     with pytest.raises(LanguageError, match=match):
         schema_of(WALKED, **{f'piecewise.coupling.links.{link}': ['fuel', 'bp_fuel']})
+
+
+#: A second curve whose name extends the first's, so a link of the first can spell one of its rows.
+BESIDE = override(
+    WALKED,
+    **{
+        'piecewise.coupling_b': {
+            'along': 'bp',
+            'dims': ['generator', 'snapshot'],
+            'links': {'fuel': ['fuel', 'bp_fuel'], 'power': WALKED['piecewise']['coupling']['links']['power']},
+        }
+    },
+)
+
+
+@pytest.mark.parametrize(
+    ('key', 'link', 'match'),
+    [
+        pytest.param(
+            'b_fuel',
+            ['fuel', 'bp_fuel'],
+            "writes constraint 'coupling_b_fuel', which piecewise 'coupling' also writes",
+            id='a-link-row',
+        ),
+        pytest.param(
+            'b_convexity',
+            ['fuel', 'bp_fuel'],
+            "writes constraint 'coupling_b_convexity', which piecewise 'coupling' also writes",
+            id='a-row-the-other-block-writes-for-itself',
+        ),
+        pytest.param(
+            'b',
+            WALKED['piecewise']['coupling']['links']['power'],
+            "writes assumption 'coupling_b_complete', which piecewise 'coupling' also writes",
+            id='a-walked-links-own-condition',
+        ),
+    ],
+)
+def test_a_name_two_blocks_would_both_write_is_refused(key, link, match):
+    """Links take any name, so `coupling`'s link `b_fuel` spelled `coupling_b`'s row `coupling_b_fuel`.
+
+    Both blocks loaded, and the expansion wrote one row over the other, so
+    one block's link was never stated.
+    """
+    with pytest.raises(LanguageError, match=match):
+        schema_of(BESIDE, **{f'piecewise.coupling.links.{key}': link})
 
 
 def test_a_link_name_no_row_could_take_is_refused():
@@ -1083,6 +1211,26 @@ def test_a_mask_over_dims_the_walk_keeps_reaches_the_walked_row_as_written():
     assert expanded.constraints['coupling_power'].where == 'season'
 
 
+def test_a_mask_over_a_dim_the_walk_joins_on_reaches_the_walked_row_as_written():
+    """The relation is keyed by flow and snapshot, and `season` tests only `snapshot`, which the walked row keeps.
+
+    The join column was counted with the ones the walk consumes, so this mask
+    was refused as carrying part of what the walk reads through, and no
+    rewrite kept it.
+    """
+    expanded = expand_piecewise(
+        schema_of(
+            WALKED,
+            **{
+                'relations.generator_of': {'key': ['flow', 'snapshot'], 'values': 'generator'},
+                'parameters.season': {'dims': ['snapshot'], 'dtype': 'bool'},
+                'piecewise.coupling.where': 'season',
+            },
+        )
+    )
+    assert expanded.constraints['coupling_power'].where == 'season'
+
+
 def test_a_mask_carrying_part_of_what_a_walk_reads_through_is_refused():
     """The relation is keyed by flow and snapshot, so the read joins on snapshot and needs the mask to carry it too."""
     model = override(
@@ -1106,9 +1254,9 @@ def test_a_walked_links_breakpoints_are_asked_only_at_the_rows_it_reads_the_curv
     """Asked with the other links, `bp_power` was demanded at every flow, including those of a generator with no curve."""
     assumptions = schema_of(model).expand('piecewise').program.assumptions
     walked = assumptions['coupling_power_complete']
-    assert walked.predicate.names_read == frozenset({'bp_power'})
+    assert walked.predicate.names_read == frozenset({'bp_power'}), 'the walked link asks for its own values alone'
     assert walked.where is not None and walked.where.dims == frozenset({'flow'}), 'asked per flow the walk reaches'
-    assert walked.where.names_read == frozenset(read)
+    assert walked.where.names_read == frozenset(read), 'the where reads the mask, if any, and the relation'
     assert assumptions['coupling_complete'].predicate.names_read == frozenset({'bp_fuel'}), (
         'the link on dims: keeps the block condition to itself'
     )
@@ -1145,7 +1293,7 @@ def test_one_walked_link_is_a_curve_because_the_relation_gives_it_its_arity():
     expanded = expand_piecewise(schema_of(WALKED, **POWER_ONLY))
     assert expanded.constraints['coupling_convexity'].dims == ['generator', 'snapshot'], 'one curve per generator'
     assert expanded.constraints['coupling_power'].dims == ['flow', 'snapshot'], 'one row per flow, sharing it'
-    assert 'coupling_fuel' not in expanded.constraints
+    assert 'coupling_fuel' not in expanded.constraints, 'no row for a link the block does not declare'
 
 
 def test_one_link_that_walks_nothing_is_still_a_bound_rather_than_a_curve():

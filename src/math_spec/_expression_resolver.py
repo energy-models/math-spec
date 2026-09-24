@@ -502,7 +502,7 @@ class ExpressionResolver:
             return self.partition(name, operator, along, named['within'])
         if not ({'over', 'into'} <= set(named)):
             return None  # refused already, by the call shape or by the role that named no column
-        return self._direction(name, operator, named['over'], named['into'])
+        return self.direction(name, operator, named['over'], named['into'])
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -513,7 +513,7 @@ class ExpressionResolver:
         )
         return None
 
-    def _direction(
+    def direction(
         self,
         name: str,
         operator: str,
