@@ -17,8 +17,7 @@ from typing import get_args
 
 import pytest
 
-from math_spec import advice, to_spec
-from math_spec.errors import AdviceKind
+from math_spec import AdviceKind, advice, to_spec
 from tests.fixtures import SMALL_MODEL, override
 
 EXAMPLES = Path(__file__).resolve().parents[1] / 'examples'
