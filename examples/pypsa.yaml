@@ -224,9 +224,9 @@ parameters:
     dtype: int
   Link_output_cyclic_delay:
     description: >-
-      whether a delayed port's flow wraps from the horizon's end — PyPSA's
-      `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in
-      transit at the first snapshots is lost
+      whether a delayed port's flow wraps from the end of its investment
+      period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not,
+      the flow still in transit at each period's first snapshots is lost
     dims: [link_output]
     dtype: bool
   Link_marginal_cost:
@@ -356,9 +356,9 @@ parameters:
     dtype: int
   Process_output_cyclic_delay:
     description: >-
-      whether a delayed port's transfer wraps from the horizon's end — PyPSA's
-      `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still
-      in transit at the first snapshots is lost
+      whether a delayed port's transfer wraps from the end of its investment
+      period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not,
+      the energy still in transit at each period's first snapshots is lost
     dims: [process_output]
     dtype: bool
   Process_marginal_cost:
@@ -1873,30 +1873,31 @@ expressions:
   Link_output_arrival:
     description: >-
       what a link delivers to an output port at a snapshot — its flow after the
-      port's efficiency, delayed by the port's `delay`; where the port is
-      `cyclic_delay` the delayed flow wraps from the horizon's end, and where it
-      is not the flow still in transit at the first snapshots is lost. A port
-      that does not delay (`delay` zero) delivers its flow unshifted, cyclic or
-      not
+      port's efficiency, delayed by the port's `delay` within its investment
+      period; where the port is `cyclic_delay` the delayed flow wraps from the
+      period's end, and where it is not the flow still in transit at the
+      period's first snapshots is lost. A port that does not delay (`delay`
+      zero) delivers its flow unshifted, cyclic or not
     dims: [scenario, snapshot, link_output]
     cases:
       wrapping:
         when: Link_output_cyclic_delay
-        expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
-    otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
+        expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap', by=snapshot_period, within=period)
+    otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0, by=snapshot_period, within=period)
   Process_output_arrival:
     description: >-
       what a process transfers at a port at a snapshot — its internal power
-      times the port's rate, delayed by the port's `delay`; where the port is
-      `cyclic_delay` the delayed transfer wraps from the horizon's end, and where
-      it is not the energy still in transit at the first snapshots is lost. A
-      port that does not delay (`delay` zero) transfers at once, cyclic or not
+      times the port's rate, delayed by the port's `delay` within its
+      investment period; where the port is `cyclic_delay` the delayed transfer
+      wraps from the period's end, and where it is not the energy still in
+      transit at the period's first snapshots is lost. A port that does not
+      delay (`delay` zero) transfers at once, cyclic or not
     dims: [scenario, snapshot, process_output]
     cases:
       wrapping:
         when: Process_output_cyclic_delay
-        expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap')
-    otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0)
+        expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap', by=snapshot_period, within=period)
+    otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0, by=snapshot_period, within=period)
   GlobalConstraint_energy_weight:
     description: >-
       what one unit of power at a snapshot counts for in a row — the

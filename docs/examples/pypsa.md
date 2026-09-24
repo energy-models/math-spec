@@ -1363,6 +1363,7 @@ own dimensions.
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) for storage built in a later period or retired early | done | rung 32 |
 | [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit) for one investment period, weighted by period years | done | rung 35 |
+| [link and process `delay`, `cyclic_delay`](#bus-nodal_balance) per investment period | done | rung 38 |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
@@ -3150,6 +3151,96 @@ def build():
 </details>
 <!-- reference:rung_37_fixed_storage_dispatch:end -->
 
+### Rung 38 — delays per investment period
+
+`n.optimize(multi_investment_periods=True)` with delayed ports. PyPSA applies
+a link's or a process's `delay` in each investment period on its own
+(`constraints.py:1324-1332`; `multiports.py:212-219`). A `cyclic_delay` port
+wraps from the end of its own period. A port that is not cyclic loses the flow
+still in transit at the first snapshots of every period. PyPSA measures the
+delay in `generators` weighting per period and rounds it down to a snapshot
+start (`multiports.py:106-123`). Scenarios do not change the source snapshot.
+`Link_output_arrival` and `Process_output_arrival` therefore shift with
+`by=snapshot_period, within=period`. A plain run has one period, so the shift
+is the flat one.
+
+The rung builds a link that delays by two and wraps, and a process that
+delays by one and does not wrap, on two periods of four snapshots. The earlier
+file shifted over the flat horizon, so 2030 read the flow sent in 2020. With
+that flat shift patched into PyPSA's source index, the network solves to
+`10543.75` (#620).
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [link and process `delay`, `cyclic_delay`](#bus-nodal_balance) per investment period | done | `shift(offset=delay, by=snapshot_period, within=period)`; `edge='wrap'` closes each period, `edge=0` vacates each period's first snapshots |
+
+<!-- reference:rung_38_delay_per_period:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `12918.75`, 104 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_38_delay_per_period.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 38: delays per investment period — a link that wraps its delayed flow within each period, and a process that loses what is still in transit at each period's start."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+#: The `generators` weighting is uniform, as on rung 16, so a delay of `n` is a
+#: shift of exactly `n` positions. The `objective` column stays non-uniform.
+WEIGHTINGS = {'objective': [2.0, 1.5, 2.5, 3.0, 2.0, 1.5, 2.5, 3.0], 'generators': [1.0] * 8}
+
+#: Demand differs from snapshot to snapshot, so which snapshot a delayed flow is
+#: read from changes what it costs.
+DEMAND = [20.0, 15.0, 25.0, 10.0, 30.0, 35.0, 5.0, 40.0]
+
+
+def build():
+    """A whole network, not the spine: eight snapshots over two periods, a source, a delayed link and a delayed process.
+
+    ``pipe_wrap`` delays by two snapshots and wraps cyclically, so the first two
+    snapshots of each period read the last two of that same period, never the
+    other period. ``conv_lose`` delays by one and does not wrap, so the first
+    snapshot of each period, 2030 included, receives nothing and its demand falls
+    to the backup. The source is capped, so where each delayed flow is read from
+    decides how much of the backup runs.
+    """
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(4)] + [(2030, datetime(2030, 1, 1, t)) for t in range(4)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    for column, values in WEIGHTINGS.items():
+        n.snapshot_weightings[column] = values
+    n.add('Bus', ['source', 'sink_wrap', 'sink_lose'])
+    n.add('Generator', 'spring38', bus='source', p_nom=60, marginal_cost=5)
+    n.add('Generator', 'backup_wrap38', bus='sink_wrap', p_nom=200, marginal_cost=100)
+    n.add('Generator', 'backup_lose38', bus='sink_lose', p_nom=200, marginal_cost=100)
+    n.add('Link', 'pipe_wrap', bus0='source', bus1='sink_wrap', p_nom=30, delay=2, cyclic_delay=True)
+    n.add('Process', 'conv_lose', bus0='source', bus1='sink_lose', p_nom=30, delay1=1, cyclic_delay1=False)
+    n.add('Load', 'load_wrap', bus='sink_wrap', p_set=DEMAND)
+    n.add('Load', 'load_lose', bus='sink_lose', p_set=DEMAND)
+    return n
+```
+
+</details>
+<!-- reference:rung_38_delay_per_period:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -3247,7 +3338,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\mathcal{T} \times \mathcal{L}`$ — most flow, per unit of nominal power |
 | $`\eta`$ | `Link_efficiency` over $`\mathcal{O}`$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
 | $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
-| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
+| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
 | $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
 | $`\mathrm{com}^{f}`$ | `Link_committable` over $`\mathcal{L}`$ — whether flow is gated by an on/off status decision |
@@ -3276,7 +3367,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overline{\mathrm{z}}`$ | `Process_p_max_pu` over $`\mathcal{T} \times \mathcal{J}`$ — most internal power, per unit of nominal power |
 | $`\alpha`$ | `Process_rate` over $`\mathcal{R}`$ — the energy a port draws or delivers per unit of internal power, PyPSA's `rate0`, `rate1`, … read long — negative where the port withdraws, positive where it injects; a link is a process whose `bus0` rate is minus one and whose output rates are its efficiencies |
 | $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once |
-| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the horizon's end — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at the first snapshots is lost |
+| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost |
 | $`\mathrm{c}^{z}`$ | `Process_marginal_cost` over $`\mathcal{T} \times \mathcal{J}`$ — cost of one unit of internal power |
 | $`\mathrm{c}^{z,(2)}`$ | `Process_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{J}`$ — cost of the square of one unit of internal power |
 | $`\mathrm{ru}^{z}`$ | `Process_ramp_limit_up` over $`\mathcal{J}`$ — most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit |
@@ -3537,8 +3628,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\Delta^{z,-}`$ | `Process_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may lower internal power between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial charge, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A unit built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial energy, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A store built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
-| $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
-| $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed transfer wraps from the horizon's end, and where it is not the energy still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
+| $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay` within its investment period; where the port is `cyclic_delay` the delayed flow wraps from the period's end, and where it is not the flow still in transit at the period's first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
+| $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay` within its investment period; where the port is `cyclic_delay` the delayed transfer wraps from the period's end, and where it is not the energy still in transit at the period's first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
 | $`\mathit{w}^{\mathrm{gc}}`$ | `GlobalConstraint_energy_weight` over $`\mathcal{I} \times \mathcal{T}`$ — what one unit of power at a snapshot counts for in a row — the generator weighting times the years of the snapshot's period, where the row counts the snapshot, and nothing where it does not |
 | $`\mathit{last}`$ | `GlobalConstraint_snapshot_closes` over $`\mathcal{I} \times \mathcal{T}`$ — one at the last snapshot a row counts, and zero elsewhere |
 | $`\mathit{w}^{h}`$ | `StorageUnit_closing_weight` over $`\mathcal{I} \times \mathcal{T} \times \mathcal{S}`$ — what the charge a unit holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the unit reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
@@ -8244,21 +8335,21 @@ Store_energy_carried_in:
 Link_output_arrival:
   description: >-
     what a link delivers to an output port at a snapshot — its flow after the
-    port's efficiency, delayed by the port's `delay`; where the port is
-    `cyclic_delay` the delayed flow wraps from the horizon's end, and where it
-    is not the flow still in transit at the first snapshots is lost. A port
-    that does not delay (`delay` zero) delivers its flow unshifted, cyclic or
-    not
+    port's efficiency, delayed by the port's `delay` within its investment
+    period; where the port is `cyclic_delay` the delayed flow wraps from the
+    period's end, and where it is not the flow still in transit at the
+    period's first snapshots is lost. A port that does not delay (`delay`
+    zero) delivers its flow unshifted, cyclic or not
   dims: [scenario, snapshot, link_output]
   cases:
     wrapping:
       when: Link_output_cyclic_delay
-      expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
-  otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
+      expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap', by=snapshot_period, within=period)
+  otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0, by=snapshot_period, within=period)
 ```
 
 ```math
-\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
+\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
 ```
 
 ### `Process_output_arrival`
@@ -8267,20 +8358,21 @@ Link_output_arrival:
 Process_output_arrival:
   description: >-
     what a process transfers at a port at a snapshot — its internal power
-    times the port's rate, delayed by the port's `delay`; where the port is
-    `cyclic_delay` the delayed transfer wraps from the horizon's end, and where
-    it is not the energy still in transit at the first snapshots is lost. A
-    port that does not delay (`delay` zero) transfers at once, cyclic or not
+    times the port's rate, delayed by the port's `delay` within its
+    investment period; where the port is `cyclic_delay` the delayed transfer
+    wraps from the period's end, and where it is not the energy still in
+    transit at the period's first snapshots is lost. A port that does not
+    delay (`delay` zero) transfers at once, cyclic or not
   dims: [scenario, snapshot, process_output]
   cases:
     wrapping:
       when: Process_output_cyclic_delay
-      expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap')
-  otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0)
+      expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap', by=snapshot_period, within=period)
+  otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0, by=snapshot_period, within=period)
 ```
 
 ```math
-\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
+\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
 ```
 
 ### `GlobalConstraint_energy_weight`
