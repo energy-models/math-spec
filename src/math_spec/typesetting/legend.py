@@ -80,11 +80,9 @@ def notice(program: Program) -> Noticed:
     def expressions(*roots: Expression) -> None:
         nonlocal grouped
         for node, regions in walk_regions(*roots):
-            if isinstance(node, Translate | WindowSum):
+            if isinstance(node, WindowSum) or (isinstance(node, Translate) and node.offset != 0):
                 policies.add(policy_of(node))
                 grouped = grouped or node.partition is not None
-            if isinstance(node, Translate):
-                continue
             for region in regions:
                 masks(region)
 

@@ -18,8 +18,9 @@ print(ms.to_typst(spec))  # compiles without a TeX toolchain
 print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
 
-Each function takes what `to_spec` takes: a path, the YAML, a mapping or a
-`Spec`. The same three formats come from a shell:
+Each function takes a path, the YAML, a mapping, a `Spec` or a `Program`, and
+prints the program: the one a spec holds, or the one it was handed. The same
+three formats come from a shell:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex

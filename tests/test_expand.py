@@ -83,30 +83,35 @@ def test_a_model_with_nothing_to_write_out_is_the_one_that_comes_back():
     assert schema.expand('sos') is schema
 
 
-def test_each_set_of_kinds_is_expanded_once():
+def test_one_set_of_kinds_expands_to_one_model():
     schema = schema_of(CURVE)
 
-    assert schema.expand('piecewise') is schema.expand('piecewise')
-    assert schema.expand() is schema.expand('piecewise', 'sos')
-    assert schema.expand() is not schema.expand('piecewise'), 'a set left standing is a different model'
+    assert schema.expand('piecewise') == schema.expand('piecewise')
+    assert schema.expand() == schema.expand('piecewise', 'sos')
+    assert schema.expand() != schema.expand('piecewise'), 'a set left standing is a different model'
 
 
-def test_the_curves_are_written_out_once_however_they_are_asked_for(monkeypatch):
-    """`expand()` called the curve expander directly, so the model `expand('piecewise')` had
-    already written out and cached was built again, and validated again, on every full ask.
+def test_asking_for_an_expansion_leaves_the_model_equal_to_itself():
+    """Each expansion was cached in the spec's private state, which pydantic compares,
+    so two loads of one file stopped being equal once one of them had been expanded."""
+    asked, untouched = schema_of(CURVE), schema_of(CURVE)
+    asked.expand('piecewise')
+    assert asked == untouched
 
-    Loading writes nothing out: the expander runs on the first ask and never
-    again, whichever of the two asks comes first.
-    """
+
+@pytest.mark.parametrize('kinds', [pytest.param((), id='everything'), pytest.param(('piecewise',), id='curves')])
+def test_loading_writes_no_curve_out_and_each_ask_writes_them_out_once(monkeypatch, kinds):
+    """`expand()` called the curve expander and then asked for the curves again, so one full
+    ask wrote them out twice. A full ask writes the sets out of the model the curves
+    were written out to."""
     schema = schema_of(CURVE)
     asked: list[Spec] = []
     written_out = piecewise.expand_piecewise
     monkeypatch.setattr(piecewise, 'expand_piecewise', lambda spec: asked.append(spec) or written_out(spec))
 
     assert asked == [], 'loading a model writes no curve out'
-    assert not schema.expand().piecewise
-    assert not schema.expand('piecewise').piecewise
-    assert asked == [schema], 'the curves were written out once, and that model is the one the sets are written out of'
+    assert not schema.expand(*kinds).piecewise
+    assert asked == [schema], 'one ask writes the curves out once, from this model'
 
 
 def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
