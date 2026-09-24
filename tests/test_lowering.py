@@ -19,7 +19,6 @@ from math_spec import LanguageError, Spec, to_spec
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
 from math_spec.program import (
-    QUADRATIC_POSITIONS,
     Add,
     And,
     Assumption,
@@ -50,6 +49,7 @@ from math_spec.program import (
     Program,
     Pullback,
     PulledBackPredicate,
+    QuadraticPosition,
     Region,
     RelationDeclaration,
     Sum,
@@ -960,8 +960,10 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.kinds)} == {frozenset}, (
         'every field is a set, so one rule reads all of them'
     )
-    assert footprint.quadratic <= QUADRATIC_POSITIONS, 'and the vocabulary a consumer pins its table against'
-    assert {'objective', 'constraint'} == QUADRATIC_POSITIONS, (
+    assert footprint.quadratic <= set(get_args(QuadraticPosition)), (
+        'and the vocabulary a consumer pins its table against'
+    )
+    assert {'objective', 'constraint'} == set(get_args(QuadraticPosition)), (
         'a position admitted later widens this, which is what a consumer pins against to hear about it'
     )
 

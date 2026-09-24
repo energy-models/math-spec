@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, assert_never, get_args
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec._expression_parser import ComparisonOperator
 from math_spec._sealed import Sealed
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
-    'QUADRATIC_POSITIONS',
     'Add',
     'And',
     'Assumption',
@@ -130,11 +129,6 @@ FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
 #: link are read affinely (``math_spec.degree``), so those are the two.
 QuadraticPosition = Literal['objective', 'constraint']
-
-#: The set form, for a consumer pinning its own table against the vocabulary:
-#: ``QUADRATIC_POSITIONS <= handled`` is how one says it covers every position
-#: and hears about it when the language admits another.
-QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
 
 #: The dtype a dimension index may declare (the declaration rules), and what
 #: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
