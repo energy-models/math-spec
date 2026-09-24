@@ -137,7 +137,7 @@ link reaches it, directly or through another entry or a macro. A bound and a
 
 A reported body is built by no solver, so **no degree limit applies to it**:
 it may divide by a variable, raise one to a power, and multiply two sums. A
-comparison stays out. A constraint that later names such an entry inlines its
+comparison stays out. A constraint that later names such an entry reads its
 body, and is refused there under the constraint's own name.
 
 ### Reading a constraint's dual

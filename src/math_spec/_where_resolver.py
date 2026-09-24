@@ -459,7 +459,7 @@ class WhereResolver:
         elif kind in ('parameter', 'dimension'):
             dtype = ns.dtypes[left_name]
         if dtype is not None:
-            typed = self._typedliteral(plain, dtype)
+            typed = self._typed_literal(plain, dtype)
             if typed is None:
                 return node
             value = typed
@@ -519,7 +519,7 @@ class WhereResolver:
             return None
         return column
 
-    def _typedliteral(self, node: _Plain, dtype: DeclaredDtype) -> float | str | datetime.date | None:
+    def _typed_literal(self, node: _Plain, dtype: DeclaredDtype) -> float | str | datetime.date | None:
         """The comparison's literal, checked against the declared dtype.
 
         Getting it wrong is silent: polars reads a datetime column against an
