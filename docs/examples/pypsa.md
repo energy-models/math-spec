@@ -3466,19 +3466,19 @@ concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 ## The file
 
 <!-- gallery:begin -->
-A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. Capacity is chosen once, before the future is known, and paid once per active period; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows, which stand only where that share is positive. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. A security-constrained run copies each branch flow limit once per outage in an `outage` set that a plain run leaves empty. Which snapshots an asset is active in, a scenario's weight, and the outage factors are data prep.
+A plain `n.optimize()`, and its multi-period and stochastic classes, in one file. Every second-stage quantity spans a `scenario` (a future dispatch is chosen in) and every asset stands in the investment `period`s its build year and lifetime span. A parameter spans `scenario` exactly when PyPSA reads it per scenario. Capacity is chosen once, before the future is known, and paid once per active period at its cost in expectation over the scenarios; operation is the expectation over the scenarios' weights, with a share priced at the tail through the CVaR rows, which stand only where that share is positive. A plain run feeds one scenario, one period, all-active masks and unit weights, and the model collapses to the standard one. A security-constrained run copies each branch flow limit once per outage in an `outage` set that a plain run leaves empty. Which snapshots an asset is active in, a scenario's weight, and the outage factors are data prep.
 
 #### Sets
 
 | Symbol | Meaning |
 |---|---|
-| $`\Xi`$ | index $`\xi`$ — `scenario` — the futures dispatch is chosen in, each with a weight |
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y},\ \mathrm{Generator\_maintenance\_cover} \subseteq \mathcal{G} \times \mathcal{T} \times \mathcal{T},\ \mathrm{Link\_maintenance\_cover} \subseteq \mathcal{L} \times \mathcal{T} \times \mathcal{T},\ \mathrm{Process\_maintenance\_cover} \subseteq \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — dispatch periods |
+| $`\Xi`$ | index $`\xi`$ — `scenario` with $`\mathrm{Generator\_maintenance\_cover} \subseteq \Xi \times \mathcal{G} \times \mathcal{T} \times \mathcal{T},\ \mathrm{Link\_maintenance\_cover} \subseteq \Xi \times \mathcal{L} \times \mathcal{T} \times \mathcal{T},\ \mathrm{Process\_maintenance\_cover} \subseteq \Xi \times \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — the futures dispatch is chosen in, each with a weight |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y},\ \mathrm{Generator\_maintenance\_cover} \subseteq \Xi \times \mathcal{G} \times \mathcal{T} \times \mathcal{T},\ \mathrm{Link\_maintenance\_cover} \subseteq \Xi \times \mathcal{L} \times \mathcal{T} \times \mathcal{T},\ \mathrm{Process\_maintenance\_cover} \subseteq \Xi \times \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — dispatch periods |
 | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Process\_output\_bus}: \mathcal{R} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N},\ \mathrm{Transformer\_bus0}: \mathcal{M} \to \mathcal{N},\ \mathrm{Transformer\_bus1}: \mathcal{M} \to \mathcal{N}`$ — network nodes |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Generator\_maintenance\_cover} \subseteq \mathcal{G} \times \mathcal{T} \times \mathcal{T}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_carrier}: \mathcal{L} \to \mathcal{I},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_maintenance\_cover} \subseteq \mathcal{L} \times \mathcal{T} \times \mathcal{T}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{I},\ \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Generator\_maintenance\_cover} \subseteq \Xi \times \mathcal{G} \times \mathcal{T} \times \mathcal{T}`$ — generating units, each on one bus |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_carrier}: \mathcal{L} \to \mathcal{I},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_maintenance\_cover} \subseteq \Xi \times \mathcal{L} \times \mathcal{T} \times \mathcal{T}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
-| $`\mathcal{J}`$ | index $`j`$ — `process` with $`\mathrm{Process\_carrier}: \mathcal{J} \to \mathcal{I},\ \mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J},\ \mathrm{Process\_maintenance\_cover} \subseteq \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate |
+| $`\mathcal{J}`$ | index $`j`$ — `process` with $`\mathrm{Process\_carrier}: \mathcal{J} \to \mathcal{I},\ \mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J},\ \mathrm{Process\_maintenance\_cover} \subseteq \Xi \times \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate |
 | $`\mathcal{R}`$ | index $`r`$ — `process_output` with $`\mathrm{Process\_output\_process}: \mathcal{R} \to \mathcal{J},\ \mathrm{Process\_output\_bus}: \mathcal{R} \to \mathcal{N}`$ — a process's ports, one label per port a process declares — PyPSA's `bus0`, `bus1`, … each carry a signed `rate`, so a process of any number of ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 | $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_carrier}: \mathcal{S} \to \mathcal{I},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
@@ -3497,101 +3497,101 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | Symbol | Meaning |
 |---|---|
 | $`\mathrm{w}`$ | `snapshot_weightings_objective` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
-| $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\mathcal{G}`$ — nominal power |
+| $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\Xi \times \mathcal{G}`$ — nominal power |
 | $`\mathrm{ext}`$ | `Generator_p_nom_extendable` over $`\mathcal{G}`$ — whether the nominal power is a decision |
-| $`\underline{\mathrm{p}}`$ | `Generator_p_min_pu` over $`\mathcal{T} \times \mathcal{G}`$ — least output, per unit of nominal power |
-| $`\overline{\mathrm{p}}`$ | `Generator_p_max_pu` over $`\mathcal{T} \times \mathcal{G}`$ — most output, per unit of nominal power — an availability profile |
-| $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\mathcal{T} \times \mathcal{G}`$ — cost of one unit of output |
-| $`\mathrm{c}^{(2)}`$ | `Generator_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{G}`$ — cost of the square of one unit of output |
+| $`\underline{\mathrm{p}}`$ | `Generator_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — least output, per unit of nominal power |
+| $`\overline{\mathrm{p}}`$ | `Generator_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — most output, per unit of nominal power — an availability profile |
+| $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — cost of one unit of output |
+| $`\mathrm{c}^{(2)}`$ | `Generator_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — cost of the square of one unit of output |
 | $`\mathrm{com}`$ | `Generator_committable` over $`\mathcal{G}`$ — whether output is gated by an on/off status decision |
-| $`\mathrm{ru}`$ | `Generator_ramp_limit_up` over $`\mathcal{G}`$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
-| $`\mathrm{rd}`$ | `Generator_ramp_limit_down` over $`\mathcal{G}`$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
-| $`\mathrm{ru}^{\mathrm{up}}`$ | `Generator_ramp_limit_start_up` over $`\mathcal{G}`$ — most output in the snapshot a unit starts, per unit of nominal power |
-| $`\mathrm{rd}^{\mathrm{dn}}`$ | `Generator_ramp_limit_shut_down` over $`\mathcal{G}`$ — most output in the snapshot before a unit stops, per unit of nominal power |
-| $`\mathrm{UT}`$ | `Generator_min_up_time` over $`\mathcal{G}`$ — least snapshots a unit stays on once started |
-| $`\mathrm{DT}`$ | `Generator_min_down_time` over $`\mathcal{G}`$ — least snapshots a unit stays off once stopped |
-| $`\mathrm{u}^{0}`$ | `Generator_status_initial` over $`\mathcal{G}`$ — one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
-| $`\mathrm{hold}`$ | `Generator_must_stay_up` over $`\mathcal{T} \times \mathcal{G}`$ — true while the up time a unit brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
-| $`\mathrm{rest}`$ | `Generator_must_stay_down` over $`\mathcal{T} \times \mathcal{G}`$ — true while the down time a unit brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
-| $`\mathrm{c}^{\mathrm{up}}`$ | `Generator_start_up_cost` over $`\mathcal{G}`$ — cost of one start |
-| $`\mathrm{c}^{\mathrm{dn}}`$ | `Generator_shut_down_cost` over $`\mathcal{G}`$ — cost of one stop |
-| $`\mathrm{c}^{\mathrm{on}}`$ | `Generator_stand_by_cost` over $`\mathcal{T} \times \mathcal{G}`$ — cost of one snapshot spent on |
+| $`\mathrm{ru}`$ | `Generator_ramp_limit_up` over $`\Xi \times \mathcal{G}`$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{rd}`$ | `Generator_ramp_limit_down` over $`\Xi \times \mathcal{G}`$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{ru}^{\mathrm{up}}`$ | `Generator_ramp_limit_start_up` over $`\Xi \times \mathcal{G}`$ — most output in the snapshot a unit starts, per unit of nominal power |
+| $`\mathrm{rd}^{\mathrm{dn}}`$ | `Generator_ramp_limit_shut_down` over $`\Xi \times \mathcal{G}`$ — most output in the snapshot before a unit stops, per unit of nominal power |
+| $`\mathrm{UT}`$ | `Generator_min_up_time` over $`\Xi \times \mathcal{G}`$ — least snapshots a unit stays on once started |
+| $`\mathrm{DT}`$ | `Generator_min_down_time` over $`\Xi \times \mathcal{G}`$ — least snapshots a unit stays off once stopped |
+| $`\mathrm{u}^{0}`$ | `Generator_status_initial` over $`\Xi \times \mathcal{G}`$ — one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $`\mathrm{hold}`$ | `Generator_must_stay_up` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — true while the up time a unit brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}`$ | `Generator_must_stay_down` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — true while the down time a unit brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
+| $`\mathrm{c}^{\mathrm{up}}`$ | `Generator_start_up_cost` over $`\Xi \times \mathcal{G}`$ — cost of one start |
+| $`\mathrm{c}^{\mathrm{dn}}`$ | `Generator_shut_down_cost` over $`\Xi \times \mathcal{G}`$ — cost of one stop |
+| $`\mathrm{c}^{\mathrm{on}}`$ | `Generator_stand_by_cost` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — cost of one snapshot spent on |
 | $`\mathrm{p}^{\mathrm{mod}}`$ | `Generator_p_nom_mod` over $`\mathcal{G}`$ — the module size a build comes in whole numbers of; no value means the build is continuous |
-| $`\mathrm{N}^{\mathrm{fix}}`$ | `Generator_modules_installed` over $`\mathcal{G}`$ — how many whole modules a committable build has in place: `Generator_p_nom / Generator_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
-| $`\mathrm{M}`$ | `Generator_big_m` over $`\mathcal{G}`$ — a bound safely above any feasible output — the build cap at full availability, data prep |
-| $`\mathrm{nonneg}`$ | `Generator_p_min_pu_nonneg` over $`\mathcal{G}`$ — true where none of the generator's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
-| $`\mathrm{mnt}`$ | `Generator_maintainable` over $`\mathcal{G}`$ — whether a generator must be taken off for maintenance within the horizon |
-| $`\gamma`$ | `Generator_maintenance_pu` over $`\mathcal{G}`$ — the share of the build a maintenance event takes off |
-| $`\mathrm{n}^{\mathrm{mnt}}`$ | `Generator_maintenance_events` over $`\mathcal{G}`$ — how many maintenance events the horizon holds |
-| $`\tau^{\mathrm{mnt}}`$ | `Generator_maintenance_duration` over $`\mathcal{G}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the generator is not maintainable. No row reads it: data prep turns it into `Generator_maintenance_cover` and `Generator_maintenance_start_blocked`, and the assumptions hold it to the horizon |
-| $`\mathrm{blk}`$ | `Generator_maintenance_start_blocked` over $`\mathcal{T} \times \mathcal{G}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the generator does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
-| $`\mathrm{ru}^{f}`$ | `Link_ramp_limit_up` over $`\mathcal{L}`$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
-| $`\mathrm{rd}^{f}`$ | `Link_ramp_limit_down` over $`\mathcal{L}`$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
-| $`\mathrm{f}^{\mathrm{nom}}`$ | `Link_p_nom` over $`\mathcal{L}`$ — nominal power |
+| $`\mathrm{N}^{\mathrm{fix}}`$ | `Generator_modules_installed` over $`\Xi \times \mathcal{G}`$ — how many whole modules a committable build has in place: `Generator_p_nom / Generator_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
+| $`\mathrm{M}`$ | `Generator_big_m` over $`\Xi \times \mathcal{G}`$ — a bound safely above any feasible output — the build cap at full availability, data prep |
+| $`\mathrm{nonneg}`$ | `Generator_p_min_pu_nonneg` over $`\mathcal{G}`$ — true where none of the generator's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()` over every snapshot and scenario, data prep |
+| $`\mathrm{mnt}`$ | `Generator_maintainable` over $`\mathcal{G}`$ — whether a generator must be taken off for maintenance within the horizon — in any scenario, as PyPSA takes the union over them (`components.py:1016-1019`) |
+| $`\gamma`$ | `Generator_maintenance_pu` over $`\Xi \times \mathcal{G}`$ — the share of the build a maintenance event takes off |
+| $`\mathrm{n}^{\mathrm{mnt}}`$ | `Generator_maintenance_events` over $`\Xi \times \mathcal{G}`$ — how many maintenance events the horizon holds |
+| $`\tau^{\mathrm{mnt}}`$ | `Generator_maintenance_duration` over $`\Xi \times \mathcal{G}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the generator is not maintainable. No row reads it: data prep turns it into `Generator_maintenance_cover` and `Generator_maintenance_start_blocked`, and the assumptions hold it to the horizon |
+| $`\mathrm{blk}`$ | `Generator_maintenance_start_blocked` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the generator does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
+| $`\mathrm{ru}^{f}`$ | `Link_ramp_limit_up` over $`\Xi \times \mathcal{L}`$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{rd}^{f}`$ | `Link_ramp_limit_down` over $`\Xi \times \mathcal{L}`$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{f}^{\mathrm{nom}}`$ | `Link_p_nom` over $`\Xi \times \mathcal{L}`$ — nominal power |
 | $`\mathrm{ext}^{f}`$ | `Link_p_nom_extendable` over $`\mathcal{L}`$ — whether the nominal power is a decision |
-| $`\underline{\mathrm{f}}`$ | `Link_p_min_pu` over $`\mathcal{T} \times \mathcal{L}`$ — least flow, per unit of nominal power — negative for a link that carries both ways |
-| $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\mathcal{T} \times \mathcal{L}`$ — most flow, per unit of nominal power |
-| $`\eta`$ | `Link_efficiency` over $`\mathcal{O}`$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
-| $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
-| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost |
-| $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
-| $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
+| $`\underline{\mathrm{f}}`$ | `Link_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — least flow, per unit of nominal power — negative for a link that carries both ways |
+| $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — most flow, per unit of nominal power |
+| $`\eta`$ | `Link_efficiency` over $`\Xi \times \mathcal{O}`$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
+| $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once. One for every scenario: PyPSA groups the ports by delay over all scenarios and shifts each group in every one (`constraints.py:1269`) |
+| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost. One for every scenario, as the delay |
+| $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
+| $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
 | $`\mathrm{com}^{f}`$ | `Link_committable` over $`\mathcal{L}`$ — whether flow is gated by an on/off status decision |
-| $`\mathrm{ru}^{f,\mathrm{up}}`$ | `Link_ramp_limit_start_up` over $`\mathcal{L}`$ — most flow in the snapshot a link starts, per unit of nominal power |
-| $`\mathrm{rd}^{f,\mathrm{dn}}`$ | `Link_ramp_limit_shut_down` over $`\mathcal{L}`$ — most flow in the snapshot before a link stops, per unit of nominal power |
-| $`\mathrm{UT}^{f}`$ | `Link_min_up_time` over $`\mathcal{L}`$ — least snapshots a link stays on once started |
-| $`\mathrm{DT}^{f}`$ | `Link_min_down_time` over $`\mathcal{L}`$ — least snapshots a link stays off once stopped |
-| $`\mathrm{u}^{f,0}`$ | `Link_status_initial` over $`\mathcal{L}`$ — one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
-| $`\mathrm{hold}^{f}`$ | `Link_must_stay_up` over $`\mathcal{T} \times \mathcal{L}`$ — true while the up time a link brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
-| $`\mathrm{rest}^{f}`$ | `Link_must_stay_down` over $`\mathcal{T} \times \mathcal{L}`$ — true while the down time a link brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
-| $`\mathrm{c}^{f,\mathrm{up}}`$ | `Link_start_up_cost` over $`\mathcal{L}`$ — cost of one start |
-| $`\mathrm{c}^{f,\mathrm{dn}}`$ | `Link_shut_down_cost` over $`\mathcal{L}`$ — cost of one stop |
-| $`\mathrm{c}^{f,\mathrm{on}}`$ | `Link_stand_by_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one snapshot spent on |
+| $`\mathrm{ru}^{f,\mathrm{up}}`$ | `Link_ramp_limit_start_up` over $`\Xi \times \mathcal{L}`$ — most flow in the snapshot a link starts, per unit of nominal power |
+| $`\mathrm{rd}^{f,\mathrm{dn}}`$ | `Link_ramp_limit_shut_down` over $`\Xi \times \mathcal{L}`$ — most flow in the snapshot before a link stops, per unit of nominal power |
+| $`\mathrm{UT}^{f}`$ | `Link_min_up_time` over $`\Xi \times \mathcal{L}`$ — least snapshots a link stays on once started |
+| $`\mathrm{DT}^{f}`$ | `Link_min_down_time` over $`\Xi \times \mathcal{L}`$ — least snapshots a link stays off once stopped |
+| $`\mathrm{u}^{f,0}`$ | `Link_status_initial` over $`\Xi \times \mathcal{L}`$ — one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $`\mathrm{hold}^{f}`$ | `Link_must_stay_up` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — true while the up time a link brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}^{f}`$ | `Link_must_stay_down` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — true while the down time a link brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
+| $`\mathrm{c}^{f,\mathrm{up}}`$ | `Link_start_up_cost` over $`\Xi \times \mathcal{L}`$ — cost of one start |
+| $`\mathrm{c}^{f,\mathrm{dn}}`$ | `Link_shut_down_cost` over $`\Xi \times \mathcal{L}`$ — cost of one stop |
+| $`\mathrm{c}^{f,\mathrm{on}}`$ | `Link_stand_by_cost` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of one snapshot spent on |
 | $`\mathrm{f}^{\mathrm{mod}}`$ | `Link_p_nom_mod` over $`\mathcal{L}`$ — the module size a build comes in whole numbers of; no value means the build is continuous |
-| $`\mathrm{N}^{f,\mathrm{fix}}`$ | `Link_modules_installed` over $`\mathcal{L}`$ — how many whole modules a committable build has in place: `Link_p_nom / Link_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
-| $`\mathrm{M}^{f}`$ | `Link_big_m` over $`\mathcal{L}`$ — a bound safely above any feasible flow — the build cap at full availability, data prep |
-| $`\mathrm{nonneg}^{f}`$ | `Link_p_min_pu_nonneg` over $`\mathcal{L}`$ — true where none of the link's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
-| $`\mathrm{mnt}^{f}`$ | `Link_maintainable` over $`\mathcal{L}`$ — whether a link must be taken off for maintenance within the horizon |
-| $`\gamma^{f}`$ | `Link_maintenance_pu` over $`\mathcal{L}`$ — the share of the build a maintenance event takes off |
-| $`\mathrm{n}^{f,\mathrm{mnt}}`$ | `Link_maintenance_events` over $`\mathcal{L}`$ — how many maintenance events the horizon holds |
-| $`\tau^{f,\mathrm{mnt}}`$ | `Link_maintenance_duration` over $`\mathcal{L}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the link is not maintainable. No row reads it: data prep turns it into `Link_maintenance_cover` and `Link_maintenance_start_blocked`, and the assumptions hold it to the horizon |
-| $`\mathrm{blk}^{f}`$ | `Link_maintenance_start_blocked` over $`\mathcal{T} \times \mathcal{L}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the link does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
-| $`\mathrm{z}^{\mathrm{nom}}`$ | `Process_p_nom` over $`\mathcal{J}`$ — nominal internal power |
+| $`\mathrm{N}^{f,\mathrm{fix}}`$ | `Link_modules_installed` over $`\Xi \times \mathcal{L}`$ — how many whole modules a committable build has in place: `Link_p_nom / Link_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
+| $`\mathrm{M}^{f}`$ | `Link_big_m` over $`\Xi \times \mathcal{L}`$ — a bound safely above any feasible flow — the build cap at full availability, data prep |
+| $`\mathrm{nonneg}^{f}`$ | `Link_p_min_pu_nonneg` over $`\mathcal{L}`$ — true where none of the link's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()` over every snapshot and scenario, data prep |
+| $`\mathrm{mnt}^{f}`$ | `Link_maintainable` over $`\mathcal{L}`$ — whether a link must be taken off for maintenance within the horizon — in any scenario, as PyPSA takes the union over them (`components.py:1016-1019`) |
+| $`\gamma^{f}`$ | `Link_maintenance_pu` over $`\Xi \times \mathcal{L}`$ — the share of the build a maintenance event takes off |
+| $`\mathrm{n}^{f,\mathrm{mnt}}`$ | `Link_maintenance_events` over $`\Xi \times \mathcal{L}`$ — how many maintenance events the horizon holds |
+| $`\tau^{f,\mathrm{mnt}}`$ | `Link_maintenance_duration` over $`\Xi \times \mathcal{L}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the link is not maintainable. No row reads it: data prep turns it into `Link_maintenance_cover` and `Link_maintenance_start_blocked`, and the assumptions hold it to the horizon |
+| $`\mathrm{blk}^{f}`$ | `Link_maintenance_start_blocked` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the link does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
+| $`\mathrm{z}^{\mathrm{nom}}`$ | `Process_p_nom` over $`\Xi \times \mathcal{J}`$ — nominal internal power |
 | $`\mathrm{ext}^{z}`$ | `Process_p_nom_extendable` over $`\mathcal{J}`$ — whether the nominal internal power is a decision |
-| $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
-| $`\overline{\mathrm{z}}`$ | `Process_p_max_pu` over $`\mathcal{T} \times \mathcal{J}`$ — most internal power, per unit of nominal power |
-| $`\alpha`$ | `Process_rate` over $`\mathcal{R}`$ — the energy a port draws or delivers per unit of internal power, PyPSA's `rate0`, `rate1`, … read long — negative where the port withdraws, positive where it injects; a link is a process whose `bus0` rate is minus one and whose output rates are its efficiencies |
-| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once |
-| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost |
-| $`\mathrm{c}^{z}`$ | `Process_marginal_cost` over $`\mathcal{T} \times \mathcal{J}`$ — cost of one unit of internal power |
-| $`\mathrm{c}^{z,(2)}`$ | `Process_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{J}`$ — cost of the square of one unit of internal power |
-| $`\mathrm{ru}^{z}`$ | `Process_ramp_limit_up` over $`\mathcal{J}`$ — most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit |
-| $`\mathrm{rd}^{z}`$ | `Process_ramp_limit_down` over $`\mathcal{J}`$ — most a process may lower its internal power between snapshots, per unit of nominal power; no value means no limit |
-| $`\mathrm{z}^{\mathrm{set}}`$ | `Process_p_set` over $`\mathcal{T} \times \mathcal{J}`$ — a given internal power schedule; a process without one has no row here |
-| $`\underline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_min` over $`\mathcal{J}`$ — least nominal power an extendable process may be built at |
-| $`\overline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_max` over $`\mathcal{J}`$ — most nominal power an extendable process may be built at |
-| $`\mathrm{c}^{\mathrm{cap},z}`$ | `Process_capital_cost` over $`\mathcal{J}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\mathrm{z}^{\mathrm{nom,set}}`$ | `Process_p_nom_set` over $`\mathcal{J}`$ — a given nominal power for an extendable process; one without a value has no row here |
+| $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
+| $`\overline{\mathrm{z}}`$ | `Process_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — most internal power, per unit of nominal power |
+| $`\alpha`$ | `Process_rate` over $`\Xi \times \mathcal{R}`$ — the energy a port draws or delivers per unit of internal power, PyPSA's `rate0`, `rate1`, … read long — negative where the port withdraws, positive where it injects; a link is a process whose `bus0` rate is minus one and whose output rates are its efficiencies |
+| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once. One for every scenario, as a link's |
+| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost. One for every scenario, as the delay |
+| $`\mathrm{c}^{z}`$ | `Process_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of one unit of internal power |
+| $`\mathrm{c}^{z,(2)}`$ | `Process_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of the square of one unit of internal power |
+| $`\mathrm{ru}^{z}`$ | `Process_ramp_limit_up` over $`\Xi \times \mathcal{J}`$ — most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{rd}^{z}`$ | `Process_ramp_limit_down` over $`\Xi \times \mathcal{J}`$ — most a process may lower its internal power between snapshots, per unit of nominal power; no value means no limit |
+| $`\mathrm{z}^{\mathrm{set}}`$ | `Process_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — a given internal power schedule; a process without one has no row here |
+| $`\underline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_min` over $`\Xi \times \mathcal{J}`$ — least nominal power an extendable process may be built at |
+| $`\overline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_max` over $`\Xi \times \mathcal{J}`$ — most nominal power an extendable process may be built at |
+| $`\mathrm{c}^{\mathrm{cap},z}`$ | `Process_capital_cost` over $`\Xi \times \mathcal{J}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{z}^{\mathrm{nom,set}}`$ | `Process_p_nom_set` over $`\Xi \times \mathcal{J}`$ — a given nominal power for an extendable process; one without a value has no row here |
 | $`\mathrm{com}^{z}`$ | `Process_committable` over $`\mathcal{J}`$ — whether internal power is gated by an on/off status decision |
-| $`\mathrm{ru}^{z,\mathrm{up}}`$ | `Process_ramp_limit_start_up` over $`\mathcal{J}`$ — most internal power in the snapshot a process starts, per unit of nominal power |
-| $`\mathrm{rd}^{z,\mathrm{dn}}`$ | `Process_ramp_limit_shut_down` over $`\mathcal{J}`$ — most internal power in the snapshot before a process stops, per unit of nominal power |
-| $`\mathrm{UT}^{z}`$ | `Process_min_up_time` over $`\mathcal{J}`$ — least snapshots a process stays on once started |
-| $`\mathrm{DT}^{z}`$ | `Process_min_down_time` over $`\mathcal{J}`$ — least snapshots a process stays off once stopped |
-| $`\mathrm{u}^{z,0}`$ | `Process_status_initial` over $`\mathcal{J}`$ — one where the process was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
-| $`\mathrm{hold}^{z}`$ | `Process_must_stay_up` over $`\mathcal{T} \times \mathcal{J}`$ — true while the up time a process brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
-| $`\mathrm{rest}^{z}`$ | `Process_must_stay_down` over $`\mathcal{T} \times \mathcal{J}`$ — true while the down time a process brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
-| $`\mathrm{c}^{z,\mathrm{up}}`$ | `Process_start_up_cost` over $`\mathcal{J}`$ — cost of one start |
-| $`\mathrm{c}^{z,\mathrm{dn}}`$ | `Process_shut_down_cost` over $`\mathcal{J}`$ — cost of one stop |
-| $`\mathrm{c}^{z,\mathrm{on}}`$ | `Process_stand_by_cost` over $`\mathcal{T} \times \mathcal{J}`$ — cost of one snapshot spent on |
+| $`\mathrm{ru}^{z,\mathrm{up}}`$ | `Process_ramp_limit_start_up` over $`\Xi \times \mathcal{J}`$ — most internal power in the snapshot a process starts, per unit of nominal power |
+| $`\mathrm{rd}^{z,\mathrm{dn}}`$ | `Process_ramp_limit_shut_down` over $`\Xi \times \mathcal{J}`$ — most internal power in the snapshot before a process stops, per unit of nominal power |
+| $`\mathrm{UT}^{z}`$ | `Process_min_up_time` over $`\Xi \times \mathcal{J}`$ — least snapshots a process stays on once started |
+| $`\mathrm{DT}^{z}`$ | `Process_min_down_time` over $`\Xi \times \mathcal{J}`$ — least snapshots a process stays off once stopped |
+| $`\mathrm{u}^{z,0}`$ | `Process_status_initial` over $`\Xi \times \mathcal{J}`$ — one where the process was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $`\mathrm{hold}^{z}`$ | `Process_must_stay_up` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — true while the up time a process brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}^{z}`$ | `Process_must_stay_down` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — true while the down time a process brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
+| $`\mathrm{c}^{z,\mathrm{up}}`$ | `Process_start_up_cost` over $`\Xi \times \mathcal{J}`$ — cost of one start |
+| $`\mathrm{c}^{z,\mathrm{dn}}`$ | `Process_shut_down_cost` over $`\Xi \times \mathcal{J}`$ — cost of one stop |
+| $`\mathrm{c}^{z,\mathrm{on}}`$ | `Process_stand_by_cost` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of one snapshot spent on |
 | $`\mathrm{z}^{\mathrm{mod}}`$ | `Process_p_nom_mod` over $`\mathcal{J}`$ — the module size a build comes in whole numbers of; no value means the build is continuous |
-| $`\mathrm{N}^{z,\mathrm{fix}}`$ | `Process_modules_installed` over $`\mathcal{J}`$ — how many whole modules a committable build has in place: `Process_p_nom / Process_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
-| $`\mathrm{M}^{z}`$ | `Process_big_m` over $`\mathcal{J}`$ — a bound safely above any feasible internal power — the build cap at full availability, data prep |
-| $`\mathrm{nonneg}^{z}`$ | `Process_p_min_pu_nonneg` over $`\mathcal{J}`$ — true where none of the process's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
-| $`\mathrm{mnt}^{z}`$ | `Process_maintainable` over $`\mathcal{J}`$ — whether a process must be taken off for maintenance within the horizon |
-| $`\gamma^{z}`$ | `Process_maintenance_pu` over $`\mathcal{J}`$ — the share of the build a maintenance event takes off |
-| $`\mathrm{n}^{z,\mathrm{mnt}}`$ | `Process_maintenance_events` over $`\mathcal{J}`$ — how many maintenance events the horizon holds |
-| $`\tau^{z,\mathrm{mnt}}`$ | `Process_maintenance_duration` over $`\mathcal{J}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the process is not maintainable. No row reads it: data prep turns it into `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the assumptions hold it to the horizon |
-| $`\mathrm{blk}^{z}`$ | `Process_maintenance_start_blocked` over $`\mathcal{T} \times \mathcal{J}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the process does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
+| $`\mathrm{N}^{z,\mathrm{fix}}`$ | `Process_modules_installed` over $`\Xi \times \mathcal{J}`$ — how many whole modules a committable build has in place: `Process_p_nom / Process_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
+| $`\mathrm{M}^{z}`$ | `Process_big_m` over $`\Xi \times \mathcal{J}`$ — a bound safely above any feasible internal power — the build cap at full availability, data prep |
+| $`\mathrm{nonneg}^{z}`$ | `Process_p_min_pu_nonneg` over $`\mathcal{J}`$ — true where none of the process's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()` over every snapshot and scenario, data prep |
+| $`\mathrm{mnt}^{z}`$ | `Process_maintainable` over $`\mathcal{J}`$ — whether a process must be taken off for maintenance within the horizon — in any scenario, as PyPSA takes the union over them (`components.py:1016-1019`) |
+| $`\gamma^{z}`$ | `Process_maintenance_pu` over $`\Xi \times \mathcal{J}`$ — the share of the build a maintenance event takes off |
+| $`\mathrm{n}^{z,\mathrm{mnt}}`$ | `Process_maintenance_events` over $`\Xi \times \mathcal{J}`$ — how many maintenance events the horizon holds |
+| $`\tau^{z,\mathrm{mnt}}`$ | `Process_maintenance_duration` over $`\Xi \times \mathcal{J}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the process is not maintainable. No row reads it: data prep turns it into `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the assumptions hold it to the horizon |
+| $`\mathrm{blk}^{z}`$ | `Process_maintenance_start_blocked` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the process does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
 | $`\mathrm{load}`$ | `Load_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{D}`$ — demand |
 | $`\pi`$ | `scenario_weight` over $`\Xi`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
@@ -3618,115 +3618,115 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
 | $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
 | $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit |
-| $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top |
-| $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
-| $`\mathrm{f}^{\mathrm{set}}`$ | `Link_p_set` over $`\mathcal{T} \times \mathcal{L}`$ — a given flow schedule; a link without one has no row here |
+| $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit. The least over the scenarios, as PyPSA takes it (`global_constraints.py:226-230`), data prep |
+| $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top — the least over the scenarios, as PyPSA takes it, data prep |
+| $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
+| $`\mathrm{f}^{\mathrm{set}}`$ | `Link_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — a given flow schedule; a link without one has no row here |
 | $`\mathrm{w}^{\mathrm{sto}}`$ | `snapshot_weightings_stores` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance |
 | $`\mathrm{w}^{\mathrm{gen}}`$ | `snapshot_weightings_generators` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total |
-| $`\underline{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_min` over $`\mathcal{G}`$ — least nominal power an extendable generator may be built at |
-| $`\overline{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_max` over $`\mathcal{G}`$ — most nominal power an extendable generator may be built at |
-| $`\mathrm{c}^{\mathrm{cap}}`$ | `Generator_capital_cost` over $`\mathcal{G}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\mathrm{p}^{\mathrm{nom,set}}`$ | `Generator_p_nom_set` over $`\mathcal{G}`$ — a given nominal power for an extendable generator; one without a value has no row here |
-| $`\underline{\mathrm{E}}`$ | `Generator_e_sum_min` over $`\mathcal{G}`$ — least energy over the horizon; minus infinity where no floor is meant |
-| $`\overline{\mathrm{E}}`$ | `Generator_e_sum_max` over $`\mathcal{G}`$ — most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant |
-| $`\underline{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_min` over $`\mathcal{L}`$ — least nominal power an extendable link may be built at |
-| $`\overline{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_max` over $`\mathcal{L}`$ — most nominal power an extendable link may be built at |
-| $`\mathrm{c}^{\mathrm{cap},f}`$ | `Link_capital_cost` over $`\mathcal{L}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\mathrm{f}^{\mathrm{nom,set}}`$ | `Link_p_nom_set` over $`\mathcal{L}`$ — a given nominal power for an extendable link; one without a value has no row here |
-| $`\underline{\mathrm{h}}^{\mathrm{nom}}`$ | `StorageUnit_p_nom_min` over $`\mathcal{S}`$ — least nominal power an extendable storage unit may be built at |
-| $`\overline{\mathrm{h}}^{\mathrm{nom}}`$ | `StorageUnit_p_nom_max` over $`\mathcal{S}`$ — most nominal power an extendable storage unit may be built at |
-| $`\mathrm{c}^{\mathrm{cap},h}`$ | `StorageUnit_capital_cost` over $`\mathcal{S}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\mathrm{h}^{\mathrm{nom,set}}`$ | `StorageUnit_p_nom_set` over $`\mathcal{S}`$ — a given nominal power for an extendable storage unit; one without a value has no row here |
-| $`\underline{\mathrm{e}}^{\mathrm{nom}}`$ | `Store_e_nom_min` over $`\mathcal{V}`$ — least nominal capacity an extendable store may be built at |
-| $`\overline{\mathrm{e}}^{\mathrm{nom}}`$ | `Store_e_nom_max` over $`\mathcal{V}`$ — most nominal capacity an extendable store may be built at |
-| $`\mathrm{c}^{\mathrm{cap},e}`$ | `Store_capital_cost` over $`\mathcal{V}`$ — cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\mathrm{e}^{\mathrm{nom,set}}`$ | `Store_e_nom_set` over $`\mathcal{V}`$ — a given nominal capacity for an extendable store; one without a value has no row here |
-| $`\mathrm{h}^{\mathrm{nom}}`$ | `StorageUnit_p_nom` over $`\mathcal{S}`$ — nominal power |
+| $`\underline{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_min` over $`\Xi \times \mathcal{G}`$ — least nominal power an extendable generator may be built at |
+| $`\overline{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_max` over $`\Xi \times \mathcal{G}`$ — most nominal power an extendable generator may be built at |
+| $`\mathrm{c}^{\mathrm{cap}}`$ | `Generator_capital_cost` over $`\Xi \times \mathcal{G}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{p}^{\mathrm{nom,set}}`$ | `Generator_p_nom_set` over $`\Xi \times \mathcal{G}`$ — a given nominal power for an extendable generator; one without a value has no row here |
+| $`\underline{\mathrm{E}}`$ | `Generator_e_sum_min` over $`\Xi \times \mathcal{G}`$ — least energy over the horizon; minus infinity where no floor is meant |
+| $`\overline{\mathrm{E}}`$ | `Generator_e_sum_max` over $`\Xi \times \mathcal{G}`$ — most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant |
+| $`\underline{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_min` over $`\Xi \times \mathcal{L}`$ — least nominal power an extendable link may be built at |
+| $`\overline{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_max` over $`\Xi \times \mathcal{L}`$ — most nominal power an extendable link may be built at |
+| $`\mathrm{c}^{\mathrm{cap},f}`$ | `Link_capital_cost` over $`\Xi \times \mathcal{L}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{f}^{\mathrm{nom,set}}`$ | `Link_p_nom_set` over $`\Xi \times \mathcal{L}`$ — a given nominal power for an extendable link; one without a value has no row here |
+| $`\underline{\mathrm{h}}^{\mathrm{nom}}`$ | `StorageUnit_p_nom_min` over $`\Xi \times \mathcal{S}`$ — least nominal power an extendable storage unit may be built at |
+| $`\overline{\mathrm{h}}^{\mathrm{nom}}`$ | `StorageUnit_p_nom_max` over $`\Xi \times \mathcal{S}`$ — most nominal power an extendable storage unit may be built at |
+| $`\mathrm{c}^{\mathrm{cap},h}`$ | `StorageUnit_capital_cost` over $`\Xi \times \mathcal{S}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{h}^{\mathrm{nom,set}}`$ | `StorageUnit_p_nom_set` over $`\Xi \times \mathcal{S}`$ — a given nominal power for an extendable storage unit; one without a value has no row here |
+| $`\underline{\mathrm{e}}^{\mathrm{nom}}`$ | `Store_e_nom_min` over $`\Xi \times \mathcal{V}`$ — least nominal capacity an extendable store may be built at |
+| $`\overline{\mathrm{e}}^{\mathrm{nom}}`$ | `Store_e_nom_max` over $`\Xi \times \mathcal{V}`$ — most nominal capacity an extendable store may be built at |
+| $`\mathrm{c}^{\mathrm{cap},e}`$ | `Store_capital_cost` over $`\Xi \times \mathcal{V}`$ — cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{e}^{\mathrm{nom,set}}`$ | `Store_e_nom_set` over $`\Xi \times \mathcal{V}`$ — a given nominal capacity for an extendable store; one without a value has no row here |
+| $`\mathrm{h}^{\mathrm{nom}}`$ | `StorageUnit_p_nom` over $`\Xi \times \mathcal{S}`$ — nominal power |
 | $`\mathrm{ext}^{h}`$ | `StorageUnit_p_nom_extendable` over $`\mathcal{S}`$ — whether the nominal power is a decision |
-| $`\underline{\mathrm{h}}`$ | `StorageUnit_p_min_pu` over $`\mathcal{T} \times \mathcal{S}`$ — most storing, per unit of nominal power and negated |
-| $`\overline{\mathrm{h}}`$ | `StorageUnit_p_max_pu` over $`\mathcal{T} \times \mathcal{S}`$ — most dispatch, per unit of nominal power |
-| $`\mathrm{T}^{h}`$ | `StorageUnit_max_hours` over $`\mathcal{S}`$ — energy capacity, as hours of dispatch at nominal power |
-| $`\eta^{-}`$ | `StorageUnit_efficiency_store` over $`\mathcal{S}`$ — share of the power drawn from the bus that becomes charge |
-| $`\eta^{+}`$ | `StorageUnit_efficiency_dispatch` over $`\mathcal{S}`$ — share of the charge drawn down that reaches the bus |
-| $`\rho`$ | `StorageUnit_retention` over $`\mathcal{T} \times \mathcal{S}`$ — share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
-| $`\mathrm{inflow}`$ | `StorageUnit_inflow` over $`\mathcal{T} \times \mathcal{S}`$ — energy arriving per hour, a river into a reservoir |
-| $`\mathrm{soc}^{0}`$ | `StorageUnit_state_of_charge_initial` over $`\mathcal{S}`$ — charge held before the first snapshot |
-| $`\mathrm{cyc}`$ | `StorageUnit_cyclic_state_of_charge` over $`\mathcal{S}`$ — whether the horizon closes on itself instead of opening on the initial charge |
-| $`\mathrm{cyc}^{y}`$ | `StorageUnit_cyclic_state_of_charge_per_period` over $`\mathcal{S}`$ — whether each investment period closes on itself instead of carrying its charge on to the next; it overrides `cyclic_state_of_charge` and `state_of_charge_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
-| $`\mathrm{reset}`$ | `StorageUnit_state_of_charge_initial_per_period` over $`\mathcal{S}`$ — whether each investment period opens on the initial charge instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\underline{\mathrm{h}}`$ | `StorageUnit_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — most storing, per unit of nominal power and negated |
+| $`\overline{\mathrm{h}}`$ | `StorageUnit_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — most dispatch, per unit of nominal power |
+| $`\mathrm{T}^{h}`$ | `StorageUnit_max_hours` over $`\Xi \times \mathcal{S}`$ — energy capacity, as hours of dispatch at nominal power |
+| $`\eta^{-}`$ | `StorageUnit_efficiency_store` over $`\Xi \times \mathcal{S}`$ — share of the power drawn from the bus that becomes charge |
+| $`\eta^{+}`$ | `StorageUnit_efficiency_dispatch` over $`\Xi \times \mathcal{S}`$ — share of the charge drawn down that reaches the bus |
+| $`\rho`$ | `StorageUnit_retention` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
+| $`\mathrm{inflow}`$ | `StorageUnit_inflow` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — energy arriving per hour, a river into a reservoir |
+| $`\mathrm{soc}^{0}`$ | `StorageUnit_state_of_charge_initial` over $`\Xi \times \mathcal{S}`$ — charge held before the first snapshot |
+| $`\mathrm{cyc}`$ | `StorageUnit_cyclic_state_of_charge` over $`\Xi \times \mathcal{S}`$ — whether the horizon closes on itself instead of opening on the initial charge |
+| $`\mathrm{cyc}^{y}`$ | `StorageUnit_cyclic_state_of_charge_per_period` over $`\Xi \times \mathcal{S}`$ — whether each investment period closes on itself instead of carrying its charge on to the next; it overrides `cyclic_state_of_charge` and `state_of_charge_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\mathrm{reset}`$ | `StorageUnit_state_of_charge_initial_per_period` over $`\Xi \times \mathcal{S}`$ — whether each investment period opens on the initial charge instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{open}`$ | `StorageUnit_opens_late` over $`\mathcal{T} \times \mathcal{S}`$ — whether a snapshot is the first a storage unit stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every unit stands throughout |
 | $`\mathrm{idle}`$ | `StorageUnit_inactive_snapshots` over $`\mathcal{S}`$ — how many snapshots a storage unit does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic unit reaches back this many snapshots further, so it closes on the last snapshot it stands in |
-| $`\mathrm{c}^{h}`$ | `StorageUnit_marginal_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of dispatch |
-| $`\mathrm{c}^{h,(2)}`$ | `StorageUnit_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{S}`$ — cost of the square of one unit of dispatch; storing is not charged |
-| $`\mathrm{c}^{\mathrm{soc}}`$ | `StorageUnit_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of charge held over one snapshot |
-| $`\mathrm{c}^{\mathrm{spill}}`$ | `StorageUnit_spill_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of inflow passed on unused |
-| $`\mathrm{h}^{\mathrm{set}}`$ | `StorageUnit_p_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given net dispatch schedule; a unit without one has no row here |
-| $`\mathrm{h}^{+,\mathrm{set}}`$ | `StorageUnit_p_dispatch_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given dispatch schedule; a unit without one has no row here |
-| $`\mathrm{h}^{-,\mathrm{set}}`$ | `StorageUnit_p_store_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given charging schedule; a unit without one has no row here |
-| $`\mathrm{soc}^{\mathrm{set}}`$ | `StorageUnit_state_of_charge_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given charge schedule; a unit without one has no row here |
-| $`\mathrm{e}^{\mathrm{nom}}`$ | `Store_e_nom` over $`\mathcal{V}`$ — nominal energy capacity |
+| $`\mathrm{c}^{h}`$ | `StorageUnit_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of one unit of dispatch |
+| $`\mathrm{c}^{h,(2)}`$ | `StorageUnit_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of the square of one unit of dispatch; storing is not charged |
+| $`\mathrm{c}^{\mathrm{soc}}`$ | `StorageUnit_marginal_cost_storage` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of one unit of charge held over one snapshot |
+| $`\mathrm{c}^{\mathrm{spill}}`$ | `StorageUnit_spill_cost` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of one unit of inflow passed on unused |
+| $`\mathrm{h}^{\mathrm{set}}`$ | `StorageUnit_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — a given net dispatch schedule; a unit without one has no row here |
+| $`\mathrm{h}^{+,\mathrm{set}}`$ | `StorageUnit_p_dispatch_set` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — a given dispatch schedule; a unit without one has no row here |
+| $`\mathrm{h}^{-,\mathrm{set}}`$ | `StorageUnit_p_store_set` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — a given charging schedule; a unit without one has no row here |
+| $`\mathrm{soc}^{\mathrm{set}}`$ | `StorageUnit_state_of_charge_set` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — a given charge schedule; a unit without one has no row here |
+| $`\mathrm{e}^{\mathrm{nom}}`$ | `Store_e_nom` over $`\Xi \times \mathcal{V}`$ — nominal energy capacity |
 | $`\mathrm{ext}^{e}`$ | `Store_e_nom_extendable` over $`\mathcal{V}`$ — whether the nominal energy capacity is a decision |
-| $`\underline{\mathrm{e}}`$ | `Store_e_min_pu` over $`\mathcal{T} \times \mathcal{V}`$ — least energy held, per unit of nominal capacity — negative for a store that may go short |
-| $`\overline{\mathrm{e}}`$ | `Store_e_max_pu` over $`\mathcal{T} \times \mathcal{V}`$ — most energy held, per unit of nominal capacity |
-| $`\rho^{e}`$ | `Store_retention` over $`\mathcal{T} \times \mathcal{V}`$ — share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
-| $`\mathrm{e}^{0}`$ | `Store_e_initial` over $`\mathcal{V}`$ — energy held before the first snapshot |
-| $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
-| $`\mathrm{cyc}^{e,y}`$ | `Store_e_cyclic_per_period` over $`\mathcal{V}`$ — whether each investment period closes on itself instead of carrying its energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
-| $`\mathrm{reset}^{e}`$ | `Store_e_initial_per_period` over $`\mathcal{V}`$ — whether each investment period opens on the initial energy instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\underline{\mathrm{e}}`$ | `Store_e_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — least energy held, per unit of nominal capacity — negative for a store that may go short |
+| $`\overline{\mathrm{e}}`$ | `Store_e_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — most energy held, per unit of nominal capacity |
+| $`\rho^{e}`$ | `Store_retention` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
+| $`\mathrm{e}^{0}`$ | `Store_e_initial` over $`\Xi \times \mathcal{V}`$ — energy held before the first snapshot |
+| $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\Xi \times \mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
+| $`\mathrm{cyc}^{e,y}`$ | `Store_e_cyclic_per_period` over $`\Xi \times \mathcal{V}`$ — whether each investment period closes on itself instead of carrying its energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
+| $`\mathrm{reset}^{e}`$ | `Store_e_initial_per_period` over $`\Xi \times \mathcal{V}`$ — whether each investment period opens on the initial energy instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{open}^{e}`$ | `Store_opens_late` over $`\mathcal{T} \times \mathcal{V}`$ — whether a snapshot is the first a store stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every store stands throughout |
 | $`\mathrm{idle}^{e}`$ | `Store_inactive_snapshots` over $`\mathcal{V}`$ — how many snapshots a store does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic store reaches back this many snapshots further, so it closes on the last snapshot it stands in |
-| $`\mathrm{c}^{q}`$ | `Store_marginal_cost` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of power delivered |
-| $`\mathrm{c}^{q,(2)}`$ | `Store_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{V}`$ — cost of the square of the net power delivered, so charging costs as much as delivering |
-| $`\mathrm{c}^{e}`$ | `Store_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of energy held over one snapshot |
-| $`\mathrm{e}^{\mathrm{set}}`$ | `Store_e_set` over $`\mathcal{T} \times \mathcal{V}`$ — a given energy schedule; a store without one has no row here |
-| $`\mathrm{q}^{\mathrm{set}}`$ | `Store_p_set` over $`\mathcal{T} \times \mathcal{V}`$ — a given schedule of power delivered; a store without one has no row here |
-| $`\mathrm{s}^{\mathrm{nom}}`$ | `Line_s_nom` over $`\mathcal{K}`$ — nominal apparent power |
+| $`\mathrm{c}^{q}`$ | `Store_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of one unit of power delivered |
+| $`\mathrm{c}^{q,(2)}`$ | `Store_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of the square of the net power delivered, so charging costs as much as delivering |
+| $`\mathrm{c}^{e}`$ | `Store_marginal_cost_storage` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of one unit of energy held over one snapshot |
+| $`\mathrm{e}^{\mathrm{set}}`$ | `Store_e_set` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — a given energy schedule; a store without one has no row here |
+| $`\mathrm{q}^{\mathrm{set}}`$ | `Store_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — a given schedule of power delivered; a store without one has no row here |
+| $`\mathrm{s}^{\mathrm{nom}}`$ | `Line_s_nom` over $`\Xi \times \mathcal{K}`$ — nominal apparent power |
 | $`\mathrm{ext}^{s}`$ | `Line_s_nom_extendable` over $`\mathcal{K}`$ — whether the nominal apparent power is a decision |
-| $`\overline{\mathrm{s}}`$ | `Line_s_max_pu` over $`\mathcal{T} \times \mathcal{K}`$ — most flow either way, per unit of nominal apparent power |
-| $`\underline{\mathrm{s}}^{\mathrm{nom}}`$ | `Line_s_nom_min` over $`\mathcal{K}`$ — least nominal apparent power an extendable line may be built at |
-| $`\overline{\mathrm{s}}^{\mathrm{nom}}`$ | `Line_s_nom_max` over $`\mathcal{K}`$ — most nominal apparent power an extendable line may be built at |
-| $`\mathrm{c}^{\mathrm{cap},s}`$ | `Line_capital_cost` over $`\mathcal{K}`$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\mathrm{s}^{\mathrm{nom,set}}`$ | `Line_s_nom_set` over $`\mathcal{K}`$ — a given nominal apparent power for an extendable line; one without a value has no row here |
-| $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
-| $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
+| $`\overline{\mathrm{s}}`$ | `Line_s_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — most flow either way, per unit of nominal apparent power |
+| $`\underline{\mathrm{s}}^{\mathrm{nom}}`$ | `Line_s_nom_min` over $`\Xi \times \mathcal{K}`$ — least nominal apparent power an extendable line may be built at |
+| $`\overline{\mathrm{s}}^{\mathrm{nom}}`$ | `Line_s_nom_max` over $`\Xi \times \mathcal{K}`$ — most nominal apparent power an extendable line may be built at |
+| $`\mathrm{c}^{\mathrm{cap},s}`$ | `Line_capital_cost` over $`\Xi \times \mathcal{K}`$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\mathrm{s}^{\mathrm{nom,set}}`$ | `Line_s_nom_set` over $`\Xi \times \mathcal{K}`$ — a given nominal apparent power for an extendable line; one without a value has no row here |
+| $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
+| $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row. PyPSA builds the cycle basis from the first scenario only (`networks.py:1354-1361`) |
 | $`\beta`$ | `Line_BODF` over $`\mathcal{K} \times \mathcal{K}^{\mathrm{out}}`$ — the share of an outaged branch's flow a line takes on when that branch goes out — PyPSA's `BODF`, from the sub-network's PTDF, data prep; a row only where the line and the outage share a sub-network, -1 at the outaged line itself |
 | $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` read as a flag; its mode, tangents or secants, only decides how data prep fills the `segment` axis, the rows are the same; false with no segments is a lossless run |
-| $`\overline{\ell}`$ | `Line_loss_max` over $`\mathcal{T} \times \mathcal{K}`$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
-| $`\mathrm{a}`$ | `Line_loss_slope` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k` at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between consecutive breakpoints, data prep |
-| $`\mathrm{b}`$ | `Line_loss_offset` over $`\mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
-| $`\sigma^{\mathrm{nom}}`$ | `Transformer_s_nom` over $`\mathcal{M}`$ — nominal apparent power |
+| $`\overline{\ell}`$ | `Line_loss_max` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
+| $`\mathrm{a}`$ | `Line_loss_slope` over $`\Xi \times \mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k` at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between consecutive breakpoints, data prep |
+| $`\mathrm{b}`$ | `Line_loss_offset` over $`\Xi \times \mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
+| $`\sigma^{\mathrm{nom}}`$ | `Transformer_s_nom` over $`\Xi \times \mathcal{M}`$ — nominal apparent power |
 | $`\mathrm{ext}^{\sigma}`$ | `Transformer_s_nom_extendable` over $`\mathcal{M}`$ — whether the nominal apparent power is a decision |
-| $`\overline{\sigma}`$ | `Transformer_s_max_pu` over $`\mathcal{T} \times \mathcal{M}`$ — most flow either way, per unit of nominal apparent power |
-| $`\underline{\sigma}^{\mathrm{nom}}`$ | `Transformer_s_nom_min` over $`\mathcal{M}`$ — least nominal apparent power an extendable transformer may be built at |
-| $`\overline{\sigma}^{\mathrm{nom}}`$ | `Transformer_s_nom_max` over $`\mathcal{M}`$ — most nominal apparent power an extendable transformer may be built at |
-| $`\mathrm{c}^{\mathrm{cap},\sigma}`$ | `Transformer_capital_cost` over $`\mathcal{M}`$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $`\sigma^{\mathrm{nom,set}}`$ | `Transformer_s_nom_set` over $`\mathcal{M}`$ — a given nominal apparent power for an extendable transformer; one without a value has no row here |
-| $`\sigma^{\mathrm{set}}`$ | `Transformer_s_set` over $`\mathcal{T} \times \mathcal{M}`$ — a given flow schedule; a transformer without one has no row here |
-| $`\mathrm{x}^{\sigma}`$ | `Transformer_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's effective series reactance, `x` times its tap ratio, signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle basis, data prep; a transformer in no cycle has no row |
+| $`\overline{\sigma}`$ | `Transformer_s_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — most flow either way, per unit of nominal apparent power |
+| $`\underline{\sigma}^{\mathrm{nom}}`$ | `Transformer_s_nom_min` over $`\Xi \times \mathcal{M}`$ — least nominal apparent power an extendable transformer may be built at |
+| $`\overline{\sigma}^{\mathrm{nom}}`$ | `Transformer_s_nom_max` over $`\Xi \times \mathcal{M}`$ — most nominal apparent power an extendable transformer may be built at |
+| $`\mathrm{c}^{\mathrm{cap},\sigma}`$ | `Transformer_capital_cost` over $`\Xi \times \mathcal{M}`$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\sigma^{\mathrm{nom,set}}`$ | `Transformer_s_nom_set` over $`\Xi \times \mathcal{M}`$ — a given nominal apparent power for an extendable transformer; one without a value has no row here |
+| $`\sigma^{\mathrm{set}}`$ | `Transformer_s_set` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — a given flow schedule; a transformer without one has no row here |
+| $`\mathrm{x}^{\sigma}`$ | `Transformer_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the transformer's effective series reactance, `x` times its tap ratio, signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle basis, data prep; a transformer in no cycle has no row. From the first scenario only, as a line's |
 | $`\beta^{\sigma}`$ | `Transformer_BODF` over $`\mathcal{M} \times \mathcal{K}^{\mathrm{out}}`$ — the share of an outaged branch's flow a transformer takes on when that branch goes out, as a line's; a row only where the transformer and the outage share a sub-network |
 | $`\vartheta`$ | `Transformer_phase_shift_weight` over $`\mathcal{M} \times \mathcal{C}`$ — a fixed transformer's phase shift in radians, signed by its orientation in the cycle — a constant added to the cycle sum, data prep; zero for a varying transformer, whose shift is a decision instead, so the constant and the variable term never both count a shift. A transformer with no shift or in no cycle has no row |
-| $`\mathrm{Transformer\_phase\_shift\_varying}`$ | `Transformer_phase_shift_varying` over $`\mathcal{M}`$ — whether a transformer's phase shift is a decision — PyPSA's `phase_shift_min < phase_shift_max`, read as a flag in data prep; false is a fixed shift carried by `phase_shift` |
+| $`\mathrm{Transformer\_phase\_shift\_varying}`$ | `Transformer_phase_shift_varying` over $`\mathcal{M}`$ — whether a transformer's phase shift is a decision — PyPSA's `phase_shift_min < phase_shift_max`, read as a flag in data prep; false is a fixed shift carried by `phase_shift`. The shift parameters carry no scenario: only a cycle row reads them, and PyPSA fails on a transformer in a cycle on a network with scenarios (`constraints.py:1654`) |
 | $`\mathrm{Transformer\_phase\_shift\_min}`$ | `Transformer_phase_shift_min` over $`\mathcal{M}`$ — the least a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_min`; where it is below `phase_shift_max` the shift is a decision, otherwise the transformer keeps its fixed `phase_shift` |
 | $`\mathrm{Transformer\_phase\_shift\_max}`$ | `Transformer_phase_shift_max` over $`\mathcal{M}`$ — the most a varying transformer's phase shift may take, in degrees — PyPSA's `phase_shift_max`; equal to `phase_shift_min` for a fixed transformer |
 | $`\mathrm{Transformer\_phase\_shift\_cycle\_weight}`$ | `Transformer_phase_shift_cycle_weight` over $`\mathcal{M} \times \mathcal{C}`$ — the cycle sign for a varying transformer's phase shift, times π/180 so a shift in degrees enters the cycle sum in radians — data prep; zero for a fixed transformer or one in no cycle |
-| $`\overline{\ell}^{\sigma}`$ | `Transformer_loss_max` over $`\mathcal{T} \times \mathcal{M}`$ — the loss at a transformer's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, its `r_pu_eff` the resistance over the given `s_nom` times the tap ratio, data prep |
-| $`\mathrm{a}^{\sigma}`$ | `Transformer_loss_slope` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — the slope of a cut to a transformer's loss curve — a tangent's `2 * r_pu_eff * p_k`, a secant's `r_pu_eff * (p_k + p_k+1)`, as a line's, over the transformer's own `r_pu_eff` and rating, data prep |
-| $`\mathrm{b}^{\sigma}`$ | `Transformer_loss_offset` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
+| $`\overline{\ell}^{\sigma}`$ | `Transformer_loss_max` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — the loss at a transformer's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, its `r_pu_eff` the resistance over the given `s_nom` times the tap ratio, data prep |
+| $`\mathrm{a}^{\sigma}`$ | `Transformer_loss_slope` over $`\Xi \times \mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — the slope of a cut to a transformer's loss curve — a tangent's `2 * r_pu_eff * p_k`, a secant's `r_pu_eff * (p_k + p_k+1)`, as a line's, over the transformer's own `r_pu_eff` and rating, data prep |
+| $`\mathrm{b}^{\sigma}`$ | `Transformer_loss_offset` over $`\Xi \times \mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
 | $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{I}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
 | $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\Xi \times \mathcal{I}`$ — which way the row binds in each scenario — `<=`, `>=` or `==`; PyPSA reads a row's sense per scenario (`global_constraints.py:556`, `:748`, `:860`) |
 | $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\Xi \times \mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, times its period's years for each counted period where the storage reopens per period, or a non-extendable build — is folded in here by data prep. PyPSA reads it per scenario (`global_constraints.py:557`, `:749`, `:861`) |
-| $`\mathrm{in}`$ | `GlobalConstraint_counts_snapshot` over $`\mathcal{I} \times \mathcal{T}`$ — whether a row counts a snapshot — PyPSA's `investment_period`: every snapshot where the row names none, and only that period's where it names one, data prep. A row that names a period the run does not model has no label here, as PyPSA skips it (`global_constraints.py:377`); PyPSA reads the column only under `multi_investment_periods`, and fails on a row that names a period without it (`global_constraints.py:375`) |
-| $`\mathrm{a}`$ | `Generator_primary_energy_weight` over $`\mathcal{I} \times \mathcal{G}`$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
-| $`\mathrm{a}^{h}`$ | `StorageUnit_primary_energy_weight` over $`\mathcal{I} \times \mathcal{S}`$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
-| $`\mathrm{a}^{e}`$ | `Store_primary_energy_weight` over $`\mathcal{I} \times \mathcal{V}`$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
-| $`\mathrm{b}`$ | `Generator_operational_limit_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{b}^{h}`$ | `StorageUnit_operational_limit_weight` over $`\mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{b}^{e}`$ | `Store_operational_limit_weight` over $`\mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{len}`$ | `Line_volume_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's length where its carrier is in the row's set — data prep; a line outside it, or one that does not stand in the row's `investment_period`, has no row |
-| $`\mathrm{len}^{f}`$ | `Link_volume_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's length where its carrier is in the row's set — data prep; a link outside it, or one that does not stand in the row's `investment_period`, has no row |
-| $`\mathrm{cc}`$ | `Line_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's capital cost where its carrier is in the row's set, times the objective weights of the periods it stands in where the row names no `investment_period` under `multi_investment_periods` — data prep; a line outside the set, or one that does not stand in the row's period, has no row |
-| $`\mathrm{cc}^{f}`$ | `Link_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's capital cost where its carrier is in the row's set, times the objective weights of the periods it stands in where the row names no `investment_period` under `multi_investment_periods` — data prep; a link outside the set, or one that does not stand in the row's period, has no row |
+| $`\mathrm{in}`$ | `GlobalConstraint_counts_snapshot` over $`\Xi \times \mathcal{I} \times \mathcal{T}`$ — whether a row counts a snapshot in a scenario — PyPSA's `investment_period`: every snapshot where the row names none, and only that period's where it names one, data prep. A row that names a period the run does not model has no label here, as PyPSA skips it (`global_constraints.py:377`); PyPSA reads the column only under `multi_investment_periods`, and fails on a row that names a period without it (`global_constraints.py:375`) |
+| $`\mathrm{a}`$ | `Generator_primary_energy_weight` over $`\Xi \times \mathcal{I} \times \mathcal{G}`$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
+| $`\mathrm{a}^{h}`$ | `StorageUnit_primary_energy_weight` over $`\Xi \times \mathcal{I} \times \mathcal{S}`$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
+| $`\mathrm{a}^{e}`$ | `Store_primary_energy_weight` over $`\Xi \times \mathcal{I} \times \mathcal{V}`$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
+| $`\mathrm{b}`$ | `Generator_operational_limit_weight` over $`\Xi \times \mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's set — data prep; one outside it has no row |
+| $`\mathrm{b}^{h}`$ | `StorageUnit_operational_limit_weight` over $`\Xi \times \mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's set — data prep; one outside it has no row |
+| $`\mathrm{b}^{e}`$ | `Store_operational_limit_weight` over $`\Xi \times \mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's set — data prep; one outside it has no row |
+| $`\mathrm{len}`$ | `Line_volume_weight` over $`\Xi \times \mathcal{I} \times \mathcal{K}`$ — the line's length where its carrier is in the row's set, the first scenario's length as PyPSA reads it (`global_constraints.py:835-836`) — data prep; a line outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{len}^{f}`$ | `Link_volume_weight` over $`\Xi \times \mathcal{I} \times \mathcal{L}`$ — the link's length where its carrier is in the row's set, the first scenario's length as PyPSA reads it (`global_constraints.py:835-836`) — data prep; a link outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{cc}`$ | `Line_expansion_cost_weight` over $`\Xi \times \mathcal{I} \times \mathcal{K}`$ — the line's capital cost where its carrier is in the row's set, times the objective weights of the periods it stands in where the row names no `investment_period` under `multi_investment_periods` — data prep; a line outside the set, or one that does not stand in the row's period, has no row |
+| $`\mathrm{cc}^{f}`$ | `Link_expansion_cost_weight` over $`\Xi \times \mathcal{I} \times \mathcal{L}`$ — the link's capital cost where its carrier is in the row's set, times the objective weights of the periods it stands in where the row names no `investment_period` under `multi_investment_periods` — data prep; a link outside the set, or one that does not stand in the row's period, has no row |
 | $`\mathrm{m}`$ | `Generator_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
 | $`\mathrm{m}^{f}`$ | `Link_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{L}`$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
 | $`\mathrm{m}^{l}`$ | `Line_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{K}`$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
@@ -3793,46 +3793,46 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 |---|---|
 | $`\overleftarrow{u}`$ | `Generator_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{p}`$ | `Generator_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
-| $`\widetilde{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_effective` over $`\mathcal{G}`$ — the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise |
-| $`\widetilde{\mathrm{ru}}`$ | `Generator_ramp_up_rate` over $`\mathcal{G}`$ — the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
-| $`\widetilde{\mathrm{rd}}`$ | `Generator_ramp_down_rate` over $`\mathcal{G}`$ — the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
-| $`\widetilde{\mathrm{ru}}^{\mathrm{up}}`$ | `Generator_start_up_rate` over $`\mathcal{G}`$ — the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
-| $`\widetilde{\mathrm{rd}}^{\mathrm{dn}}`$ | `Generator_shut_down_rate` over $`\mathcal{G}`$ — the shut-down ramp a unit's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
-| $`\widehat{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_committed` over $`\mathcal{G}`$ — the build a committed unit's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
+| $`\widetilde{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_effective` over $`\Xi \times \mathcal{G}`$ — the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\widetilde{\mathrm{ru}}`$ | `Generator_ramp_up_rate` over $`\Xi \times \mathcal{G}`$ — the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}`$ | `Generator_ramp_down_rate` over $`\Xi \times \mathcal{G}`$ — the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{\mathrm{up}}`$ | `Generator_start_up_rate` over $`\Xi \times \mathcal{G}`$ — the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{\mathrm{dn}}`$ | `Generator_shut_down_rate` over $`\Xi \times \mathcal{G}`$ — the shut-down ramp a unit's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
+| $`\widehat{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_committed` over $`\Xi \times \mathcal{G}`$ — the build a committed unit's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{+}`$ | `Generator_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{-}`$ | `Generator_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
-| $`\widetilde{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_effective` over $`\mathcal{L}`$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\widetilde{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_effective` over $`\Xi \times \mathcal{L}`$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $`\overleftarrow{u}^{f}`$ | `Link_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the commitment state a link carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{f}`$ | `Link_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the flow a link carries into a snapshot — nothing at the start of the horizon, which is why a link that came in running carries no ramp row there |
-| $`\widetilde{\mathrm{ru}}^{f}`$ | `Link_ramp_up_rate` over $`\mathcal{L}`$ — the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
-| $`\widetilde{\mathrm{rd}}^{f}`$ | `Link_ramp_down_rate` over $`\mathcal{L}`$ — the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
-| $`\widetilde{\mathrm{ru}}^{f,\mathrm{up}}`$ | `Link_start_up_rate` over $`\mathcal{L}`$ — the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
-| $`\widetilde{\mathrm{rd}}^{f,\mathrm{dn}}`$ | `Link_shut_down_rate` over $`\mathcal{L}`$ — the shut-down ramp a link's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
-| $`\widehat{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_committed` over $`\mathcal{L}`$ — the build a committed link's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
+| $`\widetilde{\mathrm{ru}}^{f}`$ | `Link_ramp_up_rate` over $`\Xi \times \mathcal{L}`$ — the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}^{f}`$ | `Link_ramp_down_rate` over $`\Xi \times \mathcal{L}`$ — the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{f,\mathrm{up}}`$ | `Link_start_up_rate` over $`\Xi \times \mathcal{L}`$ — the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{f,\mathrm{dn}}`$ | `Link_shut_down_rate` over $`\Xi \times \mathcal{L}`$ — the shut-down ramp a link's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
+| $`\widehat{\mathrm{f}}^{\mathrm{nom}}`$ | `Link_p_nom_committed` over $`\Xi \times \mathcal{L}`$ — the build a committed link's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{f,+}`$ | `Link_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may raise flow between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{f,-}`$ | `Link_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — how far a link may lower flow between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
-| $`\widetilde{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_effective` over $`\mathcal{J}`$ — the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $`\widetilde{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_effective` over $`\Xi \times \mathcal{J}`$ — the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $`\overleftarrow{u}^{z}`$ | `Process_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — the commitment state a process carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{z}`$ | `Process_previous_p` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — the internal power a process carries into a snapshot — nothing at the start of the horizon, which is why a process that came in running carries no ramp row there |
-| $`\widetilde{\mathrm{ru}}^{z}`$ | `Process_ramp_up_rate` over $`\mathcal{J}`$ — the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
-| $`\widetilde{\mathrm{rd}}^{z}`$ | `Process_ramp_down_rate` over $`\mathcal{J}`$ — the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
-| $`\widetilde{\mathrm{ru}}^{z,\mathrm{up}}`$ | `Process_start_up_rate` over $`\mathcal{J}`$ — the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
-| $`\widetilde{\mathrm{rd}}^{z,\mathrm{dn}}`$ | `Process_shut_down_rate` over $`\mathcal{J}`$ — the shut-down ramp a process's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
-| $`\widehat{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_committed` over $`\mathcal{J}`$ — the build a committed process's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
+| $`\widetilde{\mathrm{ru}}^{z}`$ | `Process_ramp_up_rate` over $`\Xi \times \mathcal{J}`$ — the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}^{z}`$ | `Process_ramp_down_rate` over $`\Xi \times \mathcal{J}`$ — the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{z,\mathrm{up}}`$ | `Process_start_up_rate` over $`\Xi \times \mathcal{J}`$ — the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{z,\mathrm{dn}}`$ | `Process_shut_down_rate` over $`\Xi \times \mathcal{J}`$ — the shut-down ramp a process's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
+| $`\widehat{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_committed` over $`\Xi \times \mathcal{J}`$ — the build a committed process's ramp rows are taken against — one module where the build is extendable and modular, the given build otherwise |
 | $`\Delta^{z,+}`$ | `Process_ramp_up_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may raise internal power between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
 | $`\Delta^{z,-}`$ | `Process_ramp_down_allowance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — how far a process may lower internal power between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
 | $`\overleftarrow{\mathit{soc}}`$ | `StorageUnit_charge_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — the charge a unit opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial charge, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A unit built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial energy, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A store built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay` within its investment period; where the port is `cyclic_delay` the delayed flow wraps from the period's end, and where it is not the flow still in transit at the period's first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
 | $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay` within its investment period; where the port is `cyclic_delay` the delayed transfer wraps from the period's end, and where it is not the energy still in transit at the period's first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
-| $`\mathit{w}^{\mathrm{gc}}`$ | `GlobalConstraint_energy_weight` over $`\mathcal{I} \times \mathcal{T}`$ — what one unit of power at a snapshot counts for in a row — the generator weighting times the years of the snapshot's period, where the row counts the snapshot, and nothing where it does not |
-| $`\mathit{last}`$ | `GlobalConstraint_snapshot_closes` over $`\mathcal{I} \times \mathcal{T}`$ — one at the last snapshot a row counts, and zero elsewhere |
-| $`\mathit{w}^{h}`$ | `StorageUnit_closing_weight` over $`\mathcal{I} \times \mathcal{T} \times \mathcal{S}`$ — what the charge a unit holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the unit reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
-| $`\mathit{w}^{e}`$ | `Store_closing_weight` over $`\mathcal{I} \times \mathcal{T} \times \mathcal{V}`$ — what the energy a store holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the store reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
+| $`\mathit{w}^{\mathrm{gc}}`$ | `GlobalConstraint_energy_weight` over $`\Xi \times \mathcal{I} \times \mathcal{T}`$ — what one unit of power at a snapshot counts for in a row — the generator weighting times the years of the snapshot's period, where the row counts the snapshot, and nothing where it does not |
+| $`\mathit{last}`$ | `GlobalConstraint_snapshot_closes` over $`\Xi \times \mathcal{I} \times \mathcal{T}`$ — one at the last snapshot a row counts, and zero elsewhere |
+| $`\mathit{w}^{h}`$ | `StorageUnit_closing_weight` over $`\Xi \times \mathcal{I} \times \mathcal{T} \times \mathcal{S}`$ — what the charge a unit holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the unit reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
+| $`\mathit{w}^{e}`$ | `Store_closing_weight` over $`\Xi \times \mathcal{I} \times \mathcal{T} \times \mathcal{V}`$ — what the energy a store holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the store reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
 | $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy over the snapshots it counts, less the charge left in weighted storage at the close; the initial charge it is compared against is folded into the row's constant |
 | $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{I}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver over the snapshots it counts, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
-| $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\mathcal{I}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
-| $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
+| $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\Xi \times \mathcal{I}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
+| $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\Xi \times \mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight |
 | $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$ — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. Like PyPSA, it sums only the components that carry a carrier attribute, so a transformer, which has none, counts in no carrier |
@@ -3860,21 +3860,23 @@ $`\lvert \mathcal{T} \rvert`$ denotes the size of the set being counted along, a
 ```yaml
 objective:
   sense: minimize
-  description: capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
+  description: >-
+    capacity once per active period at its expected cost over the scenarios, operation in
+    expectation over the scenarios, and a share of it at the tail
   expression: >-
-    sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
-    + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
-    + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
-    + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
-    + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
-    + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
+    sum(scenario_weight * Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
+    + sum(scenario_weight * Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
+    + sum(scenario_weight * StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
+    + sum(scenario_weight * Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
+    + sum(scenario_weight * Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
+    + sum(scenario_weight * Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
+    + sum(scenario_weight * Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
     + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
     + CVaR_omega * CVaR
 ```
 
 ```math
-\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} \cdot \mathrm{W}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} \cdot \mathrm{W}^{f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} \cdot \mathrm{W}^{h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} \cdot \mathrm{W}^{e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} \cdot \mathrm{W}^{s}_{k} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{c}^{\mathrm{cap},z}_{j} \cdot \mathrm{W}^{z}_{j} + \sum_{m \in \mathcal{M}} \Sigma_{m} \cdot \mathrm{c}^{\mathrm{cap},\sigma}_{m} \cdot \mathrm{W}^{\sigma}_{m} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
+\min \sum_{\xi \in \Xi,\ g \in \mathcal{G}} \pi_{\xi} \cdot P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{\xi,g} \cdot \mathrm{W}_{g} + \sum_{\xi \in \Xi,\ l \in \mathcal{L}} \pi_{\xi} \cdot F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{\xi,l} \cdot \mathrm{W}^{f}_{l} + \sum_{\xi \in \Xi,\ s \in \mathcal{S}} \pi_{\xi} \cdot H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{\xi,s} \cdot \mathrm{W}^{h}_{s} + \sum_{\xi \in \Xi,\ v \in \mathcal{V}} \pi_{\xi} \cdot E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{\xi,v} \cdot \mathrm{W}^{e}_{v} + \sum_{\xi \in \Xi,\ k \in \mathcal{K}} \pi_{\xi} \cdot S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{\xi,k} \cdot \mathrm{W}^{s}_{k} + \sum_{\xi \in \Xi,\ j \in \mathcal{J}} \pi_{\xi} \cdot Z_{j} \cdot \mathrm{c}^{\mathrm{cap},z}_{\xi,j} \cdot \mathrm{W}^{z}_{j} + \sum_{\xi \in \Xi,\ m \in \mathcal{M}} \pi_{\xi} \cdot \Sigma_{m} \cdot \mathrm{c}^{\mathrm{cap},\sigma}_{\xi,m} \cdot \mathrm{W}^{\sigma}_{m} + \left( 1 - \omega \right) \cdot \left( \sum_{\xi \in \Xi} \pi_{\xi} \cdot \mathit{scenario\_opex}_{\xi} \right) + \omega \cdot CVaR
 ```
 
 ### `Generator-fix-p-lower`
@@ -3890,7 +3892,7 @@ Generator_fix_p_lower:
 ```
 
 ```math
-p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( 1 - \gamma_{g} \cdot \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{\xi,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{\xi,g} \cdot \left( 1 - \gamma_{\xi,g} \cdot \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-fix-p-upper`
@@ -3906,7 +3908,7 @@ Generator_fix_p_upper:
 ```
 
 ```math
-p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( 1 - \gamma_{g} \cdot \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{\xi,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{\xi,g} \cdot \left( 1 - \gamma_{\xi,g} \cdot \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-fix-p-lower`
@@ -3922,7 +3924,7 @@ Link_fix_p_lower:
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( 1 - \gamma^{f}_{l} \cdot \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{\xi,l} \cdot \left( 1 - \gamma^{f}_{\xi,l} \cdot \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-fix-p-upper`
@@ -3938,7 +3940,7 @@ Link_fix_p_upper:
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( 1 - \gamma^{f}_{l} \cdot \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{\xi,l} \cdot \left( 1 - \gamma^{f}_{\xi,l} \cdot \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \neg \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Generator-ext-p-lower`
@@ -3954,7 +3956,7 @@ Generator_ext_p_lower:
 ```
 
 ```math
-p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \left( P_{g} - \gamma_{g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{\xi,t,g} \cdot \left( P_{g} - \gamma_{\xi,g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-ext-p-upper`
@@ -3970,7 +3972,7 @@ Generator_ext_p_upper:
 ```
 
 ```math
-p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \left( P_{g} - \gamma_{g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{\xi,t,g} \cdot \left( P_{g} - \gamma_{\xi,g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-ext-p_nom-lower`
@@ -3979,14 +3981,14 @@ p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \left( P_{g} - \gamma_{g} \cdo
 
 ```yaml
 Generator_ext_p_nom_lower:
-  description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
-  dims: [generator]
+  description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, generator]
   where: Generator_p_nom_extendable
   expression: Generator_p_nom_ext >= Generator_p_nom_min
 ```
 
 ```math
-P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
+P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
 ```
 
 ### `Generator-ext-p_nom-upper`
@@ -3995,14 +3997,14 @@ P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \math
 
 ```yaml
 Generator_ext_p_nom_upper:
-  description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [generator]
+  description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, generator]
   where: Generator_p_nom_extendable AND Generator_p_nom_max
   expression: Generator_p_nom_ext <= Generator_p_nom_max
 ```
 
 ```math
-P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \text{ is defined}
+P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \text{ is defined}
 ```
 
 ### `Generator-p_nom_set`
@@ -4012,13 +4014,13 @@ P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathc
 ```yaml
 Generator_p_nom_set:
   description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [generator]
+  dims: [scenario, generator]
   where: Generator_p_nom_extendable AND Generator_p_nom_set
   expression: Generator_p_nom_ext == Generator_p_nom_set
 ```
 
 ```math
-P_{g} = \mathrm{p}^{\mathrm{nom,set}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{nom,set}}_{g} \text{ is defined}
+P_{g} = \mathrm{p}^{\mathrm{nom,set}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{nom,set}}_{\xi,g} \text{ is defined}
 ```
 
 ### `Generator-e_sum_min`
@@ -4034,7 +4036,7 @@ Generator_e_sum_min:
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \underline{\mathrm{E}}_{g} \text{ is defined}
+\sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \underline{\mathrm{E}}_{\xi,g} \text{ is defined}
 ```
 
 ### `Generator-e_sum_max`
@@ -4050,7 +4052,7 @@ Generator_e_sum_max:
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \overline{\mathrm{E}}_{g} \text{ is defined}
+\sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \overline{\mathrm{E}}_{\xi,g} \text{ is defined}
 ```
 
 ### `Link-ext-p-lower`
@@ -4066,7 +4068,7 @@ Link_ext_p_lower:
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \left( F_{l} - \gamma^{f}_{l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \left( F_{l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-ext-p-upper`
@@ -4082,7 +4084,7 @@ Link_ext_p_upper:
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \left( F_{l} - \gamma^{f}_{l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \left( F_{l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \neg \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-ext-p_nom-lower`
@@ -4091,14 +4093,14 @@ f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \left( F_{l} - \gamma^{f}_{l} 
 
 ```yaml
 Link_ext_p_nom_lower:
-  description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
-  dims: [link]
+  description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, link]
   where: Link_p_nom_extendable
   expression: Link_p_nom_ext >= Link_p_nom_min
 ```
 
 ```math
-F_{l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l}
+F_{l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l}
 ```
 
 ### `Link-ext-p_nom-upper`
@@ -4107,14 +4109,14 @@ F_{l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, l \in \math
 
 ```yaml
 Link_ext_p_nom_upper:
-  description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [link]
+  description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, link]
   where: Link_p_nom_extendable AND Link_p_nom_max
   expression: Link_p_nom_ext <= Link_p_nom_max
 ```
 
 ```math
-F_{l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \text{ is defined}
+F_{l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \text{ is defined}
 ```
 
 ### `Link-p_nom_set`
@@ -4124,13 +4126,13 @@ F_{l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\, l \in \mathc
 ```yaml
 Link_p_nom_set:
   description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [link]
+  dims: [scenario, link]
   where: Link_p_nom_extendable AND Link_p_nom_set
   expression: Link_p_nom_ext == Link_p_nom_set
 ```
 
 ```math
-F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{nom,set}}_{l} \text{ is defined}
+F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{nom,set}}_{\xi,l} \text{ is defined}
 ```
 
 ### `Process-fix-p-lower`
@@ -4146,7 +4148,7 @@ Process_fix_p_lower:
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( 1 - \gamma^{z}_{j} \cdot \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{\xi,t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{\xi,j} \cdot \left( 1 - \gamma^{z}_{\xi,j} \cdot \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-fix-p-upper`
@@ -4162,7 +4164,7 @@ Process_fix_p_upper:
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( 1 - \gamma^{z}_{j} \cdot \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{\xi,t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{\xi,j} \cdot \left( 1 - \gamma^{z}_{\xi,j} \cdot \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \neg \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-ext-p-lower`
@@ -4178,7 +4180,7 @@ Process_ext_p_lower:
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \left( Z_{j} - \gamma^{z}_{j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{\xi,t,j} \cdot \left( Z_{j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-ext-p-upper`
@@ -4194,7 +4196,7 @@ Process_ext_p_upper:
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \left( Z_{j} - \gamma^{z}_{j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{\xi,t,j} \cdot \left( Z_{j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \neg \mathrm{com}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-ext-p_nom-lower`
@@ -4203,14 +4205,14 @@ z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \left( Z_{j} - \gamma^{z}_{j} 
 
 ```yaml
 Process_ext_p_nom_lower:
-  description: "`Process-ext-p_nom-lower` — the chosen build is at least its floor"
-  dims: [process]
+  description: "`Process-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, process]
   where: Process_p_nom_extendable
   expression: Process_p_nom_ext >= Process_p_nom_min
 ```
 
 ```math
-Z_{j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j}
+Z_{j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j}
 ```
 
 ### `Process-ext-p_nom-upper`
@@ -4219,14 +4221,14 @@ Z_{j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, j \in \math
 
 ```yaml
 Process_ext_p_nom_upper:
-  description: "`Process-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [process]
+  description: "`Process-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, process]
   where: Process_p_nom_extendable AND Process_p_nom_max
   expression: Process_p_nom_ext <= Process_p_nom_max
 ```
 
 ```math
-Z_{j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \text{ is defined}
+Z_{j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \text{ is defined}
 ```
 
 ### `Process-p_nom_set`
@@ -4236,13 +4238,13 @@ Z_{j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \qquad \forall\, j \in \mathc
 ```yaml
 Process_p_nom_set:
   description: "`Process-p_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [process]
+  dims: [scenario, process]
   where: Process_p_nom_extendable AND Process_p_nom_set
   expression: Process_p_nom_ext == Process_p_nom_set
 ```
 
 ```math
-Z_{j} = \mathrm{z}^{\mathrm{nom,set}}_{j} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{nom,set}}_{j} \text{ is defined}
+Z_{j} = \mathrm{z}^{\mathrm{nom,set}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{nom,set}}_{\xi,j} \text{ is defined}
 ```
 
 ### `StorageUnit-fix-p_dispatch-lower`
@@ -4274,7 +4276,7 @@ StorageUnit_fix_p_dispatch_upper:
 ```
 
 ```math
-h^{+}_{\xi,t,s} \le \overline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
+h^{+}_{\xi,t,s} \le \overline{\mathrm{h}}_{\xi,t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{\xi,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-p_store-lower`
@@ -4308,7 +4310,7 @@ StorageUnit_fix_p_store_upper:
 ```
 
 ```math
-h^{-}_{\xi,t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
+h^{-}_{\xi,t,s} \le -\underline{\mathrm{h}}_{\xi,t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{\xi,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-fix-state_of_charge-lower`
@@ -4340,7 +4342,7 @@ StorageUnit_fix_state_of_charge_upper:
 ```
 
 ```math
-\mathit{soc}_{\xi,t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
+\mathit{soc}_{\xi,t,s} \le \mathrm{T}^{h}_{\xi,s} \cdot \mathrm{h}^{\mathrm{nom}}_{\xi,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \neg \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `Generator-com-p-lower`
@@ -4356,7 +4358,7 @@ Generator_com_p_lower:
 ```
 
 ```math
-p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{\xi,t,g} - \gamma_{g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{\xi,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{\xi,g} \cdot \left( u_{\xi,t,g} - \gamma_{\xi,g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-p-upper`
@@ -4372,7 +4374,7 @@ Generator_com_p_upper:
 ```
 
 ```math
-p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{\xi,t,g} - \gamma_{g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{\xi,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{\xi,g} \cdot \left( u_{\xi,t,g} - \gamma_{\xi,g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-transition-start-up`
@@ -4423,7 +4425,7 @@ Generator_com_up_time:
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}} \mathit{up}_{\xi,t',g} \le u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{UT}_{g} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}_{t,g}
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}} \mathit{up}_{\xi,t',g} \le u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{UT}_{\xi,g} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-down-time`
@@ -4442,7 +4444,7 @@ Generator_com_down_time:
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{\xi,t',g} \le 1 - u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{DT}_{g} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}_{t,g}
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{\xi,t',g} \le 1 - u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{DT}_{\xi,g} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-status-min_up_time_must_stay_up`
@@ -4458,7 +4460,7 @@ Generator_com_status_must_stay_up:
 ```
 
 ```math
-u_{\xi,t,g} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g} \wedge \mathrm{on}_{t,g}
+u_{\xi,t,g} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{hold}_{\xi,t,g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-status-min_down_time_must_stay_up`
@@ -4476,7 +4478,7 @@ Generator_com_status_must_stay_down:
 ```
 
 ```math
-u_{\xi,t,g} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{rest}_{t,g} \wedge \mathrm{on}_{t,g}
+u_{\xi,t,g} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{rest}_{\xi,t,g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-run-bigM`
@@ -4502,7 +4504,7 @@ Generator_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}_{\xi,g} \cdot P_{g} + \mathrm{M}_{\xi,g} - \mathrm{M}_{\xi,g} \cdot \overleftarrow{u}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{\xi,g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{\xi,g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{\xi,g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_up-start-bigM`
@@ -4528,7 +4530,7 @@ Generator_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \widetilde{\mathrm{ru}}^{\mathrm{up}}_{\xi,g} \cdot P_{g} + \mathrm{M}_{\xi,g} - \mathrm{M}_{\xi,g} \cdot \mathit{up}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{ru}_{\xi,g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{\xi,g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{\xi,g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-run-bigM`
@@ -4554,7 +4556,7 @@ Generator_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}_{\xi,g} \cdot P_{g} + \mathrm{M}_{\xi,g} - \mathrm{M}_{\xi,g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{\xi,g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{\xi,g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{\xi,g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
@@ -4580,7 +4582,7 @@ Generator_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{\xi,g} \cdot P_{g} + \mathrm{M}_{\xi,g} - \mathrm{M}_{\xi,g} \cdot \mathit{dn}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \left( \mathrm{rd}_{\xi,g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{\xi,g} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{\xi,g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p_nom_modularity`
@@ -4614,7 +4616,7 @@ Generator_com_ext_p_upper_cap:
 ```
 
 ```math
-p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \left( P_{g} - \gamma_{g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{\xi,t,g} \cdot \left( P_{g} - \gamma_{\xi,g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-ext-p-upper-bigM`
@@ -4630,7 +4632,7 @@ Generator_com_ext_p_upper_big_m:
 ```
 
 ```math
-p_{\xi,t,g} \le \mathrm{M}_{g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \le \mathrm{M}_{\xi,g} \cdot u_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-ext-p-lower`
@@ -4651,7 +4653,7 @@ Generator_com_ext_p_lower:
 ```
 
 ```math
-p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \left( P_{g} - \gamma_{g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) + \mathrm{M}_{g} \cdot u_{\xi,t,g} - \mathrm{M}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{\xi,t,g} \cdot \left( P_{g} - \gamma_{\xi,g} \cdot \mu^{\mathrm{nom}}_{\xi,t,g} \right) + \mathrm{M}_{\xi,g} \cdot u_{\xi,t,g} - \mathrm{M}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-ext-p-lower-nonneg`
@@ -4690,7 +4692,7 @@ Generator_com_mod_p_lower:
 ```
 
 ```math
-p_{\xi,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot \left( u_{\xi,t,g} - \gamma_{g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \ge \underline{\mathrm{p}}_{\xi,t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot \left( u_{\xi,t,g} - \gamma_{\xi,g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-com-mod-p-upper`
@@ -4708,7 +4710,7 @@ Generator_com_mod_p_upper:
 ```
 
 ```math
-p_{\xi,t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot \left( u_{\xi,t,g} - \gamma_{g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} \le \overline{\mathrm{p}}_{\xi,t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot \left( u_{\xi,t,g} - \gamma_{\xi,g} \cdot \mu^{u}_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-status-p-fixed-upper`
@@ -4727,7 +4729,7 @@ Generator_status_p_fixed_upper:
 ```
 
 ```math
-u_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+u_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-start_up-p-fixed-upper`
@@ -4746,7 +4748,7 @@ Generator_start_up_p_fixed_upper:
 ```
 
 ```math
-\mathit{up}_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+\mathit{up}_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-shut_down-p-fixed-upper`
@@ -4765,7 +4767,7 @@ Generator_shut_down_p_fixed_upper:
 ```
 
 ```math
-\mathit{dn}_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+\mathit{dn}_{\xi,t,g} \le \mathrm{N}^{\mathrm{fix}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-status-p_nom-variable-upper`
@@ -4829,7 +4831,7 @@ Generator_maint_event_count:
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} \mu^{\mathrm{up}}_{\xi,t,g} = \mathrm{n}^{\mathrm{mnt}}_{g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+\sum_{t \in \mathcal{T}} \mu^{\mathrm{up}}_{\xi,t,g} = \mathrm{n}^{\mathrm{mnt}}_{\xi,g} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
 ```
 
 ### `Generator-maint-window`
@@ -4848,7 +4850,7 @@ Generator_maint_window:
 ```
 
 ```math
-\mu_{\xi,t,g} = \sum_{t' \in \mathcal{T} \,:\, \left( g,\ t',\ t \right) \in \mathrm{Generator\_maintenance\_cover}} \mu^{\mathrm{up}}_{\xi,t',g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{on}_{t,g}
+\mu_{\xi,t,g} = \sum_{t' \in \mathcal{T} \,:\, \left( \xi,\ g,\ t',\ t \right) \in \mathrm{Generator\_maintenance\_cover}} \mu^{\mathrm{up}}_{\xi,t',g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-maint-start-horizon`
@@ -4864,7 +4866,7 @@ Generator_maint_start_horizon:
 ```
 
 ```math
-\mu^{\mathrm{up}}_{\xi,t,g} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{on}_{t,g} \wedge \mathrm{blk}_{t,g}
+\mu^{\mathrm{up}}_{\xi,t,g} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{on}_{t,g} \wedge \mathrm{blk}_{\xi,t,g}
 ```
 
 ### `Generator-maintcap_upper`
@@ -4882,7 +4884,7 @@ Generator_maintcap_upper:
 ```
 
 ```math
-\mu^{\mathrm{nom}}_{\xi,t,g} \le P_{g} - \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \left( 1 - \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+\mu^{\mathrm{nom}}_{\xi,t,g} \le P_{g} - \underline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \left( 1 - \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-maintcap_upper_nommax`
@@ -4898,7 +4900,7 @@ Generator_maintcap_upper_nommax:
 ```
 
 ```math
-\mu^{\mathrm{nom}}_{\xi,t,g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \mu_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+\mu^{\mathrm{nom}}_{\xi,t,g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \mu_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-maintcap_lower_nommax`
@@ -4914,7 +4916,7 @@ Generator_maintcap_lower_nommax:
 ```
 
 ```math
-\mu^{\mathrm{nom}}_{\xi,t,g} \ge P_{g} - \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \left( 1 - \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
+\mu^{\mathrm{nom}}_{\xi,t,g} \ge P_{g} - \overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \left( 1 - \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-maintcap_lower_nommin`
@@ -4930,7 +4932,7 @@ Generator_maintcap_lower_nommin:
 ```
 
 ```math
-\mu^{\mathrm{nom}}_{\xi,t,g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \mu_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g} \wedge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} > 0
+\mu^{\mathrm{nom}}_{\xi,t,g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \mu_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \wedge \mathrm{on}_{t,g} \wedge \underline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} > 0
 ```
 
 ### `Generator-maint-status-le-status`
@@ -5012,7 +5014,7 @@ Generator_maint_modstatus_le_maint:
 ```
 
 ```math
-\mu^{u}_{\xi,t,g} \le \frac{\overline{\mathrm{p}}^{\mathrm{nom}}_{g}}{\mathrm{p}^{\mathrm{mod}}_{g}} \cdot \mu_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
+\mu^{u}_{\xi,t,g} \le \frac{\overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g}}{\mathrm{p}^{\mathrm{mod}}_{g}} \cdot \mu_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-maint-modstatus-lb`
@@ -5028,7 +5030,7 @@ Generator_maint_modstatus_lb:
 ```
 
 ```math
-\mu^{u}_{\xi,t,g} \ge u_{\xi,t,g} - \frac{\overline{\mathrm{p}}^{\mathrm{nom}}_{g}}{\mathrm{p}^{\mathrm{mod}}_{g}} \cdot \left( 1 - \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
+\mu^{u}_{\xi,t,g} \ge u_{\xi,t,g} - \frac{\overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g}}{\mathrm{p}^{\mathrm{mod}}_{g}} \cdot \left( 1 - \mu_{\xi,t,g} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-com-p-lower`
@@ -5044,7 +5046,7 @@ Link_com_p_lower:
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{\xi,l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-p-upper`
@@ -5060,7 +5062,7 @@ Link_com_p_upper:
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{\xi,l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-transition-start-up`
@@ -5111,7 +5113,7 @@ Link_com_up_time:
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{f}} \mathit{up}^{f}_{\xi,t',l} \le u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{UT}^{f}_{l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{f}} \mathit{up}^{f}_{\xi,t',l} \le u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{UT}^{f}_{\xi,l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-down-time`
@@ -5130,7 +5132,7 @@ Link_com_down_time:
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{f}} \mathit{dn}^{f}_{\xi,t',l} \le 1 - u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{DT}^{f}_{l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{f}} \mathit{dn}^{f}_{\xi,t',l} \le 1 - u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{DT}^{f}_{\xi,l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-status-min_up_time_must_stay_up`
@@ -5146,7 +5148,7 @@ Link_com_status_must_stay_up:
 ```
 
 ```math
-u^{f}_{\xi,t,l} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{hold}^{f}_{t,l} \wedge \mathrm{on}^{f}_{t,l}
+u^{f}_{\xi,t,l} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{hold}^{f}_{\xi,t,l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-status-min_down_time_must_stay_up`
@@ -5164,7 +5166,7 @@ Link_com_status_must_stay_down:
 ```
 
 ```math
-u^{f}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{rest}^{f}_{t,l} \wedge \mathrm{on}^{f}_{t,l}
+u^{f}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{rest}^{f}_{\xi,t,l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_up-run-bigM`
@@ -5190,7 +5192,7 @@ Link_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f}_{\xi,l} \cdot F_{l} + \mathrm{M}^{f}_{\xi,l} - \mathrm{M}^{f}_{\xi,l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{\xi,l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{\xi,l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{\xi,l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_up-start-bigM`
@@ -5216,7 +5218,7 @@ Link_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{\xi,l} \cdot F_{l} + \mathrm{M}^{f}_{\xi,l} - \mathrm{M}^{f}_{\xi,l} \cdot \mathit{up}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{ru}^{f}_{\xi,l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{\xi,l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{\xi,l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down-run-bigM`
@@ -5242,7 +5244,7 @@ Link_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f}_{\xi,l} \cdot F_{l} + \mathrm{M}^{f}_{\xi,l} - \mathrm{M}^{f}_{\xi,l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{\xi,l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{\xi,l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{\xi,l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down-shut-bigM`
@@ -5268,7 +5270,7 @@ Link_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} \cdot F_{l} + \mathrm{M}^{f}_{l} - \mathrm{M}^{f}_{l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{\xi,l} \cdot F_{l} + \mathrm{M}^{f}_{\xi,l} - \mathrm{M}^{f}_{\xi,l} \cdot \mathit{dn}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \left( \mathrm{rd}^{f}_{\xi,l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{\xi,l} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{f,0}_{\xi,l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p_nom_modularity`
@@ -5302,7 +5304,7 @@ Link_com_ext_p_upper_cap:
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \left( F_{l} - \gamma^{f}_{l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \left( F_{l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-ext-p-upper-bigM`
@@ -5318,7 +5320,7 @@ Link_com_ext_p_upper_big_m:
 ```
 
 ```math
-f_{\xi,t,l} \le \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \mathrm{M}^{f}_{\xi,l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-ext-p-lower`
@@ -5339,7 +5341,7 @@ Link_com_ext_p_lower:
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \left( F_{l} - \gamma^{f}_{l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) + \mathrm{M}^{f}_{l} \cdot u^{f}_{\xi,t,l} - \mathrm{M}^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \left( F_{l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) + \mathrm{M}^{f}_{\xi,l} \cdot u^{f}_{\xi,t,l} - \mathrm{M}^{f}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-ext-p-lower-nonneg`
@@ -5378,7 +5380,7 @@ Link_com_mod_p_lower:
 ```
 
 ```math
-f_{\xi,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-com-mod-p-upper`
@@ -5396,7 +5398,7 @@ Link_com_mod_p_upper:
 ```
 
 ```math
-f_{\xi,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-status-p-fixed-upper`
@@ -5415,7 +5417,7 @@ Link_status_p_fixed_upper:
 ```
 
 ```math
-u^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+u^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-start_up-p-fixed-upper`
@@ -5434,7 +5436,7 @@ Link_start_up_p_fixed_upper:
 ```
 
 ```math
-\mathit{up}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\mathit{up}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-shut_down-p-fixed-upper`
@@ -5453,7 +5455,7 @@ Link_shut_down_p_fixed_upper:
 ```
 
 ```math
-\mathit{dn}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\mathit{dn}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-status-p_nom-variable-upper`
@@ -5517,7 +5519,7 @@ Link_maint_event_count:
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} \mu^{f,\mathrm{up}}_{\xi,t,l} = \mathrm{n}^{f,\mathrm{mnt}}_{l} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
+\sum_{t \in \mathcal{T}} \mu^{f,\mathrm{up}}_{\xi,t,l} = \mathrm{n}^{f,\mathrm{mnt}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
 ```
 
 ### `Link-maint-window`
@@ -5536,7 +5538,7 @@ Link_maint_window:
 ```
 
 ```math
-\mu^{f}_{\xi,t,l} = \sum_{t' \in \mathcal{T} \,:\, \left( l,\ t',\ t \right) \in \mathrm{Link\_maintenance\_cover}} \mu^{f,\mathrm{up}}_{\xi,t',l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+\mu^{f}_{\xi,t,l} = \sum_{t' \in \mathcal{T} \,:\, \left( \xi,\ l,\ t',\ t \right) \in \mathrm{Link\_maintenance\_cover}} \mu^{f,\mathrm{up}}_{\xi,t',l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-maint-start-horizon`
@@ -5552,7 +5554,7 @@ Link_maint_start_horizon:
 ```
 
 ```math
-\mu^{f,\mathrm{up}}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l} \wedge \mathrm{blk}^{f}_{t,l}
+\mu^{f,\mathrm{up}}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l} \wedge \mathrm{blk}^{f}_{\xi,t,l}
 ```
 
 ### `Link-maintcap_upper`
@@ -5570,7 +5572,7 @@ Link_maintcap_upper:
 ```
 
 ```math
-\mu^{f,\mathrm{nom}}_{\xi,t,l} \le F_{l} - \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \left( 1 - \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\mu^{f,\mathrm{nom}}_{\xi,t,l} \le F_{l} - \underline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \left( 1 - \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-maintcap_upper_nommax`
@@ -5586,7 +5588,7 @@ Link_maintcap_upper_nommax:
 ```
 
 ```math
-\mu^{f,\mathrm{nom}}_{\xi,t,l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \mu^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\mu^{f,\mathrm{nom}}_{\xi,t,l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \mu^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-maintcap_lower_nommax`
@@ -5602,7 +5604,7 @@ Link_maintcap_lower_nommax:
 ```
 
 ```math
-\mu^{f,\mathrm{nom}}_{\xi,t,l} \ge F_{l} - \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \left( 1 - \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\mu^{f,\mathrm{nom}}_{\xi,t,l} \ge F_{l} - \overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \left( 1 - \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-maintcap_lower_nommin`
@@ -5618,7 +5620,7 @@ Link_maintcap_lower_nommin:
 ```
 
 ```math
-\mu^{f,\mathrm{nom}}_{\xi,t,l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \mu^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l} \wedge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} > 0
+\mu^{f,\mathrm{nom}}_{\xi,t,l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \mu^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l} \wedge \underline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} > 0
 ```
 
 ### `Link-maint-status-le-status`
@@ -5700,7 +5702,7 @@ Link_maint_modstatus_le_maint:
 ```
 
 ```math
-\mu^{f,u}_{\xi,t,l} \le \frac{\overline{\mathrm{f}}^{\mathrm{nom}}_{l}}{\mathrm{f}^{\mathrm{mod}}_{l}} \cdot \mu^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+\mu^{f,u}_{\xi,t,l} \le \frac{\overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l}}{\mathrm{f}^{\mathrm{mod}}_{l}} \cdot \mu^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-maint-modstatus-lb`
@@ -5716,7 +5718,7 @@ Link_maint_modstatus_lb:
 ```
 
 ```math
-\mu^{f,u}_{\xi,t,l} \ge u^{f}_{\xi,t,l} - \frac{\overline{\mathrm{f}}^{\mathrm{nom}}_{l}}{\mathrm{f}^{\mathrm{mod}}_{l}} \cdot \left( 1 - \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+\mu^{f,u}_{\xi,t,l} \ge u^{f}_{\xi,t,l} - \frac{\overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l}}{\mathrm{f}^{\mathrm{mod}}_{l}} \cdot \left( 1 - \mu^{f}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Process-com-p-lower`
@@ -5732,7 +5734,7 @@ Process_com_p_lower:
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{\xi,t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{\xi,j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-p-upper`
@@ -5748,7 +5750,7 @@ Process_com_p_upper:
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{\xi,t,j} \cdot \mathrm{z}^{\mathrm{nom}}_{\xi,j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-transition-start-up`
@@ -5799,7 +5801,7 @@ Process_com_up_time:
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{z}} \mathit{up}^{z}_{\xi,t',j} \le u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{UT}^{z}_{j} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{z}_{t,j}
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{z}} \mathit{up}^{z}_{\xi,t',j} \le u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{UT}^{z}_{\xi,j} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-down-time`
@@ -5818,7 +5820,7 @@ Process_com_down_time:
 ```
 
 ```math
-\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{z}} \mathit{dn}^{z}_{\xi,t',j} \le 1 - u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{DT}^{z}_{j} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{z}_{t,j}
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{z}} \mathit{dn}^{z}_{\xi,t',j} \le 1 - u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{DT}^{z}_{\xi,j} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-status-min_up_time_must_stay_up`
@@ -5834,7 +5836,7 @@ Process_com_status_must_stay_up:
 ```
 
 ```math
-u^{z}_{\xi,t,j} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{hold}^{z}_{t,j} \wedge \mathrm{on}^{z}_{t,j}
+u^{z}_{\xi,t,j} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{hold}^{z}_{\xi,t,j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-status-min_down_time_must_stay_up`
@@ -5852,7 +5854,7 @@ Process_com_status_must_stay_down:
 ```
 
 ```math
-u^{z}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{rest}^{z}_{t,j} \wedge \mathrm{on}^{z}_{t,j}
+u^{z}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{rest}^{z}_{\xi,t,j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_up-run-bigM`
@@ -5878,7 +5880,7 @@ Process_p_ramp_limit_up_run_big_m:
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z}_{\xi,j} \cdot Z_{j} + \mathrm{M}^{z}_{\xi,j} - \mathrm{M}^{z}_{\xi,j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{\xi,j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{\xi,j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{\xi,j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_up-start-bigM`
@@ -5904,7 +5906,7 @@ Process_p_ramp_limit_up_start_big_m:
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{\xi,j} \cdot Z_{j} + \mathrm{M}^{z}_{\xi,j} - \mathrm{M}^{z}_{\xi,j} \cdot \mathit{up}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{ru}^{z}_{\xi,j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{\xi,j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{\xi,j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down-run-bigM`
@@ -5930,7 +5932,7 @@ Process_p_ramp_limit_down_run_big_m:
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z}_{\xi,j} \cdot Z_{j} + \mathrm{M}^{z}_{\xi,j} - \mathrm{M}^{z}_{\xi,j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{\xi,j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{\xi,j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{\xi,j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down-shut-bigM`
@@ -5956,7 +5958,7 @@ Process_p_ramp_limit_down_shut_big_m:
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} \cdot Z_{j} + \mathrm{M}^{z}_{j} - \mathrm{M}^{z}_{j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{\xi,j} \cdot Z_{j} + \mathrm{M}^{z}_{\xi,j} - \mathrm{M}^{z}_{\xi,j} \cdot \mathit{dn}^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \left( \mathrm{rd}^{z}_{\xi,j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{\xi,j} \text{ is defined} \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{z,0}_{\xi,j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p_nom_modularity`
@@ -5990,7 +5992,7 @@ Process_com_ext_p_upper_cap:
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \left( Z_{j} - \gamma^{z}_{j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{\xi,t,j} \cdot \left( Z_{j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-ext-p-upper-bigM`
@@ -6006,7 +6008,7 @@ Process_com_ext_p_upper_big_m:
 ```
 
 ```math
-z_{\xi,t,j} \le \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \mathrm{M}^{z}_{\xi,j} \cdot u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-ext-p-lower`
@@ -6027,7 +6029,7 @@ Process_com_ext_p_lower:
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \left( Z_{j} - \gamma^{z}_{j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) + \mathrm{M}^{z}_{j} \cdot u^{z}_{\xi,t,j} - \mathrm{M}^{z}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{\xi,t,j} \cdot \left( Z_{j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,\mathrm{nom}}_{\xi,t,j} \right) + \mathrm{M}^{z}_{\xi,j} \cdot u^{z}_{\xi,t,j} - \mathrm{M}^{z}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-ext-p-lower-nonneg`
@@ -6066,7 +6068,7 @@ Process_com_mod_p_lower:
 ```
 
 ```math
-z_{\xi,t,j} \ge \underline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{mod}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \ge \underline{\mathrm{z}}_{\xi,t,j} \cdot \mathrm{z}^{\mathrm{mod}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-com-mod-p-upper`
@@ -6084,7 +6086,7 @@ Process_com_mod_p_upper:
 ```
 
 ```math
-z_{\xi,t,j} \le \overline{\mathrm{z}}_{t,j} \cdot \mathrm{z}^{\mathrm{mod}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} \le \overline{\mathrm{z}}_{\xi,t,j} \cdot \mathrm{z}^{\mathrm{mod}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \gamma^{z}_{\xi,j} \cdot \mu^{z,u}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-status-p-fixed-upper`
@@ -6103,7 +6105,7 @@ Process_status_p_fixed_upper:
 ```
 
 ```math
-u^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+u^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-start_up-p-fixed-upper`
@@ -6122,7 +6124,7 @@ Process_start_up_p_fixed_upper:
 ```
 
 ```math
-\mathit{up}^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\mathit{up}^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-shut_down-p-fixed-upper`
@@ -6141,7 +6143,7 @@ Process_shut_down_p_fixed_upper:
 ```
 
 ```math
-\mathit{dn}^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\mathit{dn}^{z}_{\xi,t,j} \le \mathrm{N}^{z,\mathrm{fix}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-status-p_nom-variable-upper`
@@ -6205,7 +6207,7 @@ Process_maint_event_count:
 ```
 
 ```math
-\sum_{t \in \mathcal{T}} \mu^{z,\mathrm{up}}_{\xi,t,j} = \mathrm{n}^{z,\mathrm{mnt}}_{j} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+\sum_{t \in \mathcal{T}} \mu^{z,\mathrm{up}}_{\xi,t,j} = \mathrm{n}^{z,\mathrm{mnt}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
 ```
 
 ### `Process-maint-window`
@@ -6224,7 +6226,7 @@ Process_maint_window:
 ```
 
 ```math
-\mu^{z}_{\xi,t,j} = \sum_{t' \in \mathcal{T} \,:\, \left( j,\ t',\ t \right) \in \mathrm{Process\_maintenance\_cover}} \mu^{z,\mathrm{up}}_{\xi,t',j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+\mu^{z}_{\xi,t,j} = \sum_{t' \in \mathcal{T} \,:\, \left( \xi,\ j,\ t',\ t \right) \in \mathrm{Process\_maintenance\_cover}} \mu^{z,\mathrm{up}}_{\xi,t',j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-maint-start-horizon`
@@ -6240,7 +6242,7 @@ Process_maint_start_horizon:
 ```
 
 ```math
-\mu^{z,\mathrm{up}}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j} \wedge \mathrm{blk}^{z}_{t,j}
+\mu^{z,\mathrm{up}}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j} \wedge \mathrm{blk}^{z}_{\xi,t,j}
 ```
 
 ### `Process-maintcap_upper`
@@ -6258,7 +6260,7 @@ Process_maintcap_upper:
 ```
 
 ```math
-\mu^{z,\mathrm{nom}}_{\xi,t,j} \le Z_{j} - \underline{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \le Z_{j} - \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-maintcap_upper_nommax`
@@ -6274,7 +6276,7 @@ Process_maintcap_upper_nommax:
 ```
 
 ```math
-\mu^{z,\mathrm{nom}}_{\xi,t,j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-maintcap_lower_nommax`
@@ -6290,7 +6292,7 @@ Process_maintcap_lower_nommax:
 ```
 
 ```math
-\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge Z_{j} - \overline{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge Z_{j} - \overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-maintcap_lower_nommin`
@@ -6306,7 +6308,7 @@ Process_maintcap_lower_nommin:
 ```
 
 ```math
-\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j} \wedge \underline{\mathrm{z}}^{\mathrm{nom}}_{j} > 0
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j} \wedge \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} > 0
 ```
 
 ### `Process-maint-status-le-status`
@@ -6388,7 +6390,7 @@ Process_maint_modstatus_le_maint:
 ```
 
 ```math
-\mu^{z,u}_{\xi,t,j} \le \frac{\overline{\mathrm{z}}^{\mathrm{nom}}_{j}}{\mathrm{z}^{\mathrm{mod}}_{j}} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+\mu^{z,u}_{\xi,t,j} \le \frac{\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j}}{\mathrm{z}^{\mathrm{mod}}_{j}} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-maint-modstatus-lb`
@@ -6404,7 +6406,7 @@ Process_maint_modstatus_lb:
 ```
 
 ```math
-\mu^{z,u}_{\xi,t,j} \ge u^{z}_{\xi,t,j} - \frac{\overline{\mathrm{z}}^{\mathrm{nom}}_{j}}{\mathrm{z}^{\mathrm{mod}}_{j}} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+\mu^{z,u}_{\xi,t,j} \ge u^{z}_{\xi,t,j} - \frac{\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j}}{\mathrm{z}^{\mathrm{mod}}_{j}} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Line-fix-s-lower`
@@ -6420,7 +6422,7 @@ Line_fix_s_lower:
 ```
 
 ```math
-s_{\xi,t,k} - \ell_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} - \ell_{\xi,t,k} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-fix-s-upper`
@@ -6436,7 +6438,7 @@ Line_fix_s_upper:
 ```
 
 ```math
-s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s-lower`
@@ -6452,7 +6454,7 @@ Line_ext_s_lower:
 ```
 
 ```math
-s_{\xi,t,k} - \ell_{\xi,t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} - \ell_{\xi,t,k} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s-upper`
@@ -6468,7 +6470,7 @@ Line_ext_s_upper:
 ```
 
 ```math
-s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-ext-s_nom-lower`
@@ -6477,14 +6479,14 @@ s_{\xi,t,k} + \ell_{\xi,t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad 
 
 ```yaml
 Line_ext_s_nom_lower:
-  description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
-  dims: [line]
+  description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, line]
   where: Line_s_nom_extendable
   expression: Line_s_nom_ext >= Line_s_nom_min
 ```
 
 ```math
-S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\, k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k}
+S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k}
 ```
 
 ### `Line-ext-s_nom-upper`
@@ -6493,14 +6495,14 @@ S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\, k \in \math
 
 ```yaml
 Line_ext_s_nom_upper:
-  description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [line]
+  description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, line]
   where: Line_s_nom_extendable AND Line_s_nom_max
   expression: Line_s_nom_ext <= Line_s_nom_max
 ```
 
 ```math
-S_{k} \le \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\, k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \text{ is defined}
+S_{k} \le \overline{\mathrm{s}}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \overline{\mathrm{s}}^{\mathrm{nom}}_{\xi,k} \text{ is defined}
 ```
 
 ### `Line-s_nom_set`
@@ -6510,13 +6512,13 @@ S_{k} \le \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\, k \in \mathc
 ```yaml
 Line_s_nom_set:
   description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [line]
+  dims: [scenario, line]
   where: Line_s_nom_extendable AND Line_s_nom_set
   expression: Line_s_nom_ext == Line_s_nom_set
 ```
 
 ```math
-S_{k} = \mathrm{s}^{\mathrm{nom,set}}_{k} \qquad \forall\, k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{s}^{\mathrm{nom,set}}_{k} \text{ is defined}
+S_{k} = \mathrm{s}^{\mathrm{nom,set}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ k \in \mathcal{K} \,:\, \mathrm{ext}^{s}_{k} \wedge \mathrm{s}^{\mathrm{nom,set}}_{\xi,k} \text{ is defined}
 ```
 
 ### `Line-s_set`
@@ -6532,7 +6534,7 @@ Line_s_set:
 ```
 
 ```math
-s_{\xi,t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined} \wedge \mathrm{on}^{s}_{t,k}
+s_{\xi,t,k} = \mathrm{s}^{\mathrm{set}}_{\xi,t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{s}^{\mathrm{set}}_{\xi,t,k} \text{ is defined} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-loss_upper`
@@ -6548,7 +6550,7 @@ Line_loss_upper:
 ```
 
 ```math
-\ell_{\xi,t,k} \le \overline{\ell}_{t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
+\ell_{\xi,t,k} \le \overline{\ell}_{\xi,t,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-loss_tangents-{k}-1`
@@ -6568,7 +6570,7 @@ Line_loss_tangents_forward:
 ```
 
 ```math
-\ell_{\xi,t,k} + \mathrm{a}_{t,k,b} \cdot s_{\xi,t,k} \ge \mathrm{b}_{t,k,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
+\ell_{\xi,t,k} + \mathrm{a}_{\xi,t,k,b} \cdot s_{\xi,t,k} \ge \mathrm{b}_{\xi,t,k,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Line-loss_tangents-{k}--1`
@@ -6586,7 +6588,7 @@ Line_loss_tangents_reverse:
 ```
 
 ```math
-\ell_{\xi,t,k} - \mathrm{a}_{t,k,b} \cdot s_{\xi,t,k} \ge \mathrm{b}_{t,k,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
+\ell_{\xi,t,k} - \mathrm{a}_{\xi,t,k,b} \cdot s_{\xi,t,k} \ge \mathrm{b}_{\xi,t,k,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{s}_{t,k}
 ```
 
 ### `Transformer-fix-s-lower`
@@ -6602,7 +6604,7 @@ Transformer_fix_s_lower:
 ```
 
 ```math
-\sigma_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} \ge -\overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-fix-s-upper`
@@ -6618,7 +6620,7 @@ Transformer_fix_s_upper:
 ```
 
 ```math
-\sigma_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} \le \overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-ext-s-lower`
@@ -6634,7 +6636,7 @@ Transformer_ext_s_lower:
 ```
 
 ```math
-\sigma_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} \ge -\overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} \ge -\overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-ext-s-upper`
@@ -6650,7 +6652,7 @@ Transformer_ext_s_upper:
 ```
 
 ```math
-\sigma_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} \le \overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} \le \overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-ext-s_nom-lower`
@@ -6659,14 +6661,14 @@ Transformer_ext_s_upper:
 
 ```yaml
 Transformer_ext_s_nom_lower:
-  description: "`Transformer-ext-s_nom-lower` — the chosen build is at least its floor"
-  dims: [transformer]
+  description: "`Transformer-ext-s_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, transformer]
   where: Transformer_s_nom_extendable
   expression: Transformer_s_nom_ext >= Transformer_s_nom_min
 ```
 
 ```math
-\Sigma_{m} \ge \underline{\sigma}^{\mathrm{nom}}_{m} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m}
+\Sigma_{m} \ge \underline{\sigma}^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m}
 ```
 
 ### `Transformer-ext-s_nom-upper`
@@ -6675,14 +6677,14 @@ Transformer_ext_s_nom_lower:
 
 ```yaml
 Transformer_ext_s_nom_upper:
-  description: "`Transformer-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [transformer]
+  description: "`Transformer-ext-s_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, transformer]
   where: Transformer_s_nom_extendable AND Transformer_s_nom_max
   expression: Transformer_s_nom_ext <= Transformer_s_nom_max
 ```
 
 ```math
-\Sigma_{m} \le \overline{\sigma}^{\mathrm{nom}}_{m} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \overline{\sigma}^{\mathrm{nom}}_{m} \text{ is defined}
+\Sigma_{m} \le \overline{\sigma}^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \overline{\sigma}^{\mathrm{nom}}_{\xi,m} \text{ is defined}
 ```
 
 ### `Transformer-s_nom_set`
@@ -6692,13 +6694,13 @@ Transformer_ext_s_nom_upper:
 ```yaml
 Transformer_s_nom_set:
   description: "`Transformer-s_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [transformer]
+  dims: [scenario, transformer]
   where: Transformer_s_nom_extendable AND Transformer_s_nom_set
   expression: Transformer_s_nom_ext == Transformer_s_nom_set
 ```
 
 ```math
-\Sigma_{m} = \sigma^{\mathrm{nom,set}}_{m} \qquad \forall\, m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \sigma^{\mathrm{nom,set}}_{m} \text{ is defined}
+\Sigma_{m} = \sigma^{\mathrm{nom,set}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ m \in \mathcal{M} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \sigma^{\mathrm{nom,set}}_{\xi,m} \text{ is defined}
 ```
 
 ### `Transformer-s_set`
@@ -6714,7 +6716,7 @@ Transformer_s_set:
 ```
 
 ```math
-\sigma_{\xi,t,m} = \sigma^{\mathrm{set}}_{t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \sigma^{\mathrm{set}}_{t,m} \text{ is defined} \wedge \mathrm{on}^{\sigma}_{t,m}
+\sigma_{\xi,t,m} = \sigma^{\mathrm{set}}_{\xi,t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \sigma^{\mathrm{set}}_{\xi,t,m} \text{ is defined} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-loss_upper`
@@ -6730,7 +6732,7 @@ Transformer_loss_upper:
 ```
 
 ```math
-\ell^{\sigma}_{\xi,t,m} \le \overline{\ell}^{\sigma}_{t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
+\ell^{\sigma}_{\xi,t,m} \le \overline{\ell}^{\sigma}_{\xi,t,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-loss_tangents-{k}-1`
@@ -6749,7 +6751,7 @@ Transformer_loss_tangents_forward:
 ```
 
 ```math
-\ell^{\sigma}_{\xi,t,m} + \mathrm{a}^{\sigma}_{t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
+\ell^{\sigma}_{\xi,t,m} + \mathrm{a}^{\sigma}_{\xi,t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{\xi,t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Transformer-loss_tangents-{k}--1`
@@ -6767,7 +6769,7 @@ Transformer_loss_tangents_reverse:
 ```
 
 ```math
-\ell^{\sigma}_{\xi,t,m} - \mathrm{a}^{\sigma}_{t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
+\ell^{\sigma}_{\xi,t,m} - \mathrm{a}^{\sigma}_{\xi,t,m,b} \cdot \sigma_{\xi,t,m} \ge \mathrm{b}^{\sigma}_{\xi,t,m,b} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ b \in \mathcal{B} \,:\, \mathrm{lossy} \wedge \mathrm{on}^{\sigma}_{t,m}
 ```
 
 ### `Line-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -6789,7 +6791,7 @@ Line_fix_s_lower_security:
 ```
 
 ```math
-\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Line-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -6810,7 +6812,7 @@ Line_fix_s_upper_security:
 ```
 
 ```math
-\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Line-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -6832,7 +6834,7 @@ Line_ext_s_lower_security:
 ```
 
 ```math
-\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Line-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -6854,7 +6856,7 @@ Line_ext_s_upper_security:
 ```
 
 ```math
-\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -6876,7 +6878,7 @@ Transformer_fix_s_lower_security:
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -6897,7 +6899,7 @@ Transformer_fix_s_upper_security:
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{t,m} \cdot \sigma^{\mathrm{nom}}_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -6919,7 +6921,7 @@ Transformer_ext_s_lower_security:
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -6941,7 +6943,7 @@ Transformer_ext_s_upper_security:
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Kirchhoff-Voltage-Law`
@@ -6991,7 +6993,7 @@ Generator_p_ramp_limit_up:
 ```
 
 ```math
-p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} - \overleftarrow{p}_{\xi,t,g} \le \Delta^{+}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{ru}_{\xi,g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{\xi,g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{\xi,g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Generator-p-ramp_limit_down`
@@ -7016,7 +7018,7 @@ Generator_p_ramp_limit_down:
 ```
 
 ```math
-\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right) \wedge \mathrm{on}_{t,g}
+\overleftarrow{p}_{\xi,t,g} - p_{\xi,t,g} \le \Delta^{-}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{rd}_{\xi,g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{\xi,g} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{\xi,g} = 0 \right) \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-p-ramp_limit_up`
@@ -7041,7 +7043,7 @@ Link_p_ramp_limit_up:
 ```
 
 ```math
-f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{ru}^{f}_{l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} - \overleftarrow{f}_{\xi,t,l} \le \Delta^{f,+}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{ru}^{f}_{\xi,l} \text{ is defined} \vee \mathrm{ru}^{f,\mathrm{up}}_{\xi,l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{\xi,l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Link-p-ramp_limit_down`
@@ -7066,7 +7068,7 @@ Link_p_ramp_limit_down:
 ```
 
 ```math
-\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{rd}^{f}_{l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+\overleftarrow{f}_{\xi,t,l} - f_{\xi,t,l} \le \Delta^{f,-}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \left( \mathrm{rd}^{f}_{\xi,l} \text{ is defined} \vee \mathrm{rd}^{f,\mathrm{dn}}_{\xi,l} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{f}_{l} \wedge \mathrm{u}^{f,0}_{\xi,l} = 0 \right) \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Process-p-ramp_limit_up`
@@ -7091,7 +7093,7 @@ Process_p_ramp_limit_up:
 ```
 
 ```math
-z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{ru}^{z}_{j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} - \overleftarrow{z}_{\xi,t,j} \le \Delta^{z,+}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{ru}^{z}_{\xi,j} \text{ is defined} \vee \mathrm{ru}^{z,\mathrm{up}}_{\xi,j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{\xi,j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `Process-p-ramp_limit_down`
@@ -7116,7 +7118,7 @@ Process_p_ramp_limit_down:
 ```
 
 ```math
-\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{rd}^{z}_{j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+\overleftarrow{z}_{\xi,t,j} - z_{\xi,t,j} \le \Delta^{z,-}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \left( \mathrm{rd}^{z}_{\xi,j} \text{ is defined} \vee \mathrm{rd}^{z,\mathrm{dn}}_{\xi,j} \text{ is defined} \right) \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \left( \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) > 0 \vee \mathrm{pos}(t) = 0 \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{u}^{z,0}_{\xi,j} = 0 \right) \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `StorageUnit-ext-p_dispatch-lower`
@@ -7148,7 +7150,7 @@ StorageUnit_ext_p_dispatch_upper:
 ```
 
 ```math
-h^{+}_{\xi,t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
+h^{+}_{\xi,t,s} \le \overline{\mathrm{h}}_{\xi,t,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-p_store-lower`
@@ -7182,7 +7184,7 @@ StorageUnit_ext_p_store_upper:
 ```
 
 ```math
-h^{-}_{\xi,t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
+h^{-}_{\xi,t,s} \le -\underline{\mathrm{h}}_{\xi,t,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-state_of_charge-lower`
@@ -7214,7 +7216,7 @@ StorageUnit_ext_state_of_charge_upper:
 ```
 
 ```math
-\mathit{soc}_{\xi,t,s} \le \mathrm{T}^{h}_{s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
+\mathit{soc}_{\xi,t,s} \le \mathrm{T}^{h}_{\xi,s} \cdot H_{s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-ext-p_nom-lower`
@@ -7223,14 +7225,14 @@ StorageUnit_ext_state_of_charge_upper:
 
 ```yaml
 StorageUnit_ext_p_nom_lower:
-  description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
-  dims: [storage_unit]
+  description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, storage_unit]
   where: StorageUnit_p_nom_extendable
   expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
 ```
 
 ```math
-H_{s} \ge \underline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\, s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
+H_{s} \ge \underline{\mathrm{h}}^{\mathrm{nom}}_{\xi,s} \qquad \forall\, \xi \in \Xi,\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s}
 ```
 
 ### `StorageUnit-ext-p_nom-upper`
@@ -7239,14 +7241,14 @@ H_{s} \ge \underline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\, s \in \math
 
 ```yaml
 StorageUnit_ext_p_nom_upper:
-  description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [storage_unit]
+  description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, storage_unit]
   where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
   expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
 ```
 
 ```math
-H_{s} \le \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\, s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \text{ is defined}
+H_{s} \le \overline{\mathrm{h}}^{\mathrm{nom}}_{\xi,s} \qquad \forall\, \xi \in \Xi,\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \overline{\mathrm{h}}^{\mathrm{nom}}_{\xi,s} \text{ is defined}
 ```
 
 ### `StorageUnit-p_nom_set`
@@ -7256,13 +7258,13 @@ H_{s} \le \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\, s \in \mathc
 ```yaml
 StorageUnit_p_nom_set:
   description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [storage_unit]
+  dims: [scenario, storage_unit]
   where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
   expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
 ```
 
 ```math
-H_{s} = \mathrm{h}^{\mathrm{nom,set}}_{s} \qquad \forall\, s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{h}^{\mathrm{nom,set}}_{s} \text{ is defined}
+H_{s} = \mathrm{h}^{\mathrm{nom,set}}_{\xi,s} \qquad \forall\, \xi \in \Xi,\ s \in \mathcal{S} \,:\, \mathrm{ext}^{h}_{s} \wedge \mathrm{h}^{\mathrm{nom,set}}_{\xi,s} \text{ is defined}
 ```
 
 ### `StorageUnit-energy_balance`
@@ -7286,7 +7288,7 @@ StorageUnit_energy_balance:
 ```
 
 ```math
-\mathit{soc}_{\xi,t,s} = \overleftarrow{\mathit{soc}}_{\xi,t,s} + \eta^{-}_{s} \cdot h^{-}_{\xi,t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{\xi,t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{\xi,t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{on}^{h}_{t,s}
+\mathit{soc}_{\xi,t,s} = \overleftarrow{\mathit{soc}}_{\xi,t,s} + \eta^{-}_{\xi,s} \cdot h^{-}_{\xi,t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{\xi,t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{\xi,s}} + \left( \mathrm{inflow}_{\xi,t,s} - \mathit{spill}_{\xi,t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{on}^{h}_{t,s}
 ```
 
 ### `Store-fix-e-lower`
@@ -7302,7 +7304,7 @@ Store_fix_e_lower:
 ```
 
 ```math
-e_{\xi,t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
+e_{\xi,t,v} \ge \underline{\mathrm{e}}_{\xi,t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{\xi,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-fix-e-upper`
@@ -7318,7 +7320,7 @@ Store_fix_e_upper:
 ```
 
 ```math
-e_{\xi,t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
+e_{\xi,t,v} \le \overline{\mathrm{e}}_{\xi,t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{\xi,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \neg \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-ext-e-lower`
@@ -7334,7 +7336,7 @@ Store_ext_e_lower:
 ```
 
 ```math
-e_{\xi,t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
+e_{\xi,t,v} \ge \underline{\mathrm{e}}_{\xi,t,v} \cdot E_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-ext-e-upper`
@@ -7350,7 +7352,7 @@ Store_ext_e_upper:
 ```
 
 ```math
-e_{\xi,t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
+e_{\xi,t,v} \le \overline{\mathrm{e}}_{\xi,t,v} \cdot E_{v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-ext-e_nom-lower`
@@ -7359,14 +7361,14 @@ e_{\xi,t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\, \xi \in
 
 ```yaml
 Store_ext_e_nom_lower:
-  description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
-  dims: [store]
+  description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor in every scenario"
+  dims: [scenario, store]
   where: Store_e_nom_extendable
   expression: Store_e_nom_ext >= Store_e_nom_min
 ```
 
 ```math
-E_{v} \ge \underline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\, v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v}
+E_{v} \ge \underline{\mathrm{e}}^{\mathrm{nom}}_{\xi,v} \qquad \forall\, \xi \in \Xi,\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v}
 ```
 
 ### `Store-ext-e_nom-upper`
@@ -7375,14 +7377,14 @@ E_{v} \ge \underline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\, v \in \math
 
 ```yaml
 Store_ext_e_nom_upper:
-  description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  dims: [store]
+  description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+  dims: [scenario, store]
   where: Store_e_nom_extendable AND Store_e_nom_max
   expression: Store_e_nom_ext <= Store_e_nom_max
 ```
 
 ```math
-E_{v} \le \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\, v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \text{ is defined}
+E_{v} \le \overline{\mathrm{e}}^{\mathrm{nom}}_{\xi,v} \qquad \forall\, \xi \in \Xi,\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \overline{\mathrm{e}}^{\mathrm{nom}}_{\xi,v} \text{ is defined}
 ```
 
 ### `Store-e_nom_set`
@@ -7392,13 +7394,13 @@ E_{v} \le \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\, v \in \mathc
 ```yaml
 Store_e_nom_set:
   description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
-  dims: [store]
+  dims: [scenario, store]
   where: Store_e_nom_extendable AND Store_e_nom_set
   expression: Store_e_nom_ext == Store_e_nom_set
 ```
 
 ```math
-E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{v} \qquad \forall\, v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{e}^{\mathrm{nom,set}}_{v} \text{ is defined}
+E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{\xi,v} \qquad \forall\, \xi \in \Xi,\ v \in \mathcal{V} \,:\, \mathrm{ext}^{e}_{v} \wedge \mathrm{e}^{\mathrm{nom,set}}_{\xi,v} \text{ is defined}
 ```
 
 ### `Store-energy_balance`
@@ -7433,7 +7435,7 @@ Generator_p_set:
 ```
 
 ```math
-p_{\xi,t,g} = \mathrm{p}^{\mathrm{set}}_{t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{set}}_{t,g} \text{ is defined} \wedge \mathrm{on}_{t,g}
+p_{\xi,t,g} = \mathrm{p}^{\mathrm{set}}_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{set}}_{\xi,t,g} \text{ is defined} \wedge \mathrm{on}_{t,g}
 ```
 
 ### `Link-p_set`
@@ -7449,7 +7451,7 @@ Link_p_set:
 ```
 
 ```math
-f_{\xi,t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{f}^{\mathrm{set}}_{t,l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
+f_{\xi,t,l} = \mathrm{f}^{\mathrm{set}}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{f}^{\mathrm{set}}_{\xi,t,l} \text{ is defined} \wedge \mathrm{on}^{f}_{t,l}
 ```
 
 ### `Process-p_set`
@@ -7465,7 +7467,7 @@ Process_p_set:
 ```
 
 ```math
-z_{\xi,t,j} = \mathrm{z}^{\mathrm{set}}_{t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{z}^{\mathrm{set}}_{t,j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
+z_{\xi,t,j} = \mathrm{z}^{\mathrm{set}}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{z}^{\mathrm{set}}_{\xi,t,j} \text{ is defined} \wedge \mathrm{on}^{z}_{t,j}
 ```
 
 ### `StorageUnit-p_set`
@@ -7481,7 +7483,7 @@ StorageUnit_p_set:
 ```
 
 ```math
-h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
+h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} = \mathrm{h}^{\mathrm{set}}_{\xi,t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{\mathrm{set}}_{\xi,t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-p_dispatch_set`
@@ -7497,7 +7499,7 @@ StorageUnit_p_dispatch_set:
 ```
 
 ```math
-h^{+}_{\xi,t,s} = \mathrm{h}^{+,\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{+,\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
+h^{+}_{\xi,t,s} = \mathrm{h}^{+,\mathrm{set}}_{\xi,t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{+,\mathrm{set}}_{\xi,t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-p_store_set`
@@ -7513,7 +7515,7 @@ StorageUnit_p_store_set:
 ```
 
 ```math
-h^{-}_{\xi,t,s} = \mathrm{h}^{-,\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{-,\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
+h^{-}_{\xi,t,s} = \mathrm{h}^{-,\mathrm{set}}_{\xi,t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{-,\mathrm{set}}_{\xi,t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `StorageUnit-state_of_charge_set`
@@ -7529,7 +7531,7 @@ StorageUnit_state_of_charge_set:
 ```
 
 ```math
-\mathit{soc}_{\xi,t,s} = \mathrm{soc}^{\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{soc}^{\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
+\mathit{soc}_{\xi,t,s} = \mathrm{soc}^{\mathrm{set}}_{\xi,t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{soc}^{\mathrm{set}}_{\xi,t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 ### `Store-e_set`
@@ -7545,7 +7547,7 @@ Store_e_set:
 ```
 
 ```math
-e_{\xi,t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
+e_{\xi,t,v} = \mathrm{e}^{\mathrm{set}}_{\xi,t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{e}^{\mathrm{set}}_{\xi,t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `Store-p_set`
@@ -7561,7 +7563,7 @@ Store_p_set:
 ```
 
 ```math
-q_{\xi,t,v} = \mathrm{q}^{\mathrm{set}}_{t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{q}^{\mathrm{set}}_{t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
+q_{\xi,t,v} = \mathrm{q}^{\mathrm{set}}_{\xi,t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{q}^{\mathrm{set}}_{\xi,t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `primary_energy`
@@ -7673,7 +7675,7 @@ GlobalConstraint_transmission_volume_expansion_limit_ub:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
+\mathit{transmission\_volume\_expansion}_{\xi,i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -7689,7 +7691,7 @@ GlobalConstraint_transmission_volume_expansion_limit_lb:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
+\mathit{transmission\_volume\_expansion}_{\xi,i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `transmission_volume_expansion_limit`
@@ -7705,7 +7707,7 @@ GlobalConstraint_transmission_volume_expansion_limit_eq:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
+\mathit{transmission\_volume\_expansion}_{\xi,i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -7721,7 +7723,7 @@ GlobalConstraint_transmission_expansion_cost_limit_ub:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
+\mathit{transmission\_expansion\_cost}_{\xi,i} \le \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{<=}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -7737,7 +7739,7 @@ GlobalConstraint_transmission_expansion_cost_limit_lb:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
+\mathit{transmission\_expansion\_cost}_{\xi,i} \ge \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{>=}\text{'}
 ```
 
 ### `transmission_expansion_cost_limit`
@@ -7753,7 +7755,7 @@ GlobalConstraint_transmission_expansion_cost_limit_eq:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
+\mathit{transmission\_expansion\_cost}_{\xi,i} = \mathrm{K}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I} \,:\, \mathrm{type}_{i} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{\xi,i} = \text{'}\mathrm{==}\text{'}
 ```
 
 ### `tech_capacity_expansion_limit`
@@ -7912,7 +7914,7 @@ Generator_previous_status:
 ```
 
 ```math
-\overleftarrow{u}_{\xi,t,g} = \begin{cases} \mathrm{u}^{0}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ u_{\xi,t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
+\overleftarrow{u}_{\xi,t,g} = \begin{cases} \mathrm{u}^{0}_{\xi,g} & \text{if } \mathrm{pos}(t) = 0 \\ u_{\xi,t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Generator_previous_p`
@@ -7938,14 +7940,14 @@ Generator_previous_p:
 ```yaml
 Generator_p_nom_effective:
   description: the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise
-  dims: [generator]
+  dims: [scenario, generator]
   cases:
     extendable: { when: Generator_p_nom_extendable, expression: Generator_p_nom_ext }
   otherwise: Generator_p_nom
 ```
 
 ```math
-\widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} = \begin{cases} P_{g} & \text{if } \mathrm{ext}_{g} \\ \mathrm{p}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+\widetilde{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} = \begin{cases} P_{g} & \text{if } \mathrm{ext}_{g} \\ \mathrm{p}^{\mathrm{nom}}_{\xi,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G}
 ```
 
 ### `Generator_ramp_up_rate`
@@ -7955,14 +7957,14 @@ Generator_ramp_up_rate:
   description: >-
     the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
     full build where it has none, since a start-up ramp alone builds the row
-  dims: [generator]
+  dims: [scenario, generator]
   cases:
     given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{ru}}_{g} = \begin{cases} \mathrm{ru}_{g} & \text{if } \mathrm{ru}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+\widetilde{\mathrm{ru}}_{\xi,g} = \begin{cases} \mathrm{ru}_{\xi,g} & \text{if } \mathrm{ru}_{\xi,g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G}
 ```
 
 ### `Generator_ramp_down_rate`
@@ -7972,14 +7974,14 @@ Generator_ramp_down_rate:
   description: >-
     the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
     the full build where it has none, since a shut-down ramp alone builds the row
-  dims: [generator]
+  dims: [scenario, generator]
   cases:
     given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{rd}}_{g} = \begin{cases} \mathrm{rd}_{g} & \text{if } \mathrm{rd}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+\widetilde{\mathrm{rd}}_{\xi,g} = \begin{cases} \mathrm{rd}_{\xi,g} & \text{if } \mathrm{rd}_{\xi,g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G}
 ```
 
 ### `Generator_start_up_rate`
@@ -7989,14 +7991,14 @@ Generator_start_up_rate:
   description: >-
     the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`,
     or the full build where it has none
-  dims: [generator]
+  dims: [scenario, generator]
   cases:
     given: { when: Generator_ramp_limit_start_up, expression: Generator_ramp_limit_start_up }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} = \begin{cases} \mathrm{ru}^{\mathrm{up}}_{g} & \text{if } \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+\widetilde{\mathrm{ru}}^{\mathrm{up}}_{\xi,g} = \begin{cases} \mathrm{ru}^{\mathrm{up}}_{\xi,g} & \text{if } \mathrm{ru}^{\mathrm{up}}_{\xi,g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G}
 ```
 
 ### `Generator_shut_down_rate`
@@ -8006,14 +8008,14 @@ Generator_shut_down_rate:
   description: >-
     the shut-down ramp a unit's down row reads — PyPSA's
     `ramp_limit_shut_down`, or the full build where it has none
-  dims: [generator]
+  dims: [scenario, generator]
   cases:
     given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} = \begin{cases} \mathrm{rd}^{\mathrm{dn}}_{g} & \text{if } \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+\widetilde{\mathrm{rd}}^{\mathrm{dn}}_{\xi,g} = \begin{cases} \mathrm{rd}^{\mathrm{dn}}_{\xi,g} & \text{if } \mathrm{rd}^{\mathrm{dn}}_{\xi,g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G}
 ```
 
 ### `Generator_p_nom_committed`
@@ -8023,14 +8025,14 @@ Generator_p_nom_committed:
   description: >-
     the build a committed unit's ramp rows are taken against — one module
     where the build is extendable and modular, the given build otherwise
-  dims: [generator]
+  dims: [scenario, generator]
   cases:
     modular_build: { when: Generator_p_nom_extendable AND Generator_p_nom_mod > 0, expression: Generator_p_nom_mod }
   otherwise: Generator_p_nom
 ```
 
 ```math
-\widehat{\mathrm{p}}^{\mathrm{nom}}_{g} = \begin{cases} \mathrm{p}^{\mathrm{mod}}_{g} & \text{if } \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \\ \mathrm{p}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+\widehat{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} = \begin{cases} \mathrm{p}^{\mathrm{mod}}_{g} & \text{if } \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \\ \mathrm{p}^{\mathrm{nom}}_{\xi,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G}
 ```
 
 ### `Generator_ramp_up_allowance`
@@ -8053,7 +8055,7 @@ Generator_ramp_up_allowance:
 ```
 
 ```math
-\Delta^{+}_{\xi,t,g} = \begin{cases} \widetilde{\mathrm{ru}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{\xi,t,g} + \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \left( u_{\xi,t,g} - \overleftarrow{u}_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \widetilde{\mathrm{ru}}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
+\Delta^{+}_{\xi,t,g} = \begin{cases} \widetilde{\mathrm{ru}}_{\xi,g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \overleftarrow{u}_{\xi,t,g} + \widetilde{\mathrm{ru}}^{\mathrm{up}}_{\xi,g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \left( u_{\xi,t,g} - \overleftarrow{u}_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \widetilde{\mathrm{ru}}_{\xi,g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Generator_ramp_down_allowance`
@@ -8076,7 +8078,7 @@ Generator_ramp_down_allowance:
 ```
 
 ```math
-\Delta^{-}_{\xi,t,g} = \begin{cases} \widetilde{\mathrm{rd}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot u_{\xi,t,g} + \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{\xi,t,g} - u_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \widetilde{\mathrm{rd}}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
+\Delta^{-}_{\xi,t,g} = \begin{cases} \widetilde{\mathrm{rd}}_{\xi,g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot u_{\xi,t,g} + \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{\xi,g} \cdot \widehat{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} \cdot \left( \overleftarrow{u}_{\xi,t,g} - u_{\xi,t,g} \right) & \text{if } \mathrm{com}_{g} \\ \widetilde{\mathrm{rd}}_{\xi,g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ### `Link_p_nom_effective`
@@ -8084,14 +8086,14 @@ Generator_ramp_down_allowance:
 ```yaml
 Link_p_nom_effective:
   description: the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise
-  dims: [link]
+  dims: [scenario, link]
   cases:
     extendable: { when: Link_p_nom_extendable, expression: Link_p_nom_ext }
   otherwise: Link_p_nom
 ```
 
 ```math
-\widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} = \begin{cases} F_{l} & \text{if } \mathrm{ext}^{f}_{l} \\ \mathrm{f}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+\widetilde{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} = \begin{cases} F_{l} & \text{if } \mathrm{ext}^{f}_{l} \\ \mathrm{f}^{\mathrm{nom}}_{\xi,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L}
 ```
 
 ### `Link_previous_status`
@@ -8108,7 +8110,7 @@ Link_previous_status:
 ```
 
 ```math
-\overleftarrow{u}^{f}_{\xi,t,l} = \begin{cases} \mathrm{u}^{f,0}_{l} & \text{if } \mathrm{pos}(t) = 0 \\ u^{f}_{\xi,t - 1,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+\overleftarrow{u}^{f}_{\xi,t,l} = \begin{cases} \mathrm{u}^{f,0}_{\xi,l} & \text{if } \mathrm{pos}(t) = 0 \\ u^{f}_{\xi,t - 1,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
 ```
 
 ### `Link_previous_p`
@@ -8136,14 +8138,14 @@ Link_ramp_up_rate:
   description: >-
     the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the
     full build where it has none, since a start-up ramp alone builds the row
-  dims: [link]
+  dims: [scenario, link]
   cases:
     given: { when: Link_ramp_limit_up, expression: Link_ramp_limit_up }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{ru}}^{f}_{l} = \begin{cases} \mathrm{ru}^{f}_{l} & \text{if } \mathrm{ru}^{f}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+\widetilde{\mathrm{ru}}^{f}_{\xi,l} = \begin{cases} \mathrm{ru}^{f}_{\xi,l} & \text{if } \mathrm{ru}^{f}_{\xi,l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L}
 ```
 
 ### `Link_ramp_down_rate`
@@ -8153,14 +8155,14 @@ Link_ramp_down_rate:
   description: >-
     the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or
     the full build where it has none, since a shut-down ramp alone builds the row
-  dims: [link]
+  dims: [scenario, link]
   cases:
     given: { when: Link_ramp_limit_down, expression: Link_ramp_limit_down }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{rd}}^{f}_{l} = \begin{cases} \mathrm{rd}^{f}_{l} & \text{if } \mathrm{rd}^{f}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+\widetilde{\mathrm{rd}}^{f}_{\xi,l} = \begin{cases} \mathrm{rd}^{f}_{\xi,l} & \text{if } \mathrm{rd}^{f}_{\xi,l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L}
 ```
 
 ### `Link_start_up_rate`
@@ -8170,14 +8172,14 @@ Link_start_up_rate:
   description: >-
     the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`,
     or the full build where it has none
-  dims: [link]
+  dims: [scenario, link]
   cases:
     given: { when: Link_ramp_limit_start_up, expression: Link_ramp_limit_start_up }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} = \begin{cases} \mathrm{ru}^{f,\mathrm{up}}_{l} & \text{if } \mathrm{ru}^{f,\mathrm{up}}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+\widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{\xi,l} = \begin{cases} \mathrm{ru}^{f,\mathrm{up}}_{\xi,l} & \text{if } \mathrm{ru}^{f,\mathrm{up}}_{\xi,l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L}
 ```
 
 ### `Link_shut_down_rate`
@@ -8187,14 +8189,14 @@ Link_shut_down_rate:
   description: >-
     the shut-down ramp a link's down row reads — PyPSA's
     `ramp_limit_shut_down`, or the full build where it has none
-  dims: [link]
+  dims: [scenario, link]
   cases:
     given: { when: Link_ramp_limit_shut_down, expression: Link_ramp_limit_shut_down }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} = \begin{cases} \mathrm{rd}^{f,\mathrm{dn}}_{l} & \text{if } \mathrm{rd}^{f,\mathrm{dn}}_{l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+\widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{\xi,l} = \begin{cases} \mathrm{rd}^{f,\mathrm{dn}}_{\xi,l} & \text{if } \mathrm{rd}^{f,\mathrm{dn}}_{\xi,l} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L}
 ```
 
 ### `Link_p_nom_committed`
@@ -8204,14 +8206,14 @@ Link_p_nom_committed:
   description: >-
     the build a committed link's ramp rows are taken against — one module
     where the build is extendable and modular, the given build otherwise
-  dims: [link]
+  dims: [scenario, link]
   cases:
     modular_build: { when: Link_p_nom_extendable AND Link_p_nom_mod > 0, expression: Link_p_nom_mod }
   otherwise: Link_p_nom
 ```
 
 ```math
-\widehat{\mathrm{f}}^{\mathrm{nom}}_{l} = \begin{cases} \mathrm{f}^{\mathrm{mod}}_{l} & \text{if } \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \\ \mathrm{f}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, l \in \mathcal{L}
+\widehat{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} = \begin{cases} \mathrm{f}^{\mathrm{mod}}_{l} & \text{if } \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \\ \mathrm{f}^{\mathrm{nom}}_{\xi,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L}
 ```
 
 ### `Link_ramp_up_allowance`
@@ -8234,7 +8236,7 @@ Link_ramp_up_allowance:
 ```
 
 ```math
-\Delta^{f,+}_{\xi,t,l} = \begin{cases} \widetilde{\mathrm{ru}}^{f}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} + \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \widetilde{\mathrm{ru}}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+\Delta^{f,+}_{\xi,t,l} = \begin{cases} \widetilde{\mathrm{ru}}^{f}_{\xi,l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \overleftarrow{u}^{f}_{\xi,t,l} + \widetilde{\mathrm{ru}}^{f,\mathrm{up}}_{\xi,l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \left( u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \widetilde{\mathrm{ru}}^{f}_{\xi,l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
 ```
 
 ### `Link_ramp_down_allowance`
@@ -8257,7 +8259,7 @@ Link_ramp_down_allowance:
 ```
 
 ```math
-\Delta^{f,-}_{\xi,t,l} = \begin{cases} \widetilde{\mathrm{rd}}^{f}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot u^{f}_{\xi,t,l} + \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{l} \cdot \left( \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \widetilde{\mathrm{rd}}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+\Delta^{f,-}_{\xi,t,l} = \begin{cases} \widetilde{\mathrm{rd}}^{f}_{\xi,l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot u^{f}_{\xi,t,l} + \widetilde{\mathrm{rd}}^{f,\mathrm{dn}}_{\xi,l} \cdot \widehat{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} \cdot \left( \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \right) & \text{if } \mathrm{com}^{f}_{l} \\ \widetilde{\mathrm{rd}}^{f}_{\xi,l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
 ```
 
 ### `Process_p_nom_effective`
@@ -8265,14 +8267,14 @@ Link_ramp_down_allowance:
 ```yaml
 Process_p_nom_effective:
   description: the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise
-  dims: [process]
+  dims: [scenario, process]
   cases:
     extendable: { when: Process_p_nom_extendable, expression: Process_p_nom_ext }
   otherwise: Process_p_nom
 ```
 
 ```math
-\widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} = \begin{cases} Z_{j} & \text{if } \mathrm{ext}^{z}_{j} \\ \mathrm{z}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+\widetilde{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} = \begin{cases} Z_{j} & \text{if } \mathrm{ext}^{z}_{j} \\ \mathrm{z}^{\mathrm{nom}}_{\xi,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J}
 ```
 
 ### `Process_previous_status`
@@ -8289,7 +8291,7 @@ Process_previous_status:
 ```
 
 ```math
-\overleftarrow{u}^{z}_{\xi,t,j} = \begin{cases} \mathrm{u}^{z,0}_{j} & \text{if } \mathrm{pos}(t) = 0 \\ u^{z}_{\xi,t - 1,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+\overleftarrow{u}^{z}_{\xi,t,j} = \begin{cases} \mathrm{u}^{z,0}_{\xi,j} & \text{if } \mathrm{pos}(t) = 0 \\ u^{z}_{\xi,t - 1,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 
 ### `Process_previous_p`
@@ -8317,14 +8319,14 @@ Process_ramp_up_rate:
   description: >-
     the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the
     full build where it has none, since a start-up ramp alone builds the row
-  dims: [process]
+  dims: [scenario, process]
   cases:
     given: { when: Process_ramp_limit_up, expression: Process_ramp_limit_up }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{ru}}^{z}_{j} = \begin{cases} \mathrm{ru}^{z}_{j} & \text{if } \mathrm{ru}^{z}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+\widetilde{\mathrm{ru}}^{z}_{\xi,j} = \begin{cases} \mathrm{ru}^{z}_{\xi,j} & \text{if } \mathrm{ru}^{z}_{\xi,j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J}
 ```
 
 ### `Process_ramp_down_rate`
@@ -8334,14 +8336,14 @@ Process_ramp_down_rate:
   description: >-
     the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or
     the full build where it has none, since a shut-down ramp alone builds the row
-  dims: [process]
+  dims: [scenario, process]
   cases:
     given: { when: Process_ramp_limit_down, expression: Process_ramp_limit_down }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{rd}}^{z}_{j} = \begin{cases} \mathrm{rd}^{z}_{j} & \text{if } \mathrm{rd}^{z}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+\widetilde{\mathrm{rd}}^{z}_{\xi,j} = \begin{cases} \mathrm{rd}^{z}_{\xi,j} & \text{if } \mathrm{rd}^{z}_{\xi,j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J}
 ```
 
 ### `Process_start_up_rate`
@@ -8351,14 +8353,14 @@ Process_start_up_rate:
   description: >-
     the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`,
     or the full build where it has none
-  dims: [process]
+  dims: [scenario, process]
   cases:
     given: { when: Process_ramp_limit_start_up, expression: Process_ramp_limit_start_up }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} = \begin{cases} \mathrm{ru}^{z,\mathrm{up}}_{j} & \text{if } \mathrm{ru}^{z,\mathrm{up}}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+\widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{\xi,j} = \begin{cases} \mathrm{ru}^{z,\mathrm{up}}_{\xi,j} & \text{if } \mathrm{ru}^{z,\mathrm{up}}_{\xi,j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J}
 ```
 
 ### `Process_shut_down_rate`
@@ -8368,14 +8370,14 @@ Process_shut_down_rate:
   description: >-
     the shut-down ramp a process's down row reads — PyPSA's
     `ramp_limit_shut_down`, or the full build where it has none
-  dims: [process]
+  dims: [scenario, process]
   cases:
     given: { when: Process_ramp_limit_shut_down, expression: Process_ramp_limit_shut_down }
   otherwise: 1
 ```
 
 ```math
-\widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} = \begin{cases} \mathrm{rd}^{z,\mathrm{dn}}_{j} & \text{if } \mathrm{rd}^{z,\mathrm{dn}}_{j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+\widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{\xi,j} = \begin{cases} \mathrm{rd}^{z,\mathrm{dn}}_{\xi,j} & \text{if } \mathrm{rd}^{z,\mathrm{dn}}_{\xi,j} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J}
 ```
 
 ### `Process_p_nom_committed`
@@ -8385,14 +8387,14 @@ Process_p_nom_committed:
   description: >-
     the build a committed process's ramp rows are taken against — one module
     where the build is extendable and modular, the given build otherwise
-  dims: [process]
+  dims: [scenario, process]
   cases:
     modular_build: { when: Process_p_nom_extendable AND Process_p_nom_mod > 0, expression: Process_p_nom_mod }
   otherwise: Process_p_nom
 ```
 
 ```math
-\widehat{\mathrm{z}}^{\mathrm{nom}}_{j} = \begin{cases} \mathrm{z}^{\mathrm{mod}}_{j} & \text{if } \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \\ \mathrm{z}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, j \in \mathcal{J}
+\widehat{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} = \begin{cases} \mathrm{z}^{\mathrm{mod}}_{j} & \text{if } \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \\ \mathrm{z}^{\mathrm{nom}}_{\xi,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J}
 ```
 
 ### `Process_ramp_up_allowance`
@@ -8415,7 +8417,7 @@ Process_ramp_up_allowance:
 ```
 
 ```math
-\Delta^{z,+}_{\xi,t,j} = \begin{cases} \widetilde{\mathrm{ru}}^{z}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} + \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \left( u^{z}_{\xi,t,j} - \overleftarrow{u}^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \widetilde{\mathrm{ru}}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+\Delta^{z,+}_{\xi,t,j} = \begin{cases} \widetilde{\mathrm{ru}}^{z}_{\xi,j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \overleftarrow{u}^{z}_{\xi,t,j} + \widetilde{\mathrm{ru}}^{z,\mathrm{up}}_{\xi,j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \left( u^{z}_{\xi,t,j} - \overleftarrow{u}^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \widetilde{\mathrm{ru}}^{z}_{\xi,j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 
 ### `Process_ramp_down_allowance`
@@ -8438,7 +8440,7 @@ Process_ramp_down_allowance:
 ```
 
 ```math
-\Delta^{z,-}_{\xi,t,j} = \begin{cases} \widetilde{\mathrm{rd}}^{z}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot u^{z}_{\xi,t,j} + \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{j} \cdot \left( \overleftarrow{u}^{z}_{\xi,t,j} - u^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \widetilde{\mathrm{rd}}^{z}_{j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
+\Delta^{z,-}_{\xi,t,j} = \begin{cases} \widetilde{\mathrm{rd}}^{z}_{\xi,j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot u^{z}_{\xi,t,j} + \widetilde{\mathrm{rd}}^{z,\mathrm{dn}}_{\xi,j} \cdot \widehat{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \left( \overleftarrow{u}^{z}_{\xi,t,j} - u^{z}_{\xi,t,j} \right) & \text{if } \mathrm{com}^{z}_{j} \\ \widetilde{\mathrm{rd}}^{z}_{\xi,j} \cdot \widetilde{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 
 ### `StorageUnit_charge_carried_in`
@@ -8483,7 +8485,7 @@ StorageUnit_charge_carried_in:
 ```
 
 ```math
-\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{\xi,\left( t \ominus \mathrm{idle} \right) \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}_{t,s} \right) \\ \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \neg \mathrm{reset}_{s} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}_{t,s} \right) \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,s} & \text{if } \mathrm{cyc}^{y}_{s} \\ \mathrm{soc}^{0}_{s} & \text{if } \mathrm{reset}_{s} \wedge \neg \mathrm{cyc}^{y}_{s} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho_{t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
+\overleftarrow{\mathit{soc}}_{\xi,t,s} = \begin{cases} \rho_{\xi,t,s} \cdot \mathit{soc}_{\xi,\left( t \ominus \mathrm{idle} \right) \ominus 1,s} & \text{if } \mathrm{cyc}_{\xi,s} \wedge \neg \mathrm{cyc}^{y}_{\xi,s} \wedge \neg \mathrm{reset}_{\xi,s} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}_{t,s} \right) \\ \mathrm{soc}^{0}_{\xi,s} & \text{if } \neg \mathrm{cyc}_{\xi,s} \wedge \neg \mathrm{cyc}^{y}_{\xi,s} \wedge \neg \mathrm{reset}_{\xi,s} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}_{t,s} \right) \\ \rho_{\xi,t,s} \cdot \mathit{soc}_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,s} & \text{if } \mathrm{cyc}^{y}_{\xi,s} \\ \mathrm{soc}^{0}_{\xi,s} & \text{if } \mathrm{reset}_{\xi,s} \wedge \neg \mathrm{cyc}^{y}_{\xi,s} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho_{\xi,t,s} \cdot \mathit{soc}_{\xi,t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S}
 ```
 
 ### `Store_energy_carried_in`
@@ -8522,7 +8524,7 @@ Store_energy_carried_in:
 ```
 
 ```math
-\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{\xi,\left( t \ominus \mathrm{idle}^{e} \right) \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}^{e}_{t,v} \right) \\ \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}^{e}_{t,v} \right) \\ \rho^{e}_{t,v} \cdot e_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,v} & \text{if } \mathrm{cyc}^{e,y}_{v} \\ \mathrm{e}^{0}_{v} & \text{if } \mathrm{reset}^{e}_{v} \wedge \neg \mathrm{cyc}^{e,y}_{v} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho^{e}_{t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
+\overleftarrow{e}_{\xi,t,v} = \begin{cases} \rho^{e}_{\xi,t,v} \cdot e_{\xi,\left( t \ominus \mathrm{idle}^{e} \right) \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{\xi,v} \wedge \neg \mathrm{cyc}^{e,y}_{\xi,v} \wedge \neg \mathrm{reset}^{e}_{\xi,v} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}^{e}_{t,v} \right) \\ \mathrm{e}^{0}_{\xi,v} & \text{if } \neg \mathrm{cyc}^{e}_{\xi,v} \wedge \neg \mathrm{cyc}^{e,y}_{\xi,v} \wedge \neg \mathrm{reset}^{e}_{\xi,v} \wedge \left( \mathrm{pos}(t) = 0 \vee \mathrm{open}^{e}_{t,v} \right) \\ \rho^{e}_{\xi,t,v} \cdot e_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} 1,v} & \text{if } \mathrm{cyc}^{e,y}_{\xi,v} \\ \mathrm{e}^{0}_{\xi,v} & \text{if } \mathrm{reset}^{e}_{\xi,v} \wedge \neg \mathrm{cyc}^{e,y}_{\xi,v} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = 0 \\ \rho^{e}_{\xi,t,v} \cdot e_{\xi,t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V}
 ```
 
 ### `Link_output_arrival`
@@ -8545,7 +8547,7 @@ Link_output_arrival:
 ```
 
 ```math
-\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
+\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
 ```
 
 ### `Process_output_arrival`
@@ -8568,7 +8570,7 @@ Process_output_arrival:
 ```
 
 ```math
-\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
+\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
 ```
 
 ### `GlobalConstraint_energy_weight`
@@ -8579,7 +8581,7 @@ GlobalConstraint_energy_weight:
     what one unit of power at a snapshot counts for in a row — the
     generator weighting times the years of the snapshot's period, where the
     row counts the snapshot, and nothing where it does not
-  dims: [global_constraint, snapshot]
+  dims: [scenario, global_constraint, snapshot]
   cases:
     counted:
       when: GlobalConstraint_counts_snapshot
@@ -8588,7 +8590,7 @@ GlobalConstraint_energy_weight:
 ```
 
 ```math
-\mathit{w}^{\mathrm{gc}}_{i,t} = \begin{cases} \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{in}_{i,t} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T}
+\mathit{w}^{\mathrm{gc}}_{\xi,i,t} = \begin{cases} \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{in}_{\xi,i,t} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I},\ t \in \mathcal{T}
 ```
 
 ### `GlobalConstraint_snapshot_closes`
@@ -8596,7 +8598,7 @@ GlobalConstraint_energy_weight:
 ```yaml
 GlobalConstraint_snapshot_closes:
   description: one at the last snapshot a row counts, and zero elsewhere
-  dims: [global_constraint, snapshot]
+  dims: [scenario, global_constraint, snapshot]
   cases:
     last_counted:
       when: GlobalConstraint_counts_snapshot AND NOT shift(GlobalConstraint_counts_snapshot, along=snapshot, offset=-1)
@@ -8605,7 +8607,7 @@ GlobalConstraint_snapshot_closes:
 ```
 
 ```math
-\mathit{last}_{i,t} = \begin{cases} 1 & \text{if } \mathrm{in}_{i,t} \wedge \neg \mathrm{in}_{i,t + 1} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T}
+\mathit{last}_{\xi,i,t} = \begin{cases} 1 & \text{if } \mathrm{in}_{\xi,i,t} \wedge \neg \mathrm{in}_{\xi,i,t + 1} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I},\ t \in \mathcal{T}
 ```
 
 ### `StorageUnit_closing_weight`
@@ -8617,7 +8619,7 @@ StorageUnit_closing_weight:
     closing level — the years of the period at the last snapshot of each
     counted period where the unit reopens per period, one at the last
     counted snapshot where it does not, and nothing elsewhere
-  dims: [global_constraint, snapshot, storage_unit]
+  dims: [scenario, global_constraint, snapshot, storage_unit]
   cases:
     per_period:
       when: StorageUnit_state_of_charge_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
@@ -8629,7 +8631,7 @@ StorageUnit_closing_weight:
 ```
 
 ```math
-\mathit{w}^{h}_{i,t,s} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}_{s} \wedge \mathrm{in}_{i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{i,t} & \text{if } \neg \mathrm{reset}_{s} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T},\ s \in \mathcal{S}
+\mathit{w}^{h}_{\xi,i,t,s} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}_{\xi,s} \wedge \mathrm{in}_{\xi,i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{\xi,i,t} & \text{if } \neg \mathrm{reset}_{\xi,s} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I},\ t \in \mathcal{T},\ s \in \mathcal{S}
 ```
 
 ### `Store_closing_weight`
@@ -8641,7 +8643,7 @@ Store_closing_weight:
     closing level — the years of the period at the last snapshot of each
     counted period where the store reopens per period, one at the last
     counted snapshot where it does not, and nothing elsewhere
-  dims: [global_constraint, snapshot, store]
+  dims: [scenario, global_constraint, snapshot, store]
   cases:
     per_period:
       when: Store_e_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
@@ -8653,7 +8655,7 @@ Store_closing_weight:
 ```
 
 ```math
-\mathit{w}^{e}_{i,t,v} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}^{e}_{v} \wedge \mathrm{in}_{i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{i,t} & \text{if } \neg \mathrm{reset}^{e}_{v} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T},\ v \in \mathcal{V}
+\mathit{w}^{e}_{\xi,i,t,v} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}^{e}_{\xi,v} \wedge \mathrm{in}_{\xi,i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{\xi,i,t} & \text{if } \neg \mathrm{reset}^{e}_{\xi,v} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I},\ t \in \mathcal{T},\ v \in \mathcal{V}
 ```
 
 ### `primary_energy`
@@ -8672,7 +8674,7 @@ primary_energy:
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{i,t} \cdot \mathrm{a}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{i,t,s} \cdot \mathrm{a}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{i,t,v} \cdot \mathrm{a}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{\xi,i,t} \cdot \mathrm{a}_{\xi,i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{\xi,i,t,s} \cdot \mathrm{a}^{h}_{\xi,i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{\xi,i,t,v} \cdot \mathrm{a}^{e}_{\xi,i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `operational_limit`
@@ -8691,7 +8693,7 @@ operational_limit:
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{i,t} \cdot \mathrm{b}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{i,t,s} \cdot \mathrm{b}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{i,t,v} \cdot \mathrm{b}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{\xi,i,t} \cdot \mathrm{b}_{\xi,i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{\xi,i,t,s} \cdot \mathrm{b}^{h}_{\xi,i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{\xi,i,t,v} \cdot \mathrm{b}^{e}_{\xi,i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `transmission_volume_expansion`
@@ -8705,7 +8707,7 @@ transmission_volume_expansion:
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{i,l} \qquad \forall\, i \in \mathcal{I}
+\mathit{transmission\_volume\_expansion}_{\xi,i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{\xi,i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{\xi,i,l} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `transmission_expansion_cost`
@@ -8719,7 +8721,7 @@ transmission_expansion_cost:
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{i,l} \qquad \forall\, i \in \mathcal{I}
+\mathit{transmission\_expansion\_cost}_{\xi,i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{\xi,i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{\xi,i,l} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `tech_capacity_expansion`
@@ -8771,7 +8773,7 @@ scenario_opex:
 ```
 
 ```math
-\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot z_{\xi,t,j} \cdot \mathrm{c}^{z,(2)}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h,(2)}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot q_{\xi,t,v} \cdot \mathrm{c}^{q,(2)}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} u^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{on}}_{t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{up}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{up}}_{j} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{dn}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{dn}}_{j} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot z_{\xi,t,j} \cdot \mathrm{c}^{z,(2)}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h,(2)}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot q_{\xi,t,v} \cdot \mathrm{c}^{q,(2)}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{\xi,g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{\xi,g} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{\xi,l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{\xi,l} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} u^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{on}}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{up}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{up}}_{\xi,j} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{dn}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{dn}}_{\xi,j} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
 ```
 
 ### `Carrier_additions`
@@ -8905,7 +8907,7 @@ h^{-}_{\xi,t,s} \in \mathbb{R} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},
 **`StorageUnit_spill`**
 
 ```math
-0 \le \mathit{spill}_{\xi,t,s} \le \mathrm{inflow}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{inflow}_{t,s} > 0 \wedge \mathrm{on}^{h}_{t,s}
+0 \le \mathit{spill}_{\xi,t,s} \le \mathrm{inflow}_{\xi,t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{inflow}_{\xi,t,s} > 0 \wedge \mathrm{on}^{h}_{t,s}
 ```
 
 **`Store_e`**
@@ -9166,7 +9168,7 @@ Generator_maintenance_events_positive:
 ```
 
 ```math
-\mathrm{n}^{\mathrm{mnt}}_{g} > 0 \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+\mathrm{n}^{\mathrm{mnt}}_{\xi,g} > 0 \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
 ```
 
 ### `Generator_maintenance_duration_positive`
@@ -9181,7 +9183,7 @@ Generator_maintenance_duration_positive:
 ```
 
 ```math
-\tau^{\mathrm{mnt}}_{g} > 0 \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+\tau^{\mathrm{mnt}}_{\xi,g} > 0 \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
 ```
 
 ### `Generator_maintenance_duration_fits_the_horizon`
@@ -9197,7 +9199,7 @@ Generator_maintenance_duration_fits_the_horizon:
 ```
 
 ```math
-\tau^{\mathrm{mnt}}_{g} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+\tau^{\mathrm{mnt}}_{\xi,g} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
 ```
 
 ### `Generator_maintenance_events_fit_the_horizon`
@@ -9213,7 +9215,7 @@ Generator_maintenance_events_fit_the_horizon:
 ```
 
 ```math
-\tau^{\mathrm{mnt}}_{g} \cdot \mathrm{n}^{\mathrm{mnt}}_{g} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+\tau^{\mathrm{mnt}}_{\xi,g} \cdot \mathrm{n}^{\mathrm{mnt}}_{\xi,g} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
 ```
 
 ### `Generator_maintenance_build_cap_is_finite`
@@ -9229,7 +9231,7 @@ Generator_maintenance_build_cap_is_finite:
 ```
 
 ```math
-\overline{\mathrm{p}}^{\mathrm{nom}}_{g} < \infty \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g}
+\overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} < \infty \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{ext}_{g}
 ```
 
 ### `Generator_maintenance_module_count_is_finite`
@@ -9246,7 +9248,7 @@ Generator_maintenance_module_count_is_finite:
 ```
 
 ```math
-\overline{\mathrm{p}}^{\mathrm{nom}}_{g} < \infty \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
+\overline{\mathrm{p}}^{\mathrm{nom}}_{\xi,g} < \infty \qquad \forall\, \xi \in \Xi,\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0
 ```
 
 ### `Link_maintenance_events_positive`
@@ -9261,7 +9263,7 @@ Link_maintenance_events_positive:
 ```
 
 ```math
-\mathrm{n}^{f,\mathrm{mnt}}_{l} > 0 \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
+\mathrm{n}^{f,\mathrm{mnt}}_{\xi,l} > 0 \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
 ```
 
 ### `Link_maintenance_duration_positive`
@@ -9276,7 +9278,7 @@ Link_maintenance_duration_positive:
 ```
 
 ```math
-\tau^{f,\mathrm{mnt}}_{l} > 0 \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
+\tau^{f,\mathrm{mnt}}_{\xi,l} > 0 \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
 ```
 
 ### `Link_maintenance_duration_fits_the_horizon`
@@ -9292,7 +9294,7 @@ Link_maintenance_duration_fits_the_horizon:
 ```
 
 ```math
-\tau^{f,\mathrm{mnt}}_{l} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
+\tau^{f,\mathrm{mnt}}_{\xi,l} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
 ```
 
 ### `Link_maintenance_events_fit_the_horizon`
@@ -9308,7 +9310,7 @@ Link_maintenance_events_fit_the_horizon:
 ```
 
 ```math
-\tau^{f,\mathrm{mnt}}_{l} \cdot \mathrm{n}^{f,\mathrm{mnt}}_{l} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
+\tau^{f,\mathrm{mnt}}_{\xi,l} \cdot \mathrm{n}^{f,\mathrm{mnt}}_{\xi,l} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l}
 ```
 
 ### `Link_maintenance_build_cap_is_finite`
@@ -9324,7 +9326,7 @@ Link_maintenance_build_cap_is_finite:
 ```
 
 ```math
-\overline{\mathrm{f}}^{\mathrm{nom}}_{l} < \infty \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l}
+\overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} < \infty \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{ext}^{f}_{l}
 ```
 
 ### `Link_maintenance_module_count_is_finite`
@@ -9341,7 +9343,7 @@ Link_maintenance_module_count_is_finite:
 ```
 
 ```math
-\overline{\mathrm{f}}^{\mathrm{nom}}_{l} < \infty \qquad \forall\, l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0
+\overline{\mathrm{f}}^{\mathrm{nom}}_{\xi,l} < \infty \qquad \forall\, \xi \in \Xi,\ l \in \mathcal{L} \,:\, \mathrm{mnt}^{f}_{l} \wedge \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0
 ```
 
 ### `Process_maintenance_events_positive`
@@ -9356,7 +9358,7 @@ Process_maintenance_events_positive:
 ```
 
 ```math
-\mathrm{n}^{z,\mathrm{mnt}}_{j} > 0 \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+\mathrm{n}^{z,\mathrm{mnt}}_{\xi,j} > 0 \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
 ```
 
 ### `Process_maintenance_duration_positive`
@@ -9371,7 +9373,7 @@ Process_maintenance_duration_positive:
 ```
 
 ```math
-\tau^{z,\mathrm{mnt}}_{j} > 0 \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+\tau^{z,\mathrm{mnt}}_{\xi,j} > 0 \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
 ```
 
 ### `Process_maintenance_duration_fits_the_horizon`
@@ -9387,7 +9389,7 @@ Process_maintenance_duration_fits_the_horizon:
 ```
 
 ```math
-\tau^{z,\mathrm{mnt}}_{j} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+\tau^{z,\mathrm{mnt}}_{\xi,j} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
 ```
 
 ### `Process_maintenance_events_fit_the_horizon`
@@ -9403,7 +9405,7 @@ Process_maintenance_events_fit_the_horizon:
 ```
 
 ```math
-\tau^{z,\mathrm{mnt}}_{j} \cdot \mathrm{n}^{z,\mathrm{mnt}}_{j} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+\tau^{z,\mathrm{mnt}}_{\xi,j} \cdot \mathrm{n}^{z,\mathrm{mnt}}_{\xi,j} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
 ```
 
 ### `Process_maintenance_build_cap_is_finite`
@@ -9419,7 +9421,7 @@ Process_maintenance_build_cap_is_finite:
 ```
 
 ```math
-\overline{\mathrm{z}}^{\mathrm{nom}}_{j} < \infty \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j}
+\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} < \infty \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j}
 ```
 
 ### `Process_maintenance_module_count_is_finite`
@@ -9436,7 +9438,7 @@ Process_maintenance_module_count_is_finite:
 ```
 
 ```math
-\overline{\mathrm{z}}^{\mathrm{nom}}_{j} < \infty \qquad \forall\, j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0
+\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} < \infty \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0
 ```
 
 ### `StorageUnit_stands_in_one_run`
@@ -9546,7 +9548,7 @@ StorageUnit_primary_energy_per_period_closes_over_the_horizon:
 ```
 
 ```math
-\lvert \{ t \in \mathcal{T} \,:\, \neg \mathrm{in}_{i,t} \} \rvert = 0 \qquad \forall\, s \in \mathcal{S},\ i \in \mathcal{I} \,:\, \mathrm{a}^{h}_{i,s} \text{ is defined} \wedge \mathrm{reset}_{s}
+\lvert \{ t \in \mathcal{T} \,:\, \neg \mathrm{in}_{\xi,i,t} \} \rvert = 0 \qquad \forall\, \xi \in \Xi,\ s \in \mathcal{S},\ i \in \mathcal{I} \,:\, \mathrm{a}^{h}_{\xi,i,s} \text{ is defined} \wedge \mathrm{reset}_{\xi,s}
 ```
 
 ### `StorageUnit_primary_energy_carried_over_has_unit_years`
@@ -9563,7 +9565,7 @@ StorageUnit_primary_energy_carried_over_has_unit_years:
 ```
 
 ```math
-\mathrm{w}^{\mathrm{yr}}_{y} = 1 \qquad \forall\, s \in \mathcal{S},\ i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \mathrm{a}^{h}_{i,s} \text{ is defined} \wedge \neg \mathrm{reset}_{s}
+\mathrm{w}^{\mathrm{yr}}_{y} = 1 \qquad \forall\, \xi \in \Xi,\ s \in \mathcal{S},\ i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \mathrm{a}^{h}_{\xi,i,s} \text{ is defined} \wedge \neg \mathrm{reset}_{\xi,s}
 ```
 
 ### `StorageUnit_operational_limit_carried_over_has_unit_years`
@@ -9578,7 +9580,7 @@ StorageUnit_operational_limit_carried_over_has_unit_years:
 ```
 
 ```math
-\mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} = 1 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S},\ i \in \mathcal{I} \,:\, \mathrm{b}^{h}_{i,s} \text{ is defined} \wedge \neg \mathrm{reset}_{s} \wedge \mathrm{in}_{i,t}
+\mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S},\ i \in \mathcal{I} \,:\, \mathrm{b}^{h}_{\xi,i,s} \text{ is defined} \wedge \neg \mathrm{reset}_{\xi,s} \wedge \mathrm{in}_{\xi,i,t}
 ```
 
 ### `Store_primary_energy_per_period_closes_over_the_horizon`
@@ -9594,7 +9596,7 @@ Store_primary_energy_per_period_closes_over_the_horizon:
 ```
 
 ```math
-\lvert \{ t \in \mathcal{T} \,:\, \neg \mathrm{in}_{i,t} \} \rvert = 0 \qquad \forall\, v \in \mathcal{V},\ i \in \mathcal{I} \,:\, \mathrm{a}^{e}_{i,v} \text{ is defined} \wedge \mathrm{reset}^{e}_{v}
+\lvert \{ t \in \mathcal{T} \,:\, \neg \mathrm{in}_{\xi,i,t} \} \rvert = 0 \qquad \forall\, \xi \in \Xi,\ v \in \mathcal{V},\ i \in \mathcal{I} \,:\, \mathrm{a}^{e}_{\xi,i,v} \text{ is defined} \wedge \mathrm{reset}^{e}_{\xi,v}
 ```
 
 ### `Store_primary_energy_carried_over_has_unit_years`
@@ -9611,7 +9613,7 @@ Store_primary_energy_carried_over_has_unit_years:
 ```
 
 ```math
-\mathrm{w}^{\mathrm{yr}}_{y} = 1 \qquad \forall\, v \in \mathcal{V},\ i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \mathrm{a}^{e}_{i,v} \text{ is defined} \wedge \neg \mathrm{reset}^{e}_{v}
+\mathrm{w}^{\mathrm{yr}}_{y} = 1 \qquad \forall\, \xi \in \Xi,\ v \in \mathcal{V},\ i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \mathrm{a}^{e}_{\xi,i,v} \text{ is defined} \wedge \neg \mathrm{reset}^{e}_{\xi,v}
 ```
 
 ### `Store_operational_limit_carried_over_has_unit_years`
@@ -9626,7 +9628,7 @@ Store_operational_limit_carried_over_has_unit_years:
 ```
 
 ```math
-\mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} = 1 \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V},\ i \in \mathcal{I} \,:\, \mathrm{b}^{e}_{i,v} \text{ is defined} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \mathrm{in}_{i,t}
+\mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V},\ i \in \mathcal{I} \,:\, \mathrm{b}^{e}_{\xi,i,v} \text{ is defined} \wedge \neg \mathrm{reset}^{e}_{\xi,v} \wedge \mathrm{in}_{\xi,i,t}
 ```
 
 ### `Generator_marginal_cost_quadratic_without_risk_preference`
@@ -9643,7 +9645,7 @@ Generator_marginal_cost_quadratic_without_risk_preference:
 ```
 
 ```math
-\mathrm{c}^{(2)}_{t,g} = 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \omega > 0
+\mathrm{c}^{(2)}_{\xi,t,g} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \omega > 0
 ```
 
 ### `Link_marginal_cost_quadratic_without_risk_preference`
@@ -9660,7 +9662,7 @@ Link_marginal_cost_quadratic_without_risk_preference:
 ```
 
 ```math
-\mathrm{c}^{f,(2)}_{t,l} = 0 \qquad \forall\, t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \omega > 0
+\mathrm{c}^{f,(2)}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \omega > 0
 ```
 
 ### `Process_marginal_cost_quadratic_without_risk_preference`
@@ -9677,7 +9679,7 @@ Process_marginal_cost_quadratic_without_risk_preference:
 ```
 
 ```math
-\mathrm{c}^{z,(2)}_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \omega > 0
+\mathrm{c}^{z,(2)}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \omega > 0
 ```
 
 ### `StorageUnit_marginal_cost_quadratic_without_risk_preference`
@@ -9694,7 +9696,7 @@ StorageUnit_marginal_cost_quadratic_without_risk_preference:
 ```
 
 ```math
-\mathrm{c}^{h,(2)}_{t,s} = 0 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \omega > 0
+\mathrm{c}^{h,(2)}_{\xi,t,s} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \omega > 0
 ```
 
 ### `Store_marginal_cost_quadratic_without_risk_preference`
@@ -9711,7 +9713,7 @@ Store_marginal_cost_quadratic_without_risk_preference:
 ```
 
 ```math
-\mathrm{c}^{q,(2)}_{t,v} = 0 \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \omega > 0
+\mathrm{c}^{q,(2)}_{\xi,t,v} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \omega > 0
 ```
 
 ### `GlobalConstraint_tech_capacity_expansion_limit_without_scenarios`

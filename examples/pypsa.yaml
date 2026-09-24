@@ -6,14 +6,16 @@ description: >-
   A plain `n.optimize()`, and its multi-period and stochastic classes, in one
   file. Every second-stage quantity spans a `scenario` (a future dispatch is
   chosen in) and every asset stands in the investment `period`s its build year
-  and lifetime span. Capacity is chosen once, before the future is known, and
-  paid once per active period; operation is the expectation over the scenarios'
-  weights, with a share priced at the tail through the CVaR rows, which stand
-  only where that share is positive. A plain run feeds one scenario, one period, all-active masks and unit weights, and the
-  model collapses to the standard one. A security-constrained run copies each
-  branch flow limit once per outage in an `outage` set that a plain run leaves
-  empty. Which snapshots an asset is active in, a scenario's weight, and the
-  outage factors are data prep.
+  and lifetime span. A parameter spans `scenario` exactly when PyPSA reads it
+  per scenario. Capacity is chosen once, before the future is known, and paid
+  once per active period at its cost in expectation over the scenarios;
+  operation is the expectation over the scenarios' weights, with a share priced
+  at the tail through the CVaR rows, which stand only where that share is
+  positive. A plain run feeds one scenario, one period, all-active masks and
+  unit weights, and the model collapses to the standard one. A
+  security-constrained run copies each branch flow limit once per outage in an
+  `outage` set that a plain run leaves empty. Which snapshots an asset is
+  active in, a scenario's weight, and the outage factors are data prep.
 
 dimensions:
   scenario:
@@ -76,74 +78,74 @@ parameters:
     dims: [snapshot]
   Generator_p_nom:
     description: nominal power
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_p_nom_extendable:
     description: whether the nominal power is a decision
     dims: [generator]
     dtype: bool
   Generator_p_min_pu:
     description: least output, per unit of nominal power
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
   Generator_p_max_pu:
     description: most output, per unit of nominal power — an availability profile
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
   Generator_marginal_cost:
     description: cost of one unit of output
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
   Generator_marginal_cost_quadratic:
     description: cost of the square of one unit of output
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
   Generator_committable:
     description: whether output is gated by an on/off status decision
     dims: [generator]
     dtype: bool
   Generator_ramp_limit_up:
     description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_ramp_limit_down:
     description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_ramp_limit_start_up:
     description: most output in the snapshot a unit starts, per unit of nominal power
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_ramp_limit_shut_down:
     description: most output in the snapshot before a unit stops, per unit of nominal power
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_min_up_time:
     description: least snapshots a unit stays on once started
-    dims: [generator]
+    dims: [scenario, generator]
     dtype: int
   Generator_min_down_time:
     description: least snapshots a unit stays off once stopped
-    dims: [generator]
+    dims: [scenario, generator]
     dtype: int
   Generator_status_initial:
     description: one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
-    dims: [generator]
+    dims: [scenario, generator]
     dtype: int
   Generator_must_stay_up:
     description: >-
       true while the up time a unit brought into the horizon still binds —
       data prep, since `position()` compares against a literal rather than a
       parameter
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
     dtype: bool
   Generator_must_stay_down:
     description: >-
       true while the down time a unit brought into the horizon still binds —
       PyPSA's `min_down_time - down_time_before` snapshots, where
       `down_time_before > 0`, data prep for the same reason
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
     dtype: bool
   Generator_start_up_cost:
     description: cost of one start
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_shut_down_cost:
     description: cost of one stop
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_stand_by_cost:
     description: cost of one snapshot spent on
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
   Generator_p_nom_mod:
     description: the module size a build comes in whole numbers of; no value means the build is continuous
     dims: [generator]
@@ -153,26 +155,28 @@ parameters:
       / Generator_p_nom_mod` where a fixed build is modular, one where it is
       not, data prep. PyPSA refuses a fixed modular build whose nominal power
       is not a whole number of modules
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_big_m:
     description: a bound safely above any feasible output — the build cap at full availability, data prep
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_p_min_pu_nonneg:
     description: >-
       true where none of the generator's own minimums-per-unit is negative —
-      PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
+      PyPSA's per-unit `(p_min_pu >= 0).all()` over every snapshot and scenario, data prep
     dims: [generator]
     dtype: bool
   Generator_maintainable:
-    description: whether a generator must be taken off for maintenance within the horizon
+    description: >-
+      whether a generator must be taken off for maintenance within the horizon — in
+      any scenario, as PyPSA takes the union over them (`components.py:1016-1019`)
     dims: [generator]
     dtype: bool
   Generator_maintenance_pu:
     description: the share of the build a maintenance event takes off
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_maintenance_events:
     description: how many maintenance events the horizon holds
-    dims: [generator]
+    dims: [scenario, generator]
     dtype: int
   Generator_maintenance_duration:
     description: >-
@@ -181,105 +185,108 @@ parameters:
       maintainable. No row reads it: data prep turns it into
       `Generator_maintenance_cover` and `Generator_maintenance_start_blocked`, and the
       assumptions hold it to the horizon
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_maintenance_start_blocked:
     description: >-
       true where no maintenance event may start, because the snapshots it
       would cover run past the end of the horizon or into one the generator does
       not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
       and the generator weightings, data prep
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
     dtype: bool
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
-    dims: [link]
+    dims: [scenario, link]
   Link_ramp_limit_down:
     description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit
-    dims: [link]
+    dims: [scenario, link]
   Link_p_nom:
     description: nominal power
-    dims: [link]
+    dims: [scenario, link]
   Link_p_nom_extendable:
     description: whether the nominal power is a decision
     dims: [link]
     dtype: bool
   Link_p_min_pu:
     description: least flow, per unit of nominal power — negative for a link that carries both ways
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
   Link_p_max_pu:
     description: most flow, per unit of nominal power
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
   Link_efficiency:
     description: >-
       share of the flow that arrives at an output port, PyPSA's `efficiency`,
       `efficiency2`, … read long — negative where that port consumes rather
       than delivers
-    dims: [link_output]
+    dims: [scenario, link_output]
   Link_output_delay:
     description: >-
       snapshots a port's delivery lags its link's flow — PyPSA's `delay`,
       `delay2`, … read long, in `snapshot_weightings.generators` units, which
-      the file states as whole snapshots; zero for a port that delivers at once
+      the file states as whole snapshots; zero for a port that delivers at once.
+      One for every scenario: PyPSA groups the ports by delay over all scenarios
+      and shifts each group in every one (`constraints.py:1269`)
     dims: [link_output]
     dtype: int
   Link_output_cyclic_delay:
     description: >-
       whether a delayed port's flow wraps from the end of its investment
       period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not,
-      the flow still in transit at each period's first snapshots is lost
+      the flow still in transit at each period's first snapshots is lost. One
+      for every scenario, as the delay
     dims: [link_output]
     dtype: bool
   Link_marginal_cost:
     description: cost of one unit of flow
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
   Link_marginal_cost_quadratic:
     description: cost of the square of one unit of flow
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
   Link_committable:
     description: whether flow is gated by an on/off status decision
     dims: [link]
     dtype: bool
   Link_ramp_limit_start_up:
     description: most flow in the snapshot a link starts, per unit of nominal power
-    dims: [link]
+    dims: [scenario, link]
   Link_ramp_limit_shut_down:
     description: most flow in the snapshot before a link stops, per unit of nominal power
-    dims: [link]
+    dims: [scenario, link]
   Link_min_up_time:
     description: least snapshots a link stays on once started
-    dims: [link]
+    dims: [scenario, link]
     dtype: int
   Link_min_down_time:
     description: least snapshots a link stays off once stopped
-    dims: [link]
+    dims: [scenario, link]
     dtype: int
   Link_status_initial:
     description: one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
-    dims: [link]
+    dims: [scenario, link]
     dtype: int
   Link_must_stay_up:
     description: >-
       true while the up time a link brought into the horizon still binds —
       data prep, since `position()` compares against a literal rather than a
       parameter
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
     dtype: bool
   Link_must_stay_down:
     description: >-
       true while the down time a link brought into the horizon still binds —
       PyPSA's `min_down_time - down_time_before` snapshots, where
       `down_time_before > 0`, data prep for the same reason
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
     dtype: bool
   Link_start_up_cost:
     description: cost of one start
-    dims: [link]
+    dims: [scenario, link]
   Link_shut_down_cost:
     description: cost of one stop
-    dims: [link]
+    dims: [scenario, link]
   Link_stand_by_cost:
     description: cost of one snapshot spent on
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
   Link_p_nom_mod:
     description: the module size a build comes in whole numbers of; no value means the build is continuous
     dims: [link]
@@ -289,26 +296,28 @@ parameters:
       / Link_p_nom_mod` where a fixed build is modular, one where it is
       not, data prep. PyPSA refuses a fixed modular build whose nominal power
       is not a whole number of modules
-    dims: [link]
+    dims: [scenario, link]
   Link_big_m:
     description: a bound safely above any feasible flow — the build cap at full availability, data prep
-    dims: [link]
+    dims: [scenario, link]
   Link_p_min_pu_nonneg:
     description: >-
       true where none of the link's own minimums-per-unit is negative —
-      PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
+      PyPSA's per-unit `(p_min_pu >= 0).all()` over every snapshot and scenario, data prep
     dims: [link]
     dtype: bool
   Link_maintainable:
-    description: whether a link must be taken off for maintenance within the horizon
+    description: >-
+      whether a link must be taken off for maintenance within the horizon — in
+      any scenario, as PyPSA takes the union over them (`components.py:1016-1019`)
     dims: [link]
     dtype: bool
   Link_maintenance_pu:
     description: the share of the build a maintenance event takes off
-    dims: [link]
+    dims: [scenario, link]
   Link_maintenance_events:
     description: how many maintenance events the horizon holds
-    dims: [link]
+    dims: [scenario, link]
     dtype: int
   Link_maintenance_duration:
     description: >-
@@ -317,122 +326,123 @@ parameters:
       maintainable. No row reads it: data prep turns it into
       `Link_maintenance_cover` and `Link_maintenance_start_blocked`, and the
       assumptions hold it to the horizon
-    dims: [link]
+    dims: [scenario, link]
   Link_maintenance_start_blocked:
     description: >-
       true where no maintenance event may start, because the snapshots it
       would cover run past the end of the horizon or into one the link does
       not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
       and the generator weightings, data prep
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
     dtype: bool
   Process_p_nom:
     description: nominal internal power
-    dims: [process]
+    dims: [scenario, process]
   Process_p_nom_extendable:
     description: whether the nominal internal power is a decision
     dims: [process]
     dtype: bool
   Process_p_min_pu:
     description: least internal power, per unit of nominal power — negative for a process that runs both ways
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
   Process_p_max_pu:
     description: most internal power, per unit of nominal power
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
   Process_rate:
     description: >-
       the energy a port draws or delivers per unit of internal power, PyPSA's
       `rate0`, `rate1`, … read long — negative where the port withdraws,
       positive where it injects; a link is a process whose `bus0` rate is minus
       one and whose output rates are its efficiencies
-    dims: [process_output]
+    dims: [scenario, process_output]
   Process_output_delay:
     description: >-
       snapshots a port's transfer lags its process's internal power — PyPSA's
       `delay0`, `delay1`, … read long, in `snapshot_weightings.generators`
       units, which the file states as whole snapshots; zero for a port that
-      transfers at once
+      transfers at once. One for every scenario, as a link's
     dims: [process_output]
     dtype: int
   Process_output_cyclic_delay:
     description: >-
       whether a delayed port's transfer wraps from the end of its investment
       period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not,
-      the energy still in transit at each period's first snapshots is lost
+      the energy still in transit at each period's first snapshots is lost.
+      One for every scenario, as the delay
     dims: [process_output]
     dtype: bool
   Process_marginal_cost:
     description: cost of one unit of internal power
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
   Process_marginal_cost_quadratic:
     description: cost of the square of one unit of internal power
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
   Process_ramp_limit_up:
     description: most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit
-    dims: [process]
+    dims: [scenario, process]
   Process_ramp_limit_down:
     description: most a process may lower its internal power between snapshots, per unit of nominal power; no value means no limit
-    dims: [process]
+    dims: [scenario, process]
   Process_p_set:
     description: a given internal power schedule; a process without one has no row here
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
   Process_p_nom_min:
     description: least nominal power an extendable process may be built at
-    dims: [process]
+    dims: [scenario, process]
   Process_p_nom_max:
     description: most nominal power an extendable process may be built at
-    dims: [process]
+    dims: [scenario, process]
   Process_capital_cost:
     description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [process]
+    dims: [scenario, process]
   Process_p_nom_set:
     description: a given nominal power for an extendable process; one without a value has no row here
-    dims: [process]
+    dims: [scenario, process]
   Process_committable:
     description: whether internal power is gated by an on/off status decision
     dims: [process]
     dtype: bool
   Process_ramp_limit_start_up:
     description: most internal power in the snapshot a process starts, per unit of nominal power
-    dims: [process]
+    dims: [scenario, process]
   Process_ramp_limit_shut_down:
     description: most internal power in the snapshot before a process stops, per unit of nominal power
-    dims: [process]
+    dims: [scenario, process]
   Process_min_up_time:
     description: least snapshots a process stays on once started
-    dims: [process]
+    dims: [scenario, process]
     dtype: int
   Process_min_down_time:
     description: least snapshots a process stays off once stopped
-    dims: [process]
+    dims: [scenario, process]
     dtype: int
   Process_status_initial:
     description: one where the process was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
-    dims: [process]
+    dims: [scenario, process]
     dtype: int
   Process_must_stay_up:
     description: >-
       true while the up time a process brought into the horizon still binds —
       data prep, since `position()` compares against a literal rather than a
       parameter
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
     dtype: bool
   Process_must_stay_down:
     description: >-
       true while the down time a process brought into the horizon still binds —
       PyPSA's `min_down_time - down_time_before` snapshots, where
       `down_time_before > 0`, data prep for the same reason
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
     dtype: bool
   Process_start_up_cost:
     description: cost of one start
-    dims: [process]
+    dims: [scenario, process]
   Process_shut_down_cost:
     description: cost of one stop
-    dims: [process]
+    dims: [scenario, process]
   Process_stand_by_cost:
     description: cost of one snapshot spent on
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
   Process_p_nom_mod:
     description: the module size a build comes in whole numbers of; no value means the build is continuous
     dims: [process]
@@ -442,26 +452,28 @@ parameters:
       / Process_p_nom_mod` where a fixed build is modular, one where it is
       not, data prep. PyPSA refuses a fixed modular build whose nominal power
       is not a whole number of modules
-    dims: [process]
+    dims: [scenario, process]
   Process_big_m:
     description: a bound safely above any feasible internal power — the build cap at full availability, data prep
-    dims: [process]
+    dims: [scenario, process]
   Process_p_min_pu_nonneg:
     description: >-
       true where none of the process's own minimums-per-unit is negative —
-      PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
+      PyPSA's per-unit `(p_min_pu >= 0).all()` over every snapshot and scenario, data prep
     dims: [process]
     dtype: bool
   Process_maintainable:
-    description: whether a process must be taken off for maintenance within the horizon
+    description: >-
+      whether a process must be taken off for maintenance within the horizon — in
+      any scenario, as PyPSA takes the union over them (`components.py:1016-1019`)
     dims: [process]
     dtype: bool
   Process_maintenance_pu:
     description: the share of the build a maintenance event takes off
-    dims: [process]
+    dims: [scenario, process]
   Process_maintenance_events:
     description: how many maintenance events the horizon holds
-    dims: [process]
+    dims: [scenario, process]
     dtype: int
   Process_maintenance_duration:
     description: >-
@@ -470,14 +482,14 @@ parameters:
       maintainable. No row reads it: data prep turns it into
       `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the
       assumptions hold it to the horizon
-    dims: [process]
+    dims: [scenario, process]
   Process_maintenance_start_blocked:
     description: >-
       true where no maintenance event may start, because the snapshots it
       would cover run past the end of the horizon or into one the process does
       not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
       and the generator weightings, data prep
-    dims: [snapshot, process]
+    dims: [scenario, snapshot, process]
     dtype: bool
   Load_p_set:
     description: demand
@@ -568,17 +580,22 @@ parameters:
     description: one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
     dims: [period, process]
   Carrier_max_growth:
-    description: most capacity of a carrier that may be added in a period; no value means no limit
+    description: >-
+      most capacity of a carrier that may be added in a period; no value means
+      no limit. The least over the scenarios, as PyPSA takes it
+      (`global_constraints.py:226-230`), data prep
     dims: [carrier]
   Carrier_max_relative_growth:
-    description: share of the previous period's additions that may be added on top
+    description: >-
+      share of the previous period's additions that may be added on top — the
+      least over the scenarios, as PyPSA takes it, data prep
     dims: [carrier]
   Generator_p_set:
     description: a given output schedule; a generator without one has no row here
-    dims: [snapshot, generator]
+    dims: [scenario, snapshot, generator]
   Link_p_set:
     description: a given flow schedule; a link without one has no row here
-    dims: [snapshot, link]
+    dims: [scenario, snapshot, link]
   snapshot_weightings_stores:
     description: PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance
     dims: [snapshot]
@@ -587,92 +604,92 @@ parameters:
     dims: [snapshot]
   Generator_p_nom_min:
     description: least nominal power an extendable generator may be built at
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_p_nom_max:
     description: most nominal power an extendable generator may be built at
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_capital_cost:
     description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_p_nom_set:
     description: a given nominal power for an extendable generator; one without a value has no row here
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_e_sum_min:
     description: least energy over the horizon; minus infinity where no floor is meant
-    dims: [generator]
+    dims: [scenario, generator]
   Generator_e_sum_max:
     description: most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant
-    dims: [generator]
+    dims: [scenario, generator]
   Link_p_nom_min:
     description: least nominal power an extendable link may be built at
-    dims: [link]
+    dims: [scenario, link]
   Link_p_nom_max:
     description: most nominal power an extendable link may be built at
-    dims: [link]
+    dims: [scenario, link]
   Link_capital_cost:
     description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [link]
+    dims: [scenario, link]
   Link_p_nom_set:
     description: a given nominal power for an extendable link; one without a value has no row here
-    dims: [link]
+    dims: [scenario, link]
   StorageUnit_p_nom_min:
     description: least nominal power an extendable storage unit may be built at
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_p_nom_max:
     description: most nominal power an extendable storage unit may be built at
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_capital_cost:
     description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_p_nom_set:
     description: a given nominal power for an extendable storage unit; one without a value has no row here
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   Store_e_nom_min:
     description: least nominal capacity an extendable store may be built at
-    dims: [store]
+    dims: [scenario, store]
   Store_e_nom_max:
     description: most nominal capacity an extendable store may be built at
-    dims: [store]
+    dims: [scenario, store]
   Store_capital_cost:
     description: cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [store]
+    dims: [scenario, store]
   Store_e_nom_set:
     description: a given nominal capacity for an extendable store; one without a value has no row here
-    dims: [store]
+    dims: [scenario, store]
   StorageUnit_p_nom:
     description: nominal power
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_p_nom_extendable:
     description: whether the nominal power is a decision
     dims: [storage_unit]
     dtype: bool
   StorageUnit_p_min_pu:
     description: most storing, per unit of nominal power and negated
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_p_max_pu:
     description: most dispatch, per unit of nominal power
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_max_hours:
     description: energy capacity, as hours of dispatch at nominal power
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_efficiency_store:
     description: share of the power drawn from the bus that becomes charge
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_efficiency_dispatch:
     description: share of the charge drawn down that reaches the bus
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_retention:
     description: share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_inflow:
     description: energy arriving per hour, a river into a reservoir
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_state_of_charge_initial:
     description: charge held before the first snapshot
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
   StorageUnit_cyclic_state_of_charge:
     description: whether the horizon closes on itself instead of opening on the initial charge
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
     dtype: bool
   StorageUnit_cyclic_state_of_charge_per_period:
     description: >-
@@ -680,14 +697,14 @@ parameters:
       charge on to the next; it overrides `cyclic_state_of_charge` and
       `state_of_charge_initial_per_period`. PyPSA reads it only under
       `multi_investment_periods`, so data prep feeds false otherwise
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
     dtype: bool
   StorageUnit_state_of_charge_initial_per_period:
     description: >-
       whether each investment period opens on the initial charge instead of
       carrying the previous period's; PyPSA reads it only under
       `multi_investment_periods`, so data prep feeds false otherwise
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
     dtype: bool
   StorageUnit_opens_late:
     description: >-
@@ -705,50 +722,50 @@ parameters:
     dtype: int
   StorageUnit_marginal_cost:
     description: cost of one unit of dispatch
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_marginal_cost_quadratic:
     description: cost of the square of one unit of dispatch; storing is not charged
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_marginal_cost_storage:
     description: cost of one unit of charge held over one snapshot
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_spill_cost:
     description: cost of one unit of inflow passed on unused
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_p_set:
     description: a given net dispatch schedule; a unit without one has no row here
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_p_dispatch_set:
     description: a given dispatch schedule; a unit without one has no row here
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_p_store_set:
     description: a given charging schedule; a unit without one has no row here
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_state_of_charge_set:
     description: a given charge schedule; a unit without one has no row here
-    dims: [snapshot, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   Store_e_nom:
     description: nominal energy capacity
-    dims: [store]
+    dims: [scenario, store]
   Store_e_nom_extendable:
     description: whether the nominal energy capacity is a decision
     dims: [store]
     dtype: bool
   Store_e_min_pu:
     description: least energy held, per unit of nominal capacity — negative for a store that may go short
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_e_max_pu:
     description: most energy held, per unit of nominal capacity
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_retention:
     description: share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_e_initial:
     description: energy held before the first snapshot
-    dims: [store]
+    dims: [scenario, store]
   Store_e_cyclic:
     description: whether the horizon closes on itself instead of opening on the initial energy
-    dims: [store]
+    dims: [scenario, store]
     dtype: bool
   Store_e_cyclic_per_period:
     description: >-
@@ -756,14 +773,14 @@ parameters:
       energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`.
       PyPSA reads it only under `multi_investment_periods`, so data prep feeds
       false otherwise
-    dims: [store]
+    dims: [scenario, store]
     dtype: bool
   Store_e_initial_per_period:
     description: >-
       whether each investment period opens on the initial energy instead of
       carrying the previous period's; PyPSA reads it only under
       `multi_investment_periods`, so data prep feeds false otherwise
-    dims: [store]
+    dims: [scenario, store]
     dtype: bool
   Store_opens_late:
     description: >-
@@ -781,48 +798,49 @@ parameters:
     dtype: int
   Store_marginal_cost:
     description: cost of one unit of power delivered
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_marginal_cost_quadratic:
     description: cost of the square of the net power delivered, so charging costs as much as delivering
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_marginal_cost_storage:
     description: cost of one unit of energy held over one snapshot
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_e_set:
     description: a given energy schedule; a store without one has no row here
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Store_p_set:
     description: a given schedule of power delivered; a store without one has no row here
-    dims: [snapshot, store]
+    dims: [scenario, snapshot, store]
   Line_s_nom:
     description: nominal apparent power
-    dims: [line]
+    dims: [scenario, line]
   Line_s_nom_extendable:
     description: whether the nominal apparent power is a decision
     dims: [line]
     dtype: bool
   Line_s_max_pu:
     description: most flow either way, per unit of nominal apparent power
-    dims: [snapshot, line]
+    dims: [scenario, snapshot, line]
   Line_s_nom_min:
     description: least nominal apparent power an extendable line may be built at
-    dims: [line]
+    dims: [scenario, line]
   Line_s_nom_max:
     description: most nominal apparent power an extendable line may be built at
-    dims: [line]
+    dims: [scenario, line]
   Line_capital_cost:
     description: cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [line]
+    dims: [scenario, line]
   Line_s_nom_set:
     description: a given nominal apparent power for an extendable line; one without a value has no row here
-    dims: [line]
+    dims: [scenario, line]
   Line_s_set:
     description: a given flow schedule; a line without one has no row here
-    dims: [snapshot, line]
+    dims: [scenario, snapshot, line]
   Line_cycle_weight:
     description: >-
       the line's series impedance, signed by its orientation in the cycle —
-      the cycle basis, data prep; a line in no cycle has no row
+      the cycle basis, data prep; a line in no cycle has no row. PyPSA builds
+      the cycle basis from the first scenario only (`networks.py:1354-1361`)
     dims: [line, cycle]
   Line_BODF:
     description: >-
@@ -841,48 +859,49 @@ parameters:
     dtype: bool
   Line_loss_max:
     description: the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep
-    dims: [snapshot, line]
+    dims: [scenario, snapshot, line]
   Line_loss_slope:
     description: >-
       the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k`
       at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between
       consecutive breakpoints, data prep
-    dims: [snapshot, line, segment]
+    dims: [scenario, snapshot, line, segment]
   Line_loss_offset:
     description: >-
       where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`,
       a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep
-    dims: [snapshot, line, segment]
+    dims: [scenario, snapshot, line, segment]
   Transformer_s_nom:
     description: nominal apparent power
-    dims: [transformer]
+    dims: [scenario, transformer]
   Transformer_s_nom_extendable:
     description: whether the nominal apparent power is a decision
     dims: [transformer]
     dtype: bool
   Transformer_s_max_pu:
     description: most flow either way, per unit of nominal apparent power
-    dims: [snapshot, transformer]
+    dims: [scenario, snapshot, transformer]
   Transformer_s_nom_min:
     description: least nominal apparent power an extendable transformer may be built at
-    dims: [transformer]
+    dims: [scenario, transformer]
   Transformer_s_nom_max:
     description: most nominal apparent power an extendable transformer may be built at
-    dims: [transformer]
+    dims: [scenario, transformer]
   Transformer_capital_cost:
     description: cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep
-    dims: [transformer]
+    dims: [scenario, transformer]
   Transformer_s_nom_set:
     description: a given nominal apparent power for an extendable transformer; one without a value has no row here
-    dims: [transformer]
+    dims: [scenario, transformer]
   Transformer_s_set:
     description: a given flow schedule; a transformer without one has no row here
-    dims: [snapshot, transformer]
+    dims: [scenario, snapshot, transformer]
   Transformer_cycle_weight:
     description: >-
       the transformer's effective series reactance, `x` times its tap ratio,
       signed by its orientation in the cycle — PyPSA's `x_pu_eff`, the cycle
-      basis, data prep; a transformer in no cycle has no row
+      basis, data prep; a transformer in no cycle has no row. From the first
+      scenario only, as a line's
     dims: [transformer, cycle]
   Transformer_BODF:
     description: >-
@@ -902,7 +921,9 @@ parameters:
     description: >-
       whether a transformer's phase shift is a decision — PyPSA's
       `phase_shift_min < phase_shift_max`, read as a flag in data prep; false is a
-      fixed shift carried by `phase_shift`
+      fixed shift carried by `phase_shift`. The shift parameters carry no
+      scenario: only a cycle row reads them, and PyPSA fails on a transformer in
+      a cycle on a network with scenarios (`constraints.py:1654`)
     dims: [transformer]
     dtype: bool
   Transformer_phase_shift_min:
@@ -927,18 +948,18 @@ parameters:
       the loss at a transformer's rating — PyPSA's `r_pu_eff * (s_max_pu *
       s_nom_max)**2`, its `r_pu_eff` the resistance over the given `s_nom` times
       the tap ratio, data prep
-    dims: [snapshot, transformer]
+    dims: [scenario, snapshot, transformer]
   Transformer_loss_slope:
     description: >-
       the slope of a cut to a transformer's loss curve — a tangent's
       `2 * r_pu_eff * p_k`, a secant's `r_pu_eff * (p_k + p_k+1)`, as a line's,
       over the transformer's own `r_pu_eff` and rating, data prep
-    dims: [snapshot, transformer, segment]
+    dims: [scenario, snapshot, transformer, segment]
   Transformer_loss_offset:
     description: >-
       where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`,
       a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep
-    dims: [snapshot, transformer, segment]
+    dims: [scenario, snapshot, transformer, segment]
   GlobalConstraint_type:
     description: >-
       which formula the row takes — `primary_energy`, `operational_limit`,
@@ -964,47 +985,51 @@ parameters:
     dims: [scenario, global_constraint]
   GlobalConstraint_counts_snapshot:
     description: >-
-      whether a row counts a snapshot — PyPSA's `investment_period`: every
+      whether a row counts a snapshot in a scenario — PyPSA's `investment_period`: every
       snapshot where the row names none, and only that period's where it
       names one, data prep. A row that names a period the run does not model
       has no label here, as PyPSA skips it (`global_constraints.py:377`);
       PyPSA reads the column only under `multi_investment_periods`, and fails
       on a row that names a period without it (`global_constraints.py:375`)
-    dims: [global_constraint, snapshot]
+    dims: [scenario, global_constraint, snapshot]
     dtype: bool
   Generator_primary_energy_weight:
     description: >-
       the constrained attribute per unit of energy at the bus — the carrier's
       `co2_emissions` over the generator's efficiency, data prep; a generator
       of an unweighted carrier has no row
-    dims: [global_constraint, generator]
+    dims: [scenario, global_constraint, generator]
   StorageUnit_primary_energy_weight:
     description: the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row
-    dims: [global_constraint, storage_unit]
+    dims: [scenario, global_constraint, storage_unit]
   Store_primary_energy_weight:
     description: the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row
-    dims: [global_constraint, store]
+    dims: [scenario, global_constraint, store]
   Generator_operational_limit_weight:
     description: one where the generator is in the row's set — data prep; one outside it has no row
-    dims: [global_constraint, generator]
+    dims: [scenario, global_constraint, generator]
   StorageUnit_operational_limit_weight:
     description: one where the storage unit is in the row's set — data prep; one outside it has no row
-    dims: [global_constraint, storage_unit]
+    dims: [scenario, global_constraint, storage_unit]
   Store_operational_limit_weight:
     description: one where the store is in the row's set — data prep; one outside it has no row
-    dims: [global_constraint, store]
+    dims: [scenario, global_constraint, store]
   Line_volume_weight:
     description: >-
-      the line's length where its carrier is in the row's set — data prep; a
+      the line's length where its carrier is in the row's set, the first
+      scenario's length as PyPSA reads it (`global_constraints.py:835-836`) —
+      data prep; a
       line outside it, or one that does not stand in the row's
       `investment_period`, has no row
-    dims: [global_constraint, line]
+    dims: [scenario, global_constraint, line]
   Link_volume_weight:
     description: >-
-      the link's length where its carrier is in the row's set — data prep; a
+      the link's length where its carrier is in the row's set, the first
+      scenario's length as PyPSA reads it (`global_constraints.py:835-836`) —
+      data prep; a
       link outside it, or one that does not stand in the row's
       `investment_period`, has no row
-    dims: [global_constraint, link]
+    dims: [scenario, global_constraint, link]
   Line_expansion_cost_weight:
     description: >-
       the line's capital cost where its carrier is in the row's set, times
@@ -1012,7 +1037,7 @@ parameters:
       no `investment_period` under `multi_investment_periods` — data prep; a
       line outside the set, or one that does not stand in the row's period,
       has no row
-    dims: [global_constraint, line]
+    dims: [scenario, global_constraint, line]
   Link_expansion_cost_weight:
     description: >-
       the link's capital cost where its carrier is in the row's set, times
@@ -1020,7 +1045,7 @@ parameters:
       no `investment_period` under `multi_investment_periods` — data prep; a
       link outside the set, or one that does not stand in the row's period,
       has no row
-    dims: [global_constraint, link]
+    dims: [scenario, global_constraint, link]
   Generator_tech_capacity_weight:
     description: >-
       one where the generator is in the row's carrier-and-bus set — data
@@ -1155,25 +1180,28 @@ relations:
     values: transformer
   Generator_maintenance_cover:
     description: >-
-      the snapshots a maintenance event covers, by the snapshot it starts in —
-      the start and the snapshots after it, until their generator weightings
-      reach `maintenance_duration`, data prep; no rows for a generator that is
+      the snapshots a maintenance event covers in a scenario, by the snapshot it
+      starts in — the start and the snapshots after it, until their generator
+      weightings reach that scenario's `maintenance_duration`, data prep; no
+      rows for a generator that is
       not maintainable
-    key: { generator: generator, start: snapshot, covered: snapshot }
+    key: { scenario: scenario, generator: generator, start: snapshot, covered: snapshot }
   Link_maintenance_cover:
     description: >-
-      the snapshots a maintenance event covers, by the snapshot it starts in —
-      the start and the snapshots after it, until their generator weightings
-      reach `maintenance_duration`, data prep; no rows for a link that is
+      the snapshots a maintenance event covers in a scenario, by the snapshot it
+      starts in — the start and the snapshots after it, until their generator
+      weightings reach that scenario's `maintenance_duration`, data prep; no
+      rows for a link that is
       not maintainable
-    key: { link: link, start: snapshot, covered: snapshot }
+    key: { scenario: scenario, link: link, start: snapshot, covered: snapshot }
   Process_maintenance_cover:
     description: >-
-      the snapshots a maintenance event covers, by the snapshot it starts in —
-      the start and the snapshots after it, until their generator weightings
-      reach `maintenance_duration`, data prep; no rows for a process that is
+      the snapshots a maintenance event covers in a scenario, by the snapshot it
+      starts in — the start and the snapshots after it, until their generator
+      weightings reach that scenario's `maintenance_duration`, data prep; no
+      rows for a process that is
       not maintainable
-    key: { process: process, start: snapshot, covered: snapshot }
+    key: { scenario: scenario, process: process, start: snapshot, covered: snapshot }
 
 variables:
   Generator_p:
@@ -1554,7 +1582,7 @@ expressions:
     otherwise: shift(Generator_p, along=snapshot, offset=1)
   Generator_p_nom_effective:
     description: the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise
-    dims: [generator]
+    dims: [scenario, generator]
     cases:
       extendable: { when: Generator_p_nom_extendable, expression: Generator_p_nom_ext }
     otherwise: Generator_p_nom
@@ -1562,7 +1590,7 @@ expressions:
     description: >-
       the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [generator]
+    dims: [scenario, generator]
     cases:
       given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
     otherwise: 1
@@ -1570,7 +1598,7 @@ expressions:
     description: >-
       the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [generator]
+    dims: [scenario, generator]
     cases:
       given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
     otherwise: 1
@@ -1578,7 +1606,7 @@ expressions:
     description: >-
       the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`,
       or the full build where it has none
-    dims: [generator]
+    dims: [scenario, generator]
     cases:
       given: { when: Generator_ramp_limit_start_up, expression: Generator_ramp_limit_start_up }
     otherwise: 1
@@ -1586,7 +1614,7 @@ expressions:
     description: >-
       the shut-down ramp a unit's down row reads — PyPSA's
       `ramp_limit_shut_down`, or the full build where it has none
-    dims: [generator]
+    dims: [scenario, generator]
     cases:
       given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
     otherwise: 1
@@ -1594,7 +1622,7 @@ expressions:
     description: >-
       the build a committed unit's ramp rows are taken against — one module
       where the build is extendable and modular, the given build otherwise
-    dims: [generator]
+    dims: [scenario, generator]
     cases:
       modular_build: { when: Generator_p_nom_extendable AND Generator_p_nom_mod > 0, expression: Generator_p_nom_mod }
     otherwise: Generator_p_nom
@@ -1628,7 +1656,7 @@ expressions:
     otherwise: Generator_ramp_down_rate * Generator_p_nom_effective
   Link_p_nom_effective:
     description: the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise
-    dims: [link]
+    dims: [scenario, link]
     cases:
       extendable: { when: Link_p_nom_extendable, expression: Link_p_nom_ext }
     otherwise: Link_p_nom
@@ -1653,7 +1681,7 @@ expressions:
     description: >-
       the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [link]
+    dims: [scenario, link]
     cases:
       given: { when: Link_ramp_limit_up, expression: Link_ramp_limit_up }
     otherwise: 1
@@ -1661,7 +1689,7 @@ expressions:
     description: >-
       the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [link]
+    dims: [scenario, link]
     cases:
       given: { when: Link_ramp_limit_down, expression: Link_ramp_limit_down }
     otherwise: 1
@@ -1669,7 +1697,7 @@ expressions:
     description: >-
       the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`,
       or the full build where it has none
-    dims: [link]
+    dims: [scenario, link]
     cases:
       given: { when: Link_ramp_limit_start_up, expression: Link_ramp_limit_start_up }
     otherwise: 1
@@ -1677,7 +1705,7 @@ expressions:
     description: >-
       the shut-down ramp a link's down row reads — PyPSA's
       `ramp_limit_shut_down`, or the full build where it has none
-    dims: [link]
+    dims: [scenario, link]
     cases:
       given: { when: Link_ramp_limit_shut_down, expression: Link_ramp_limit_shut_down }
     otherwise: 1
@@ -1685,7 +1713,7 @@ expressions:
     description: >-
       the build a committed link's ramp rows are taken against — one module
       where the build is extendable and modular, the given build otherwise
-    dims: [link]
+    dims: [scenario, link]
     cases:
       modular_build: { when: Link_p_nom_extendable AND Link_p_nom_mod > 0, expression: Link_p_nom_mod }
     otherwise: Link_p_nom
@@ -1719,7 +1747,7 @@ expressions:
     otherwise: Link_ramp_down_rate * Link_p_nom_effective
   Process_p_nom_effective:
     description: the build a process's limits are taken against — the chosen one where it is extendable, the given one otherwise
-    dims: [process]
+    dims: [scenario, process]
     cases:
       extendable: { when: Process_p_nom_extendable, expression: Process_p_nom_ext }
     otherwise: Process_p_nom
@@ -1744,7 +1772,7 @@ expressions:
     description: >-
       the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [process]
+    dims: [scenario, process]
     cases:
       given: { when: Process_ramp_limit_up, expression: Process_ramp_limit_up }
     otherwise: 1
@@ -1752,7 +1780,7 @@ expressions:
     description: >-
       the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [process]
+    dims: [scenario, process]
     cases:
       given: { when: Process_ramp_limit_down, expression: Process_ramp_limit_down }
     otherwise: 1
@@ -1760,7 +1788,7 @@ expressions:
     description: >-
       the start-up ramp a process's up row reads — PyPSA's `ramp_limit_start_up`,
       or the full build where it has none
-    dims: [process]
+    dims: [scenario, process]
     cases:
       given: { when: Process_ramp_limit_start_up, expression: Process_ramp_limit_start_up }
     otherwise: 1
@@ -1768,7 +1796,7 @@ expressions:
     description: >-
       the shut-down ramp a process's down row reads — PyPSA's
       `ramp_limit_shut_down`, or the full build where it has none
-    dims: [process]
+    dims: [scenario, process]
     cases:
       given: { when: Process_ramp_limit_shut_down, expression: Process_ramp_limit_shut_down }
     otherwise: 1
@@ -1776,7 +1804,7 @@ expressions:
     description: >-
       the build a committed process's ramp rows are taken against — one module
       where the build is extendable and modular, the given build otherwise
-    dims: [process]
+    dims: [scenario, process]
     cases:
       modular_build: { when: Process_p_nom_extendable AND Process_p_nom_mod > 0, expression: Process_p_nom_mod }
     otherwise: Process_p_nom
@@ -1907,7 +1935,7 @@ expressions:
       what one unit of power at a snapshot counts for in a row — the
       generator weighting times the years of the snapshot's period, where the
       row counts the snapshot, and nothing where it does not
-    dims: [global_constraint, snapshot]
+    dims: [scenario, global_constraint, snapshot]
     cases:
       counted:
         when: GlobalConstraint_counts_snapshot
@@ -1915,7 +1943,7 @@ expressions:
     otherwise: 0
   GlobalConstraint_snapshot_closes:
     description: one at the last snapshot a row counts, and zero elsewhere
-    dims: [global_constraint, snapshot]
+    dims: [scenario, global_constraint, snapshot]
     cases:
       last_counted:
         when: GlobalConstraint_counts_snapshot AND NOT shift(GlobalConstraint_counts_snapshot, along=snapshot, offset=-1)
@@ -1927,7 +1955,7 @@ expressions:
       closing level — the years of the period at the last snapshot of each
       counted period where the unit reopens per period, one at the last
       counted snapshot where it does not, and nothing elsewhere
-    dims: [global_constraint, snapshot, storage_unit]
+    dims: [scenario, global_constraint, snapshot, storage_unit]
     cases:
       per_period:
         when: StorageUnit_state_of_charge_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
@@ -1942,7 +1970,7 @@ expressions:
       closing level — the years of the period at the last snapshot of each
       counted period where the store reopens per period, one at the last
       counted snapshot where it does not, and nothing elsewhere
-    dims: [global_constraint, snapshot, store]
+    dims: [scenario, global_constraint, snapshot, store]
     cases:
       per_period:
         when: Store_e_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
@@ -2093,18 +2121,18 @@ constraints:
     where: Generator_p_nom_extendable AND not Generator_committable AND Generator_active
     expression: Generator_p <= Generator_p_max_pu * (Generator_p_nom_ext - Generator_maintenance_pu * Generator_maintenance_capacity)
   Generator_ext_p_nom_lower:
-    description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
-    dims: [generator]
+    description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, generator]
     where: Generator_p_nom_extendable
     expression: Generator_p_nom_ext >= Generator_p_nom_min
   Generator_ext_p_nom_upper:
-    description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [generator]
+    description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, generator]
     where: Generator_p_nom_extendable AND Generator_p_nom_max
     expression: Generator_p_nom_ext <= Generator_p_nom_max
   Generator_p_nom_set:
     description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [generator]
+    dims: [scenario, generator]
     where: Generator_p_nom_extendable AND Generator_p_nom_set
     expression: Generator_p_nom_ext == Generator_p_nom_set
   Generator_e_sum_min:
@@ -2128,18 +2156,18 @@ constraints:
     where: Link_p_nom_extendable AND not Link_committable AND Link_active
     expression: Link_p <= Link_p_max_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
   Link_ext_p_nom_lower:
-    description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
-    dims: [link]
+    description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, link]
     where: Link_p_nom_extendable
     expression: Link_p_nom_ext >= Link_p_nom_min
   Link_ext_p_nom_upper:
-    description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [link]
+    description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, link]
     where: Link_p_nom_extendable AND Link_p_nom_max
     expression: Link_p_nom_ext <= Link_p_nom_max
   Link_p_nom_set:
     description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [link]
+    dims: [scenario, link]
     where: Link_p_nom_extendable AND Link_p_nom_set
     expression: Link_p_nom_ext == Link_p_nom_set
   Process_fix_p_lower:
@@ -2163,18 +2191,18 @@ constraints:
     where: Process_p_nom_extendable AND not Process_committable AND Process_active
     expression: Process_p <= Process_p_max_pu * (Process_p_nom_ext - Process_maintenance_pu * Process_maintenance_capacity)
   Process_ext_p_nom_lower:
-    description: "`Process-ext-p_nom-lower` — the chosen build is at least its floor"
-    dims: [process]
+    description: "`Process-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, process]
     where: Process_p_nom_extendable
     expression: Process_p_nom_ext >= Process_p_nom_min
   Process_ext_p_nom_upper:
-    description: "`Process-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [process]
+    description: "`Process-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, process]
     where: Process_p_nom_extendable AND Process_p_nom_max
     expression: Process_p_nom_ext <= Process_p_nom_max
   Process_p_nom_set:
     description: "`Process-p_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [process]
+    dims: [scenario, process]
     where: Process_p_nom_extendable AND Process_p_nom_set
     expression: Process_p_nom_ext == Process_p_nom_set
   StorageUnit_fix_p_dispatch_lower:
@@ -3040,18 +3068,18 @@ constraints:
     where: Line_s_nom_extendable AND Line_active
     expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom_ext
   Line_ext_s_nom_lower:
-    description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
-    dims: [line]
+    description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, line]
     where: Line_s_nom_extendable
     expression: Line_s_nom_ext >= Line_s_nom_min
   Line_ext_s_nom_upper:
-    description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [line]
+    description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, line]
     where: Line_s_nom_extendable AND Line_s_nom_max
     expression: Line_s_nom_ext <= Line_s_nom_max
   Line_s_nom_set:
     description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [line]
+    dims: [scenario, line]
     where: Line_s_nom_extendable AND Line_s_nom_set
     expression: Line_s_nom_ext == Line_s_nom_set
   Line_s_set:
@@ -3101,18 +3129,18 @@ constraints:
     where: Transformer_s_nom_extendable AND Transformer_active
     expression: Transformer_s + Transformer_loss <= Transformer_s_max_pu * Transformer_s_nom_ext
   Transformer_ext_s_nom_lower:
-    description: "`Transformer-ext-s_nom-lower` — the chosen build is at least its floor"
-    dims: [transformer]
+    description: "`Transformer-ext-s_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, transformer]
     where: Transformer_s_nom_extendable
     expression: Transformer_s_nom_ext >= Transformer_s_nom_min
   Transformer_ext_s_nom_upper:
-    description: "`Transformer-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [transformer]
+    description: "`Transformer-ext-s_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, transformer]
     where: Transformer_s_nom_extendable AND Transformer_s_nom_max
     expression: Transformer_s_nom_ext <= Transformer_s_nom_max
   Transformer_s_nom_set:
     description: "`Transformer-s_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [transformer]
+    dims: [scenario, transformer]
     where: Transformer_s_nom_extendable AND Transformer_s_nom_set
     expression: Transformer_s_nom_ext == Transformer_s_nom_set
   Transformer_s_set:
@@ -3357,18 +3385,18 @@ constraints:
     where: StorageUnit_p_nom_extendable AND StorageUnit_active
     expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
   StorageUnit_ext_p_nom_lower:
-    description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
-    dims: [storage_unit]
+    description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, storage_unit]
     where: StorageUnit_p_nom_extendable
     expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
   StorageUnit_ext_p_nom_upper:
-    description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [storage_unit]
+    description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, storage_unit]
     where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
     expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
   StorageUnit_p_nom_set:
     description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [storage_unit]
+    dims: [scenario, storage_unit]
     where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
     expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
   StorageUnit_energy_balance:
@@ -3405,18 +3433,18 @@ constraints:
     where: Store_e_nom_extendable AND Store_active
     expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
   Store_ext_e_nom_lower:
-    description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
-    dims: [store]
+    description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor in every scenario"
+    dims: [scenario, store]
     where: Store_e_nom_extendable
     expression: Store_e_nom_ext >= Store_e_nom_min
   Store_ext_e_nom_upper:
-    description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-    dims: [store]
+    description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap in every scenario; a cap of infinity is no row"
+    dims: [scenario, store]
     where: Store_e_nom_extendable AND Store_e_nom_max
     expression: Store_e_nom_ext <= Store_e_nom_max
   Store_e_nom_set:
     description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
-    dims: [store]
+    dims: [scenario, store]
     where: Store_e_nom_extendable AND Store_e_nom_set
     expression: Store_e_nom_ext == Store_e_nom_set
   Store_energy_balance:
@@ -3856,14 +3884,16 @@ assumptions:
 
 objective:
   sense: minimize
-  description: capacity once per active period, operation in expectation over the scenarios, and a share of it at the tail
+  description: >-
+    capacity once per active period at its expected cost over the scenarios, operation in
+    expectation over the scenarios, and a share of it at the tail
   expression: >-
-    sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
-    + sum(Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
-    + sum(Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
-    + sum(Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
-    + sum(Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
-    + sum(Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
+    sum(scenario_weight * Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
+    + sum(scenario_weight * Link_p_nom_ext * Link_capital_cost * Link_capital_weight)
+    + sum(scenario_weight * StorageUnit_p_nom_ext * StorageUnit_capital_cost * StorageUnit_capital_weight)
+    + sum(scenario_weight * Store_e_nom_ext * Store_capital_cost * Store_capital_weight)
+    + sum(scenario_weight * Line_s_nom_ext * Line_capital_cost * Line_capital_weight)
+    + sum(scenario_weight * Process_p_nom_ext * Process_capital_cost * Process_capital_weight)
+    + sum(scenario_weight * Transformer_s_nom_ext * Transformer_capital_cost * Transformer_capital_weight)
     + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
     + CVaR_omega * CVaR
