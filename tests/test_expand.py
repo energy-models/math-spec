@@ -92,18 +92,22 @@ def test_each_set_of_kinds_is_expanded_once():
     assert schema.expand() is not schema.expand('piecewise'), 'a set left standing is a different model'
 
 
-def test_writing_everything_out_reuses_the_curves_the_load_wrote_out(monkeypatch):
-    """`expand()` called the curve expander directly, so the model the load had already
-    written out and cached was built again, and validated again, on every full ask."""
+def test_the_curves_are_written_out_once_however_they_are_asked_for(monkeypatch):
+    """`expand()` called the curve expander directly, so the model `expand('piecewise')` had
+    already written out and cached was built again, and validated again, on every full ask.
+
+    Loading writes nothing out: the expander runs on the first ask and never
+    again, whichever of the two asks comes first.
+    """
     schema = schema_of(CURVE)
     asked: list[Spec] = []
     written_out = piecewise.expand_piecewise
     monkeypatch.setattr(piecewise, 'expand_piecewise', lambda spec: asked.append(spec) or written_out(spec))
 
+    assert asked == [], 'loading a model writes no curve out'
     assert not schema.expand().piecewise
-    assert [spec for spec in asked if spec.piecewise] == [], (
-        'the curves were written out at load, and that is the model the sets are written out of'
-    )
+    assert not schema.expand('piecewise').piecewise
+    assert asked == [schema], 'the curves were written out once, and that model is the one the sets are written out of'
 
 
 def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
