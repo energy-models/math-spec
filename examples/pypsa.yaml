@@ -163,6 +163,25 @@ parameters:
       PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
     dims: [generator]
     dtype: bool
+  Generator_maintainable:
+    description: whether a generator must be taken off for maintenance within the horizon
+    dims: [generator]
+    dtype: bool
+  Generator_maintenance_pu:
+    description: the share of the build a maintenance event takes off
+    dims: [generator]
+  Generator_maintenance_events:
+    description: how many maintenance events the horizon holds
+    dims: [generator]
+    dtype: int
+  Generator_maintenance_start_blocked:
+    description: >-
+      true where no maintenance event may start, because the snapshots it
+      would cover run past the end of the horizon or into one the generator does
+      not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
+      and the generator weightings, data prep
+    dims: [snapshot, generator]
+    dtype: bool
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
     dims: [link]
@@ -271,6 +290,25 @@ parameters:
       true where none of the link's own minimums-per-unit is negative —
       PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
     dims: [link]
+    dtype: bool
+  Link_maintainable:
+    description: whether a link must be taken off for maintenance within the horizon
+    dims: [link]
+    dtype: bool
+  Link_maintenance_pu:
+    description: the share of the build a maintenance event takes off
+    dims: [link]
+  Link_maintenance_events:
+    description: how many maintenance events the horizon holds
+    dims: [link]
+    dtype: int
+  Link_maintenance_start_blocked:
+    description: >-
+      true where no maintenance event may start, because the snapshots it
+      would cover run past the end of the horizon or into one the link does
+      not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
+      and the generator weightings, data prep
+    dims: [snapshot, link]
     dtype: bool
   Process_p_nom:
     description: nominal internal power
@@ -394,6 +432,25 @@ parameters:
       true where none of the process's own minimums-per-unit is negative —
       PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
     dims: [process]
+    dtype: bool
+  Process_maintainable:
+    description: whether a process must be taken off for maintenance within the horizon
+    dims: [process]
+    dtype: bool
+  Process_maintenance_pu:
+    description: the share of the build a maintenance event takes off
+    dims: [process]
+  Process_maintenance_events:
+    description: how many maintenance events the horizon holds
+    dims: [process]
+    dtype: int
+  Process_maintenance_start_blocked:
+    description: >-
+      true where no maintenance event may start, because the snapshots it
+      would cover run past the end of the horizon or into one the process does
+      not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
+      and the generator weightings, data prep
+    dims: [snapshot, process]
     dtype: bool
   Load_p_set:
     description: demand
@@ -1012,6 +1069,27 @@ relations:
     description: the transformer an outage takes out; an outage of a line has no row
     key: outage
     values: transformer
+  Generator_maintenance_cover:
+    description: >-
+      the snapshots a maintenance event covers, by the snapshot it starts in —
+      the start and the snapshots after it, until their generator weightings
+      reach `maintenance_duration`, data prep; no rows for a generator that is
+      not maintainable
+    key: { generator: generator, start: snapshot, covered: snapshot }
+  Link_maintenance_cover:
+    description: >-
+      the snapshots a maintenance event covers, by the snapshot it starts in —
+      the start and the snapshots after it, until their generator weightings
+      reach `maintenance_duration`, data prep; no rows for a link that is
+      not maintainable
+    key: { link: link, start: snapshot, covered: snapshot }
+  Process_maintenance_cover:
+    description: >-
+      the snapshots a maintenance event covers, by the snapshot it starts in —
+      the start and the snapshots after it, until their generator weightings
+      reach `maintenance_duration`, data prep; no rows for a process that is
+      not maintainable
+    key: { process: process, start: snapshot, covered: snapshot }
 
 variables:
   Generator_p:
@@ -1094,6 +1172,45 @@ variables:
     domain: integer
     bounds:
       lower: 0
+  Generator_maintenance:
+    description: >-
+      `Generator-maintenance` — whether a maintainable generator is in maintenance:
+      continuous, and one exactly where an event covers the snapshot
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_active
+    absence: zero
+    bounds:
+      lower: 0
+      upper: 1
+  Generator_maintenance_start:
+    description: "`Generator-maintenance_start` — whether a maintenance event starts in this snapshot"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_active
+    absence: zero
+    domain: binary
+  Generator_maintenance_capacity:
+    description: >-
+      `Generator-maintenance_capacity` — the chosen build while in maintenance, zero
+      otherwise: the product the `maintcap` rows linearize
+    dims: [scenario, snapshot, generator]
+    where: >-
+      Generator_maintainable AND Generator_p_nom_extendable
+      AND NOT (Generator_committable AND Generator_p_nom_mod > 0) AND Generator_active
+    absence: zero
+    bounds:
+      lower: 0
+  Generator_maintenance_status:
+    description: >-
+      `Generator-maintenance_status` — the status while in maintenance, zero
+      otherwise: the product the `maint-status` rows linearize, so a unit in
+      maintenance may also be off
+    dims: [scenario, snapshot, generator]
+    where: >-
+      Generator_maintainable AND Generator_committable
+      AND NOT (Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)) AND Generator_active
+    absence: zero
+    bounds:
+      lower: 0
   Link_n_mod:
     description: "`Link-n_mod` — how many modules of an extendable modular build"
     dims: [link]
@@ -1125,6 +1242,45 @@ variables:
     domain: integer
     bounds:
       lower: 0
+  Link_maintenance:
+    description: >-
+      `Link-maintenance` — whether a maintainable link is in maintenance:
+      continuous, and one exactly where an event covers the snapshot
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_active
+    absence: zero
+    bounds:
+      lower: 0
+      upper: 1
+  Link_maintenance_start:
+    description: "`Link-maintenance_start` — whether a maintenance event starts in this snapshot"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_active
+    absence: zero
+    domain: binary
+  Link_maintenance_capacity:
+    description: >-
+      `Link-maintenance_capacity` — the chosen build while in maintenance, zero
+      otherwise: the product the `maintcap` rows linearize
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_maintainable AND Link_p_nom_extendable
+      AND NOT (Link_committable AND Link_p_nom_mod > 0) AND Link_active
+    absence: zero
+    bounds:
+      lower: 0
+  Link_maintenance_status:
+    description: >-
+      `Link-maintenance_status` — the status while in maintenance, zero
+      otherwise: the product the `maint-status` rows linearize, so a unit in
+      maintenance may also be off
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_maintainable AND Link_committable
+      AND NOT (Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)) AND Link_active
+    absence: zero
+    bounds:
+      lower: 0
   Process_n_mod:
     description: "`Process-n_mod` — how many modules of an extendable modular build"
     dims: [process]
@@ -1154,6 +1310,45 @@ variables:
     dims: [scenario, snapshot, process]
     where: Process_committable AND Process_active
     domain: integer
+    bounds:
+      lower: 0
+  Process_maintenance:
+    description: >-
+      `Process-maintenance` — whether a maintainable process is in maintenance:
+      continuous, and one exactly where an event covers the snapshot
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active
+    absence: zero
+    bounds:
+      lower: 0
+      upper: 1
+  Process_maintenance_start:
+    description: "`Process-maintenance_start` — whether a maintenance event starts in this snapshot"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active
+    absence: zero
+    domain: binary
+  Process_maintenance_capacity:
+    description: >-
+      `Process-maintenance_capacity` — the chosen build while in maintenance, zero
+      otherwise: the product the `maintcap` rows linearize
+    dims: [scenario, snapshot, process]
+    where: >-
+      Process_maintainable AND Process_p_nom_extendable
+      AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    absence: zero
+    bounds:
+      lower: 0
+  Process_maintenance_status:
+    description: >-
+      `Process-maintenance_status` — the status while in maintenance, zero
+      otherwise: the product the `maint-status` rows linearize, so a unit in
+      maintenance may also be off
+    dims: [scenario, snapshot, process]
+    where: >-
+      Process_maintainable AND Process_committable
+      AND NOT (Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)) AND Process_active
+    absence: zero
     bounds:
       lower: 0
   Line_s:
@@ -1724,32 +1919,32 @@ constraints:
     description: "`Generator-fix-p-lower` — a fixed generator outputs at least its minimum"
     dims: [scenario, snapshot, generator]
     where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_active
-    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * (1 - Generator_maintenance_pu * Generator_maintenance)
   Generator_fix_p_upper:
     description: "`Generator-fix-p-upper` — a fixed generator outputs at most what is available"
     dims: [scenario, snapshot, generator]
     where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_active
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * (1 - Generator_maintenance_pu * Generator_maintenance)
   Link_fix_p_lower:
     description: "`Link-fix-p-lower` — a fixed link carries at least its minimum, negative for the other way"
     dims: [scenario, snapshot, link]
     where: not Link_p_nom_extendable AND not Link_committable AND Link_active
-    expression: Link_p >= Link_p_min_pu * Link_p_nom
+    expression: Link_p >= Link_p_min_pu * Link_p_nom * (1 - Link_maintenance_pu * Link_maintenance)
   Link_fix_p_upper:
     description: "`Link-fix-p-upper` — a fixed link carries at most its nominal power"
     dims: [scenario, snapshot, link]
     where: not Link_p_nom_extendable AND not Link_committable AND Link_active
-    expression: Link_p <= Link_p_max_pu * Link_p_nom
+    expression: Link_p <= Link_p_max_pu * Link_p_nom * (1 - Link_maintenance_pu * Link_maintenance)
   Generator_ext_p_lower:
     description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
     dims: [scenario, snapshot, generator]
     where: Generator_p_nom_extendable AND not Generator_committable AND Generator_active
-    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+    expression: Generator_p >= Generator_p_min_pu * (Generator_p_nom_ext - Generator_maintenance_pu * Generator_maintenance_capacity)
   Generator_ext_p_upper:
     description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
     dims: [scenario, snapshot, generator]
     where: Generator_p_nom_extendable AND not Generator_committable AND Generator_active
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+    expression: Generator_p <= Generator_p_max_pu * (Generator_p_nom_ext - Generator_maintenance_pu * Generator_maintenance_capacity)
   Generator_ext_p_nom_lower:
     description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
     dims: [generator]
@@ -1779,12 +1974,12 @@ constraints:
     description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
     dims: [scenario, snapshot, link]
     where: Link_p_nom_extendable AND not Link_committable AND Link_active
-    expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
+    expression: Link_p >= Link_p_min_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
   Link_ext_p_upper:
     description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
     dims: [scenario, snapshot, link]
     where: Link_p_nom_extendable AND not Link_committable AND Link_active
-    expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+    expression: Link_p <= Link_p_max_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
   Link_ext_p_nom_lower:
     description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
     dims: [link]
@@ -1804,22 +1999,22 @@ constraints:
     description: "`Process-fix-p-lower` — a fixed process runs at least its minimum, negative for the other way"
     dims: [scenario, snapshot, process]
     where: not Process_p_nom_extendable AND not Process_committable AND Process_active
-    expression: Process_p >= Process_p_min_pu * Process_p_nom
+    expression: Process_p >= Process_p_min_pu * Process_p_nom * (1 - Process_maintenance_pu * Process_maintenance)
   Process_fix_p_upper:
     description: "`Process-fix-p-upper` — a fixed process runs at most its nominal power"
     dims: [scenario, snapshot, process]
     where: not Process_p_nom_extendable AND not Process_committable AND Process_active
-    expression: Process_p <= Process_p_max_pu * Process_p_nom
+    expression: Process_p <= Process_p_max_pu * Process_p_nom * (1 - Process_maintenance_pu * Process_maintenance)
   Process_ext_p_lower:
     description: "`Process-ext-p-lower` — an extendable process runs at least its minimum of the chosen build, negative for the other way"
     dims: [scenario, snapshot, process]
     where: Process_p_nom_extendable AND not Process_committable AND Process_active
-    expression: Process_p >= Process_p_min_pu * Process_p_nom_ext
+    expression: Process_p >= Process_p_min_pu * (Process_p_nom_ext - Process_maintenance_pu * Process_maintenance_capacity)
   Process_ext_p_upper:
     description: "`Process-ext-p-upper` — an extendable process runs at most the chosen build"
     dims: [scenario, snapshot, process]
     where: Process_p_nom_extendable AND not Process_committable AND Process_active
-    expression: Process_p <= Process_p_max_pu * Process_p_nom_ext
+    expression: Process_p <= Process_p_max_pu * (Process_p_nom_ext - Process_maintenance_pu * Process_maintenance_capacity)
   Process_ext_p_nom_lower:
     description: "`Process-ext-p_nom-lower` — the chosen build is at least its floor"
     dims: [process]
@@ -1871,12 +2066,12 @@ constraints:
     description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND not Generator_p_nom_extendable AND Generator_active
-    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
   Generator_com_p_upper:
     description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND not Generator_p_nom_extendable AND Generator_active
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
   Generator_com_transition_start_up:
     description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
     dims: [scenario, snapshot, generator]
@@ -1986,7 +2181,7 @@ constraints:
       at most what is available of the chosen build, whatever its status
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0) AND Generator_active
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+    expression: Generator_p <= Generator_p_max_pu * (Generator_p_nom_ext - Generator_maintenance_pu * Generator_maintenance_capacity)
   Generator_com_ext_p_upper_big_m:
     description: "`Generator-com-ext-p-upper-bigM` — off, a unit outputs nothing; on, the big M is no bound"
     dims: [scenario, snapshot, generator]
@@ -2000,7 +2195,7 @@ constraints:
     where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0) AND Generator_active
     expression: >-
       Generator_p >=
-      Generator_p_min_pu * Generator_p_nom_ext
+      Generator_p_min_pu * (Generator_p_nom_ext - Generator_maintenance_pu * Generator_maintenance_capacity)
       + Generator_big_m * Generator_status - Generator_big_m
   Generator_com_ext_p_lower_nonneg:
     description: >-
@@ -2018,14 +2213,14 @@ constraints:
       its minimum of one module, whether the build is fixed or a decision
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
-    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
   Generator_com_mod_p_upper:
     description: >-
       `Generator-com-mod-p-upper` — a committed modular unit outputs at most
       one module's share, whether the build is fixed or a decision
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
   Generator_status_p_fixed_upper:
     description: >-
       `Generator-status-p-fixed-upper` — a status is at most the modules in
@@ -2065,16 +2260,88 @@ constraints:
     dims: [scenario, snapshot, generator]
     where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0 AND Generator_active
     expression: Generator_shut_down <= Generator_n_mod
+  Generator_maint_event_count:
+    description: "`Generator-maint-event-count` — a maintainable generator holds its number of maintenance events over the horizon"
+    dims: [scenario, generator]
+    where: Generator_maintainable
+    expression: sum(Generator_maintenance_start, over=snapshot) == Generator_maintenance_events
+  Generator_maint_window:
+    description: >-
+      `Generator-maint-window` — a generator is in maintenance exactly where an event it
+      started covers the snapshot; two events do not overlap, since the
+      maintenance status is at most one
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_active
+    expression: Generator_maintenance == sum(Generator_maintenance_start, by=Generator_maintenance_cover, over=start, into=covered)
+  Generator_maint_start_horizon:
+    description: "`Generator-maint-start-horizon` — no event starts where it could not run its whole duration"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_active AND Generator_maintenance_start_blocked
+    expression: Generator_maintenance_start == 0
+  Generator_maintcap_upper:
+    description: >-
+      `Generator-maintcap_upper` — the build taken off is at most the chosen build in
+      maintenance, and at most the build less its floor out of it
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_p_nom_extendable AND NOT (Generator_committable AND Generator_p_nom_mod > 0) AND Generator_active
+    expression: Generator_maintenance_capacity <= Generator_p_nom_ext - Generator_p_nom_min * (1 - Generator_maintenance)
+  Generator_maintcap_upper_nommax:
+    description: "`Generator-maintcap_upper_nommax` — out of maintenance, no build is taken off"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_p_nom_extendable AND NOT (Generator_committable AND Generator_p_nom_mod > 0) AND Generator_active
+    expression: Generator_maintenance_capacity <= Generator_p_nom_max * Generator_maintenance
+  Generator_maintcap_lower_nommax:
+    description: "`Generator-maintcap_lower_nommax` — in maintenance, the whole chosen build is taken off"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_p_nom_extendable AND NOT (Generator_committable AND Generator_p_nom_mod > 0) AND Generator_active
+    expression: Generator_maintenance_capacity >= Generator_p_nom_ext - Generator_p_nom_max * (1 - Generator_maintenance)
+  Generator_maintcap_lower_nommin:
+    description: "`Generator-maintcap_lower_nommin` — in maintenance, at least the floor of the build is taken off"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_p_nom_extendable AND NOT (Generator_committable AND Generator_p_nom_mod > 0) AND Generator_active AND Generator_p_nom_min > 0
+    expression: Generator_maintenance_capacity >= Generator_p_nom_min * Generator_maintenance
+  Generator_maint_status_le_status:
+    description: "`Generator-maint-status-le-status` — the status in maintenance is at most the status"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_committable AND NOT Generator_p_nom_extendable AND Generator_active
+    expression: Generator_maintenance_status <= Generator_status
+  Generator_maint_status_le_maint:
+    description: "`Generator-maint-status-le-maint` — out of maintenance, the status in maintenance is zero"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_committable AND NOT Generator_p_nom_extendable AND Generator_active
+    expression: Generator_maintenance_status <= Generator_maintenance
+  Generator_maint_status_lb:
+    description: "`Generator-maint-status-lb` — on and in maintenance, the status in maintenance is one"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_committable AND NOT Generator_p_nom_extendable AND Generator_active
+    expression: Generator_maintenance_status >= Generator_status + Generator_maintenance - 1
+  Generator_maint_modstatus_le_status:
+    description: "`Generator-maint-modstatus-le-status` — the modules on in maintenance are at most the modules on"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
+    expression: Generator_maintenance_status <= Generator_status
+  Generator_maint_modstatus_le_maint:
+    description: >-
+      `Generator-maint-modstatus-le-maint` — out of maintenance, no module is on in
+      maintenance; in it, at most the modules the build cap holds
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
+    expression: Generator_maintenance_status <= Generator_p_nom_max / Generator_p_nom_mod * Generator_maintenance
+  Generator_maint_modstatus_lb:
+    description: "`Generator-maint-modstatus-lb` — in maintenance, every module on is on in maintenance"
+    dims: [scenario, snapshot, generator]
+    where: Generator_maintainable AND Generator_committable AND Generator_p_nom_mod > 0 AND Generator_active
+    expression: Generator_maintenance_status >= Generator_status - Generator_p_nom_max / Generator_p_nom_mod * (1 - Generator_maintenance)
   Link_com_p_lower:
     description: "`Link-com-p-lower` — a committed link flows at least its minimum; off, at least nothing"
     dims: [scenario, snapshot, link]
     where: Link_committable AND not Link_p_nom_extendable AND Link_active
-    expression: Link_p >= Link_p_min_pu * Link_p_nom * Link_status
+    expression: Link_p >= Link_p_min_pu * Link_p_nom * (Link_status - Link_maintenance_pu * Link_maintenance_status)
   Link_com_p_upper:
     description: "`Link-com-p-upper` — a committed link flows at most what is available; off, at most nothing"
     dims: [scenario, snapshot, link]
     where: Link_committable AND not Link_p_nom_extendable AND Link_active
-    expression: Link_p <= Link_p_max_pu * Link_p_nom * Link_status
+    expression: Link_p <= Link_p_max_pu * Link_p_nom * (Link_status - Link_maintenance_pu * Link_maintenance_status)
   Link_com_transition_start_up:
     description: "`Link-com-transition-start-up` — turning on is a start, counted against the state the link carried into the snapshot"
     dims: [scenario, snapshot, link]
@@ -2184,7 +2451,7 @@ constraints:
       at most what is available of the chosen build, whatever its status
     dims: [scenario, snapshot, link]
     where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
-    expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+    expression: Link_p <= Link_p_max_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
   Link_com_ext_p_upper_big_m:
     description: "`Link-com-ext-p-upper-bigM` — off, a link flows nothing; on, the big M is no bound"
     dims: [scenario, snapshot, link]
@@ -2198,7 +2465,7 @@ constraints:
     where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
     expression: >-
       Link_p >=
-      Link_p_min_pu * Link_p_nom_ext
+      Link_p_min_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
       + Link_big_m * Link_status - Link_big_m
   Link_com_ext_p_lower_nonneg:
     description: >-
@@ -2216,14 +2483,14 @@ constraints:
       its minimum of one module, whether the build is fixed or a decision
     dims: [scenario, snapshot, link]
     where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
-    expression: Link_p >= Link_p_min_pu * Link_p_nom_mod * Link_status
+    expression: Link_p >= Link_p_min_pu * Link_p_nom_mod * (Link_status - Link_maintenance_pu * Link_maintenance_status)
   Link_com_mod_p_upper:
     description: >-
       `Link-com-mod-p-upper` — a committed modular link flows at most
       one module's share, whether the build is fixed or a decision
     dims: [scenario, snapshot, link]
     where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
-    expression: Link_p <= Link_p_max_pu * Link_p_nom_mod * Link_status
+    expression: Link_p <= Link_p_max_pu * Link_p_nom_mod * (Link_status - Link_maintenance_pu * Link_maintenance_status)
   Link_status_p_fixed_upper:
     description: >-
       `Link-status-p-fixed-upper` — a status is at most the modules in
@@ -2263,16 +2530,88 @@ constraints:
     dims: [scenario, snapshot, link]
     where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
     expression: Link_shut_down <= Link_n_mod
+  Link_maint_event_count:
+    description: "`Link-maint-event-count` — a maintainable link holds its number of maintenance events over the horizon"
+    dims: [scenario, link]
+    where: Link_maintainable
+    expression: sum(Link_maintenance_start, over=snapshot) == Link_maintenance_events
+  Link_maint_window:
+    description: >-
+      `Link-maint-window` — a link is in maintenance exactly where an event it
+      started covers the snapshot; two events do not overlap, since the
+      maintenance status is at most one
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_active
+    expression: Link_maintenance == sum(Link_maintenance_start, by=Link_maintenance_cover, over=start, into=covered)
+  Link_maint_start_horizon:
+    description: "`Link-maint-start-horizon` — no event starts where it could not run its whole duration"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_active AND Link_maintenance_start_blocked
+    expression: Link_maintenance_start == 0
+  Link_maintcap_upper:
+    description: >-
+      `Link-maintcap_upper` — the build taken off is at most the chosen build in
+      maintenance, and at most the build less its floor out of it
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_p_nom_extendable AND NOT (Link_committable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_maintenance_capacity <= Link_p_nom_ext - Link_p_nom_min * (1 - Link_maintenance)
+  Link_maintcap_upper_nommax:
+    description: "`Link-maintcap_upper_nommax` — out of maintenance, no build is taken off"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_p_nom_extendable AND NOT (Link_committable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_maintenance_capacity <= Link_p_nom_max * Link_maintenance
+  Link_maintcap_lower_nommax:
+    description: "`Link-maintcap_lower_nommax` — in maintenance, the whole chosen build is taken off"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_p_nom_extendable AND NOT (Link_committable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_maintenance_capacity >= Link_p_nom_ext - Link_p_nom_max * (1 - Link_maintenance)
+  Link_maintcap_lower_nommin:
+    description: "`Link-maintcap_lower_nommin` — in maintenance, at least the floor of the build is taken off"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_p_nom_extendable AND NOT (Link_committable AND Link_p_nom_mod > 0) AND Link_active AND Link_p_nom_min > 0
+    expression: Link_maintenance_capacity >= Link_p_nom_min * Link_maintenance
+  Link_maint_status_le_status:
+    description: "`Link-maint-status-le-status` — the status in maintenance is at most the status"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_committable AND NOT Link_p_nom_extendable AND Link_active
+    expression: Link_maintenance_status <= Link_status
+  Link_maint_status_le_maint:
+    description: "`Link-maint-status-le-maint` — out of maintenance, the status in maintenance is zero"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_committable AND NOT Link_p_nom_extendable AND Link_active
+    expression: Link_maintenance_status <= Link_maintenance
+  Link_maint_status_lb:
+    description: "`Link-maint-status-lb` — on and in maintenance, the status in maintenance is one"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_committable AND NOT Link_p_nom_extendable AND Link_active
+    expression: Link_maintenance_status >= Link_status + Link_maintenance - 1
+  Link_maint_modstatus_le_status:
+    description: "`Link-maint-modstatus-le-status` — the modules on in maintenance are at most the modules on"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_maintenance_status <= Link_status
+  Link_maint_modstatus_le_maint:
+    description: >-
+      `Link-maint-modstatus-le-maint` — out of maintenance, no module is on in
+      maintenance; in it, at most the modules the build cap holds
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_maintenance_status <= Link_p_nom_max / Link_p_nom_mod * Link_maintenance
+  Link_maint_modstatus_lb:
+    description: "`Link-maint-modstatus-lb` — in maintenance, every module on is on in maintenance"
+    dims: [scenario, snapshot, link]
+    where: Link_maintainable AND Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_maintenance_status >= Link_status - Link_p_nom_max / Link_p_nom_mod * (1 - Link_maintenance)
   Process_com_p_lower:
     description: "`Process-com-p-lower` — a committed process runs at least its minimum; off, at least nothing"
     dims: [scenario, snapshot, process]
     where: Process_committable AND not Process_p_nom_extendable AND Process_active
-    expression: Process_p >= Process_p_min_pu * Process_p_nom * Process_status
+    expression: Process_p >= Process_p_min_pu * Process_p_nom * (Process_status - Process_maintenance_pu * Process_maintenance_status)
   Process_com_p_upper:
     description: "`Process-com-p-upper` — a committed process runs at most what is available; off, at most nothing"
     dims: [scenario, snapshot, process]
     where: Process_committable AND not Process_p_nom_extendable AND Process_active
-    expression: Process_p <= Process_p_max_pu * Process_p_nom * Process_status
+    expression: Process_p <= Process_p_max_pu * Process_p_nom * (Process_status - Process_maintenance_pu * Process_maintenance_status)
   Process_com_transition_start_up:
     description: "`Process-com-transition-start-up` — turning on is a start, counted against the state the process carried into the snapshot"
     dims: [scenario, snapshot, process]
@@ -2382,7 +2721,7 @@ constraints:
       at most what is available of the chosen build, whatever its status
     dims: [scenario, snapshot, process]
     where: Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0) AND Process_active
-    expression: Process_p <= Process_p_max_pu * Process_p_nom_ext
+    expression: Process_p <= Process_p_max_pu * (Process_p_nom_ext - Process_maintenance_pu * Process_maintenance_capacity)
   Process_com_ext_p_upper_big_m:
     description: "`Process-com-ext-p-upper-bigM` — off, a process does not run; on, the big M is no bound"
     dims: [scenario, snapshot, process]
@@ -2396,7 +2735,7 @@ constraints:
     where: Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0) AND Process_active
     expression: >-
       Process_p >=
-      Process_p_min_pu * Process_p_nom_ext
+      Process_p_min_pu * (Process_p_nom_ext - Process_maintenance_pu * Process_maintenance_capacity)
       + Process_big_m * Process_status - Process_big_m
   Process_com_ext_p_lower_nonneg:
     description: >-
@@ -2414,14 +2753,14 @@ constraints:
       its minimum of one module, whether the build is fixed or a decision
     dims: [scenario, snapshot, process]
     where: Process_committable AND Process_p_nom_mod > 0 AND Process_active
-    expression: Process_p >= Process_p_min_pu * Process_p_nom_mod * Process_status
+    expression: Process_p >= Process_p_min_pu * Process_p_nom_mod * (Process_status - Process_maintenance_pu * Process_maintenance_status)
   Process_com_mod_p_upper:
     description: >-
       `Process-com-mod-p-upper` — a committed modular process runs at most
       one module's share, whether the build is fixed or a decision
     dims: [scenario, snapshot, process]
     where: Process_committable AND Process_p_nom_mod > 0 AND Process_active
-    expression: Process_p <= Process_p_max_pu * Process_p_nom_mod * Process_status
+    expression: Process_p <= Process_p_max_pu * Process_p_nom_mod * (Process_status - Process_maintenance_pu * Process_maintenance_status)
   Process_status_p_fixed_upper:
     description: >-
       `Process-status-p-fixed-upper` — a status is at most the modules in
@@ -2461,6 +2800,78 @@ constraints:
     dims: [scenario, snapshot, process]
     where: Process_committable AND Process_p_nom_extendable AND Process_p_nom_mod > 0 AND Process_active
     expression: Process_shut_down <= Process_n_mod
+  Process_maint_event_count:
+    description: "`Process-maint-event-count` — a maintainable process holds its number of maintenance events over the horizon"
+    dims: [scenario, process]
+    where: Process_maintainable
+    expression: sum(Process_maintenance_start, over=snapshot) == Process_maintenance_events
+  Process_maint_window:
+    description: >-
+      `Process-maint-window` — a process is in maintenance exactly where an event it
+      started covers the snapshot; two events do not overlap, since the
+      maintenance status is at most one
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active
+    expression: Process_maintenance == sum(Process_maintenance_start, by=Process_maintenance_cover, over=start, into=covered)
+  Process_maint_start_horizon:
+    description: "`Process-maint-start-horizon` — no event starts where it could not run its whole duration"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active AND Process_maintenance_start_blocked
+    expression: Process_maintenance_start == 0
+  Process_maintcap_upper:
+    description: >-
+      `Process-maintcap_upper` — the build taken off is at most the chosen build in
+      maintenance, and at most the build less its floor out of it
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    expression: Process_maintenance_capacity <= Process_p_nom_ext - Process_p_nom_min * (1 - Process_maintenance)
+  Process_maintcap_upper_nommax:
+    description: "`Process-maintcap_upper_nommax` — out of maintenance, no build is taken off"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    expression: Process_maintenance_capacity <= Process_p_nom_max * Process_maintenance
+  Process_maintcap_lower_nommax:
+    description: "`Process-maintcap_lower_nommax` — in maintenance, the whole chosen build is taken off"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    expression: Process_maintenance_capacity >= Process_p_nom_ext - Process_p_nom_max * (1 - Process_maintenance)
+  Process_maintcap_lower_nommin:
+    description: "`Process-maintcap_lower_nommin` — in maintenance, at least the floor of the build is taken off"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active AND Process_p_nom_min > 0
+    expression: Process_maintenance_capacity >= Process_p_nom_min * Process_maintenance
+  Process_maint_status_le_status:
+    description: "`Process-maint-status-le-status` — the status in maintenance is at most the status"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_active
+    expression: Process_maintenance_status <= Process_status
+  Process_maint_status_le_maint:
+    description: "`Process-maint-status-le-maint` — out of maintenance, the status in maintenance is zero"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_active
+    expression: Process_maintenance_status <= Process_maintenance
+  Process_maint_status_lb:
+    description: "`Process-maint-status-lb` — on and in maintenance, the status in maintenance is one"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_active
+    expression: Process_maintenance_status >= Process_status + Process_maintenance - 1
+  Process_maint_modstatus_le_status:
+    description: "`Process-maint-modstatus-le-status` — the modules on in maintenance are at most the modules on"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND Process_p_nom_mod > 0 AND Process_active
+    expression: Process_maintenance_status <= Process_status
+  Process_maint_modstatus_le_maint:
+    description: >-
+      `Process-maint-modstatus-le-maint` — out of maintenance, no module is on in
+      maintenance; in it, at most the modules the build cap holds
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND Process_p_nom_mod > 0 AND Process_active
+    expression: Process_maintenance_status <= Process_p_nom_max / Process_p_nom_mod * Process_maintenance
+  Process_maint_modstatus_lb:
+    description: "`Process-maint-modstatus-lb` — in maintenance, every module on is on in maintenance"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND Process_p_nom_mod > 0 AND Process_active
+    expression: Process_maintenance_status >= Process_status - Process_p_nom_max / Process_p_nom_mod * (1 - Process_maintenance)
   Line_fix_s_lower:
     description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating, the loss counted against it"
     dims: [scenario, snapshot, line]
