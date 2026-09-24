@@ -48,7 +48,7 @@
     },
     "BoundsBlock": {
       "additionalProperties": false,
-      "description": "Variable bounds \u2014 each side is a number or parameter name.\n\nAn omitted bound leaves the variable unbounded on that side, not\nimplicitly non-negative.",
+      "description": "Variable bounds \u2014 each side is a number, a parameter name, or ``None`` where it is open.\n\nAn omitted bound leaves the variable unbounded on that side, not\nimplicitly non-negative. An infinity on the side it opens is read as\n``None``, so an open side is held one way however the file spells it.",
       "properties": {
         "lower": {
           "anyOf": [
@@ -57,8 +57,12 @@
             },
             {
               "type": "string"
+            },
+            {
+              "type": "null"
             }
           ],
+          "default": null,
           "title": "Lower"
         },
         "upper": {
@@ -68,8 +72,12 @@
             },
             {
               "type": "string"
+            },
+            {
+              "type": "null"
             }
           ],
+          "default": null,
           "title": "Upper"
         }
       },
@@ -617,7 +625,10 @@
         },
         "bounds": {
           "$ref": "#/$defs/BoundsBlock",
-          "default": {}
+          "default": {
+            "lower": null,
+            "upper": null
+          }
         },
         "description": {
           "anyOf": [

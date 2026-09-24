@@ -64,18 +64,22 @@ variables:
       upper: capacity
 ```
 
-| Field                           |                                                                                                                   |                        |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `dims`                          | required. The dimensions it is indexed by                                                                         |                        |
-| `where`                         | which coordinates exist ([absence](absence.md))                                                                   | default `null`         |
-| `bounds.lower` / `bounds.upper` | a number, or the name of a `float` or `int` parameter                                                             | default `-inf` / `inf` |
-| `domain`                        | `continuous`, `integer` or `binary`. `binary` carries fixed 0/1 bounds                                            | default `continuous`   |
-| `absence`                       | `undefined` or `zero`: what a masked-out coordinate means ([absence](absence.md#what-a-missing-coordinate-means)) | default `undefined`    |
-| `description`                   | free text                                                                                                         | default `null`         |
+| Field                           |                                                                                                                   |                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `dims`                          | required. The dimensions it is indexed by                                                                         |                      |
+| `where`                         | which coordinates exist ([absence](absence.md))                                                                   | default `null`       |
+| `bounds.lower` / `bounds.upper` | a number, or the name of a `float` or `int` parameter. `null` leaves that side open                               | default `null`       |
+| `domain`                        | `continuous`, `integer` or `binary`. `binary` carries fixed 0/1 bounds                                            | default `continuous` |
+| `absence`                       | `undefined` or `zero`: what a masked-out coordinate means ([absence](absence.md#what-a-missing-coordinate-means)) | default `undefined`  |
+| `description`                   | free text                                                                                                         | default `null`       |
 
 !!! warning "A bound you omit leaves the variable unbounded on that side"
 
     You write non-negativity. The language does not assume it.
+
+An open side is `null`, as every other field a file may leave open is. `.inf`
+on the upper side and `-.inf` on the lower side mean the same, and the loaded
+model holds `null` for either.
 
 A bound is a name or a number: `upper: capacity` is accepted,
 and `upper: -rating` is refused. Ship the negated column as data. The dimensions of

@@ -14,7 +14,7 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.program import DimensionPosition
+from math_spec.program import Constant, DimensionPosition
 from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
@@ -2197,3 +2197,19 @@ def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_n
     model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
     with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
         to_spec(model)
+
+
+@pytest.mark.parametrize(
+    'upper',
+    [
+        pytest.param({}, id='omitted'),
+        pytest.param({'upper': None}, id='null'),
+        pytest.param({'upper': float('inf')}, id='an-infinite-number'),
+    ],
+)
+def test_an_open_bound_is_null_however_the_file_spells_it(upper):
+    """`upper: null` was refused, though every other field a file may leave open takes `null`."""
+    spec = to_spec(override(DISPATCH_MODEL, **{'variables.p.bounds': {'lower': 0, **upper}}))
+    assert spec.variables['p'].bounds.upper is None, 'an open bound is stored one way, whatever the file wrote'
+    assert spec.program.variables['p'].upper == Constant(float('inf')), 'the program reads an open side as infinity'
+    assert spec.to_dict()['variables']['p']['bounds'] == {'lower': 0}, 'an open bound is not written back out'
