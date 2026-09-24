@@ -1299,13 +1299,22 @@ excess per scenario and the tail's average, blended into the objective at
 (`optimize.py:458`). The file builds them only where `omega` is positive, so a
 plain run, and a risk preference with `omega = 0`, has none.
 
-Component data does not span a scenario yet. PyPSA reads almost every
-attribute per scenario, and refuses a difference only in the ones that fix
-the network's shape, such as `bus`, `carrier`, `lifetime` or
-`p_nom_extendable` (`consistency.py:1174-1195`). The file gives a scenario
-axis only to a load's `p_set` and a global constraint's `sense` and
-`constant`. This rung's wind `p_max_pu` differs by scenario, so the file
-states the rung's rows but not all of its data.
+A parameter spans `scenario` exactly when PyPSA reads it per scenario. PyPSA
+reads component data through `c.da`, one value per scenario
+(`components/array.py:332-395`), so almost every parameter spans one. It
+refuses a difference in the attributes that fix the network's shape, such as
+`bus`, `carrier`, `lifetime`, `active`, `committable` or `p_nom_extendable`
+(`consistency.py:1174-1195`), and these parameters and what data prep derives
+from them span none. Some other parameters span none either. PyPSA reduces
+`maintainable` to a union over the scenarios, `(p_min_pu >= 0).all()` over
+them, and a carrier's growth limits to their least value
+(`components.py:1016-1019`, `constraints.py:397-401`,
+`global_constraints.py:226-230`). It builds the cycle basis from the first
+scenario (`networks.py:1354-1361`). A link's delay and a transformer's phase
+shift span none, because PyPSA `1.3.0` mishandles them over scenarios (rung
+41). A branch's `BODF` spans none, because PyPSA refuses a
+security-constrained run over scenarios. This rung's wind `p_max_pu` differs by scenario, and the file states it over
+`scenario`. Rungs 41 and 42 make operating data and first-stage data differ.
 
 | PyPSA | status | note |
 | --- | --- | --- |
@@ -1314,8 +1323,8 @@ states the rung's rows but not all of its data.
 | [`CVaR-a`, `CVaR-theta`, `CVaR`](#variable-domains) | done | |
 | [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names a row per scenario; one block over the dimension; none where `omega` is zero |
 | [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` is data prep; none where `omega` is zero |
-| [objective](#objective) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
-| `Generator-p_max_pu` per scenario | out | the file holds one availability for every scenario; only a load's `p_set` spans one |
+| [objective](#objective) | done | capacity once, at its capital cost in expectation over the scenarios; operation `(1 - omega)` in expectation, `omega` at the tail |
+| `Generator-p_max_pu` and other component data per scenario | done | every parameter PyPSA reads per scenario spans `scenario`; operating data in rung 41, first-stage bounds and capital cost in rung 42 |
 
 <!-- reference:rung_14_stochastic:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `9267.386666666665`, 87 rows.
@@ -3366,7 +3375,7 @@ network and the calm values in both futures, PyPSA solves to
 | [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit), [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) with a constant and sense per scenario | done | `GlobalConstraint_constant` and `GlobalConstraint_sense` over `scenario` |
 | `transmission_expansion_cost_limit` on a network with scenarios | out | PyPSA `1.3.0` builds no row: it matches extendable names against a table indexed by scenario and name, and finds none (`global_constraints.py:916`). The file builds the row per scenario |
 | `transmission_volume_expansion_limit` on a network with scenarios and `multi_investment_periods` | out | PyPSA `1.3.0` builds no row: the active-asset filter reindexes a table indexed by scenario and name by the names alone, and keeps none (`global_constraints.py:828`, `descriptors.py:261-263`). The file builds the row per scenario |
-| a `carrier_attribute` or `investment_period` per scenario | out | PyPSA reads both per scenario (`global_constraints.py:797-802`); the file states both per row, in the weights and in `GlobalConstraint_counts_snapshot` |
+| a `carrier_attribute` or `investment_period` per scenario | done | PyPSA reads both per scenario (`global_constraints.py:797-802`); the weights and `GlobalConstraint_counts_snapshot` span `scenario` |
 
 <!-- reference:rung_40_scenario_global_constraints:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `15106.666666666666`, 86 rows.
@@ -3434,6 +3443,140 @@ def build():
 
 </details>
 <!-- reference:rung_40_scenario_global_constraints:end -->
+
+### Rung 41 — operating data per scenario
+
+`n.set_scenarios(...)` with a gas unit's `marginal_cost` and a link's
+`efficiency` set per scenario. PyPSA reads both through `c.da`, one value per
+scenario, into the objective and into `Bus-nodal_balance`
+(`components/array.py:332-395`). The file states `Generator_marginal_cost` and
+`Link_efficiency` over `scenario`, as it states every parameter PyPSA reads per
+scenario. A plain run feeds one scenario, and the rows collapse to the standard
+ones.
+
+The rung adds a gas unit that costs `20` in the calm future and `80` in the
+stormy one, and a second link that delivers `0.9` and `0.6` of its flow. Each
+binds. With the calm cost in both futures, PyPSA solves to `16308.0`; with the
+calm efficiency in both, to `16992.0`; with both calm values in both, to
+`15660.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [objective](#objective), [`Bus-nodal_balance`](#bus-nodal_balance) with a cost and an efficiency per scenario | done | `Generator_marginal_cost` and `Link_efficiency` over `scenario` |
+| a link `delay` or `cyclic_delay` that differs by scenario | out | PyPSA `1.3.0` groups the ports by delay over all scenarios and shifts each group in every scenario, so a delay of `0` in one future and `1` in the other solves below both uniform networks (`constraints.py:1269`). The file holds one delay for every scenario |
+| a transformer in a cycle on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the transformers of a cycle by name from a table indexed by scenario and name (`constraints.py:1654`). The file holds one phase shift for every scenario |
+| a committable component on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the status by snapshot and name where the first dimension is the scenario (`constraints.py:1872`, `:1942`). The file builds the rows per scenario |
+| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | out | PyPSA `1.3.0` fails: it reindexes the build by a table indexed by scenario and name (`constraints.py:1708`). The file builds the row per scenario |
+
+<!-- reference:rung_41_scenario_operational_data:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `17964.0`, 96 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_41_scenario_operational_data.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 41: a unit's cost and a link's efficiency differ by scenario."""
+
+from __future__ import annotations
+
+import spine
+
+#: each scenario's own value, per component and attribute
+PER_SCENARIO = {
+    ('calm', 'gas41'): {'marginal_cost': 20},
+    ('stormy', 'gas41'): {'marginal_cost': 80},
+    ('calm', 'wire41'): {'efficiency': 0.9},
+    ('stormy', 'wire41'): {'efficiency': 0.6},
+}
+
+
+def build():
+    """The spine over two futures, with a gas unit that costs more and a link that delivers less in the stormy one."""
+    n = spine.build()
+    n.add('Generator', 'gas41', bus='south', p_nom=100, marginal_cost=20)
+    n.add('Link', 'wire41', bus0='north', bus1='south', p_nom=40, efficiency=0.9)
+    n.add('Load', 'port41', bus='south', p_set=60)
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    for (scenario, name), values in PER_SCENARIO.items():
+        component = n.c.generators if name == 'gas41' else n.c.links
+        for column, value in values.items():
+            component.static.loc[(scenario, name), column] = value
+    return n
+```
+
+</details>
+<!-- reference:rung_41_scenario_operational_data:end -->
+
+### Rung 42 — first-stage data per scenario
+
+`n.set_scenarios(...)` with an extendable unit whose `capital_cost` and
+`p_nom_max` differ between the scenarios. The build is chosen once, but PyPSA
+reads its bounds per scenario and writes `Generator-ext-p_nom-lower` and
+`-upper` once per scenario, so the tightest cap binds
+(`constraints.py:885-895`). It prices the build at each scenario's capital
+cost and weights the terms by the scenario weights (`optimize.py:405-412`,
+`:448-454`), so the build pays its capital cost in expectation. The file states
+`Generator_p_nom_max` and `Generator_capital_cost` over `scenario`, the bound
+rows over `scenario`, and the capital terms of the objective under
+`scenario_weight`. A plain run feeds one scenario of weight one, and the rows
+and the objective collapse to the standard ones.
+
+The rung's wind unit costs `20` in the calm future and `60` in the stormy one,
+weighted `0.6` and `0.4`, and may be built to `100` and `30`. PyPSA builds `30`
+at the expected cost of `36`: the same network with a cost of `36` and a cap of
+`30` in both futures solves to the same objective. With the calm values in both
+futures, PyPSA solves to `1943.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`{c}-ext-p_nom-lower/upper`](#generator-ext-p_nom-lower) with a bound per scenario | done | one row per scenario, over `scenario`; the tightest binds |
+| [capital cost](#objective) per scenario | done | `scenario_weight` times each scenario's capital cost |
+
+<!-- reference:rung_42_scenario_first_stage:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `5049.999999999999`, 84 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_42_scenario_first_stage.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 42: an extendable unit's capital cost and build cap differ by scenario."""
+
+from __future__ import annotations
+
+import spine
+
+#: each scenario's own value, per attribute of the extendable unit
+PER_SCENARIO = {
+    'calm': {'capital_cost': 20, 'p_nom_max': 100},
+    'stormy': {'capital_cost': 60, 'p_nom_max': 30},
+}
+
+
+def build():
+    """The spine over two futures, with an extendable wind unit that costs more and may be built less in the stormy one."""
+    n = spine.build()
+    n.add('Generator', 'wind42', bus='south', p_nom_extendable=True, p_nom_max=100, marginal_cost=1, capital_cost=20)
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    for scenario, values in PER_SCENARIO.items():
+        for column, value in values.items():
+            n.c.generators.static.loc[(scenario, 'wind42'), column] = value
+    return n
+```
+
+</details>
+<!-- reference:rung_42_scenario_first_stage:end -->
 
 ## Refusals
 
