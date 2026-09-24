@@ -558,9 +558,6 @@ parameters:
   Process_first_active:
     description: one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
     dims: [period, process]
-  Transformer_first_active:
-    description: one in the first period a transformer stands in, zero elsewhere — the spec extends the carrier growth limit to transformers, which PyPSA does not, so PyPSA has no counterpart, data prep
-    dims: [period, transformer]
   Carrier_max_growth:
     description: most capacity of a carrier that may be added in a period; no value means no limit
     dims: [carrier]
@@ -1073,10 +1070,6 @@ relations:
     description: the bus a store sits on
     key: store
     values: bus
-  Transformer_carrier:
-    description: the carrier a transformer carries
-    key: transformer
-    values: carrier
   Transformer_bus0:
     description: the bus a transformer's flow is measured at
     key: transformer
@@ -1903,9 +1896,9 @@ expressions:
   Carrier_additions:
     description: >-
       what a carrier adds in a period — every extendable component of that
-      carrier, counting each build in the first period it stands in. PyPSA sums
-      the components that carry a carrier attribute; the transformer term is the
-      spec's own extension, since PyPSA gives a transformer no carrier
+      carrier, counting each build in the first period it stands in. Like PyPSA,
+      it sums only the components that carry a carrier attribute, so a
+      transformer, which has none, counts in no carrier
     expression: >-
       sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
       + sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
@@ -1913,7 +1906,6 @@ expressions:
       + sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
       + sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
       + sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
-      + sum(Transformer_s_nom_ext * Transformer_first_active, by=Transformer_carrier, over=transformer, into=carrier)
   Line_s_monitored:
     description: >-
       the flow a line's post-contingency rows read — its flow where it stands,
