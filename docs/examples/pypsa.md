@@ -1299,6 +1299,14 @@ excess per scenario and the tail's average, blended into the objective at
 (`optimize.py:458`). The file builds them only where `omega` is positive, so a
 plain run, and a risk preference with `omega = 0`, has none.
 
+Component data does not span a scenario yet. PyPSA reads almost every
+attribute per scenario, and refuses a difference only in the ones that fix
+the network's shape, such as `bus`, `carrier`, `lifetime` or
+`p_nom_extendable` (`consistency.py:1174-1195`). The file gives a scenario
+axis only to a load's `p_set` and a global constraint's `sense` and
+`constant`. This rung's wind `p_max_pu` differs by scenario, so the file
+states the rung's rows but not all of its data.
+
 | PyPSA | status | note |
 | --- | --- | --- |
 | [`Generator-p`, `Link-p`](#variable-domains) | done | over `scenario`; `Generator-p_nom` is not — chosen once |
@@ -1307,6 +1315,7 @@ plain run, and a risk preference with `omega = 0`, has none.
 | [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names a row per scenario; one block over the dimension; none where `omega` is zero |
 | [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` is data prep; none where `omega` is zero |
 | [objective](#objective) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
+| `Generator-p_max_pu` per scenario | out | the file holds one availability for every scenario; only a load's `p_set` spans one |
 
 <!-- reference:rung_14_stochastic:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `9267.386666666665`, 87 rows.
