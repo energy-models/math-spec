@@ -12,11 +12,12 @@ the one call.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 import pytest
 
-from math_spec import ADVICE_KINDS, LanguageError, advice, to_spec
+from math_spec import LanguageError, advice, to_spec
+from math_spec.errors import AdviceKind
 from tests.fixtures import SMALL_MODEL, override
 
 if TYPE_CHECKING:
@@ -76,7 +77,9 @@ def test_both_kinds_of_note_come_through_the_one_door():
     assert [(n.kind, n.subject) for n in notes] == [('never-an-axis', 'h'), ('unbounded', 'p')], (
         'the never-an-axis advice comes first, then the unboundedness advice'
     )
-    assert {n.kind for n in notes} == ADVICE_KINDS, 'every kind a consumer can pin against is one this file produces'
+    assert {n.kind for n in notes} == set(get_args(AdviceKind)), (
+        'every kind a consumer can pin against is one this file produces'
+    )
 
 
 def _written(model: dict, tmp_path: Path) -> Path:

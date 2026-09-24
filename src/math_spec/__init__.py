@@ -13,32 +13,9 @@ program instead.
 
 from math_spec import program
 from math_spec.advice import advice
-from math_spec.errors import (
-    ADVICE_KINDS,
-    Advice,
-    DimensionError,
-    LanguageError,
-    MathSpecError,
-    SchemaError,
-    did_you_mean,
-    schema_error,
-)
-from math_spec.model import (
-    CURVATURES,
-    DIMENSION_DTYPES,
-    PARAMETER_DTYPES,
-    VARIABLE_ABSENCE,
-    VARIABLE_DOMAINS,
-    SosBlock,
-    Spec,
-)
-from math_spec.operators import (
-    BUILTIN_NAMES,
-    EDGE_WRAP,
-    call_shape_error,
-    edge_error,
-    unknown_operator_message,
-)
+from math_spec.errors import Advice, DimensionError, LanguageError, MathSpecError, SchemaError, did_you_mean
+from math_spec.model import Spec
+from math_spec.operators import BUILTIN_NAMES
 from math_spec.typesetting import (
     FORMATS,
     SymbolTable,
@@ -51,36 +28,24 @@ from math_spec.typesetting import (
 from math_spec.validation import to_spec
 
 __all__ = [
-    'ADVICE_KINDS',
     'BUILTIN_NAMES',
-    'CURVATURES',
-    'DIMENSION_DTYPES',
-    'EDGE_WRAP',
     'FORMATS',
-    'PARAMETER_DTYPES',
-    'VARIABLE_ABSENCE',
-    'VARIABLE_DOMAINS',
     'Advice',
     'DimensionError',
     'LanguageError',
     'MathSpecError',
     'SchemaError',
-    'SosBlock',
     'Spec',
     'SymbolTable',
     'advice',
-    'call_shape_error',
     'did_you_mean',
-    'edge_error',
     'program',
-    'schema_error',
     'to_latex',
     'to_markdown',
     'to_spec',
     'to_typst',
     'typeset',
     'typeset_declaration',
-    'unknown_operator_message',
 ]
 
 import warnings as _warnings

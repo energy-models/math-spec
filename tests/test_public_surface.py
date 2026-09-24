@@ -23,19 +23,15 @@ from math_spec import Spec, program, typesetting
 #: here would make the two one list checked against itself.
 SURFACE = frozenset(
     {
-        # the two public states, and the conversion to each
+        # the two public states, and the door to both
         'Spec', 'to_spec', 'program',
-        # the error tree
+        # the error tree, and the one wording a consumer's own refusals share
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
-        'did_you_mean', 'schema_error',
+        'did_you_mean',
         # the verdicts a consumer asks for rather than re-deriving
         'advice', 'Advice',
-        # the closed operator set, and the wording of its refusals
-        'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
-        'unknown_operator_message',
-        # the declaration vocabularies a consumer pins its own tables against
-        'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE', 'ADVICE_KINDS',
-        'CURVATURES', 'SosBlock',
+        # the closed operator set, the one vocabulary with no Literal form, which a consumer pins its table against
+        'BUILTIN_NAMES',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
     }

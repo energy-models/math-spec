@@ -11,10 +11,12 @@ methods exist, and which gates a block will accept.
 
 from __future__ import annotations
 
+from typing import get_args
+
 import pytest
 
-from math_spec import CURVATURES
 from math_spec.errors import LanguageError, SchemaError
+from math_spec.model import Curvature
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import Assumption, Variable, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
@@ -490,21 +492,22 @@ def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
     stated = [
         a.description for n, a in expanded(raw, 'piecewise').program.assumptions.items() if n.endswith('_curvature')
     ]
-    answer = next((c for c in CURVATURES if stated and f'a {c} curve' in stated[0]), 'either' if stated else None)
+    curvatures = get_args(Curvature)
+    answer = next((c for c in curvatures if stated and f'a {c} curve' in stated[0]), 'either' if stated else None)
     assert answer == expected, 'the curvature the method is exact for is the shape its sentence names'
-    assert answer is None or answer in CURVATURES, (
-        f'{answer!r} is not one of the curvatures the package publishes, so a consumer '
-        f'pinning its table against CURVATURES would never match it'
+    assert answer is None or answer in curvatures, (
+        f'{answer!r} is not one of the curvatures the language names, so a consumer '
+        f'pinning its table against `Curvature` would never match it'
     )
 
 
-def test_every_published_curvature_is_one_a_method_can_ask_for():
-    """`CURVATURES` is what a consumer pins its own table against, so a name in
+def test_every_named_curvature_is_one_a_method_can_ask_for():
+    """`Curvature` is what a consumer pins its own table against, so a name in
     it that nothing returns is a branch they write and never reach."""
     answered = {case.values[1] for case in _CURVATURE_CASES} - {None}
-    assert answered == set(CURVATURES), (
-        f'the cases above answer {sorted(answered)} but the package publishes '
-        f'{sorted(CURVATURES)} — one of the two is out of date'
+    assert answered == set(get_args(Curvature)), (
+        f'the cases above answer {sorted(answered)} but the language names '
+        f'{sorted(get_args(Curvature))} — one of the two is out of date'
     )
 
 

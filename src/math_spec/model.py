@@ -94,15 +94,9 @@ Formulation = Literal['piecewise', 'sos']
 #: curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
 
-#: The set form of each vocabulary above, for callers that want membership.
-DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
-PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
-VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
-VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
-CURVATURES = frozenset(get_args(Curvature))
 
 #: Every formulation, in the order :meth:`Spec.expand` writes them out: a curve
 #: emits a set, and no set emits a curve.
