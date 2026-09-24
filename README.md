@@ -371,14 +371,14 @@ git reference until then; see [RELEASING.md](RELEASING.md).
 
 ## Prior art
 
-Every file under `src/` was written in [lpspec](https://github.com/fluxopt/lpspec)
+Every file under `src/` was written in [specsolve](https://github.com/fluxopt/specsolve)
 and extracted here, so that the language and the syntax tree a tool reads it
 through are a dependency rather than one engine's internals. The keys themselves,
 which are YAML math, a block per component, `dims:` and a `where:` string,
 come from [Calliope](https://github.com/calliope-project/calliope).
 [linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
 `sum(over=)` and the dimension rules are named against. Issue numbers in these
-pages point at lpspec, where the arguments happened.
+pages point at specsolve, where the arguments happened.
 
 ## Status
 
