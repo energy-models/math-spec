@@ -3840,6 +3840,15 @@ assumptions:
       refuses quadratic costs under any risk preference
       (`optimize.py:467-474`). The spec cannot tell no risk preference from
       one with `omega = 0`, so it refuses only where `omega` is positive
+  GlobalConstraint_tech_capacity_expansion_limit_without_scenarios:
+    holds: "GlobalConstraint_type != 'tech_capacity_expansion_limit'"
+    where: "count(scenario_weight, over=scenario) > 1"
+    description: >-
+      PyPSA does not build a `tech_capacity_expansion_limit` row on a
+      network with scenarios and refuses it
+      (`global_constraints.py:66-68`). The spec cannot tell a network with
+      one scenario from one with none, so it refuses only where there is
+      more than one scenario
 
 objective:
   sense: minimize

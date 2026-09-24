@@ -3352,6 +3352,7 @@ where it should live — language, data prep, or harness — is one open questio
 | `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` and `Transformer_loss_max` | X4   |
 | `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
 | `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused | |
+| `NotImplementedError`, `global_constraints.py:66-68` | a `tech_capacity_expansion_limit` row on a network with scenarios | assumed where there is more than one scenario: [`GlobalConstraint_tech_capacity_expansion_limit_without_scenarios`](#globalconstraint_tech_capacity_expansion_limit_without_scenarios). The file cannot tell one scenario from none, which PyPSA also refuses | |
 | `ConsistencyError`, `consistency.py:1506-1560` | a maintainable component whose `maintenance_duration` or `maintenance_events` is not positive, whose events do not fit the weighted horizon, or that is extendable with `p_nom_max = inf` | assumed: [`Generator_maintenance_events_positive`](#generator_maintenance_events_positive), [`-duration_positive`](#generator_maintenance_duration_positive), [`-duration_fits_the_horizon`](#generator_maintenance_duration_fits_the_horizon), [`-events_fit_the_horizon`](#generator_maintenance_events_fit_the_horizon), [`-build_cap_is_finite`](#generator_maintenance_build_cap_is_finite), and the `Link` and `Process` ones | |
 | nothing; HiGHS refuses the model, `constraints.py:500-503` | a fixed modular committable maintainable build, whose module count `p_nom_max / p_nom_mod` is infinite | assumed: [`Generator_maintenance_module_count_is_finite`](#generator_maintenance_module_count_is_finite), and the `Link` and `Process` ones | |
 
@@ -9608,6 +9609,24 @@ Store_marginal_cost_quadratic_without_risk_preference:
 
 ```math
 \mathrm{c}^{q,(2)}_{t,v} = 0 \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \omega > 0
+```
+
+### `GlobalConstraint_tech_capacity_expansion_limit_without_scenarios`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_without_scenarios:
+  holds: "GlobalConstraint_type != 'tech_capacity_expansion_limit'"
+  where: "count(scenario_weight, over=scenario) > 1"
+  description: >-
+    PyPSA does not build a `tech_capacity_expansion_limit` row on a
+    network with scenarios and refuses it
+    (`global_constraints.py:66-68`). The spec cannot tell a network with
+    one scenario from one with none, so it refuses only where there is
+    more than one scenario
+```
+
+```math
+\mathrm{type}_{i} \neq \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \qquad \forall\, i \in \mathcal{I} \,:\, \lvert \{ \xi \in \Xi \,:\, \pi_{\xi} \text{ is defined} \} \rvert > 1
 ```
 <!-- gallery:end -->
 
