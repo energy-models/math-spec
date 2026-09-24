@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from math_spec.program import Program
     from math_spec.typesetting.format import Format, Notation
 
-__all__ = ['SymbolTable', 'Symbols']
+__all__ = ['SymbolTable', 'Symbols', 'symbols_for']
 
 #: Dimensions whose conventional index letter is not their own initial, which
 #: is what anything unlisted falls back to.
@@ -91,60 +91,74 @@ def chosen_expressions(program: Program) -> frozenset[str]:
     )
 
 
+@dataclass(frozen=True)
 class Symbols:
     r"""How every declared name prints: overrides first, derivation for the rest.
 
-    Name symbols settle *before* dimension indices, so an index is kept off a
-    single letter a variable owns — a dimension ``plant`` beside a variable
-    ``p`` would otherwise render ``p_{t,p}``. A parameter is upright, so
-    ``\mathrm{p}`` beside an index ``p`` is not a collision.
+    Built by :func:`symbols_for`. Name symbols settle *before* dimension
+    indices, so an index is kept off a single letter a variable owns — a
+    dimension ``plant`` beside a variable ``p`` would otherwise render
+    ``p_{t,p}``. A parameter is upright, so ``\mathrm{p}`` beside an index
+    ``p`` is not a collision.
+
+    Attributes:
+        overridden: Names the table spelled; the convention note quotes only
+            derived symbols.
+        name: Each parameter's, variable's and expression's symbol.
+        constraint: Each constraint's symbol, the subscript ``dual(c)`` prints
+            λ against. Off the flat namespace, like the constraints themselves
+            — a model may name a constraint after a variable, so this is its
+            own map rather than an entry in :attr:`name`. Given structure, so
+            upright unless a table overrides it.
+        index: Each dimension's index letter.
+        set: Each dimension's set symbol.
+    """
+
+    overridden: frozenset[str]
+    name: Mapping[str, str]
+    constraint: Mapping[str, str]
+    index: Mapping[str, str]
+    set: Mapping[str, str]
+
+
+def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
+    """The :class:`Symbols` *program* prints with in *fmt*, *table* overriding the derivation.
 
     Raises:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
+    if table.notation != fmt.notation:
+        msg = (
+            f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
+            f'and nothing translates between notations — write a {fmt.notation} table.'
+        )
+        raise SchemaError(msg)
+    chosen = frozenset(program.variables) | chosen_expressions(program)
+    names = (*program.parameters, *program.variables, *program.expressions)
+    declared = frozenset(names)
 
-    def __init__(self, program: Program, fmt: Format, table: SymbolTable) -> None:
-        if table.notation != fmt.notation:
-            msg = (
-                f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
-                f'and nothing translates between notations — write a {fmt.notation} table.'
-            )
-            raise SchemaError(msg)
-        chosen = frozenset(program.variables) | chosen_expressions(program)
-        names = (*program.parameters, *program.variables, *program.expressions)
-        declared = frozenset(names)
+    name = {
+        n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, given=n not in chosen)
+        for n in names
+    }
+    spoken_for = {s for s in name.values() if len(s) == 1}
+    constraint = {
+        n: table.names[n] if n in table.names else _derive_name_symbol(n, declared, fmt, given=True)
+        for n in program.constraints
+    }
 
-        #: Names the table spelled; the convention note quotes only derived symbols.
-        self.overridden = frozenset(table.names) & declared
-        self.name: dict[str, str] = {
-            name: table.names[name]
-            if name in table.names
-            else _derive_name_symbol(name, declared, fmt, given=name not in chosen)
-            for name in names
-        }
-        spoken_for = {s for s in self.name.values() if len(s) == 1}
-
-        #: Each constraint's symbol, the subscript ``dual(c)`` prints λ against.
-        #: Off the flat namespace, like the constraints themselves — a model may
-        #: name a constraint after a variable, so this is its own map rather than
-        #: an entry in :attr:`name`. Given structure, so upright unless a table
-        #: overrides it.
-        self.constraint: dict[str, str] = {
-            name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
-            for name in program.constraints
-        }
-
-        self.index: dict[str, str] = {}
-        self.set: dict[str, str] = {}
-        taken_index, taken_set = set(spoken_for), set()
-        for dim in program.dimensions:
-            overridden = dim in table.indices
-            letter = table.indices[dim] if overridden else _first_free(_index_candidates(dim), taken_index)
-            taken_index.add(letter)
-            self.index[dim] = letter if len(letter) <= 1 or overridden else fmt.upright(letter)
-            upper = _first_free(_set_candidates(dim, letter), taken_set)
-            taken_set.add(upper)
-            self.set[dim] = table.sets[dim] if dim in table.sets else fmt.script(upper)
+    index: dict[str, str] = {}
+    sets: dict[str, str] = {}
+    taken_index, taken_set = set(spoken_for), set()
+    for dim in program.dimensions:
+        overridden = dim in table.indices
+        letter = table.indices[dim] if overridden else _first_free(_index_candidates(dim), taken_index)
+        taken_index.add(letter)
+        index[dim] = letter if len(letter) <= 1 or overridden else fmt.upright(letter)
+        upper = _first_free(_set_candidates(dim, letter), taken_set)
+        taken_set.add(upper)
+        sets[dim] = table.sets[dim] if dim in table.sets else fmt.script(upper)
+    return Symbols(frozenset(table.names) & declared, name, constraint, index, sets)
 
 
 def _index_candidates(dim: str) -> list[str]:
