@@ -174,6 +174,14 @@ parameters:
     description: how many maintenance events the horizon holds
     dims: [generator]
     dtype: int
+  Generator_maintenance_duration:
+    description: >-
+      the hours of generator weightings one maintenance event covers —
+      PyPSA's `maintenance_duration`; no value where the generator is not
+      maintainable. No row reads it: data prep turns it into
+      `Generator_maintenance_cover` and `Generator_maintenance_start_blocked`, and the
+      assumptions hold it to the horizon
+    dims: [generator]
   Generator_maintenance_start_blocked:
     description: >-
       true where no maintenance event may start, because the snapshots it
@@ -302,6 +310,14 @@ parameters:
     description: how many maintenance events the horizon holds
     dims: [link]
     dtype: int
+  Link_maintenance_duration:
+    description: >-
+      the hours of generator weightings one maintenance event covers —
+      PyPSA's `maintenance_duration`; no value where the link is not
+      maintainable. No row reads it: data prep turns it into
+      `Link_maintenance_cover` and `Link_maintenance_start_blocked`, and the
+      assumptions hold it to the horizon
+    dims: [link]
   Link_maintenance_start_blocked:
     description: >-
       true where no maintenance event may start, because the snapshots it
@@ -444,6 +460,14 @@ parameters:
     description: how many maintenance events the horizon holds
     dims: [process]
     dtype: int
+  Process_maintenance_duration:
+    description: >-
+      the hours of generator weightings one maintenance event covers —
+      PyPSA's `maintenance_duration`; no value where the process is not
+      maintainable. No row reads it: data prep turns it into
+      `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the
+      assumptions hold it to the horizon
+    dims: [process]
   Process_maintenance_start_blocked:
     description: >-
       true where no maintenance event may start, because the snapshots it
@@ -3433,6 +3457,171 @@ constraints:
     description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
     dims: []
     expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+
+assumptions:
+  Generator_maintenance_events_positive:
+    holds: "Generator_maintenance_events > 0"
+    where: "Generator_maintainable"
+    description: >-
+      a maintainable generator with no event schedules no maintenance —
+      PyPSA refuses it (`consistency.py:1516`)
+  Generator_maintenance_duration_positive:
+    holds: "Generator_maintenance_duration > 0"
+    where: "Generator_maintainable"
+    description: >-
+      an event that covers no hours is no maintenance window — PyPSA
+      refuses it (`consistency.py:1506`)
+  Generator_maintenance_duration_fits_the_horizon:
+    holds: "Generator_maintenance_duration <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Generator_maintainable"
+    description: >-
+      one event longer than the horizon, in generator weightings, blocks
+      every start and makes the event count infeasible — PyPSA refuses it
+      (`consistency.py:1527`)
+  Generator_maintenance_events_fit_the_horizon:
+    holds: "Generator_maintenance_duration * Generator_maintenance_events <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Generator_maintainable"
+    description: >-
+      the events together longer than the horizon, in generator
+      weightings, cannot all be scheduled — PyPSA refuses it
+      (`consistency.py:1539`)
+  Generator_maintenance_build_cap_is_finite:
+    holds: "Generator_p_nom_max < inf"
+    where: "Generator_maintainable AND Generator_p_nom_extendable"
+    description: >-
+      the `maintcap` rows hold the chosen build in maintenance against
+      `p_nom_max`, so an infinite cap is an infinite coefficient — PyPSA
+      refuses it (`consistency.py:1551`)
+  Generator_maintenance_module_count_is_finite:
+    holds: "Generator_p_nom_max < inf"
+    where: "Generator_maintainable AND Generator_committable AND NOT Generator_p_nom_extendable AND Generator_p_nom_mod > 0"
+    description: >-
+      the `maint-modstatus` rows bound the modules on in maintenance by
+      `p_nom_max / p_nom_mod`, so an infinite cap is an infinite
+      coefficient. PyPSA does not check it, and HiGHS refuses the model
+      (`constraints.py:500-503`)
+  Link_maintenance_events_positive:
+    holds: "Link_maintenance_events > 0"
+    where: "Link_maintainable"
+    description: >-
+      a maintainable link with no event schedules no maintenance —
+      PyPSA refuses it (`consistency.py:1516`)
+  Link_maintenance_duration_positive:
+    holds: "Link_maintenance_duration > 0"
+    where: "Link_maintainable"
+    description: >-
+      an event that covers no hours is no maintenance window — PyPSA
+      refuses it (`consistency.py:1506`)
+  Link_maintenance_duration_fits_the_horizon:
+    holds: "Link_maintenance_duration <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Link_maintainable"
+    description: >-
+      one event longer than the horizon, in generator weightings, blocks
+      every start and makes the event count infeasible — PyPSA refuses it
+      (`consistency.py:1527`)
+  Link_maintenance_events_fit_the_horizon:
+    holds: "Link_maintenance_duration * Link_maintenance_events <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Link_maintainable"
+    description: >-
+      the events together longer than the horizon, in generator
+      weightings, cannot all be scheduled — PyPSA refuses it
+      (`consistency.py:1539`)
+  Link_maintenance_build_cap_is_finite:
+    holds: "Link_p_nom_max < inf"
+    where: "Link_maintainable AND Link_p_nom_extendable"
+    description: >-
+      the `maintcap` rows hold the chosen build in maintenance against
+      `p_nom_max`, so an infinite cap is an infinite coefficient — PyPSA
+      refuses it (`consistency.py:1551`)
+  Link_maintenance_module_count_is_finite:
+    holds: "Link_p_nom_max < inf"
+    where: "Link_maintainable AND Link_committable AND NOT Link_p_nom_extendable AND Link_p_nom_mod > 0"
+    description: >-
+      the `maint-modstatus` rows bound the modules on in maintenance by
+      `p_nom_max / p_nom_mod`, so an infinite cap is an infinite
+      coefficient. PyPSA does not check it, and HiGHS refuses the model
+      (`constraints.py:500-503`)
+  Process_maintenance_events_positive:
+    holds: "Process_maintenance_events > 0"
+    where: "Process_maintainable"
+    description: >-
+      a maintainable process with no event schedules no maintenance —
+      PyPSA refuses it (`consistency.py:1516`)
+  Process_maintenance_duration_positive:
+    holds: "Process_maintenance_duration > 0"
+    where: "Process_maintainable"
+    description: >-
+      an event that covers no hours is no maintenance window — PyPSA
+      refuses it (`consistency.py:1506`)
+  Process_maintenance_duration_fits_the_horizon:
+    holds: "Process_maintenance_duration <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Process_maintainable"
+    description: >-
+      one event longer than the horizon, in generator weightings, blocks
+      every start and makes the event count infeasible — PyPSA refuses it
+      (`consistency.py:1527`)
+  Process_maintenance_events_fit_the_horizon:
+    holds: "Process_maintenance_duration * Process_maintenance_events <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Process_maintainable"
+    description: >-
+      the events together longer than the horizon, in generator
+      weightings, cannot all be scheduled — PyPSA refuses it
+      (`consistency.py:1539`)
+  Process_maintenance_build_cap_is_finite:
+    holds: "Process_p_nom_max < inf"
+    where: "Process_maintainable AND Process_p_nom_extendable"
+    description: >-
+      the `maintcap` rows hold the chosen build in maintenance against
+      `p_nom_max`, so an infinite cap is an infinite coefficient — PyPSA
+      refuses it (`consistency.py:1551`)
+  Process_maintenance_module_count_is_finite:
+    holds: "Process_p_nom_max < inf"
+    where: "Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_p_nom_mod > 0"
+    description: >-
+      the `maint-modstatus` rows bound the modules on in maintenance by
+      `p_nom_max / p_nom_mod`, so an infinite cap is an infinite
+      coefficient. PyPSA does not check it, and HiGHS refuses the model
+      (`constraints.py:500-503`)
+  StorageUnit_stands_in_one_run:
+    holds: "count(StorageUnit_active AND NOT shift(StorageUnit_active, along=snapshot, offset=1), over=snapshot) <= 1"
+    description: >-
+      the snapshots a storage unit stands in are one unbroken run, as a build
+      year and a lifetime make them. The opening row holds at the first
+      of them only, and a cyclic storage unit reaches back
+      `StorageUnit_inactive_snapshots` further to the last of them
+  StorageUnit_opens_late_only_where_it_opens:
+    holds: "StorageUnit_active AND NOT shift(StorageUnit_active, along=snapshot, offset=1) AND position(snapshot) > 0"
+    where: "StorageUnit_opens_late"
+    description: >-
+      `StorageUnit_opens_late` marks the first snapshot the storage unit stands in, past
+      the first of the horizon, and no other
+  StorageUnit_opens_late_where_it_opens:
+    holds: "StorageUnit_opens_late"
+    where: "StorageUnit_active AND NOT shift(StorageUnit_active, along=snapshot, offset=1) AND position(snapshot) > 0"
+    description: >-
+      a storage unit that opens past the first snapshot of the horizon opens on
+      its initial level, or its last level where it is cyclic, only where
+      `StorageUnit_opens_late` marks the snapshot
+  Store_stands_in_one_run:
+    holds: "count(Store_active AND NOT shift(Store_active, along=snapshot, offset=1), over=snapshot) <= 1"
+    description: >-
+      the snapshots a store stands in are one unbroken run, as a build
+      year and a lifetime make them. The opening row holds at the first
+      of them only, and a cyclic store reaches back
+      `Store_inactive_snapshots` further to the last of them
+  Store_opens_late_only_where_it_opens:
+    holds: "Store_active AND NOT shift(Store_active, along=snapshot, offset=1) AND position(snapshot) > 0"
+    where: "Store_opens_late"
+    description: >-
+      `Store_opens_late` marks the first snapshot the store stands in, past
+      the first of the horizon, and no other
+  Store_opens_late_where_it_opens:
+    holds: "Store_opens_late"
+    where: "Store_active AND NOT shift(Store_active, along=snapshot, offset=1) AND position(snapshot) > 0"
+    description: >-
+      a store that opens past the first snapshot of the horizon opens on
+      its initial level, or its last level where it is cyclic, only where
+      `Store_opens_late` marks the snapshot
 
 objective:
   sense: minimize
