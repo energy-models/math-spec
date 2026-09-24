@@ -10,6 +10,8 @@ the others — a name declared once, a frame over declared dimensions, a bound
 naming a numeric parameter, a set over one dim of one variable, a curve
 through parameters carrying its breakpoints — which lowering runs before it
 reads any expression, since resolution assumes every one of them.
+:func:`emitted_name_errors` is the one rule read off the program instead: what
+a block's expansion writes is decided by the block as lowered.
 """
 
 from __future__ import annotations
@@ -29,6 +31,8 @@ from math_spec.sos import coefficients
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from pathlib import Path
+
+    from math_spec.program import Program
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -59,6 +63,19 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
 
 
+def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
+    """Every name a set or curve of *program* would write out that *schema* already declares.
+
+    Read off the program rather than the file, since what a curve writes is
+    decided by the curve as lowered — its links, its method, its mask.
+    """
+    by_block = [
+        *((f"Sos '{name}'", EmittedSet.of(name, block.sos_type).by_kind) for name, block in program.sos.items()),
+        *((f"piecewise '{name}'", EmittedCurve.of(name, curve).by_kind) for name, curve in program.piecewise.items()),
+    ]
+    return [error for context, by_kind in by_block for error in _collisions(schema, context, by_kind)]
+
+
 def reference_errors(schema: Spec) -> list[str]:
     """Every cross-declaration rule *schema* breaks, collected rather than raised on the first."""
     return [
@@ -68,9 +85,7 @@ def reference_errors(schema: Spec) -> list[str]:
         *_bound_names(schema),
         *_sos_shapes(schema),
         *_sos_bounds(schema),
-        *_sos_emitted_names(schema),
         *_piecewise_references(schema),
-        *_piecewise_emitted_names(schema),
     ]
 
 
@@ -251,12 +266,6 @@ def _sos_bounds(schema: Spec) -> Iterator[str]:
             )
 
 
-def _sos_emitted_names(schema: Spec) -> Iterator[str]:
-    """No name a set's expansion writes is one the file already declares."""
-    for sname, block in schema.sos.items():
-        yield from _collisions(schema, f"Sos '{sname}'", EmittedSet.of(sname, block.type).by_kind)
-
-
 def _piecewise_references(schema: Spec) -> Iterator[str]:
     """A curve runs along a declared dimension through numeric values parameters carrying it, gated by a binary, masked by a bool."""
     for name, pw in schema.piecewise.items():
@@ -299,12 +308,6 @@ def _piecewise_references(schema: Spec) -> Iterator[str]:
                 f"{context}: points parameter '{points}' must carry dim '{pw.over}' — "
                 f'it says how far each curve runs along it (has {schema.parameters[points].dims})'
             )
-
-
-def _piecewise_emitted_names(schema: Spec) -> Iterator[str]:
-    """No name a curve's expansion writes is one the file already declares."""
-    for name, pw in schema.piecewise.items():
-        yield from _collisions(schema, f"piecewise '{name}'", EmittedCurve.of(name, pw).by_kind)
 
 
 def _collisions(schema: Spec, context: str, by_kind: Iterable[tuple[str, Iterable[str]]]) -> Iterator[str]:

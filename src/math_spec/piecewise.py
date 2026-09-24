@@ -30,16 +30,12 @@ if TYPE_CHECKING:
     from math_spec.program import Expression
     from math_spec.resolution import Namespace
 
-#: A block as the file wrote it, or as the program carries it: the two share
-#: every name the rules here read, and the rules read nothing else.
-type Curve = PiecewiseBlock | PiecewiseDeclaration
-
 
 #: The suffix on the second gate row, where the gate variable does not exist.
 _UNGATED = '_ungated'
 
 
-def _curvature_required(pw: Curve) -> Curvature | None:
+def _curvature_required(pw: PiecewiseDeclaration) -> Curvature | None:
     """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
 
     A bounded link binds from one side, and that side is the hull boundary the
@@ -95,7 +91,7 @@ def lp_domain_refusal(name: str, pw: PiecewiseBlock, links: tuple[Expression, ..
     )
 
 
-def assumptions_of(block: str, pw: Curve) -> dict[str, AssumptionBlock]:
+def assumptions_of(block: str, pw: PiecewiseDeclaration) -> dict[str, AssumptionBlock]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
     Every curve assumes its breakpoints are there: a missing parameter row is
@@ -200,7 +196,7 @@ def _interior(over: str, mask: str | None) -> str:
     return f'{mask} AND shift({mask}, along={over}, offset=1) AND shift({mask}, along={over}, offset=-1)'
 
 
-def _bends(block: str, pw: Curve, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
+def _bends(block: str, pw: PiecewiseDeclaration, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
     """The curve bends the way *curvature* says, as a comparison of the two slopes at each breakpoint.
 
     The slopes are compared as a cross-product rather than as two quotients,
@@ -251,7 +247,7 @@ class Emitted:
     assumptions: tuple[str, ...]
 
     @classmethod
-    def of(cls, name: str, pw: Curve) -> Emitted:
+    def of(cls, name: str, pw: PiecewiseDeclaration) -> Emitted:
         """The names block *name* writes."""
         return cls(
             name,
@@ -340,15 +336,18 @@ class _Block:
     """
 
     def __init__(
-        self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock, frame: tuple[str, ...]
+        self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock, curve: PiecewiseDeclaration
     ) -> None:
         self.schema = schema
         self.raw = raw
         self.name = name
+        #: The block as the file wrote it, for the link text the rows repeat.
         self.pw = pw
-        self.emitted = Emitted.of(name, pw)
+        #: The block as the program carries it, for its frame and the names it writes.
+        self.curve = curve
+        self.emitted = Emitted.of(name, curve)
         self.mask = pw.points
-        self.frame = frame
+        self.frame = curve.frame
 
     def expand(self) -> None:
         """Write the block's declarations into the raw model."""
@@ -366,7 +365,7 @@ class _Block:
         as something a consumer has to know to ask for.
         """
         assumptions = sos.section(self.raw, 'assumptions')
-        for name, assumed in assumptions_of(self.name, self.pw).items():
+        for name, assumed in assumptions_of(self.name, self.curve).items():
             assumptions[name] = assumed.model_dump()
 
     # -- emitters ----------------------------------------------------------
@@ -467,7 +466,7 @@ def expand_piecewise(schema: Spec) -> Spec:
     ``method: sos2`` states, and then that set is written out here too: the
     binaries are what the method *is*, so the model that comes back carries no
     set of its own (:func:`math_spec.sos.emit` is where they are spelled).
-    Each block's frame is read off the program *schema* lowered to.
+    Each block's frame and names are read off the program *schema* lowered to.
     """
     if not schema.piecewise:
         return schema
@@ -476,7 +475,7 @@ def expand_piecewise(schema: Spec) -> Spec:
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
-        _Block(schema, raw, name, pw, program.piecewise[name].frame).expand()
+        _Block(schema, raw, name, pw, program.piecewise[name]).expand()
     raw['piecewise'].clear()
     for name, pw in schema.piecewise.items():
         if pw.method == 'adjacency':
