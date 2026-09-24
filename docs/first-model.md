@@ -372,6 +372,8 @@ bounds:
 ## Where to next
 
 - [The language](reference/language/index.md) gives every rule a file obeys.
+- [The glossary](reference/glossary.md) defines each word the pages use in a
+  fixed sense.
 - [Examples](examples/index.md) shows larger models beside the math they print.
 - [Print a model as math](howto/print.md) prints LaTeX and Typst, and gives
   each name its own symbol.

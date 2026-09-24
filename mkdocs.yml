@@ -25,61 +25,66 @@ validation:
 
 nav:
   - Home: index.md
-  # Arranged by what a page is for — tutorial, how-to guide, reference,
-  # explanation (https://diataxis.fr). `.claude/skills/docs-writing/SKILL.md`
-  # says how one kind is told from another, and the folders under `docs/`
-  # follow the same split. The model pages are reference in their own form
-  # and sit at the end of the Reference section, after the pages a reader
-  # looks things up in. The Development section, last, is outside the four
-  # kinds.
-  - Tutorials:
-      - Your first model: first-model.md
-  - How-to guides:
-      - Installation: howto/installation.md
-      - Check a model without data: howto/check.md
-      - Print a model as math: howto/print.md
-      - State a rule that differs by regime: howto/regimes.md
-      - Declare a column of data: howto/declare-a-column.md
-      - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
-      - Write a piecewise curve out by hand: howto/curve-by-hand.md
-      - See what a curve or a set expands to: howto/see-an-expansion.md
-  - Reference:
-      - Language:
-          - reference/language/index.md
-          - File shape: reference/language/file.md
-          - Parameters, variables, constraints and the objective: reference/language/declarations.md
-          - Dimensions: reference/language/dimensions.md
-          - Relations: reference/language/relations.md
-          - Expressions: reference/language/expressions.md
-          - Named expressions and macros: reference/language/named.md
-          - Operators: reference/language/operators.md
-          - Piecewise curves and SOS: reference/language/piecewise.md
-          - Assumptions: reference/language/assumptions.md
-          - Absence and where: reference/language/absence.md
-          - Errors and limits: reference/language/errors.md
-      - Every construct, as math: reference/notation.md
-      - Typeset the math: reference/typeset.md
-      - Reading a loaded model: reference/reading.md
-      - Python API: reference/api.md
-      - Glossary: reference/glossary.md
-      - Examples:
-          - examples/index.md
-          - Least-cost dispatch: examples/dispatch.md
-          - Unit commitment: examples/commitment.md
-          - One construct per model: examples/operators.md
-  # Explanation: the design arguments, and what changed.
-  - About:
-      - The file and the program: about/file-and-program.md
-      - The limits: about/limits.md
-      - What counts as language: about/what-counts-as-language.md
-      - What counts as public API: about/what-counts-as-public-api.md
-      - Changelog: CHANGELOG.md
-  # Outside the four kinds: proof-of-concept pages and contributor material,
-  # which a reader writing a model does not need. The PyPSA pages stay in
-  # `docs/examples/`, where `tools/gallery.py` writes them. `docs/static/hooks.py`
-  # appends one page per module under `src/math_spec/`, as `Modules`.
+  # Arranged by reader first, then by what a page is for. Each tab is one
+  # reader; inside the first two, the sections are the Diátaxis kinds —
+  # tutorial, how-to guide, reference, explanation (https://diataxis.fr).
+  # `.claude/skills/docs-writing/SKILL.md` says how one kind is told from
+  # another. The folders under `docs/` follow the kind, not the reader. The
+  # model pages are reference in their own form and sit at the end of the
+  # Reference section, after the pages a reader looks things up in.
+  - Writing models:
+      - Tutorials:
+          - Your first model: first-model.md
+      - How-to guides:
+          - Installation: howto/installation.md
+          - Check a model without data: howto/check.md
+          - Print a model as math: howto/print.md
+          - State a rule that differs by regime: howto/regimes.md
+          - Declare a column of data: howto/declare-a-column.md
+          - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
+          - Write a piecewise curve out by hand: howto/curve-by-hand.md
+          - See what a curve or a set expands to: howto/see-an-expansion.md
+      - Reference:
+          - Language:
+              - reference/language/index.md
+              - File shape: reference/language/file.md
+              - Parameters, variables, constraints and the objective: reference/language/declarations.md
+              - Dimensions: reference/language/dimensions.md
+              - Relations: reference/language/relations.md
+              - Expressions: reference/language/expressions.md
+              - Named expressions and macros: reference/language/named.md
+              - Operators: reference/language/operators.md
+              - Piecewise curves and SOS: reference/language/piecewise.md
+              - Assumptions: reference/language/assumptions.md
+              - Absence and where: reference/language/absence.md
+              - Errors and limits: reference/language/errors.md
+          - Every construct, as math: reference/notation.md
+          - Typeset the math: reference/typeset.md
+          - Glossary: reference/glossary.md
+          - Examples:
+              - examples/index.md
+              - Least-cost dispatch: examples/dispatch.md
+              - Unit commitment: examples/commitment.md
+              - One construct per model: examples/operators.md
+      - About:
+          - The limits: about/limits.md
+          - Changelog: CHANGELOG.md
+  # For whoever writes a tool against `Spec` and `Program`: an engine such as
+  # specsolve, a renderer, a checker.
+  - Building on math-spec:
+      - Reference:
+          - Reading a loaded model: reference/reading.md
+          - Python API: reference/api.md
+      - About:
+          - The file and the program: about/file-and-program.md
+          - What counts as language: about/what-counts-as-language.md
+  # Outside the four kinds: contributor material and proof-of-concept pages.
+  # The PyPSA pages stay in `docs/examples/`, where `tools/gallery.py` writes
+  # them. `docs/static/hooks.py` appends one page per module under
+  # `src/math_spec/`, as `Modules`.
   - Development:
       - Contributing: contributing.md
+      - What counts as public API: about/what-counts-as-public-api.md
       - PyPSA parity:
           - PyPSA in one file: examples/pypsa.md
           - PyPSA, the quadratic class: examples/pypsa_quadratic.md
