@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, cast
 
 from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.piecewise import Emitted
+from math_spec.piecewise import Emitted, leaves_ungated
 from math_spec.program import Dual, Variable, walk
 from math_spec.sos import Emitted as EmittedSet
 from math_spec.typesetting.format import NOTATIONS
@@ -276,12 +276,19 @@ def _declared(program: Program) -> set[str]:
 
 
 def _emitted(program: Program) -> set[str]:
-    """Every name writing *program*'s curves and sets out would declare."""
-    emitted = [
-        *(Emitted.of(name, curve).by_kind for name, curve in program.piecewise.items()),
-        *(EmittedSet.of(name, block.sos_type).by_kind for name, block in program.sos.items()),
-    ]
-    return {name for by_kind in emitted for _, names in by_kind for name in names}
+    """Every variable and constraint writing *program*'s curves and sets out would declare."""
+    curves = (
+        Emitted.of(name, curve).written(
+            curve.method,
+            ungated=leaves_ungated(program.variables[curve.activity] if curve.activity is not None else None),
+        )
+        for name, curve in program.piecewise.items()
+    )
+    sets = (EmittedSet.of(name, block.sos_type).by_kind for name, block in program.sos.items())
+    return {
+        *(name for names in curves for name in names),
+        *(name for by_kind in sets for _, names in by_kind for name in names),
+    }
 
 
 def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:

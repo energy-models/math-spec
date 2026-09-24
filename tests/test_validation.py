@@ -2124,7 +2124,8 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     parse, expand and resolve the declaration's text again, so one constraint
     was resolved four times per load and the trees the readers walked were
     built apart from the one the language checked (#401). They read the
-    program lowering built now.
+    program lowering built now. A curve's links were resolved again for its
+    rules at load and again when printed.
     """
     from math_spec import lowering, resolution
 
@@ -2153,6 +2154,11 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
                     'otherwise': 'p_max - p',
                 },
                 'constraints.spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+                'dimensions.bp': {'dtype': 'int'},
+                'parameters.bp_x': {'dims': ['generator', 'bp']},
+                'parameters.bp_y': {'dims': ['generator', 'bp']},
+                'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+                'piecewise.curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
             },
         )
     )
@@ -2165,8 +2171,29 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         ('resolve_expression', "Named expression 'headroom', case 'opening'"),
         ('resolve_expression', "Named expression 'headroom', otherwise"),
         ('resolve_expression', 'The objective'),
+        ('resolve_expression', "piecewise 'curve' link 0"),
+        ('resolve_expression', "piecewise 'curve' link 1"),
+        ('resolve_where_text', "Assumption 'curve_complete'"),
+        ('resolve_where_text', "Assumption 'curve_complete', where"),
         ('resolve_where_text', "Constraint 'balance'"),
         ('resolve_where_text', "Constraint 'spare'"),
         ('resolve_where_text', "Named expression 'headroom', case 'opening'"),
+        ('resolve_where_text', "Variable 'op_cost'"),
         ('resolve_where_text', "Variable 'p'"),
     ], 'every expression and where position once, under the context validation reads it in, and nothing after'
+
+
+@pytest.mark.parametrize(
+    'constraints',
+    [
+        pytest.param({}, id='an-entry-nothing-reads'),
+        pytest.param({'c': {'dims': ['g'], 'expression': 'p <= bad'}}, id='an-entry-a-constraint-reads'),
+    ],
+)
+def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_name(constraints):
+    """An entry nothing read loaded and failed only when printed, and one a constraint read was
+    refused under the constraint's name. The program reads an entry's frame off its body at
+    load, so the fault is the entry's, wherever it is read."""
+    model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
+    with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
+        to_spec(model)

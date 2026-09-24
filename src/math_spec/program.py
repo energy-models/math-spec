@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, assert_never, get_args
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec._expression_parser import ComparisonOperator
 from math_spec._sealed import Sealed
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
-    'QUADRATIC_POSITIONS',
     'Add',
     'And',
     'Assumption',
@@ -129,11 +128,6 @@ FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
 #: link are read affinely (``math_spec.degree``), so those are the two.
 QuadraticPosition = Literal['objective', 'constraint']
-
-#: The set form, for a consumer pinning its own table against the vocabulary:
-#: ``QUADRATIC_POSITIONS <= handled`` is how one says it covers every position
-#: and hears about it when the language admits another.
-QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
 
 #: The dtype a dimension index may declare (the declaration rules), and what
 #: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
@@ -379,8 +373,8 @@ class Named:
     Its value is its body's: a consumer building rows steps through it, as
     :func:`children` does. It is kept as a node rather than written in so the
     typesetter can print the symbol where the name stood and define it once.
-    Every use of one entry holds the one node resolution built for it, which
-    is the :attr:`ExpressionDeclaration.expression` of that entry.
+    Every use of one entry holds the one node resolution built for it, whose
+    :attr:`body` is the :attr:`ExpressionDeclaration.expression` of that entry.
     """
 
     name: str
@@ -735,7 +729,7 @@ class ObjectiveDeclaration:
 class ExpressionDeclaration:
     """A named quantity — one the math reads, or one only read back after a solve.
 
-    ``in_math`` where the objective or a constraint inlines it, directly or
+    ``in_math`` where the objective or a constraint reads it, directly or
     through another entry or a macro; its body then stands inside
     :attr:`Program.roots` and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
@@ -783,6 +777,7 @@ class PiecewiseDeclaration:
         points: The parameter saying how far each curve runs, or ``None``.
         frame: The dimensions the block builds one curve per coordinate of,
             in declaration order.
+        description: What the file wrote under ``description:``, or ``None``.
     """
 
     over: str
@@ -998,13 +993,21 @@ class Program:
     def roots(self) -> tuple[Expression, ...]:
         """Every tree a row is built from — the objective and both sides of each constraint.
 
-        An :attr:`expressions` entry builds no row and is not among them.
+        An :attr:`expressions` entry builds no row and is not among them. Nor is
+        a curve still under :attr:`piecewise`: it is not a row until
+        :meth:`~math_spec.model.Spec.expand` writes it out, and its rows are in
+        the program of the expansion.
         """
         return tuple(e for _, group in self._by_position() for e in group)
 
     @cached_property
     def footprint(self) -> Footprint:
-        """Which constructs this program uses — walked once, then held."""
+        """Which constructs this program uses — walked once, then held.
+
+        It answers for the rows this program holds. A curve still under
+        :attr:`piecewise` is not counted, so a ``sos2`` curve adds no set order
+        here; ask the program of ``spec.expand('piecewise')`` for its rows.
+        """
         return Footprint(
             quadratic=frozenset(
                 position for position, group in self._by_position() if any(is_quadratic(e) for e in group)
@@ -1033,6 +1036,11 @@ class Program:
         for the same reason — a program cannot change after construction — and
         answering for every axis costs what answering for one did, every
         construct that ties an axis naming the axis it ties (#248).
+
+        It answers for the rows this program holds, as :attr:`footprint` does.
+        A curve still under :attr:`piecewise` ties nothing here, although its
+        rows sum over its breakpoint dimension; ask the program of
+        ``spec.expand('piecewise')``.
         """
         from math_spec.separability import separabilities
 
