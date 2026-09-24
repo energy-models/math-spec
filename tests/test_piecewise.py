@@ -126,6 +126,17 @@ def test_an_emitted_variable_may_not_take_any_name_the_file_declares(patch, writ
         schema_of(NONCONVEX_YAML, **patch)
 
 
+def test_a_written_name_is_refused_once_the_rest_of_the_file_lowers():
+    """The rule reads the curve as lowered, so it waits for every other fault, as a dim rule does."""
+    clash = {'parameters.cost_curve_lam': {'dims': ['bp']}}
+    with pytest.raises(SchemaError) as first:
+        schema_of(NONCONVEX_YAML, **clash, **{'constraints.balance.expression': 'p == nope'})
+    assert 'nope' in str(first.value)
+    assert 'writes variable' not in str(first.value), 'the clash is not listed beside a fault that stops lowering'
+    with pytest.raises(SchemaError, match="writes variable 'cost_curve_lam'"):
+        schema_of(NONCONVEX_YAML, **clash)
+
+
 @pytest.mark.parametrize('method', [pytest.param('incremental', id='unknown'), pytest.param(['sos2'], id='a list')])
 def test_a_method_this_project_does_not_have_is_refused(method):
     """A list used to escape the membership test as a `TypeError`."""
