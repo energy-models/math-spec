@@ -54,21 +54,16 @@ piecewise:
 
 A block states plain variables and constraints: one weight per breakpoint in
 `[0, 1]`, one row making the weights sum to 1, and one row per link tying its
-expression to the weighted breakpoints. A `Program` holds the block as one
-curve, and the [typeset output](../typeset.md) prints the curve itself.
-[`spec.expand()`](#writing-a-formulation-out) writes the rows into a model of
-their own, which is the model a consumer that builds rows reads.
+expression to the weighted breakpoints. The block stays one curve until
+[`spec.expand()`](#writing-a-formulation-out) writes these rows out.
 
 The breakpoint order is the declared order of `over`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
 
 Every condition this page says is checked "when the data binds" is an
-[assumption](assumptions.md), written in the same grammar as one the file
-states. The `method:` implies it rather than the file writing it, so
-[`expand()`](#writing-a-formulation-out) writes it into `assumptions:` under
-the block's own name, and a model that still declares the block derives the
-same text when it loads. Both print under one heading, and the consumer that
-binds the numbers runs them.
+[assumption](assumptions.md) that the `method:` implies, named after the block.
+It prints beside the file's own assumptions, and the consumer that binds the
+numbers runs it.
 
 !!! warning "A values parameter short of a row does not build a shorter curve"
 
@@ -235,33 +230,18 @@ too.
 
 ## Writing a formulation out
 
-`Spec.expand()` returns the same math with its formulations stated as plain
-variables and constraints:
+Writing a formulation out replaces the block with the variables and constraints
+it states. [`Spec.expand()`](../reading.md#formulations-written-out) is the
+call, and [see what a curve or a set expands to](../../howto/see-an-expansion.md)
+shows a model before and after.
 
-```python
-from math_spec import to_spec
-
-spec = to_spec('curve.yaml')
-spec.expand()  # every formulation
-spec.expand('sos')  # only the sets
-spec.expand('piecewise')  # only the curves
-```
-
-[See what a curve or a set expands to](../../howto/see-an-expansion.md) shows
-a model before and after, as whole files.
-
-- **The kinds are `'piecewise'` and `'sos'`, and no argument means both.** Any
-  other string is refused, naming the two. Curves go first whatever order they
-  are asked in, because a `method: sos2` curve states a set and no set states a
-  curve.
-- **A model with nothing to write out is the model that comes back.** So is a
-  second call with the same kinds.
-- **The same data binds a model and its expansion.** Neither a set nor a curve
-  emits a parameter. A curve under `points:` sits its rows on `where:`
-  predicates over the mask the file named, and the expansion is a file like any
-  other: `to_yaml()` writes it, and loading it back changes nothing.
-- **`spec.program` writes nothing out.** The program mirrors the model: a
-  curve the model still declares is under `program.piecewise`, typed, and
-  `spec.expand('piecewise').program` carries its rows instead. A consumer
-  building rows reads the expansion's program, and refuses a curve it finds on
-  a program; one that cannot take a set reads `spec.expand().program`.
+- **Every name written out starts with the name of the block.** The weights of
+  the curve `curve` are `curve_lam`.
+- **A curve writes out the rows its [`method`](#method) adds.** A
+  `method: sos2` curve writes out an `sos:` block, and a set writes out as
+  [binaries](#what-a-set-is-written-out-as).
+- **No formulation emits a parameter.** The same data binds a model and its
+  expansion. A curve under `points:` puts its rows on `where:` predicates over
+  the mask the file named.
+- **The assumptions a `method:` implies become `assumptions:` entries** with
+  the same names.

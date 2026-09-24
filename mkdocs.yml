@@ -60,6 +60,7 @@ nav:
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
       - Reading a loaded model: reference/reading.md
+      - Glossary: reference/glossary.md
       - Examples:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md

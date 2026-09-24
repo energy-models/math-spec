@@ -12,8 +12,8 @@ concept of a set.
 
 ## 1. Write the formulation out
 
-`expand()` returns the same math with its formulations stated as plain
-declarations. `to_yaml()` prints the result as a file.
+`expand()` writes each formulation out as plain declarations, and `to_yaml()`
+prints the result as a file.
 
 === "Python"
 
@@ -440,6 +440,8 @@ writes out in two steps. Compare the tabs from left to right:
 <!-- prettier-ignore-end -->
 
 The [`assumptions:`](../reference/language/assumptions.md) rows state what
-the curve needs of its data. What
-`expand()` accepts, and what each `method:` emits, is under
-[piecewise curves and SOS](../reference/language/piecewise.md#writing-a-formulation-out).
+the curve needs of its data.
+[`Spec.expand()`](../reference/reading.md#formulations-written-out) lists what
+the call accepts.
+[Writing a formulation out](../reference/language/piecewise.md#writing-a-formulation-out)
+says what each block emits.
