@@ -51,11 +51,11 @@ What a patch may say, and what is refused:
 * **A patch adjusts the math, not the coordinate space.** A ``dimensions`` or
   ``relations`` entry may be added or restated word for word, never changed and
   never removed.
-* **A declaration set to** ``null`` **is removed**, and a removal of what the
-  base does not declare is refused. The marker is positional: ``constraints:
-  {ramp: null}`` removes the constraint, where ``variables: {p: {where: null}}``
-  sets that variable's mask to none, which is a value the schema takes. A whole
-  section set to ``null`` is refused, because it removes nothing.
+* ``null`` **makes what it names absent.** A declaration set to ``null`` is
+  removed, and a removal of what the base does not declare is refused. A field
+  set to ``null`` is dropped, and takes its default when the result loads:
+  ``variables: {p: {bounds: {upper: null}}}`` opens that bound. A whole section
+  set to ``null`` is refused, because it removes nothing.
 * **``given:`` is laid over one kind at a time**, by the same rules as any
   owned section.
 """
@@ -445,6 +445,8 @@ def _lay_over(base: dict[str, object], patch: dict[str, object], name: str) -> d
             laid[key] = _owned(_mapping(laid.get(key)), block, _singular(key), _entry_class(Spec, key), name)
         elif key == 'objective':
             laid = _objective(laid, value, name)
+        elif value is None:
+            laid.pop(key, None)
         else:
             laid[key] = value
     return laid
@@ -569,15 +571,18 @@ def _objective(laid: dict[str, object], patch: object, name: str) -> dict[str, o
 
 
 def _field_by_field(under: object, over: object) -> object:
-    """*over* laid on *under*: mappings merge, everything else replaces.
+    """*over* laid on *under*: mappings merge, ``None`` drops the field, and everything else replaces.
 
-    ``None`` replaces here rather than removing. Removal is the
-    declaration-level marker and reaches no deeper, so ``where: null`` is the
-    mask the schema already lets a file write.
+    A dropped field takes the schema's default when the result loads, which
+    is what makes ``upper: null`` an open bound and ``domain: null`` a
+    continuous variable, whatever the schema lets a file write there.
     """
     if isinstance(under, dict) and isinstance(over, dict):
         merged = dict(under)
         for key, value in over.items():
-            merged[key] = _field_by_field(merged.get(key), value)
+            if value is None:
+                merged.pop(key, None)
+            else:
+                merged[key] = _field_by_field(merged.get(key), value)
         return merged
     return over

@@ -216,10 +216,12 @@ Given variable 'Generator_p' collides with the variable of the same name. Names 
    objective: null
    ```
 
-   The marker is the declaration itself. Deeper down, `null` is a value the
-   schema takes: `dispatch: { where: null }` gives that variable no mask, and
-   leaves the variable in place. Higher up, `constraints: null` is refused,
-   because a section is not a declaration and nulling it removes nothing.
+   A `null` makes what it names absent. On a declaration, the declaration is
+   removed. On a field, the field takes its default and the declaration stays:
+   `dispatch: { where: null }` gives that variable no mask, and
+   `dispatch: { bounds: { upper: null } }` leaves it open above. Higher up,
+   `constraints: null` is refused, because a section is not a declaration and
+   nulling it removes nothing.
 
 4. **Nest the calls where one patch refines another.** The second call lays
    its patch on the first call's result, so the order is on the page.
@@ -235,6 +237,7 @@ Given variable 'Generator_p' collides with the variable of the same name. Names 
 | some fields of a declaration                                | those fields change, and the rest of the declaration stays                    |
 | a whole declaration under a new name                        | it is added                                                                   |
 | `null` under a declaration's name                           | it is removed                                                                 |
+| `null` on a field of a declaration                          | the field takes its default, and the rest of the declaration stays            |
 | `null` under a section's name                               | it is refused                                                                 |
 | a dimension or a relation                                   | it is added, or restated word for word as the base declares it                |
 | an entry under `given: variables:` or `given: constraints:` | it is edited, added or removed like any declaration, and the other kind stays |

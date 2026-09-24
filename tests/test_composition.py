@@ -21,7 +21,8 @@ import copy
 import pytest
 
 from math_spec import LanguageError, merge, model, override, to_markdown, to_spec
-from tests.fixtures import DISPATCH_MODEL
+from math_spec.program import Constant
+from tests.fixtures import DISPATCH_MODEL, varied
 
 #: The coupling surface a component library agrees on: one flow per port, and
 #: one balance per bus. The two fragments below read `flow` under `given:`, so
@@ -298,26 +299,38 @@ def test_a_stale_removal_is_refused():
         override(DISPATCH_MODEL, {'stale': {'constraints': {'balnce': None}}})
 
 
-def test_a_null_inside_a_declaration_is_a_value_rather_than_a_removal():
-    """`where: null` is the mask the schema already takes, so the marker is positional.
+@pytest.mark.parametrize(
+    ('patch', 'field', 'default'),
+    [
+        pytest.param({'variables': {'p': {'where': None}}}, lambda s: s.variables['p'].where, None, id='a-mask'),
+        pytest.param(
+            {'variables': {'p': {'bounds': {'upper': None}}}},
+            lambda s: s.program.variables['p'].upper,
+            Constant(float('inf')),
+            id='a-bound-two-levels-down',
+        ),
+        pytest.param(
+            {'variables': {'p': {'domain': None}}},
+            lambda s: s.variables['p'].domain,
+            'continuous',
+            id='a-field-that-takes-no-null',
+        ),
+        pytest.param({'version': None}, lambda s: s.version, 0, id='a-top-level-field-that-takes-no-null'),
+    ],
+)
+def test_a_null_field_takes_its_default(patch, field, default):
+    """`null` makes what it names absent: a declaration is removed, and a field takes its default.
 
-    The base carries a mask, so setting the field to `null` and deleting it are
-    two different declarations rather than the same one twice.
+    The bound was the case that failed: `upper: null` was laid as a value the
+    schema refuses for a bound, so a patch could not open one.
     """
-    masked = override(DISPATCH_MODEL, {'masked': {'variables': {'p': {'where': 'p_max > 0'}}}})
-    laid = override(masked, {'unmasked': {'variables': {'p': {'where': None}}}})
-    assert laid.variables['p'].where is None, 'the field is set to none, and the rest of the declaration stays'
-    assert laid.variables['p'].bounds.upper == 'p_max'
-
-
-def test_a_null_two_levels_down_is_a_value_too():
-    """The removal marker reaches no deeper than the declaration, however deep the `null` sits.
-
-    Removing `upper` would leave the default, an open bound, and the model would
-    load. As a value, `null` is one the schema refuses for a bound.
-    """
-    with pytest.raises(LanguageError, match=r'variables\.p\.bounds\.upper'):
-        override(DISPATCH_MODEL, {'unbounded': {'variables': {'p': {'bounds': {'upper': None}}}}})
+    base = varied(
+        DISPATCH_MODEL,
+        **{'description': 'dispatch', 'variables.p.where': 'p_max > 0', 'variables.p.domain': 'integer'},
+    )
+    laid = override(base, {'relaxed': patch})
+    assert field(laid) == default
+    assert laid.variables['p'].bounds.lower == 0, 'a field the patch does not name stays as the base wrote it'
 
 
 @pytest.mark.parametrize(
