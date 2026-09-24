@@ -54,7 +54,7 @@ from math_spec.program import (
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
-    from math_spec.resolution import Resolved
+    from math_spec.program import Program
 
 
 def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
@@ -260,8 +260,8 @@ def _check_named_amount(
 # ---------------------------------------------------------------------------
 
 
-def check_schema(schema: Spec, resolved: Resolved) -> None:
-    """Check every declaration's dim rules, on the trees *resolved* holds for *schema*.
+def check_schema(schema: Spec, program: Program) -> None:
+    """Check every declaration's dim rules, on the trees *program* holds for *schema*.
 
     Raises:
         DimensionError: On the first declaration that breaks one.
@@ -269,7 +269,7 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
     for vname, vdef in schema.variables.items():
         frame = frozenset(vdef.dims)
         context = f"Variable '{vname}'"
-        _check_where_dims(resolved.variables[vname], frame, context)
+        _check_where_dims(program.variables[vname].where, frame, context)
         for side in ('lower', 'upper'):
             bound = getattr(vdef.bounds, side)
             if isinstance(bound, str):
@@ -281,18 +281,18 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
                         f'{sorted(frame)}.'
                     )
 
-    for ename, entry in resolved.expressions.items():
-        if not isinstance(entry.body, Cases):
+    for ename, entry in program.expressions.items():
+        if not isinstance(entry.expression, Cases):
             continue
         block = schema.expressions[ename]
         frame = frozenset(block.dims or [])
-        for region, label in zip(entry.body.regions, [*block.cases, None], strict=True):
+        for region, label in zip(entry.expression.regions, [*block.cases, None], strict=True):
             context = case_context(ename, label)
             if label is not None:
                 _check_where_dims(region.when, frame, context)
             _check_value_dims(region.value, schema, frame, context)
 
-    for cname, constraint in resolved.constraints.items():
+    for cname, constraint in program.constraints.items():
         frame = frozenset(constraint.dims)
         context = f"Constraint '{cname}'"
         _check_where_dims(constraint.where, frame, context)
@@ -310,9 +310,9 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
             )
             raise DimensionError(f'{context}: the expression {detail}.')
 
-    if resolved.objective is not None:
+    if program.objective is not None:
         context = 'The objective'
-        got = dims_of(resolved.objective.expression, schema, context)
+        got = dims_of(program.objective.expression, schema, context)
         if got:
             raise DimensionError(
                 f'{context}: the expression carries dims {sorted(got)}, and an objective is one '

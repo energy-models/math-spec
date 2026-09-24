@@ -160,7 +160,7 @@ def _joins_terms(node: Expression) -> bool:
 def check_expression(node: Expression, context: str, *, ceiling: int = 1) -> None:
     """What the math admits at one position: no dual anywhere under *node*, then :func:`check_binary` everywhere in it.
 
-    Asked of the resolved tree, so a dual or a product inlined through a
+    Asked of the resolved tree, so a dual or a product reached through a
     macro or a named expression is caught alongside one written in place.
     What a plan node can represent is the consumer's question, not this one's.
 

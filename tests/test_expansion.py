@@ -6,13 +6,13 @@
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass, replace
 from functools import partial
 
 import pytest
 
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from math_spec.lowering import inline
 from math_spec.program import Multiply, Named, Parameter, Sum, Translate, Variable
 from math_spec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
@@ -35,10 +35,13 @@ def _resolved(text, ns):
 
 def _bodies(resolved):
     """*resolved* with every named expression's body standing bare where its name was."""
+    if isinstance(resolved, Named):
+        return _bodies(resolved.body)
     if isinstance(resolved, tuple):
-        left, op, right = resolved
-        return inline(left), op, inline(right)
-    return inline(resolved)
+        return tuple(_bodies(part) for part in resolved)
+    if is_dataclass(resolved) and not isinstance(resolved, type):
+        return replace(resolved, **{f.name: _bodies(getattr(resolved, f.name)) for f in fields(resolved) if f.init})
+    return resolved
 
 
 @pytest.mark.parametrize(

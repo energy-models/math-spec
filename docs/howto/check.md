@@ -21,7 +21,9 @@ machine and in CI.
    ```
 
    Advice prints on stdout and exits with status 0. A model the language
-   accepts with nothing to advise prints nothing.
+   accepts with nothing to advise prints nothing. A `piecewise:` or `sos:`
+   block is read as the rows it states, so the answer is the one its
+   expansion gets, with nothing expanded.
 
    ```text
    Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is -inf, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.
@@ -42,8 +44,7 @@ machine and in CI.
    ```python
    import math_spec as ms
 
-   spec = ms.to_spec('model.yaml')
-   for note in ms.advice(spec):
+   for note in ms.advice('model.yaml'):
        print(note)
    ```
 
