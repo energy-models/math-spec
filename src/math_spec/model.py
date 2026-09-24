@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import math
 import re
-from collections import Counter
 from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
@@ -30,11 +29,9 @@ from pydantic import (
 
 from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
-from math_spec.operators import BUILTIN_NAMES
-from math_spec.sos import Emitted, coefficients
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Mapping
 
     from pydantic import GetJsonSchemaHandler, SerializerFunctionWrapHandler
     from pydantic.config import ExtraValues
@@ -160,7 +157,7 @@ def _also_written_as(
     return {'anyOf': [dict(generated), shorthand]}
 
 
-def _side(written: str | list[str] | dict[str, str] | None) -> tuple[tuple[str, str], ...]:
+def side_columns(written: str | list[str] | dict[str, str] | None) -> tuple[tuple[str, str], ...]:
     """``(role, dimension)`` per column of one side of a relation, in written order.
 
     A bare name or a list names each column after the dimension it is over; a
@@ -208,7 +205,7 @@ class RelationBlock(_StrictBlock):
         The program calls the same thing :attr:`~math_spec.program.RelationDeclaration.columns`;
         here the table has no field of its own, being what the two sides make.
         """
-        return (*_side(self.key), *_side(self.values))
+        return (*side_columns(self.key), *side_columns(self.values))
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -221,12 +218,12 @@ class RelationBlock(_StrictBlock):
     @property
     def key_roles(self) -> tuple[str, ...]:
         """The key roles, however ``key:`` was written."""
-        return tuple(role for role, _ in _side(self.key))
+        return tuple(role for role, _ in side_columns(self.key))
 
     @property
     def value_roles(self) -> tuple[str, ...]:
         """The roles the key determines; empty for a bare relation."""
-        return tuple(role for role, _ in _side(self.values))
+        return tuple(role for role, _ in side_columns(self.values))
 
 
 class DimensionBlock(_StrictBlock):
@@ -715,11 +712,6 @@ class SosBlock(_StrictBlock):
 SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
 
 
-def undeclared_dimension(kind: str, name: str, dimension: str) -> str:
-    """The one wording for a declaration naming a dimension the file does not declare."""
-    return f"{kind} '{name}' references undeclared dimension '{dimension}'. Declare it under 'dimensions:'."
-
-
 def _without_absence(value: object) -> object:
     """*value* with every absent entry stripped, recursively — see :meth:`Spec._drop_absence`."""
     if not isinstance(value, dict):
@@ -918,262 +910,8 @@ class Spec(_StrictBlock):
         return self
 
     @model_validator(mode='after')
-    def _validate_references(self) -> Spec:
-        """Every cross-declaration rule the schema can decide without data, collected rather than raised on the first."""
-        errors = [
-            *self._name_collisions(),
-            *self._frame_dimensions(),
-            *self._relation_targets(),
-            *self._bound_names(),
-            *self._sos_shapes(),
-            *self._sos_bounds(),
-            *self._sos_emitted_names(),
-            *self._piecewise_references(),
-            *self._piecewise_emitted_names(),
-        ]
-        if errors:
-            raise ValueError('\n'.join(errors))
-        return self
-
-    def _name_collisions(self) -> Iterator[str]:
-        """A name is declared once, and never as a built-in operator."""
-        kinds: list[tuple[str, Iterable[str]]] = [
-            ('dimension', self.dimensions),
-            ('relation', self.relations),
-            ('parameter', self.parameters),
-            ('variable', self.variables),
-            ('named expression', self.expressions),
-            ('macro', self.macros),
-        ]
-        seen: dict[str, str] = {}
-        for kind, group in kinds:
-            for name in group:
-                if name in BUILTIN_NAMES:
-                    yield (
-                        f"{kind.capitalize()} '{name}' collides with the built-in operator "
-                        f"'{name}'. The operator set is closed and its names are reserved; "
-                        f'rename the {kind}.'
-                    )
-                if name in seen:
-                    yield (
-                        f"{kind.capitalize()} '{name}' collides with the {seen[name]} of "
-                        f'the same name. Names share one flat namespace — rename one of them.'
-                    )
-                else:
-                    seen[name] = kind
-
-    def _frame_dimensions(self) -> Iterator[str]:
-        """Every frame is a product of distinct, declared dimensions."""
-        frames = [
-            *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
-            *(('Variable', name, v.dims) for name, v in self.variables.items()),
-            *(('Constraint', name, c.dims) for name, c in self.constraints.items()),
-            *(('Named expression', name, e.dims or []) for name, e in self.expressions.items()),
-        ]
-        for kind, name, dims in frames:
-            yield from (undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)
-            yield from (
-                f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
-                for d, count in Counter(dims).items()
-                if count > 1
-            )
-
-    def _relation_targets(self) -> Iterator[str]:
-        """A relation has at least two columns over declared dimensions, each named once, and a key naming some of them."""
-        for lname, lk in self.relations.items():
-            if len(lk.pairs) < 2:
-                yield (
-                    f"Relation '{lname}' has {len(lk.pairs)} column(s). A relation relates dimensions, so 'key:' and "
-                    f"'values:' name at least two between them — a label on one dimension is a parameter over it."
-                )
-            if not lk.key_roles:
-                yield (
-                    f"Relation '{lname}' names no key column. A relation is keyed by the columns a row is identified "
-                    f"by — name them under 'key:', and leave the columns they determine to 'values:'."
-                )
-            for side, written in (('key', lk.key), ('values', lk.values)):
-                yield from (
-                    f"Relation '{lname}' names dimension '{d}' twice under '{side}:'. Give the two columns roles: "
-                    f'{side}: {{{d}0: {d}, {d}1: {d}}}.'
-                    for d, count in Counter(dim for _, dim in _side(written)).items()
-                    if count > 1 and not isinstance(written, dict)
-                )
-            yield from (
-                f"Relation '{lname}' names column '{role}' under both 'key:' and 'values:'. A relation names each "
-                f'column once — name the value column after what it holds: values: {{<name>: {dict(lk.pairs)[role]}}}.'
-                for role in dict.fromkeys(lk.key_roles)
-                if role in lk.value_roles
-            )
-            yield from (
-                undeclared_dimension('Relation', lname, d) for d in dict.fromkeys(lk.dims) if d not in self.dimensions
-            )
-            yield from (
-                f"Relation '{lname}' names column '{role}' after dimension '{role}', but the column is over "
-                f"'{dim}'. A column named like a dimension is read as over it — name it after what it holds."
-                for role, dim in lk.pairs
-                if role in self.dimensions and role != dim
-            )
-            if lk.value_roles:
-                yield from (
-                    f"Relation '{lname}' has two key columns over '{d}' "
-                    f'({[k for k in lk.key_roles if dict(lk.pairs)[k] == d]}). A key that determines a value is read '
-                    f'its dimensions, and no frame carries a dimension twice — key the table by one column over '
-                    f'each, or leave one of them a value column.'
-                    for d, count in Counter(dict(lk.pairs)[k] for k in lk.key_roles).items()
-                    if count > 1
-                )
-
-    def _bound_names(self) -> Iterator[str]:
-        """A named bound is a numeric parameter."""
-        for vname, vdef in self.variables.items():
-            for side in ('lower', 'upper'):
-                val = getattr(vdef.bounds, side)
-                if not isinstance(val, str):
-                    continue
-                if val in self.parameters:
-                    dtype = self.parameters[val].dtype
-                    if dtype not in NUMERIC_DTYPES:
-                        yield (
-                            f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "
-                            f'is a number. Declare it dtype: float or int, or bound the variable by another.'
-                        )
-                    continue
-                detail = (
-                    f"'{val}' is not a declared parameter"
-                    if val.isidentifier()
-                    else f'bounds accept a parameter name or a number, not an expression (got {val!r}). '
-                    f'Precompute it as a parameter'
-                )
-                yield (f"Variable '{vname}' bounds.{side}: {detail}.")
-
-    def _sos_shapes(self) -> Iterator[str]:
-        """A set runs along one dim of one declared variable, and a variable carries one set."""
-        claimed: dict[str, str] = {}
-        for sname, block in self.sos.items():
-            context = f"Sos '{sname}'"
-            if block.along not in self.dimensions:
-                yield (undeclared_dimension('Sos', sname, block.along))
-            elif block.variable not in self.variables:
-                yield (
-                    f"{context}: '{block.variable}' is not a declared variable.\n"
-                    f'  Variables: {sorted(self.variables)}\n'
-                    f'A set is over one variable, so a parameter or an expression cannot carry one.'
-                )
-            elif block.along not in self.variables[block.variable].dims:
-                yield (
-                    f"{context}: along '{block.along}' is not a dim of variable "
-                    f"'{block.variable}' (dims {self.variables[block.variable].dims}). The set runs "
-                    f"along one of the variable's own dims — one set per coordinate of the rest."
-                )
-            elif block.variable in claimed:
-                yield (
-                    f"{context}: variable '{block.variable}' already carries the set declared by "
-                    f"'{claimed[block.variable]}'. A variable holds one set — declare a second "
-                    f'variable, or state the other restriction as a constraint.'
-                )
-            else:
-                claimed[block.variable] = sname
-
-    def _sos_bounds(self) -> Iterator[str]:
-        """A set states what the binaries it expands to state: each side of a member carries a coefficient.
-
-        The rewrite holds an unpicked member at zero from both sides, so a side
-        the model leaves open leaves the member free of it. Either coefficient
-        may be a parameter, because a row multiplies by it rather than reading
-        it. Decided here rather than where the rewrite runs, so a set the
-        language cannot state twice is refused before any data exists.
-        """
-        for sname, block in self.sos.items():
-            if (member := self.variables.get(block.variable)) is None:
-                continue
-            context = f"Sos '{sname}'"
-            below, above = coefficients(member.domain, member.bounds.lower, member.bounds.upper)
-            if below is None:
-                yield (
-                    f"{context}: variable '{block.variable}' has no lower bound, and the set expands to rows "
-                    f'that hold an unpicked member at zero from below as well as above. Declare bounds.lower, '
-                    f'as a number or a parameter.'
-                )
-            if above is None:
-                yield (
-                    f"{context}: variable '{block.variable}' has no upper bound, and the set expands to rows "
-                    f'that hold an unpicked member at zero from above as well as below. Declare bounds.upper, '
-                    f'as a number or a parameter.'
-                )
-
-    def _sos_emitted_names(self) -> Iterator[str]:
-        """No name a set's expansion writes is one the file already declares."""
-        for sname, block in self.sos.items():
-            yield from self._collisions(f"Sos '{sname}'", Emitted.of(sname, block.type).by_kind)
-
-    def _piecewise_references(self) -> Iterator[str]:
-        """A curve runs along a declared dimension through numeric values parameters carrying it, gated by a binary, masked by a bool."""
-        for name, pw in self.piecewise.items():
-            context = f"piecewise '{name}'"
-            if pw.over not in self.dimensions:
-                yield undeclared_dimension('piecewise', name, pw.over)
-                continue
-            for i, link in enumerate(pw.links):
-                if link.values not in self.parameters:
-                    yield f"{context}: link {i} values references undeclared parameter '{link.values}'"
-                elif (dtype := self.parameters[link.values].dtype) not in NUMERIC_DTYPES:
-                    yield (
-                        f"{context}: link {i} values parameter '{link.values}' is declared dtype: {dtype}, and a "
-                        f'breakpoint is a number. Declare it dtype: float or int.'
-                    )
-                elif pw.over not in self.parameters[link.values].dims:
-                    yield (
-                        f"{context}: link {i} values parameter '{link.values}' must carry dim "
-                        f"'{pw.over}' (has {self.parameters[link.values].dims})"
-                    )
-            if (activity := pw.activity) is not None:
-                if activity not in self.variables:
-                    yield (
-                        f"{context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "
-                        f'declare it, or drop activity: for weights that sum to 1.'
-                    )
-                elif self.variables[activity].domain != 'binary':
-                    yield f"{context}: activity variable '{activity}' must be binary"
-            if (points := pw.points) is None or pw.nominated is not None:
-                continue
-            if points not in self.parameters:
-                yield f"{context}: points references undeclared parameter '{points}'"
-            elif (dtype := self.parameters[points].dtype) != 'bool':
-                yield (
-                    f"{context}: points parameter '{points}' is {dtype}, and a mask is a bool parameter — one "
-                    f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
-                )
-            elif pw.over not in self.parameters[points].dims:
-                yield (
-                    f"{context}: points parameter '{points}' must carry dim '{pw.over}' — "
-                    f'it says how far each curve runs along it (has {self.parameters[points].dims})'
-                )
-
-    def _piecewise_emitted_names(self) -> Iterator[str]:
-        """No name a curve's expansion writes is one the file already declares."""
-        from math_spec.piecewise import Emitted as EmittedCurve
-
-        for name, pw in self.piecewise.items():
-            yield from self._collisions(f"piecewise '{name}'", EmittedCurve.of(name, pw).by_kind)
-
-    def _collisions(self, context: str, by_kind: Iterable[tuple[str, Iterable[str]]]) -> Iterator[str]:
-        """The refusal for each name *context*'s expansion writes that the file already declares, by kind."""
-        declared: dict[str, Iterable[str]] = {
-            'variable': self.variables,
-            'constraint': self.constraints,
-            'sos': self.sos,
-            'assumption': self.assumptions,
-        }
-        for kind, names in by_kind:
-            yield from (
-                f"{context}: its expansion writes {kind} '{one}', which this file already declares. Rename one of them."
-                for one in names
-                if one in declared[kind]
-            )
-
-    @model_validator(mode='after')
     def _lower(self) -> Spec:
-        """Every expression and where string — this file's own, and every one a curve emits.
+        """Every rule that reads across declarations, then every expression and where string — this file's own, and every one a curve emits.
 
         This file's own first, so a fault in a link is named against the link
         the file wrote. A curve's expansion is a model in its own right, so

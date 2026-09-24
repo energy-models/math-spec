@@ -130,7 +130,7 @@ MAX_RESOLVED_DEPTH = 3 * MAX_DEPTH
 class Namespace:
     """The declared names of one schema, by kind — the whole of what a file may name, read once.
 
-    A name has one kind: model.py refuses one declared under two sections.
+    A name has one kind: validation.py refuses one declared under two sections.
     """
 
     __slots__ = (
