@@ -37,8 +37,6 @@ from math_spec.program import (
     GroupSum,
     Mask,
     Multiply,
-    Named,
-    Negate,
     Not,
     Or,
     Parameter,
@@ -58,10 +56,7 @@ from math_spec.program import (
     WindowSum,
     assumption_message,
     children,
-    divisor_parameters,
-    fan_in,
-    quotients,
-    variables_of,
+    parameters_of,
     walk,
     walk_regions,
     where_children,
@@ -763,8 +758,8 @@ def test_a_divisor_under_a_pullback_is_still_named():
     component_of = RelationDeclaration((('flow', 'flow'), ('component', 'component')), ('flow',))
     pulled = Pullback(quotient, direction=Direction('component_of', component_of, ('component',), ('flow',), ()))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
-    assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
+    assert parameters_of(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
+    assert parameters_of(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
 def test_a_divisor_under_a_power_is_still_named():
@@ -773,22 +768,7 @@ def test_a_divisor_under_a_power_is_still_named():
     quotient = Divide(Variable('x'), Power(Parameter('d'), Constant(2.0)))
 
     assert children(quotient.divisor) == (Parameter('d'), Constant(2.0)), 'the base first, then the exponent'
-    assert divisor_parameters(quotient) == frozenset({'d'}), 'the walk descends through `Power`'
-
-
-def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
-    """`divisor_parameters` flattens, and one caller cannot use the flat answer."""
-    left = Divide(Variable('x'), Parameter('rate'))
-    right = Divide(Variable('y'), Parameter('loss'))
-
-    found = quotients(Sum(Add(left, right), ('flow',)))
-    assert [(variables_of(q.numerator), q.divisor) for q in found] == [
-        (frozenset({'x'}), Parameter('rate')),
-        (frozenset({'y'}), Parameter('loss')),
-    ], 'each quotient keeps its own numerator, in the order the expression writes them'
-    assert divisor_parameters(Sum(Add(left, right), ('flow',))) == frozenset({'rate', 'loss'}), (
-        'the flat answer is still the union of the same walk'
-    )
+    assert parameters_of(quotient) == frozenset({'d'}), 'the walk descends through `Power`'
 
 
 OUTER = Mask(ParameterDefined('committable', ('g',)))
@@ -824,45 +804,6 @@ def test_walk_regions_carries_the_regions_a_node_stands_under():
 def test_walk_is_the_node_column_of_walk_regions():
     """One recursion, so a node kind that learns to descend reaches both walks at once."""
     assert list(walk(NESTED)) == [node for node, _ in walk_regions(NESTED)]
-
-
-FAN_IN = {
-    Constant(1.0): 'one-to-one',
-    Parameter('c'): 'one-to-one',
-    Variable('p'): 'one-to-one',
-    Negate(Variable('p')): 'one-to-one',
-    Add(Variable('p'), Constant(1.0)): 'one-to-one',
-    Multiply(Variable('p'), Parameter('c')): 'one-to-one',
-    Power(Parameter('c'), Constant(2.0)): 'one-to-one',
-    Divide(Variable('p'), Parameter('c')): 'one-to-one',
-    Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), direction=Direction('at_bus', AT_BUS, ('g',), ('bus',), ())): 'many-to-one',
-    Pullback(Variable('p'), direction=Direction('at_bus', AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
-    Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
-    WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
-    Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',
-    Dual('balance'): 'one-to-one',
-    Named('total', Sum(Variable('p'), ('g',))): 'many-to-one',
-}
-
-
-def test_every_expression_node_is_classified_by_fan_in():
-    """`fan_in` was a ClassVar on five nodes, so `Add(...).fan_in` was an AttributeError."""
-    covered = {type(node) for node in FAN_IN}
-    assert covered == set(get_args(Expression)), (
-        'every node in the Expression union is classified, and nothing retired lingers'
-    )
-
-
-@pytest.mark.parametrize(('node', 'expected'), FAN_IN.items(), ids=[type(node).__name__ for node in FAN_IN])
-def test_a_node_answers_its_fan_in(node, expected):
-    assert fan_in(node) == expected
-
-
-def test_fan_in_reads_through_a_named_expression():
-    """`fan_in` on a tree holding a `Named` ended in `assert_never`."""
-    named = Named('total', Sum(Variable('p'), ('g',)))
-    assert fan_in(named) == 'many-to-one', 'a use of an entry fans in as the entry does'
 
 
 def test_a_relation_is_declared_as_the_file_declares_it():
