@@ -92,7 +92,7 @@ jobs:
           # message is kept, not just its first line, because a 'BREAKING
           # CHANGE:' footer lives in the body.
           #
-          # Checking only $PR_TITLE and $PR_BODY is how lpspec shipped
+          # Checking only $PR_TITLE and $PR_BODY is how specsolve shipped
           # 0.1.0-alpha.226 and .227 and had to withdraw them: the '!' was in
           # the single commit's title, which the guard never read.
           titles=("PR title|${PR_TITLE}")
