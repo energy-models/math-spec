@@ -120,12 +120,14 @@ def _coefficient_sign(node: Expression) -> Sign:
     """The sign *node* scales a term by, or ``None`` unless it is a signed constant.
 
     ``-2`` lowers to a negation over a constant, so the sign of a literal
-    coefficient is not always on the node itself. Zero is ``None`` on purpose:
-    a term multiplied away is not in the objective, so the variable it names is
-    driven nowhere.
+    coefficient is not always on the node itself, and a named one is its
+    body's. Zero is ``None`` on purpose: a term multiplied away is not in the
+    objective, so the variable it names is driven nowhere.
     """
     if isinstance(node, Negate):
         return _flip(_coefficient_sign(node.operand))
+    if isinstance(node, Named):
+        return _coefficient_sign(node.body)
     if isinstance(node, Constant) and node.value != 0:
         return '+' if node.value > 0 else '-'
     return None

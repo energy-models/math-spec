@@ -76,6 +76,7 @@ nav:
   # Everything a reader does not need in order to write a model: the design
   # arguments, how to contribute, what changed.
   - About:
+      - The file and the program: about/file-and-program.md
       - The limits: about/limits.md
       - What counts as language: about/what-counts-as-language.md
       - What counts as public API: about/what-counts-as-public-api.md

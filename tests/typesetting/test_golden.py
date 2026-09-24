@@ -17,13 +17,15 @@ import pytest
 
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
-from math_spec.typesetting import FORMATS, to_latex, typeset, walk
+from math_spec.typesetting import FORMATS, legend, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from math_spec.typesetting.format import Format
 
 
@@ -189,27 +191,33 @@ def test_the_golden_model_calls_every_operator_in_the_language():
     )
 
 
-#: What the fixture cannot reach, by the source text of the line. A bare
-#: ``Cases`` stands under the ``Named`` node resolution builds for its entry
-#: and nowhere else, so the arm that would print one in place is the type's
-#: closure rather than a case. The absent objective is the arm a *different*
-#: model takes — a file declares at most one — and
-#: `test_a_model_with_no_objective_prints_the_rest` covers it. A refusal of
-#: the name asked for renders nothing, and `test_declaration.py` pins both.
+#: What the fixture cannot reach, by module and the source text of the line.
+#: A bare ``Cases`` stands under the ``Named`` node resolution builds for its
+#: entry and nowhere else, so the arm that would print one in place is the
+#: type's closure rather than a case. The absent objective is the arm a
+#: *different* model takes — a file declares at most one — and
+#: `test_a_model_with_no_objective_prints_the_rest` covers it; that model
+#: declares no parameter, which is the legend's convention note with nothing
+#: to quote. A refusal of the name asked for renders nothing, and
+#: `test_declaration.py` pins both.
 UNREACHABLE = {
-    'return self.format.cases(self._arms(node, ctx)), _ATOM',
-    'assert_never(node)',
-    'assert_never(check)',
-    'if block is None:',
-    'return []',
-    'everything = {n for group, _ in kinds.values() for n in group}',
-    'msg = (',
-    'raise SchemaError(msg)',
-    'msg = f"\'{name}\' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."',
+    walk: {
+        'return self.format.cases(self._arms(node, ctx)), _ATOM',
+        'assert_never(node)',
+        'assert_never(check)',
+        'if block is None:',
+        'return []',
+        'everything = {n for group, _ in kinds.values() for n in group}',
+        'msg = (',
+        'raise SchemaError(msg)',
+        'msg = f"\'{name}\' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."',
+    },
+    legend: {'return []'},
 }
 
 
-def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
+@pytest.mark.parametrize('module', [walk, legend], ids=['walk', 'legend'])
+def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path, module: ModuleType):
     """The strongest form of what the fixture claims about itself: the arm itself
     is counted, where the two censuses above see neither a width taken from a
     parameter nor an integer variable with no bounds.
@@ -221,7 +229,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     coverage = pytest.importorskip(
         'coverage', reason='the bare-install job has no dev tools; the guard runs wherever they are'
     )
-    data = tmp_path / 'walk.coverage'
+    data = tmp_path / f'{module.__name__}.coverage'
     render = tmp_path / 'render.py'
     render.write_text(
         'from math_spec import to_latex, to_spec, typeset_declaration\n'
@@ -240,19 +248,20 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
             'coverage',
             'run',
             f'--data-file={data}',
-            f'--source={Path(walk.__file__).parent}',
+            f'--source={Path(module.__file__).parent}',
             str(render),
         ],
         check=True,
     )
     measured = coverage.Coverage(data_file=str(data))
     measured.load()
-    _, _, missing, _ = measured.analysis(walk.__file__)
-    source = Path(walk.__file__).read_text().splitlines()
-    unread = {line: source[line - 1].strip() for line in missing if source[line - 1].strip() not in UNREACHABLE}
+    _, _, missing, _ = measured.analysis(module.__file__)
+    source = Path(module.__file__).read_text().splitlines()
+    excused = UNREACHABLE[module]
+    unread = {line: source[line - 1].strip() for line in missing if source[line - 1].strip() not in excused}
     assert not unread, (
-        f'tests/typesetting/golden/model.yaml never renders {len(unread)} line(s) of the walk:\n'
-        + '\n'.join(f'  {walk.__name__}:{line}  {text}' for line, text in sorted(unread.items()))
+        f'tests/typesetting/golden/model.yaml never renders {len(unread)} line(s) of {module.__name__}:\n'
+        + '\n'.join(f'  {module.__name__}:{line}  {text}' for line, text in sorted(unread.items()))
         + '\nAdd the case that reaches it, or say in UNREACHABLE why no model can.'
     )
 

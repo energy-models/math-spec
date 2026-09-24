@@ -29,7 +29,7 @@ SURFACE = frozenset(
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'did_you_mean',
         # the verdicts a consumer asks for rather than re-deriving
-        'advice', 'Advice',
+        'advice', 'Advice', 'AdviceKind',
         # the closed operator set, the one vocabulary with no Literal form, which a consumer pins its table against
         'BUILTIN_NAMES',
         # typesetting
@@ -38,8 +38,8 @@ SURFACE = frozenset(
 )  # fmt: skip
 
 #: What `Spec` promises beyond the sections a file declares: the two ways back
-#: out and the verb that writes a formulation out. A `model_`-prefixed name is
-#: pydantic's, not a contract this project keeps.
+#: out, the verb that writes a formulation out, and the program the file means.
+#: A `model_`-prefixed name is pydantic's, not a contract this project keeps.
 SPEC_SURFACE = frozenset({'to_dict', 'to_yaml', 'expand', 'program'})
 
 #: The modules whose `__all__` a consumer imports from.

@@ -174,6 +174,27 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     )
 
 
+@pytest.mark.parametrize('name', ['latex', 'typst', 'markdown'])
+def test_a_translation_by_nothing_takes_no_legend_note(name: FormatName):
+    """A shift by 0 prints no operator, but the legend read every partitioned
+    translation as printed and explained a grouped operator the page never shows."""
+    model = {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
+        'relations': {'season_of': {'key': 'snapshot', 'values': 'season'}},
+        'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
+        'constraints': {
+            'held': {
+                'dims': ['snapshot'],
+                'expression': 'p <= shift(p, along=snapshot, offset=0, edge=0, by=season_of, within=season)',
+            }
+        },
+        'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
+    }
+    text = typeset(model, name)
+    assert 'denotes a translation counted inside the group' not in text
+    assert 'denotes translation with' not in text, 'no fill note for a translation that vacates nothing'
+
+
 @EVERY_FORMAT
 def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Format):
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.

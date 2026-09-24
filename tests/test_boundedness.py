@@ -64,6 +64,29 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
 
 
 @pytest.mark.parametrize(
+    ('objective', 'side'),
+    [
+        pytest.param('sum(two * v, over=g)', 'lower', id='a-named-positive-coefficient-keeps-the-sign'),
+        pytest.param('sum(neg * v, over=g)', 'upper', id='a-named-negative-coefficient-flips-it'),
+        pytest.param('sum(v / two, over=g)', 'lower', id='a-named-divisor-keeps-it'),
+    ],
+)
+def test_a_named_constant_coefficient_carries_its_sign(objective, side):
+    """A coefficient written as an ``expressions:`` entry reaches the pass as a
+    ``Named`` node over its constant. The sign was read off the node alone, so a
+    named ``2`` claimed nothing and the unbounded variable went unnamed."""
+    notes = _notes(
+        **{
+            'objective.expression': objective,
+            'expressions.two': {'expression': '2'},
+            'expressions.neg': {'expression': '-3'},
+        }
+    )
+    assert len(notes) == 1, 'one variable is unbounded, so one note'
+    assert f'bounds.{side}' in notes[0], 'the note names the side the objective improves toward'
+
+
+@pytest.mark.parametrize(
     'patch',
     [
         pytest.param({'variables.v.bounds': {'lower': 0}}, id='bounded-on-the-improving-side'),
@@ -83,7 +106,9 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
                 'dimensions.bp': {'dtype': 'int'},
                 'parameters.bp_x': {'dims': ['bp']},
                 'parameters.bp_y': {'dims': ['bp']},
-                'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bp_x'], ['w', 'bp_y']]}},
+                'piecewise': {
+                    'curve': {'along': 'bp', 'dims': ['g'], 'links': {'v': ['v', 'bp_x'], 'w': ['w', 'bp_y']}}
+                },
             },
             id='carried-by-a-curve',
         ),
@@ -148,14 +173,3 @@ def test_every_unopposed_variable_is_named():
 def test_the_note_names_the_rewrite():
     (note,) = _notes()
     assert 'Give it a finite bounds.lower, or the constraint that was meant to define it.' in note
-
-
-def test_a_curve_holds_its_variables_through_the_rows_it_emits():
-    """A piecewise block names no constraint in the file; its expansion does."""
-    curve = {
-        'dimensions.bp': {'dtype': 'int'},
-        'parameters.bx': {'dims': ['bp']},
-        'parameters.by': {'dims': ['bp']},
-        'piecewise': {'curve': {'along': 'bp', 'dims': ['g'], 'links': {'v': ['v', 'bx'], 'w': ['w', 'by']}}},
-    }
-    assert _notes(**curve) == [], 'the emitted link rows pin v and w, so neither is unopposed'

@@ -96,6 +96,50 @@ def test_an_emitted_set_may_not_collide_with_a_declared_one():
         schema_of(NONCONVEX_YAML, sos={'cost_curve': {'variable': 'p', 'along': 'snapshot', 'type': 1}})
 
 
+@pytest.mark.parametrize(
+    ('patch', 'written', 'declared'),
+    [
+        pytest.param({'dimensions.cost_curve_lam': {'dtype': 'int'}}, 'cost_curve_lam', 'dimensions', id='a-dimension'),
+        pytest.param({'parameters.cost_curve_lam': {'dims': ['bp']}}, 'cost_curve_lam', 'parameters', id='a-parameter'),
+        pytest.param(
+            {'expressions.cost_curve_lam': {'expression': 'p'}}, 'cost_curve_lam', 'expressions', id='an-entry'
+        ),
+        pytest.param(
+            {'macros.cost_curve_lam': {'args': ['x'], 'template': 'x + x'}}, 'cost_curve_lam', 'macros', id='a-macro'
+        ),
+        pytest.param(
+            {
+                'sos.pick': {'variable': 'p', 'along': 'snapshot', 'type': 1},
+                'parameters.pick_seg': {'dims': ['snapshot']},
+            },
+            'pick_seg',
+            'parameters',
+            id='a-set-writes-a-variable-too',
+        ),
+    ],
+)
+def test_an_emitted_variable_may_not_take_any_name_the_file_declares(patch, written, declared):
+    """An emitted variable joins the one flat namespace. The rule checked it
+    against variables alone, and the eager expansion caught the rest; once a
+    model loaded with its curves intact, the clash loaded and waited for the
+    first `expand`."""
+    with pytest.raises(
+        SchemaError, match=f"writes variable '{written}', which this file already declares under '{declared}:'"
+    ):
+        schema_of(NONCONVEX_YAML, **patch)
+
+
+def test_a_written_name_is_refused_once_the_rest_of_the_file_lowers():
+    """The rule reads the curve as lowered, so it waits for every other fault, as a dim rule does."""
+    clash = {'parameters.cost_curve_lam': {'dims': ['bp']}}
+    with pytest.raises(SchemaError) as first:
+        schema_of(NONCONVEX_YAML, **clash, **{'constraints.balance.expression': 'p == nope'})
+    assert 'nope' in str(first.value)
+    assert 'writes variable' not in str(first.value), 'the clash is not listed beside a fault that stops lowering'
+    with pytest.raises(SchemaError, match="writes variable 'cost_curve_lam'"):
+        schema_of(NONCONVEX_YAML, **clash)
+
+
 @pytest.mark.parametrize('method', [pytest.param('incremental', id='unknown'), pytest.param(['sos2'], id='a list')])
 def test_a_method_this_project_does_not_have_is_refused(method):
     """A list used to escape the membership test as a `TypeError`."""
@@ -134,11 +178,11 @@ def test_a_program_mirrors_the_model_it_was_lowered_from():
     )
 
 
-def test_expansion_is_memoised_and_idempotent():
-    """One object per set of formulations asked for, and a model with none to expand is its own expansion."""
+def test_expansion_is_idempotent():
+    """One model per set of formulations asked for, and a model with none to expand is its own expansion."""
     schema = schema_of(NONCONVEX_YAML)
     expanded = schema.expand('piecewise')
-    assert schema.expand('piecewise') is expanded
+    assert schema.expand('piecewise') == expanded
     assert expanded.expand('piecewise') is expanded
 
     curveless = schema_of(DISPATCH_MODEL)

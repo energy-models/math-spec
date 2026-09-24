@@ -59,10 +59,10 @@ piecewise:
 
 A block states plain variables and constraints: one weight per breakpoint in
 `[0, 1]`, one row making the weights sum to 1, and one row per link tying its
-expression to the weighted breakpoints. A `Program` holds those rows, because a
-consumer builds them; the [typeset output](../typeset.md) prints the curve
-itself, and [`spec.expand()`](#writing-a-formulation-out) is what writes the
-rows into a model of their own.
+expression to the weighted breakpoints. A `Program` holds the block as one
+curve, and the [typeset output](../typeset.md) prints the curve itself.
+[`spec.expand()`](#writing-a-formulation-out) writes the rows into a model of
+their own, which is the model a consumer that builds rows reads.
 
 A link names the row it writes, so a link may not take a name the block
 already writes for itself, such as `convexity` or `lam`.

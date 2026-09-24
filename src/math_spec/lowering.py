@@ -87,11 +87,14 @@ def lower(schema: Spec) -> Program:
         The program of what *schema* declares, section for section.
 
     Raises:
-        SchemaError: Listing every problem found, one per line.
+        SchemaError: Listing every problem found, one per line. A name a set
+            or curve writes that the file declares is listed once every other
+            problem is gone, since it is read off the curve as lowered.
         DimensionError: The first dim rule a declaration breaks, once every
             name resolves.
     """
-    if errors := reference_errors(schema):
+    errors = reference_errors(schema)
+    if errors:
         raise SchemaError('\n'.join(errors))
 
     ns = Namespace(schema)
