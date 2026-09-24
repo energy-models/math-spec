@@ -60,8 +60,9 @@ What a patch may say, and what is refused:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 from pydantic import BaseModel, ValidationError
 
@@ -70,7 +71,7 @@ from math_spec.errors import LanguageError, did_you_mean, schema_error
 from math_spec.model import GivenBlock, Spec
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable
     from pathlib import Path
 
 #: The declarations that are the coordinate space rather than the math. A patch
@@ -99,8 +100,8 @@ IRREGULAR = {
 
 
 def merge(
-    fragments: Mapping[str, str | Path | dict[str, Any] | Spec], description: str | None = None
-) -> dict[str, Any]:
+    fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], description: str | None = None
+) -> dict[str, object]:
     """*fragments* composed as peers, each owning the math it declares.
 
     Args:
@@ -127,7 +128,7 @@ def merge(
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
     read = {name: deepcopy(_declarations(fragment)) for name, fragment in fragments.items()}
-    merged: dict[str, Any] = {}
+    merged: dict[str, object] = {}
     if (version := _one_version(read)) is not None:
         merged['version'] = version
     if description is not None:
@@ -145,7 +146,7 @@ def merge(
     return merged
 
 
-def _one_version(read: Mapping[str, dict[str, Any]]) -> int | None:
+def _one_version(read: Mapping[str, dict[str, object]]) -> int | None:
     """The language version the fragments are written against, or ``None`` where none of them writes one.
 
     A fragment that writes none is version 0, which is the schema's default, so
@@ -159,24 +160,24 @@ def _one_version(read: Mapping[str, dict[str, Any]]) -> int | None:
             f'the fragments are written against different language versions: {spelled}. One model has '
             f'one version, so write the same one in each, or leave it out of the fragments that do not pin it.'
         )
-    return next(iter(declared.values()), None)
+    return cast('int | None', next(iter(declared.values()), None))
 
 
-def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> str:
+def _author_of(read: Mapping[str, dict[str, object]], section: str, key: str) -> str:
     """The first fragment declaring *key* under *section*, for a message that names both sides."""
-    return next(name for name, sections in read.items() if key in (sections.get(section) or {}))
+    return next(name for name, sections in read.items() if key in _mapping(sections.get(section)))
 
 
-def _agreed(read: Mapping[str, dict[str, Any]], section: str, label: str) -> dict[str, Any]:
+def _agreed(read: Mapping[str, dict[str, object]], section: str, label: str) -> dict[str, object]:
     """One block every fragment may declare, peers that say the same thing folded together.
 
     Equality of the claims rather than "the same or less": between peers
     neither declaration is the one being restated, so a field only one of them
     writes is a difference nothing settles.
     """
-    merged: dict[str, Any] = {}
+    merged: dict[str, object] = {}
     for name, sections in read.items():
-        for key, block in (sections.get(section) or {}).items():
+        for key, block in _mapping(sections.get(section)).items():
             if key in merged and _claims(merged[key]) != _claims(block):
                 raise LanguageError(
                     f"fragments '{_author_of(read, section, key)}' and '{name}' say different things about "
@@ -188,16 +189,16 @@ def _agreed(read: Mapping[str, dict[str, Any]], section: str, label: str) -> dic
     return merged
 
 
-def _claims(block: Any) -> Any:
+def _claims(block: object) -> object:
     """*block* without its prose, which is what the declaration says rather than a remark about it."""
     return {key: value for key, value in block.items() if key != 'description'} if isinstance(block, dict) else block
 
 
-def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
+def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, object]:
     """One block of owned declarations, a name claimed twice being the refusal."""
-    merged: dict[str, Any] = {}
+    merged: dict[str, object] = {}
     for name, sections in read.items():
-        for key, block in (sections.get(section) or {}).items():
+        for key, block in _mapping(sections.get(section)).items():
             if key in merged:
                 raise LanguageError(
                     f"fragments '{_author_of(read, section, key)}' and '{name}' both declare the "
@@ -209,19 +210,19 @@ def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]
     return merged
 
 
-def _folded(read: Mapping[str, dict[str, Any]], merged: Mapping[str, Any]) -> dict[str, Any]:
+def _folded(read: Mapping[str, dict[str, object]], merged: Mapping[str, object]) -> dict[str, object]:
     """The ``given:`` block the composition still carries, once every reading a sibling introduces is spent.
 
     A given declaration is what a fragment expects of a name a sibling owns.
     Where the sibling is in the composition the expectation is checked and
     then dropped, so the composed model declares the name once.
     """
-    asked = {name: sections.get('given') or {} for name, sections in read.items()}
+    asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
     _reads_only_what_it_does_not_build(read, asked)
-    left: dict[str, Any] = {}
+    left: dict[str, object] = {}
     for kind, label in GIVEN_KINDS.items():
         cls = _entry_class(GivenBlock, kind)
-        introduced = merged.get(kind) or {}
+        introduced = _mapping(merged.get(kind))
         agreed = _agreed(asked, kind, label)
         for key, block in agreed.items():
             if key in introduced and not _says_less(cls, block, introduced[key]):
@@ -236,7 +237,9 @@ def _folded(read: Mapping[str, dict[str, Any]], merged: Mapping[str, Any]) -> di
     return left
 
 
-def _reads_only_what_it_does_not_build(read: Mapping[str, dict[str, Any]], asked: Mapping[str, dict[str, Any]]) -> None:
+def _reads_only_what_it_does_not_build(
+    read: Mapping[str, dict[str, object]], asked: Mapping[str, dict[str, object]]
+) -> None:
     """Refuse a fragment that declares a name and reads it under ``given:`` too.
 
     :func:`~math_spec.validation.to_spec` refuses such a file, so folding the
@@ -245,8 +248,8 @@ def _reads_only_what_it_does_not_build(read: Mapping[str, dict[str, Any]], asked
     """
     for name, given in asked.items():
         for kind in GIVEN_KINDS:
-            built = read[name].get(kind) or {}
-            for key in given.get(kind) or {}:
+            built = _mapping(read[name].get(kind))
+            for key in _mapping(given.get(kind)):
                 if key in built:
                     raise LanguageError(
                         f"fragment '{name}' declares the {_singular(kind)} {key!r} and reads it under "
@@ -256,16 +259,16 @@ def _reads_only_what_it_does_not_build(read: Mapping[str, dict[str, Any]], asked
                     )
 
 
-def _says_less(cls: type[BaseModel], reader: Any, introducer: Any) -> bool:
+def _says_less(cls: type[BaseModel], reader: object, introducer: object) -> bool:
     """Whether every claim *reader* makes is one *introducer* makes too, a field left to its default counting as said."""
     fields = cls.model_fields
     return all(
-        introducer.get(key, fields[key].default if key in fields else None) == value
-        for key, value in _claims(reader).items()
+        _mapping(introducer).get(key, fields[key].default if key in fields else None) == value
+        for key, value in _mapping(_claims(reader)).items()
     )
 
 
-def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
+def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object] | None:
     """Every fragment's objective summed, each term in parentheses, or ``None`` where none declares one.
 
     The terms are summed in the fragments' name order, so the order they were
@@ -273,7 +276,7 @@ def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | No
     one sense, and negating the odd one out would be this function deciding what
     a model means.
     """
-    declared = {name: sections['objective'] for name, sections in read.items() if sections.get('objective')}
+    declared = {name: _mapping(sections['objective']) for name, sections in read.items() if sections.get('objective')}
     if not declared:
         return None
     senses = {name: objective.get('sense', 'minimize') for name, objective in declared.items()}
@@ -290,9 +293,9 @@ def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | No
 
 
 def override(
-    base: str | Path | dict[str, Any] | Spec,
-    patches: Mapping[str, str | Path | dict[str, Any] | Spec],
-) -> dict[str, Any]:
+    base: str | Path | Mapping[str, object] | Spec,
+    patches: Mapping[str, str | Path | Mapping[str, object] | Spec],
+) -> dict[str, object]:
     """*base* with each patch laid over it, and nothing laid over another patch.
 
     Args:
@@ -323,7 +326,7 @@ def override(
     return result
 
 
-def _declarations(source: str | Path | dict[str, Any] | Spec) -> dict[str, Any]:
+def _declarations(source: str | Path | Mapping[str, object] | Spec) -> dict[str, object]:
     """A fragment, a base or a patch as the mapping it declares, whatever shape it arrived in.
 
     Deliberately not :func:`~math_spec.validation.to_spec`: a patch carrying a
@@ -332,9 +335,18 @@ def _declarations(source: str | Path | dict[str, Any] | Spec) -> dict[str, Any]:
     """
     if isinstance(source, Spec):
         return source.to_dict()
-    if isinstance(source, dict):
-        return source
+    if isinstance(source, Mapping):
+        return dict(source)
     return read_model(source)
+
+
+def _mapping(value: object) -> dict[str, object]:
+    """*value* as the mapping a section or a declaration is, an absent one read as empty.
+
+    A file is read before it is validated, so nothing here has checked the
+    shape; the closed schema refuses any other shape when the result loads.
+    """
+    return cast('dict[str, object]', value or {})
 
 
 def _singular(section: str) -> str:
@@ -353,7 +365,7 @@ def _entry_class(owner: type[BaseModel], field: str) -> type[BaseModel]:
     return cast('type[BaseModel]', inner[-1] if inner else annotation)
 
 
-def _whole(cls: type[BaseModel], block: Any) -> bool:
+def _whole(cls: type[BaseModel], block: object) -> bool:
     """Whether *block* is a declaration on its own, which is what lets a patch create one."""
     try:
         cls.model_validate(block)
@@ -362,10 +374,10 @@ def _whole(cls: type[BaseModel], block: Any) -> bool:
     return True
 
 
-def _incomplete(label: str, cls: type[BaseModel], block: Any) -> str:
+def _incomplete(label: str, cls: type[BaseModel], block: object) -> str:
     """What *block* is short of, in the schema's own words rather than a second list."""
     fields = cls.model_fields
-    missing = sorted(name for name, field in fields.items() if field.is_required() and name not in (block or {}))
+    missing = sorted(name for name, field in fields.items() if field.is_required() and name not in _mapping(block))
     if missing:
         return f'{_a(label)} needs {_and_list(missing)}'
     try:
@@ -388,7 +400,7 @@ def _and_list(names: Iterable[str]) -> str:
     return f'{", ".join(spelled[:-1])} and {spelled[-1]}'
 
 
-def _writes(patch: Mapping[str, Any]) -> list[tuple[str, ...]]:
+def _writes(patch: Mapping[str, object]) -> list[tuple[str, ...]]:
     """Every field *patch* writes, as a path.
 
     A removal is the declaration's own path, so it overlaps every edit inside
@@ -398,7 +410,7 @@ def _writes(patch: Mapping[str, Any]) -> list[tuple[str, ...]]:
     paths: list[tuple[str, ...]] = []
     for key, value in patch.items():
         if key in SECTIONS:
-            for name, block in (value or {}).items():
+            for name, block in _mapping(value).items():
                 paths.extend(_leaves((key, name), block))
         elif key == 'objective':
             paths.extend(_leaves(('objective',), value))
@@ -407,14 +419,14 @@ def _writes(patch: Mapping[str, Any]) -> list[tuple[str, ...]]:
     return paths
 
 
-def _leaves(prefix: tuple[str, ...], value: Any) -> list[tuple[str, ...]]:
+def _leaves(prefix: tuple[str, ...], value: object) -> list[tuple[str, ...]]:
     """The paths *value* writes under *prefix*, a mapping being walked into and anything else a leaf."""
     if isinstance(value, dict) and value:
         return [leaf for key, inner in value.items() for leaf in _leaves((*prefix, key), inner)]
     return [prefix]
 
 
-def _disjoint(read: Mapping[str, dict[str, Any]]) -> None:
+def _disjoint(read: Mapping[str, dict[str, object]]) -> None:
     """Refuse two patches that write one field, which is the only way order could matter."""
     claimed: dict[tuple[str, ...], str] = {}
     for name, patch in read.items():
@@ -437,17 +449,17 @@ def _overlap_message(owner: str, claimed: tuple[str, ...], name: str, path: tupl
     )
 
 
-def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str) -> dict[str, Any]:
+def _lay_over(base: dict[str, object], patch: dict[str, object], name: str) -> dict[str, object]:
     """One patch over one base, a section at a time, the base left as it was."""
     laid = dict(base)
     for key, value in patch.items():
         if key == 'given':
-            laid[key] = _given(laid.get(key) or {}, _section(value, key, name), name)
+            laid[key] = _given(_mapping(laid.get(key)), _section(value, key, name), name)
         elif key in SHARED_SECTIONS:
-            laid[key] = _shared(laid.get(key) or {}, _section(value, key, name), key, name)
+            laid[key] = _shared(_mapping(laid.get(key)), _section(value, key, name), key, name)
         elif key in OWNED_SECTIONS:
             block = _section(value, key, name)
-            laid[key] = _owned(laid.get(key) or {}, block, _singular(key), _entry_class(Spec, key), name)
+            laid[key] = _owned(_mapping(laid.get(key)), block, _singular(key), _entry_class(Spec, key), name)
         elif key == 'objective':
             laid = _objective(laid, value, name)
         else:
@@ -455,7 +467,7 @@ def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str) -> dict[st
     return laid
 
 
-def _section(value: Any, where: str, name: str) -> dict[str, Any]:
+def _section(value: object, where: str, name: str) -> dict[str, object]:
     """The block a patch writes under one section, a ``null`` section being refused rather than read as empty.
 
     A section is not a declaration, so the removal marker does not reach it. An
@@ -468,10 +480,10 @@ def _section(value: Any, where: str, name: str) -> dict[str, Any]:
             f'declaration, and a section is not one. Remove the declarations one at a time, each under its '
             f'own name, or leave the section out of the patch.'
         )
-    return cast('dict[str, Any]', value)
+    return cast('dict[str, object]', value)
 
 
-def _given(declared: dict[str, Any], patch: dict[str, Any], name: str) -> dict[str, Any]:
+def _given(declared: dict[str, object], patch: dict[str, object], name: str) -> dict[str, object]:
     """The ``given:`` block, one kind laid over at a time, so naming the columns keeps the row families.
 
     A kind the block does not have is carried as written, and the closed
@@ -482,13 +494,13 @@ def _given(declared: dict[str, Any], patch: dict[str, Any], name: str) -> dict[s
         if kind in GIVEN_KINDS:
             cls = _entry_class(GivenBlock, kind)
             entries = _section(block, f'given: {kind}:', name)
-            out[kind] = _owned(out.get(kind) or {}, entries, GIVEN_KINDS[kind], cls, name)
+            out[kind] = _owned(_mapping(out.get(kind)), entries, GIVEN_KINDS[kind], cls, name)
         else:
             out[kind] = block
     return out
 
 
-def _shared(declared: dict[str, Any], patch: dict[str, Any], section: str, name: str) -> dict[str, Any]:
+def _shared(declared: dict[str, object], patch: dict[str, object], section: str, name: str) -> dict[str, object]:
     """One ``dimensions`` or ``relations`` block: a patch adds one or restates one, never changes or drops it.
 
     The restatement is compared for equality rather than field by field: a
@@ -517,8 +529,8 @@ def _shared(declared: dict[str, Any], patch: dict[str, Any], section: str, name:
 
 
 def _owned(
-    declared: dict[str, Any], patch: dict[str, Any], label: str, cls: type[BaseModel], name: str
-) -> dict[str, Any]:
+    declared: dict[str, object], patch: dict[str, object], label: str, cls: type[BaseModel], name: str
+) -> dict[str, object]:
     """One section of the math, each entry editing what is there or creating what is whole."""
     out = dict(declared)
     for key, block in patch.items():
@@ -537,7 +549,7 @@ def _owned(
     return out
 
 
-def _removed(out: dict[str, Any], key: str, label: str, name: str) -> None:
+def _removed(out: dict[str, object], key: str, label: str, name: str) -> None:
     """Delete what the patch nulled, refusing a removal its base cannot satisfy."""
     if key not in out:
         raise LanguageError(
@@ -548,7 +560,7 @@ def _removed(out: dict[str, Any], key: str, label: str, name: str) -> None:
     del out[key]
 
 
-def _objective(laid: dict[str, Any], patch: Any, name: str) -> dict[str, Any]:
+def _objective(laid: dict[str, object], patch: object, name: str) -> dict[str, object]:
     """The one declaration that is not keyed by a name, laid over by the same three rules."""
     out = dict(laid)
     standing = out.get('objective')
@@ -573,7 +585,7 @@ def _objective(laid: dict[str, Any], patch: Any, name: str) -> dict[str, Any]:
     return out
 
 
-def _field_by_field(under: Any, over: Any) -> Any:
+def _field_by_field(under: object, over: object) -> object:
     """*over* laid on *under*: mappings merge, everything else replaces.
 
     ``None`` replaces here rather than removing. Removal is the
