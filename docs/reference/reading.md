@@ -80,7 +80,20 @@ curve written out as rows, and `spec.expand()` writes the sets out too. Which
 to read is the caller's to say, because a consumer printing a curve wants the
 curve and a consumer building rows wants the rows. A consumer building rows
 reads the sections it takes and refuses the rest: a curve or a set still on
-the program is a block it did not ask to have written out.
+the program is a block it did not ask to have written out. Nothing in the
+package writes a block out unasked, so a consumer that wants the rows calls
+`spec.expand('piecewise')` at its own door, and a consumer that refuses a
+curve does so in its own words, naming that call:
+
+```python
+def rows_of(program):
+    if program.piecewise:
+        raise ValueError(f"{sorted(program.piecewise)} are curves; pass spec.expand('piecewise')")
+    return program
+
+
+rows_of(rows) is rows  # True
+```
 
 | you are                                                             | take      | because                                      |
 | ------------------------------------------------------------------- | --------- | -------------------------------------------- |

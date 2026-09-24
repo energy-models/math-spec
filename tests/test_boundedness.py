@@ -24,7 +24,7 @@ BASE = override(
 
 
 def _advice(**patch):
-    return unbounded_notes(schema_of(BASE, **patch).expand('piecewise').program)
+    return unbounded_notes(schema_of(BASE, **patch).program)
 
 
 def _notes(**patch) -> list[str]:
@@ -77,6 +77,15 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
                 'sos': {'s': {'variable': 'v', 'along': 'g', 'type': 1}},
             },
             id='carried-by-a-set',
+        ),
+        pytest.param(
+            {
+                'dimensions.bp': {'dtype': 'int'},
+                'parameters.bp_x': {'dims': ['bp']},
+                'parameters.bp_y': {'dims': ['bp']},
+                'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bp_x'], ['w', 'bp_y']]}},
+            },
+            id='carried-by-a-curve',
         ),
         pytest.param({'objective.expression': 'sum(c * v, over=g)'}, id='a-parameter-coefficient-may-be-zero'),
         pytest.param({'objective.expression': 'sum(v - v, over=g)'}, id='both-signs-may-cancel'),

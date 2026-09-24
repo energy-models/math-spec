@@ -5,9 +5,12 @@
 """``python -m math_spec <verb> model.yaml`` — the shell front.
 
 ``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off :data:`math_spec.typesetting.FORMATS`. Those verbs
-take ``--expand``, because a shell cannot compose
-:meth:`~math_spec.model.Spec.expand` the way a caller does.
+per typeset format, read off :data:`math_spec.typesetting.FORMATS`. Every verb
+reads the file as written, and nothing here writes a formulation out unasked.
+The typeset verbs take ``--expand``, because a shell cannot compose
+:meth:`~math_spec.model.Spec.expand` the way a caller does and the rows are a
+different document; ``check`` has no such flag, because advice reads a block
+as the rows it states.
 """
 
 from __future__ import annotations
@@ -63,8 +66,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         sys.stdout.write(''.join(f'{note}\n' for note in notes))
         return 0
+    model = to_spec(args.model).expand() if args.expand else args.model
     text = typeset(
-        to_spec(args.model).expand() if args.expand else args.model,
+        model,
         args.verb,
         symbols=args.symbols,
         standalone=args.standalone,

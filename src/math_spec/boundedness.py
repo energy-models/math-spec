@@ -59,8 +59,8 @@ def unbounded_notes(program: Program) -> list[Advice]:
     """Name every variable the objective can drive to infinity unopposed.
 
     Args:
-        program: The lowered program, in which ``piecewise:`` has already
-            become the constraints it expands into.
+        program: The program as it is. A curve's links and a set's variable
+            count as named by a row, as the rows they expand into would be.
 
     Returns:
         One note per variable that is unbounded on the side its objective term
@@ -70,6 +70,8 @@ def unbounded_notes(program: Program) -> list[Advice]:
         return []
 
     constrained = {block.variable for block in program.sos.values()}
+    for curve in program.piecewise.values():
+        constrained |= variables_of(*(link.expression for link in curve.links))
     for constraint in program.constraints.values():
         constrained |= variables_of(constraint.lhs, constraint.rhs)
 
