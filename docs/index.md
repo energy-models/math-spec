@@ -175,6 +175,8 @@ call.
 
 ## Where to next
 
+- [Your first model](first-model.md): write the file above one block at a
+  time, check it and print it.
 - [The language](reference/language/index.md): what a file may contain, and
   what it means.
 - [Examples](examples/index.md): whole models, each beside the math it prints.
