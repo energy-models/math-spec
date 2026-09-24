@@ -41,6 +41,7 @@ nav:
       - Declare a column of data: howto/declare-a-column.md
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
       - Write a piecewise curve out by hand: howto/curve-by-hand.md
+      - See what a curve or a set expands to: howto/see-an-expansion.md
   - Reference:
       - Language:
           - reference/language/index.md
@@ -52,6 +53,7 @@ nav:
           - Named expressions and macros: reference/language/named.md
           - Operators: reference/language/operators.md
           - Piecewise curves and SOS: reference/language/piecewise.md
+          - Assumptions: reference/language/assumptions.md
           - Absence and where: reference/language/absence.md
           - Errors and limits: reference/language/errors.md
       - Every construct, as math: reference/notation.md
@@ -78,6 +80,7 @@ nav:
   # Everything a reader does not need in order to write a model: the design
   # arguments, how to contribute, what changed.
   - About:
+      - The file and the program: about/file-and-program.md
       - The limits: about/limits.md
       - What counts as language: about/what-counts-as-language.md
       - What counts as public API: about/what-counts-as-public-api.md

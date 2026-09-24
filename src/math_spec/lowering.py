@@ -2,352 +2,299 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Lower a validated model to a :class:`~math_spec.program.Program`.
+"""Lower a model to a :class:`~math_spec.program.Program` — the pass that decides every expression.
 
-One lowering, on the language side: it reads the typed AST and emits
-declarations with names resolved and shapes fixed, and reaches no consumer. A
-construct with no lowering raises :class:`~math_spec.errors.LanguageError`
-naming its rewrite.
+One lowering, on the language side, run when a :class:`~math_spec.model.Spec`
+loads: it reads every expression and where string into the program's own
+nodes, checks every rule decidable without data, and packages the
+declarations, section for section. The program mirrors the model it was
+lowered from: a ``piecewise:`` block the model still declares is a curve on
+the program, and :meth:`~math_spec.model.Spec.expand` is what writes it out
+as rows.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING
 
-import math_spec.program as program
-from math_spec._expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    CasesNode,
-    DefinitionNode,
-    DimensionNode,
-    DirectionNode,
-    DualNode,
-    EdgeNode,
-    FunctionCallNode,
-    KwargNode,
-    NumberNode,
-    ParameterNode,
-    PartitionNode,
-    UnaryOperatorNode,
-    UnresolvedNode,
-    VariableNode,
+from math_spec.dimensions import check_schema, dims_of
+from math_spec.errors import SchemaError, prefixed
+from math_spec.expansion import expand, parse_template
+from math_spec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, resolve_links
+from math_spec.program import (
+    Assumption,
+    BooleanLiteral,
+    Cases,
+    Constant,
+    ConstraintDeclaration,
+    DimensionDeclaration,
+    ExpressionDeclaration,
+    Link,
+    Mask,
+    Named,
+    ObjectiveDeclaration,
+    Parameter,
+    ParameterDeclaration,
+    PiecewiseDeclaration,
+    Program,
+    SosDeclaration,
+    VariableDeclaration,
+    VariableDefined,
+    walk,
 )
-from math_spec.dimensions import dims_of
-from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
-from math_spec.validation import to_spec
+from math_spec.resolution import (
+    Namespace,
+    mask_of,
+    resolve_constraint_text,
+    resolve_expression,
+    resolve_expression_text,
+    resolve_where_text,
+)
+from math_spec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
-    from pathlib import Path
-
-    from math_spec.model import Spec, _ExpandedSpec
+    from math_spec.model import AssumptionBlock, Spec
+    from math_spec.program import Expression
 
 
-def _none_of(masks: list[program.Mask]) -> program.Mask:
-    """The region left over: where not one of *masks* holds.
+def lower(schema: Spec) -> Program:
+    """Lower *schema*'s own declarations, checking every rule decidable without data.
 
-    The ``otherwise`` arm's own mask, built rather than written. An empty list
-    cannot reach here — ``cases:`` carries at least one case — so there is no
-    vacuous truth to spell.
-    """
-    remainder = ~masks[0]
-    for mask in masks[1:]:
-        remainder = remainder & ~mask
-    return remainder
+    What is checked:
 
+    - every rule one declaration is held to against the others
+      (:func:`~math_spec.validation.reference_errors`), before any expression
+      is read, since resolution assumes each of them;
+    - the expression parses, and constraints hold exactly one comparison where
+      objectives hold none;
+    - every referenced name resolves, and every operator is a built-in whose
+      dimension arguments name declared dimensions;
+    - where strings parse *and* resolve — an unknown name there is an error,
+      not a silently-empty mask;
+    - macro formals may shadow model names but not a declared dimension, since
+      ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
+    - no name a set or curve writes out is one the file declares
+      (:func:`~math_spec.validation.emitted_name_errors`), read off the
+      curve as lowered;
+    - every dim rule (``dimensions.check_schema``), once names resolve.
 
-def to_program(spec: str | Path | Mapping[str, object] | Spec | program.Program) -> program.Program:
-    """*spec* as a :class:`~math_spec.program.Program` — the public door.
-
-    Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
-    model, or a program already. Idempotent, so a caller that does not know
-    which it holds can call this and be sure.
-
-    Not memoised; :func:`~math_spec.piecewise.expand_piecewise` is.
-
-    Args:
-        spec: What to read the declarations from.
+    A ``piecewise:`` block's links are resolved and its frame checked here, on
+    the link the file wrote, so the expansion writes rows the language has
+    already held to every rule; what its method assumes of the breakpoints
+    stands under the program's assumptions with the file's own, so a model
+    states what it assumes whether or not its curves are written out.
 
     Returns:
-        Every declaration the file makes, with names resolved and shapes
-        fixed.
+        The program of what *schema* declares, section for section.
 
     Raises:
-        SchemaError: The file is not a valid model.
-        LanguageError: A construct outside the language, named with its
-            rewrite.
+        SchemaError: Listing every problem found, one per line. A name a set
+            or curve writes that the file declares is listed once every other
+            problem is gone, since it is read off the curve as lowered.
+        DimensionError: The first dim rule a declaration breaks, once every
+            name resolves.
     """
-    if isinstance(spec, program.Program):
-        return spec
-    return lower_program(expand_piecewise(to_spec(spec)))
+    errors = reference_errors(schema)
+    if errors:
+        raise SchemaError('\n'.join(errors))
 
+    ns = Namespace(schema)
+    for mname, macro in schema.macros.items():
+        context = f"Macro '{mname}'"
+        formals = frozenset((*macro.args, *macro.kwargs))
+        try:
+            body_ast = expand(parse_template(mname, macro, context), ns, context)
+        except ValueError as e:
+            errors.append(prefixed(context, e))
+            continue
+        errors.extend(
+            f"{context}: formal '{f}' collides with declared dimension '{f}'. "
+            f'Rename the formal — a dimension name inside a template is '
+            f'ambiguous with the dimension itself.'
+            for f in sorted(formals & ns.dimensions)
+        )
+        resolve_expression(body_ast, ns, context, errors, formals=formals)
 
-def lower_program(expanded: _ExpandedSpec) -> program.Program:
-    """Compile an expanded model into a :class:`~math_spec.program.Program`.
-
-    A ``domain: binary`` variable lowers with fixed 0/1 bounds.
-
-    Raises:
-        LanguageError: A construct outside the language, named with its
-            rewrite.
-    """
-    resolved = expanded.resolved
-    derivations = {
-        name: how
-        for block, ex in expanded.expanded_piecewise.items()
-        for name, how in derivations_of(block, ex).items()
-    }
-    parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
-        for name, pdef in expanded.parameters.items()
-    }
+    entries: dict[str, Named] = {}
+    for ename in schema.expressions:
+        node, refusals = ns.named_entry(ename)
+        errors.extend(refusals)
+        if node is not None:
+            entries[ename] = node
 
     variables = {}
-    for vname, vdef in expanded.variables.items():
-        domain = vdef.domain
-        if domain == 'binary':
-            lower, upper = program.Constant(0.0), program.Constant(1.0)
+    for vname, vdef in schema.variables.items():
+        where = resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
+        if vdef.domain == 'binary':
+            lower_bound, upper_bound = Constant(0.0), Constant(1.0)
         else:
-            lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
-        variables[vname] = program.VariableDeclaration(
+            lower_bound, upper_bound = _bound(vdef.bounds.lower), _bound(vdef.bounds.upper)
+        variables[vname] = VariableDeclaration(
             tuple(vdef.dims),
-            where=resolved.variables[vname],
-            lower=lower,
-            upper=upper,
-            domain=domain,
+            where=mask_of(where),
+            lower=lower_bound,
+            upper=upper_bound,
+            domain=vdef.domain,
             absence=vdef.absence,
+            description=vdef.description,
         )
 
-    constraints = {}
-    for cname, cdef in expanded.constraints.items():
-        expression, where = resolved.constraints[cname]
-        lowering = _Lowering(expanded, f"constraint '{cname}'")
-        constraints[cname] = program.ConstraintDeclaration(
-            tuple(cdef.dims),
-            lhs=lowering.expr(expression.left),
-            sense=expression.op,
-            rhs=lowering.expr(expression.right),
-            where=where,
-        )
+    constraints: dict[str, ConstraintDeclaration] = {}
+    for cname, cdef in schema.constraints.items():
+        context = f"Constraint '{cname}'"
+        where = resolve_where_text(cdef.where, ns, context, errors)
+        if (sides := resolve_constraint_text(cdef.expression, ns, context, errors)) is not None:
+            lhs, sense, rhs = sides
+            constraints[cname] = ConstraintDeclaration(
+                tuple(cdef.dims), lhs, sense, rhs, mask_of(where), description=cdef.description
+            )
 
     objective = None
-    if (odef := expanded.objective) is not None:
-        assert resolved.objective is not None, 'validation resolves the objective the file declares'
-        objective = program.ObjectiveDeclaration(
-            odef.sense,
-            _Lowering(expanded, 'the objective').expr(resolved.objective),
-        )
+    if schema.objective is not None:
+        expression = resolve_expression_text(schema.objective.expression, ns, 'The objective', errors, ceiling=2)
+        if expression is not None:
+            objective = ObjectiveDeclaration(schema.objective.sense, expression, schema.objective.description)
 
-    dimensions = {dname: program.DimensionDeclaration(ddef.dtype) for dname, ddef in expanded.dimensions.items()}
-    sos = {
-        sname: program.SosDeclaration(
-            sdef.variable,
-            sdef.over,
-            sos_type=sdef.type,
-            big_m=sdef.big_m,
+    assumptions: dict[str, Assumption] = {}
+    for aname, adef in schema.assumptions.items():
+        if (assumption := _assumption(aname, adef, ns, errors)) is not None:
+            assumptions[aname] = assumption
+
+    curves: dict[str, tuple[Expression, ...]] = {}
+    for pname, pdef in schema.piecewise.items():
+        links = resolve_links(pname, pdef, ns, errors)
+        if links is None:
+            continue
+        if pdef.method == 'lp' and (refusal := lp_domain_refusal(pname, pdef, links)) is not None:
+            errors.append(refusal)
+        curves[pname] = links
+
+    if errors:
+        raise SchemaError('\n'.join(errors))
+
+    roots = [side for c in constraints.values() for side in (c.lhs, c.rhs)]
+    if objective is not None:
+        roots.append(objective.expression)
+    roots.extend(link for links in curves.values() for link in links)
+    in_math = frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
+
+    piecewise = {}
+    for pname, links in curves.items():
+        pdef = schema.piecewise[pname]
+        piecewise[pname] = PiecewiseDeclaration(
+            over=pdef.over,
+            links=tuple(Link(node, link.values, link.sign) for node, link in zip(links, pdef.links, strict=True)),
+            method=pdef.method,
+            frame=curve_frame(schema, pname, pdef, links),
+            activity=pdef.activity,
+            points=pdef.points,
+            description=pdef.description,
         )
-        for sname, sdef in expanded.sos.items()
-    }
-    expressions: dict[str, program.ExpressionDeclaration] = {}
-    for name, ast in resolved.expressions.items():
-        expressions[name] = program.ExpressionDeclaration(
-            _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
-        )
-    return program.Program(
-        parameters=parameters,
+        for aname, assumed in assumptions_of(pname, piecewise[pname]).items():
+            assumption = _assumption(aname, assumed, ns, errors)
+            assert assumption is not None and not errors, 'what a method assumes is stated in the language'
+            assumptions[aname] = assumption
+
+    program = Program(
+        parameters={
+            name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype, pdef.description)
+            for name, pdef in schema.parameters.items()
+        },
         variables=variables,
         constraints=constraints,
         objective=objective,
-        dimensions=dimensions,
-        relations=resolved.relations,
-        sos=sos,
-        piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
-        expressions=expressions,
+        dimensions={
+            name: DimensionDeclaration(ddef.dtype, ddef.description) for name, ddef in schema.dimensions.items()
+        },
+        relations=ns.relations,
+        sos={
+            name: SosDeclaration(sdef.variable, sdef.along, sos_type=sdef.type, description=sdef.description)
+            for name, sdef in schema.sos.items()
+        },
+        piecewise=piecewise,
+        assumptions=assumptions,
+        expressions={
+            name: ExpressionDeclaration(
+                entry.body,
+                _frame_of(name, entry, schema),
+                in_math=name in in_math,
+                description=schema.expressions[name].description,
+            )
+            for name, entry in entries.items()
+        },
+        description=schema.description,
+    )
+    if errors := emitted_name_errors(schema, program):
+        raise SchemaError('\n'.join(errors))
+    check_schema(schema, program)
+    return program
+
+
+def _frame_of(name: str, entry: Named, schema: Spec) -> tuple[str, ...]:
+    """The dims an entry is read over, in declaration order: declared for a cased entry, the body's for a plain one."""
+    if isinstance(entry.body, Cases):
+        return tuple(schema.expressions[name].dims or ())
+    carried = dims_of(entry.body, schema, f"Named expression '{name}'")
+    return tuple(d for d in schema.dimensions if d in carried)
+
+
+def _bound(value: float | str) -> Constant | Parameter:
+    if isinstance(value, str):
+        return Parameter(value)
+    return Constant(value)
+
+
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:
+    """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
+
+    A predicate the connectives decide is refused: one that folds to true
+    assumes nothing, and one that folds to false refuses every dataset. A
+    variable is refused too, since an assumption is about the data and a
+    variable is what the solver decides from it.
+    """
+    context = f"Assumption '{name}'"
+    found = len(errors)
+    holds = resolve_where_text(block.holds, ns, context, errors)
+    where = resolve_where_text(block.where, ns, f'{context}, where', errors)
+    if isinstance(holds, BooleanLiteral):
+        errors.append(_decided_assumption(context, block.holds, value=holds.value))
+    if isinstance(where, BooleanLiteral):
+        assert block.where is not None, 'a where the file did not write resolves to nothing'
+        errors.append(_decided_where(context, block.where, value=where.value))
+    for mask, part in ((holds, 'assumes'), (where, 'is checked where')):
+        if mask is None or isinstance(mask, BooleanLiteral):
+            continue
+        errors.extend(
+            f"{context}: variable '{atom.name}' stands in what the assumption {part}, and an assumption is "
+            f'about the data — a variable is what the solver decides from it. Name a parameter, or state the '
+            f'rule as a constraint.'
+            for atom in Mask(mask).atoms
+            if isinstance(atom, VariableDefined)
+        )
+    if len(errors) > found:
+        return None
+    assert holds is not None, 'a where string that read to nothing appended an error'
+    return Assumption(Mask(holds), mask_of(where), block.description)
+
+
+def _decided_assumption(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a predicate the connectives already decided, whose data is never read."""
+    if value:
+        return (
+            f'{context}: the predicate {text!r} folds to true, so it assumes nothing of the data. '
+            f'Delete it, or name a parameter it constrains.'
+        )
+    return (
+        f'{context}: the predicate {text!r} folds to false, so it holds on no data at all. '
+        f'Delete it, or write the predicate the data can satisfy.'
     )
 
 
-# ---------------------------------------------------------------------------
-# expression lowering
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _Lowering:
-    """One expression walk, and the two things every step of it reads."""
-
-    schema: _ExpandedSpec
-    context: str
-
-    def expr(self, node: ArithmeticNode) -> program.Expression:
-        """Rewrite one resolved core-AST expression as a program expression."""
-        if isinstance(node, NumberNode):
-            return program.Constant(node.value)
-
-        if isinstance(node, VariableNode):
-            return program.Variable(node.name)
-
-        if isinstance(node, ParameterNode):
-            return program.Parameter(node.name)
-
-        if isinstance(node, UnresolvedNode | KwargNode):
-            msg = f'{node!r} reached lowering. Expressions go through resolution.expression_of() first.'
-            raise AssertionError(msg)
-
-        if isinstance(node, DualNode):
-            return program.Dual(node.constraint)
-
-        if isinstance(node, UnaryOperatorNode):
-            inner = self.expr(node.operand)
-            return program.Negate(inner) if node.op == '-' else inner
-
-        if isinstance(node, BinaryOperatorNode):
-            left = self.expr(node.left)
-            right = self.expr(node.right)
-            match node.op:
-                case '+':
-                    return program.Add(left, right)
-                case '-':
-                    return program.Add(left, program.Negate(right))
-                case '*':
-                    return program.Multiply(left, right)
-                case '/':
-                    return program.Divide(left, right)
-                case '**':
-                    return program.Power(left, right)
-                case _:  # pragma: no cover — the parser admits no other operator
-                    raise AssertionError(f'{self.context}: operator {node.op!r} reached lowering')
-
-        if isinstance(node, FunctionCallNode):
-            return _CALLS[node.name](self, node)
-
-        if isinstance(node, CasesNode):
-            return self._cases(node)
-
-        if isinstance(node, DefinitionNode):
-            return self.expr(node.body)
-
-        assert_never(node)
-
-    def _cases(self, node: CasesNode) -> program.Cases:
-        """A cased expression, with every region carrying the mask it applies under.
-
-        The ``otherwise`` arm carries no ``when`` in the file; here it carries
-        the negation of every other region's, so a consumer adds regions rather
-        than working out which one is left. The language proved the rest apart
-        before this ran, so the negation is exactly the remainder and the
-        regions stay disjoint and total.
-
-        Every ``when`` arrives folded from resolution, and an arm that folded
-        to a literal was refused at load — so no literal reaches a region.
-        """
-        stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
-        regions = []
-        for arm in node.arms:
-            when = program.Mask(arm.when) if arm.when is not None else _none_of(stated)
-            regions.append(program.Region(when, self.expr(arm.value)))
-        return program.Cases(tuple(regions))
-
-    def sum(self, node: FunctionCallNode) -> program.Expression:
-        """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
-
-        Two program nodes under one surface verb: reducing a dim away and reducing it
-        *into* another are different relational shapes, so ``by=`` decides which
-        before anything else is read.
-        """
-        by_node = node.kwargs.get('by')
-        operand = self.expr(node.args[0])
-        if by_node is None and 'over' not in node.kwargs:
-            return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
-        if by_node is None:
-            consumed = node.kwargs['over']
-            assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
-            return program.Sum(operand, (consumed.name,))
-        assert isinstance(by_node, DirectionNode), 'resolution reads sum(by=) in a direction'
-        return program.GroupSum(operand, direction=by_node.direction)
-
-    def at(self, node: FunctionCallNode) -> program.Expression:
-        """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
-        by_node = node.kwargs['by']
-        assert isinstance(by_node, DirectionNode), 'resolution reads at(by=) in a direction'
-        return program.Pullback(self.expr(node.args[0]), direction=by_node.direction)
-
-    def sum_back(self, node: FunctionCallNode) -> program.Expression:
-        """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
-
-        *window* is an integer literal of at least one, or a parameter naming a
-        per-entity width, which the language holds to the two rules that make it
-        mean one thing before this is reached.
-
-        ``by=`` names the relation the window stops at the edges of, and rides on
-        the node the way it rides on a translation — the dim rules have already
-        held it to one relation over the dimension stepped along.
-        """
-        over_node = node.kwargs['along']
-        assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
-        window_node = node.kwargs['window']
-        operand = self.expr(node.args[0])
-        wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
-        width: int | str
-        if isinstance(window_node, ParameterNode):
-            width = window_node.name
-        else:
-            assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
-            width = int(window_node.value)
-        return program.WindowSum(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
-
-    def shift(self, node: FunctionCallNode) -> program.Expression:
-        """``shift(x, along=d, offset=n)`` — the value at *t - offset* along one dim.
-
-        What the vacated positions contribute is ``edge=``'s to say, and the
-        language has already held it to the keyword or a number.
-        """
-        over_node = node.kwargs['along']
-        assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
-        by_node = node.kwargs['offset']
-        operand = self.expr(node.args[0])
-        edge = node.kwargs.get('edge')
-        by: int | str
-        if isinstance(by_node, ParameterNode):
-            by = by_node.name
-        else:
-            assert isinstance(by_node, NumberNode), 'an offset= that is neither is refused at load'
-            by = int(by_node.value)
-        return program.Translate(
-            operand,
-            over_node.name,
-            offset=by,
-            wrap=isinstance(edge, EdgeNode),
-            fill=edge.value if isinstance(edge, NumberNode) else None,
-            partition=_partition_of(node),
-        )
-
-
-#: One lowering per name in the language's ``BUILTIN_NAMES``.
-_CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.Expression]] = {
-    'sum': _Lowering.sum,
-    'at': _Lowering.at,
-    'sum_back': _Lowering.sum_back,
-    'shift': _Lowering.shift,
-}
-
-
-def _partition_of(node: FunctionCallNode) -> program.Partition | None:
-    """The partition a translation steps inside, if the call names a relation.
-
-    That it is a *single* relation, stepped *along the translated dimension*, is
-    checked with the other dim rules (``math_spec.dimensions``), where a model
-    is refused before any data is read.
-    """
-    by_node = node.kwargs.get('by')
-    if by_node is None:
-        return None
-    assert isinstance(by_node, PartitionNode), "resolution reads a translation's by= as a partition"
-    return by_node.partition
-
-
-def _bound_expression(value: float | str) -> program.Expression:
-    if isinstance(value, str):
-        return program.Parameter(value)
-    return program.Constant(value)
+def _decided_where(context: str, text: str, *, value: bool) -> str:
+    """The refusal for a ``where`` the connectives already decided, which narrows nothing or everything."""
+    if value:
+        return f'{context}: the where {text!r} folds to true, so it narrows nothing. Delete the where.'
+    return (
+        f'{context}: the where {text!r} folds to false, so the assumption is checked on no row. '
+        f'Delete the entry, or write the where the data can satisfy.'
+    )

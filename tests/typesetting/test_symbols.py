@@ -12,10 +12,12 @@ import pytest
 
 from math_spec.errors import SchemaError
 from math_spec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
+from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
+    from math_spec.model import Spec
     from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
@@ -91,6 +93,82 @@ def test_a_named_expression_has_a_legend_row_exactly_while_its_symbol_prints(nam
     """
     assert 'what a snapshot costs' in typeset(DESCRIBED, name)
     assert 'what a snapshot costs' not in typeset(DESCRIBED, name, inline_expressions=True)
+
+
+#: The dispatch model with a curve on it, so one model has two readings and one
+#: table has to spell both.
+CURVED = override(
+    DISPATCH_MODEL,
+    **{
+        'dimensions.bp': {'dtype': 'int'},
+        'parameters.bp_x': {'dims': ['generator', 'bp']},
+        'parameters.bp_y': {'dims': ['generator', 'bp']},
+        'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+        'piecewise.curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
+    },
+)
+
+
+def test_one_table_spells_the_blocks_a_file_states_and_the_rows_they_state():
+    """The weights are named after the block, which no equation can carry, and the
+    table that renames them has to render the file they came from too."""
+    spec = to_spec(CURVED)
+    table = {'notation': 'latex', 'names': {'curve_lam': r'\lambda'}}
+
+    assert r'\lambda' not in to_latex(spec, symbols=table, legend=False), 'no weight stands where the curve prints'
+    assert r'\lambda_{t,g,b}' in to_latex(spec.expand(), symbols=table, legend=False)
+
+
+def test_a_misspelled_name_is_still_a_typo_where_a_formulation_could_have_emitted_it():
+    with pytest.raises(SchemaError, match="Did you mean 'curve_lam'"):
+        to_latex(CURVED, symbols={'notation': 'latex', 'names': {'curve_laam': 'x'}})
+
+
+def _names(spec: Spec) -> set[str]:
+    return {*spec.parameters, *spec.variables, *spec.expressions, *spec.constraints}
+
+
+@pytest.mark.parametrize(
+    'patch',
+    [
+        pytest.param({}, id='adjacency'),
+        pytest.param({'piecewise.curve.method': 'sos2'}, id='sos2'),
+        pytest.param({'piecewise.curve.method': 'convex'}, id='convex'),
+        pytest.param(
+            {'piecewise.curve.method': 'lp', 'piecewise.curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]},
+            id='lp',
+        ),
+        pytest.param(
+            {
+                'variables.u': {'dims': ['generator'], 'domain': 'binary', 'where': 'p_max'},
+                'piecewise.curve.activity': 'u',
+            },
+            id='a-gate-that-leaves-coordinates-ungated',
+        ),
+    ],
+)
+def test_a_table_spells_the_names_the_expansion_declares_and_no_other(patch):
+    """A name any method could write counted as declared, so a table naming the
+    chord of a curve that has none, or the curve's own set, was ignored rather
+    than refused."""
+    spec = to_spec(override(CURVED, **patch))
+    written = _names(spec.expand()) - _names(spec)
+    reserved = {
+        'curve',
+        *(f'curve_{s}' for s in ('lam', 'convexity', 'convexity_ungated', 'chord', 'domain_lo', 'domain_hi')),
+        *(f'curve_{s}' for s in ('seg', 'pick', 'adjacency', 'adjacency_below', 'link0', 'link1')),
+        *(f'curve_{s}' for s in ('complete', 'increasing')),
+    }
+    assert written <= reserved, 'the reserved names cover every name the expansion writes'
+
+    def accepted(name: str) -> bool:
+        try:
+            to_latex(spec, symbols={'notation': 'latex', 'names': {name: 'x'}}, legend=False)
+        except SchemaError:
+            return False
+        return True
+
+    assert {n for n in reserved if accepted(n)} == written
 
 
 @pytest.mark.parametrize(

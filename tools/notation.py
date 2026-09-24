@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from math_spec.model import PIECEWISE_METHODS
 from math_spec.typesetting import to_markdown
+from math_spec.validation import to_spec
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
 
@@ -28,16 +29,15 @@ if TYPE_CHECKING:
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
 MODEL = ROOT / 'tests' / 'typesetting' / 'golden' / 'model.yaml'
 
-#: One model per ``method:``, because the four expand to four different
-#: formulations and a section showing one of them would be showing a quarter
+#: One model per ``method:``, because the four restrict the weights four
+#: different ways and a section showing one of them would be showing a quarter
 #: of the construct. ``tests/test_docs.py`` holds these keys to
 #: :data:`math_spec.model.PIECEWISE_METHODS`, so a method added to the
 #: language arrives here or the page stops claiming to be all of them.
 #:
-#: They come from real models rather than from the fixture because expanding a
-#: curve round-trips the model through ``model_dump``, which drops a bound of
-#: ``.inf`` on the wrong side of the line — the one thing that makes the walk
-#: print ∞ — so a fixture carrying a curve would stop covering two symbols.
+#: They come from real models rather than from the fixture because a caption
+#: saying what a method is for reads against a model that had a reason to
+#: choose it.
 PIECEWISE = {
     'adjacency': ROOT / 'examples' / 'ports' / 'transport_pwl.yaml',
     'sos2': ROOT / 'examples' / 'sos.yaml',
@@ -55,8 +55,9 @@ SECTIONS = {
     'constraints': 'Constraints',
     'expressions': 'Definitions',
     'variables': 'Variable domains',
-    'piecewise': 'Curves, as what they expand to',
+    'piecewise': 'Curves',
     'sos': 'Sets carried to the solver',
+    'assumptions': 'What the data has to satisfy',
 }
 
 
@@ -196,26 +197,42 @@ def block() -> str:
         legend(rendered),
     ]
     printed = equations(rendered)
+    written = equations(to_markdown(to_spec(MODEL).expand('sos'), numbered=False))
     for section, title in SECTIONS.items():
         parts.append(f'### {title}')
+        found = declarations(MODEL.read_text())[section]
         if section == 'piecewise':
             parts.append(
-                'A curve is sugar: what prints is the formulation it expands to, which is the math the solver '
-                'receives. One row per `method:`, each from the model named under it, so the symbols in this '
-                "section are that model's."
+                'A curve prints as the curve it states, over the frame the block builds one per coordinate of, '
+                'and its expansion prints the rows that curve stands for. One row per `method:`, each from the '
+                "model named under it, so the symbols in this section are that model's."
             )
             parts += _curves()
             continue
-        parts += [_row(found, printed) for found in declarations(MODEL.read_text())[section]]
+        if section == 'sos':
+            parts.append(
+                'A set prints beside the variable it restricts, because it restricts that variable rather than '
+                'adding a row of its own. Under it are the rows it is written out as.'
+            )
+            parts += [f'{_row(one, printed)}\n\n{_written_out(one.name, written)}' for one in found]
+            continue
+        parts += [_row(one, printed) for one in found]
     return '\n\n'.join(parts)
 
 
 def _curves() -> list[str]:
-    """One row per ``method:``, each captioned with what that method restricts."""
+    """One row per ``method:``, each captioned with what that method restricts.
+
+    Both readings come from one model and one symbol table: the block as the
+    file states it, and the rows ``expand('piecewise')`` writes out — which for
+    ``sos2`` keeps the set and for ``adjacency`` is the binaries that set states.
+    """
     rows = []
     for method, source in PIECEWISE.items():
         table = sidecar_for(source)
-        printed = equations(to_markdown(source, symbols=table, numbered=False))
+        spec = to_spec(source)
+        stated = equations(to_markdown(spec, symbols=table, numbered=False))
+        written = equations(to_markdown(spec.expand('piecewise'), symbols=table, numbered=False))
         found = [
             block
             for block in declarations(source.read_text())['piecewise']
@@ -223,56 +240,58 @@ def _curves() -> list[str]:
         ]
         assert found, f'{source.name} declares no piecewise block with method: {method}'
         for block in found:
-            row = _row(block, printed)
+            row = _row(block, stated)
             caption = (
                 f'**`method: {method}`** \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
             )
-            rows.append(row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1))
+            derived = [math for label, math in stated.items() if label.startswith(f'{block.name} ')]
+            assumed = '\n\n'.join(['What the method assumes of the numbers bound to it:', *derived]) if derived else ''
+            rows.append(
+                row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1)
+                + f'\n\n{_written_out(block.name, written)}'
+            )
+            if assumed:
+                rows.append(assumed)
     return rows
+
+
+def _written_out(name: str, printed: dict[str, str]) -> str:
+    """The rows the formulation *name* states, as its expansion prints them.
+
+    Everything an expansion writes is named after the block that stated it, so
+    the block's own name is what collects the lines back together. The set a
+    ``sos2`` curve keeps takes that name whole.
+    """
+    rows = [math for label, math in printed.items() if label == name or label.startswith(f'{name}_')]
+    assert rows, f'{name} states rows and its expansion printed none of them'
+    body = '\n\n'.join(rows)
+    return f'Written out by `spec.expand()`:\n\n{body}'
 
 
 def _table_shown(table: Path | None) -> str:
     """The symbol table, printed beside the math it renamed.
 
-    A curve expands to weights named after the block that declared them, which
-    an equation naming one six times cannot carry. Renaming them in the
-    typesetter would be a symbol a reader could not trace back to the file, so
-    the rename is a **declaration** — the same ``--symbols`` sidecar any reader
-    may write — and the page shows it rather than performing it.
+    A curve prints through its breakpoint parameters, whose names are the data
+    preparation's rather than the literature's. Renaming them in the typesetter
+    would be a symbol a reader could not trace back to the file, so the rename
+    is a **declaration** — the same ``--symbols`` sidecar any reader may write —
+    and the page shows it rather than performing it.
     """
     if table is None:
         return ''
     body = without_header(table)
     return (
         f'Rendered with the sidecar symbol table `{table.relative_to(ROOT)}`, '
-        f'which is what the weights print as:\n\n```yaml\n{body}\n```\n\n'
+        f'which is what the breakpoints print as:\n\n```yaml\n{body}\n```\n\n'
     )
 
 
 def _row(declaration: Declaration, printed: dict[str, str]) -> str:
     """One construct: what it says, what it is for, and what it prints."""
     caption = f'{declaration.caption}\n\n' if declaration.caption else ''
-    math = '\n\n'.join(printed[label] for label in _labels(declaration, printed))
+    assert declaration.name in printed, f'{declaration.name} declares math and the walk printed none of it'
+    math = printed[declaration.name]
     return f'#### `{declaration.name}`\n\n{caption}```yaml\n{declaration.yaml}\n```\n\n{math}'
-
-
-def _labels(declaration: Declaration, printed: dict[str, str]) -> list[str]:
-    """Which printed equations belong to *declaration*.
-
-    Two blocks do not print under their own name. A ``sos:`` block restricts a
-    variable, so its line sits with that variable; a ``piecewise:`` block is
-    sugar, and what prints is the rows and columns it expands to — every one of
-    which the expander names after the block. A declaration printing nothing is
-    an error rather than an empty row: it means the walk stopped rendering
-    something the file still declares.
-    """
-    if declaration.name in printed:
-        return [declaration.name]
-    if (variable := declaration.field('variable')) and f'{variable} sos' in printed:
-        return [f'{variable} sos']
-    expanded = [label for label in printed if label.startswith(f'{declaration.name}_')]
-    assert expanded, f'{declaration.name} declares math and the walk printed none of it'
-    return expanded
 
 
 def rendered_page(page: str) -> str:

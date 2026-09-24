@@ -137,7 +137,7 @@ link reaches it, directly or through another entry or a macro. A bound and a
 
 A reported body is built by no solver, so **no degree limit applies to it**:
 it may divide by a variable, raise one to a power, and multiply two sums. A
-comparison stays out. A constraint that later names such an entry inlines its
+comparison stays out. A constraint that later names such an entry reads its
 body, and is refused there under the constraint's own name.
 
 ### Reading a constraint's dual
@@ -180,7 +180,8 @@ macros:
   collide with a declared dimension.
 - The number of arguments is checked at each call site. A cycle is reported with
   its reference chain.
-- Every template is parsed and name-checked at load, whether or not it is called.
+- Every template is held at load to every rule a call site is, whether or not it
+  is called. A formal is left for the call site to bind.
 
 Anything composed out of the [built-in operators](operators.md) belongs here.
 What the language cannot express is under

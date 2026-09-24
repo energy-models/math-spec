@@ -34,8 +34,10 @@ Four rules follow from the test:
 - Degree is decided when the file loads. Whether `x * y` is allowed does not
   depend on which engine builds the model.
 
-A `piecewise:` block expands into ordinary variables and constraints, so the
-language decides that expansion too.
+A `piecewise:` block and a `sos:` block each state ordinary variables and
+constraints, so the language decides what they state, and
+[`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
+writes it out the same way for every tool.
 
 ## What each tool decides for itself
 

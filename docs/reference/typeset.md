@@ -18,8 +18,9 @@ print(ms.to_typst(spec))  # compiles without a TeX toolchain
 print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
 
-Each function takes what `to_spec` takes: a path, the YAML, a mapping or a
-`Spec`. The same three formats come from a shell:
+Each function takes a path, the YAML, a mapping, a `Spec` or a `Program`, and
+prints the program: the one a spec holds, or the one it was handed. The same
+three formats come from a shell:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
@@ -42,11 +43,19 @@ a flag.
 | `legend`             | `--no-legend`          | Print the table of sets, parameters, variables and definitions above the math. Default: on                                      |
 | `numbered`           | `--no-numbers`         | Number the equations. Default: on                                                                                               |
 | `inline_expressions` | `--inline-expressions` | Substitute each named expression that the math reads into the equations that read it, instead of defining it once. Default: off |
+| —                    | `--expand`             | Print the variables and constraints the `piecewise:` and `sos:` blocks state, rather than the blocks. Default: off              |
 
 `-o FILE` writes to a file instead of stdout.
 
 - The model's `description:` opens the document.
-- A `piecewise:` block prints as the variables and constraints it expands into.
+- A `piecewise:` block prints as one line: the curve it states, over the frame
+  it states one curve per coordinate of. To print the variables and constraints
+  it stands for instead, print
+  [`spec.expand()`](language/piecewise.md#writing-a-formulation-out).
+- An [`assumptions:`](language/assumptions.md) entry prints under an
+  **Assumptions** heading, last, beside what each curve assumes of its
+  breakpoints. A model that assumes nothing of its data prints no such
+  heading.
 - A [named expression](language/named.md) prints its symbol where it is used
   and its body once, under a **Definitions** heading, in declaration order. A
   `cases:` block and a [reported entry](language/named.md#reported-expressions)
@@ -74,8 +83,8 @@ dimension, parameter and variable.
 ## Printing one declaration on its own
 
 `typeset_declaration` returns the line the document prints for one named
-expression, constraint or variable, with its quantifier and without a document,
-a label, a number or math delimiters:
+expression, constraint, assumption or variable, with its quantifier and without
+a document, a label, a number or math delimiters:
 
 ```python
 ms.typeset_declaration('model.yaml', 'spend', 'latex')
@@ -97,9 +106,33 @@ A line on its own has no _Definitions_ section beside it, so the plain named
 expressions it uses are substituted. A cased expression prints by symbol, and a
 second call with its name prints its block.
 
-A name that is none of the three kinds is refused with the near miss. A name that
-is both a constraint and a variable is refused too, because one line can print
-only one of them.
+A name that is none of the four kinds is refused with the near miss. A name
+declared as two of them, such as a constraint and a variable, is refused too,
+because one line can print only one of them.
+
+## Printing what a formulation states
+
+A `piecewise:` block and a `sos:` block each state variables and constraints
+([formulations](language/piecewise.md#writing-a-formulation-out)). Printing
+those rows is printing a different model, so it is
+[`expand()`](language/piecewise.md#writing-a-formulation-out) that produces it
+and not an option on the render:
+
+```python
+ms.to_latex(spec)  # the curve, and the set beside its variable
+ms.to_latex(spec.expand())  # the weights, the convexity row, the binaries
+ms.to_latex(spec.expand('sos'))  # the curves as curves, the sets as binaries
+```
+
+A shell cannot compose that, so the command line spells it as a flag:
+
+```bash
+python -m math_spec latex model.yaml --expand --symbols model.symbols.yaml
+```
+
+One symbol table serves both, because a name a formulation emits counts as
+declared — which is what lets `<block>_lam` print as $\lambda$ in the expansion
+and the same table render the file it came from.
 
 ## Symbol tables
 
@@ -146,7 +179,7 @@ names:
 
 Every spelling is printed as you wrote it, and nothing translates notation, so
 rendering a LaTeX table as Typst is refused. A key that names nothing in the
-model is an error with the near miss.
+model, and nothing a formulation of it emits, is an error with the near miss.
 
 Nothing in a symbol table changes what the file means. What a declaration _is_
 stays in its own `description:`.

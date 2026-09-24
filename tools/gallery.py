@@ -111,6 +111,7 @@ def declared_block(path: Path) -> str:
     equation = equations(_section(page, 'Subject to'))
     definition = equations(_section(page[page.index('#### Objective') :], 'Definitions')) if model.expressions else {}
     domains = _section(page, 'Variable domains').strip()
+    assumption = equations(_section(page, 'Assumptions')) if model.assumptions else {}
     parts = [legend, f'### Objective\n\n```yaml\n{declaration(text, "objective")}\n```\n\n{objective}']
     for name, block in model.constraints.items():
         parts.append(
@@ -124,6 +125,10 @@ def declared_block(path: Path) -> str:
         for name in model.expressions
     )
     parts.append(domains)
+    parts.extend(
+        f'### `{name}`\n\n```yaml\n{declaration(text, "assumptions", name)}\n```\n\n{assumption[name]}'
+        for name in model.assumptions
+    )
     return '\n\n'.join(parts)
 
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import math
 import re
-from collections import Counter
 from functools import cached_property
 from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Self, cast, get_args, override
 
@@ -20,7 +19,6 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
-    PrivateAttr,
     ValidationError,
     ValidationInfo,
     ValidatorFunctionWrapHandler,
@@ -31,16 +29,23 @@ from pydantic import (
 
 from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
-from math_spec.operators import BUILTIN_NAMES
+from math_spec.program import (
+    DimensionDtype,
+    ObjectiveSense,
+    ParameterDtype,
+    PiecewiseMethod,
+    Program,
+    SosType,
+    VariableAbsence,
+    VariableDomain,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Mapping
 
     from pydantic import GetJsonSchemaHandler, SerializerFunctionWrapHandler
     from pydantic.config import ExtraValues
     from pydantic_core import CoreSchema
-
-    from math_spec.resolution import Resolved
 
 
 class _StrictBlock(BaseModel):
@@ -77,61 +82,24 @@ class _StrictBlock(BaseModel):
         return data
 
 
-#: The dtype a dimension index may declare (the declaration rules), and what
-#: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
-#: order and compare, where a *value* of that type is a moment nothing
-#: computes with.
-DimensionDtype = Literal['float', 'int', 'str', 'datetime']
+#: A block that states rows rather than being one, which :meth:`Spec.expand`
+#: writes out on request.
+Formulation = Literal['piecewise', 'sos']
 
-#: The dtype a parameter may declare (the declaration rules), and what its bound
-#: column must be. ``bool`` is a parameter's alone — a value column may be a
-#: flag a mask reads, where a label set of two members is a dimension nothing
-#: indexes by.
-ParameterDtype = Literal['float', 'int', 'bool', 'str']
-
-#: What a *name* a where comparison tests may be — a parameter's dtype or a
-#: dimension's, since a relation's is its target's. The union rather than either
-#: half, because a mask names all three kinds and reads the dtype the same way.
-DeclaredDtype = ParameterDtype | DimensionDtype
-
-#: The domain a variable may declare.
-VariableDomain = Literal['continuous', 'integer', 'binary']
-
-#: What a masked variable's non-existence *means* where it does not exist.
-#: ``undefined`` is the absence rules' default — a term carrying it takes its
-#: row. ``zero`` says the quantity *is* zero there, so the term contributes
-#: nothing and the row stands.
-VariableAbsence = Literal['undefined', 'zero']
-
-#: Which way an objective is optimised (the declaration rules).
-ObjectiveSense = Literal['minimize', 'maximize']
-
-#: The relation a link may pin its expression to the curve with.
-LinkSign = ComparisonOperator
-
-#: The order of special ordered set.
-SosType = Literal[1, 2]
-
-#: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
-#: with :data:`PIECEWISE_METHODS`, which says what each one emits, by
-#: ``tests/test_schema.py``.
-PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
-
-#: The shape a method needs a curve to have to be exact on it, carried by the
-#: :class:`~math_spec.program.Curved` check. ``convex`` and ``concave`` name
-#: one bend; ``either`` is the hull's weaker condition — any single bend will
-#: do, and only a *mixed* curve fails it.
+#: The shape a method needs a curve to have to be exact on it, which the
+#: ``<block>_curvature`` assumption states. ``convex`` and ``concave`` name the
+#: side a bounded link binds from; ``either`` is the weaker condition a block
+#: with both links pinned states — any single bend will do, and only a *mixed*
+#: curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
 
-#: The set form of each vocabulary above, for callers that want membership.
-DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
-PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
-VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
-VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
-CURVATURES = frozenset(get_args(Curvature))
+
+#: Every formulation, in the order :meth:`Spec.expand` writes them out: a curve
+#: emits a set, and no set emits a curve.
+FORMULATIONS: tuple[Formulation, ...] = ('piecewise', 'sos')
 
 
 def _also_written_as(
@@ -153,7 +121,7 @@ def _also_written_as(
     return {'anyOf': [dict(generated), shorthand]}
 
 
-def _side(written: str | list[str] | dict[str, str] | None) -> tuple[tuple[str, str], ...]:
+def side_columns(written: str | list[str] | dict[str, str] | None) -> tuple[tuple[str, str], ...]:
     """``(role, dimension)`` per column of one side of a relation, in written order.
 
     A bare name or a list names each column after the dimension it is over; a
@@ -201,7 +169,7 @@ class RelationBlock(_StrictBlock):
         The program calls the same thing :attr:`~math_spec.program.RelationDeclaration.columns`;
         here the table has no field of its own, being what the two sides make.
         """
-        return (*_side(self.key), *_side(self.values))
+        return (*side_columns(self.key), *side_columns(self.values))
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -214,12 +182,12 @@ class RelationBlock(_StrictBlock):
     @property
     def key_roles(self) -> tuple[str, ...]:
         """The key roles, however ``key:`` was written."""
-        return tuple(role for role, _ in _side(self.key))
+        return tuple(role for role, _ in side_columns(self.key))
 
     @property
     def value_roles(self) -> tuple[str, ...]:
         """The roles the key determines; empty for a bare relation."""
-        return tuple(role for role, _ in _side(self.values))
+        return tuple(role for role, _ in side_columns(self.values))
 
 
 class DimensionBlock(_StrictBlock):
@@ -333,8 +301,8 @@ class MacroBlock(_StrictBlock):
     """A parameterised expression template, defined in the YAML itself.
 
     Language, not code: formals (``args`` positional, ``kwargs`` keyword)
-    shadow model names inside the template, and every call site expands into
-    core AST before either backend sees the expression.
+    shadow model names inside the template, and every call site expands in
+    the syntax tree before resolution reads the expression.
     """
 
     _label: ClassVar[str] = 'a macro declaration'
@@ -476,6 +444,58 @@ class ExpressionBlock(_StrictBlock):
         return {'expression': self.expression, 'description': self.description}
 
 
+class AssumptionBlock(_StrictBlock):
+    """What the model assumes of its data: a predicate every coordinate it is checked at has to satisfy.
+
+    Written in YAML as a bare where string, or as a mapping once it carries a
+    ``where:`` or a ``description:``, and serialised back to whichever form it
+    was written in::
+
+        assumptions:
+          efficiency_is_a_fraction: "efficiency > 0 AND efficiency <= 1"
+          bounds_do_not_cross:
+            holds: "p_min <= p_max"
+            where: "p_min"
+            description: a unit with no minimum is unconstrained below
+
+    The language decides nothing about the numbers, so the consumer binding
+    the data checks it, and refuses the data where it does not hold.
+    """
+
+    _label: ClassVar[str] = 'an assumption declaration'
+
+    #: The predicate, in the where grammar. It holds at every coordinate of
+    #: its own frame that ``where`` admits.
+    holds: str
+    #: Which coordinates it is checked at, in the same grammar; absent means every one.
+    where: str | None = None
+    #: Why the rule is there, in the author's words. The sentence a consumer
+    #: refuses with quotes it.
+    description: str | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def _from_string(cls, data: object) -> object:
+        return {'holds': data} if isinstance(data, str) else data
+
+    @classmethod
+    @override
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> dict[str, object]:
+        """The published schema admits the bare string the one-line form is written as."""
+        return _also_written_as(core_schema, handler, {'type': 'string'})
+
+    @model_serializer
+    def _as_written(self) -> str | dict[str, object]:
+        if self.where is None and self.description is None:
+            return self.holds
+        written: dict[str, object] = {'holds': self.holds}
+        if self.where is not None:
+            written['where'] = self.where
+        if self.description is not None:
+            written['description'] = self.description
+        return written
+
+
 class PiecewiseLink(_StrictBlock):
     """One link of a piecewise block: an expression pinned to a values curve.
 
@@ -488,7 +508,7 @@ class PiecewiseLink(_StrictBlock):
 
     expression: str
     values: str
-    sign: LinkSign = '=='
+    sign: ComparisonOperator = '=='
 
     @model_validator(mode='before')
     @classmethod
@@ -549,6 +569,11 @@ class PiecewiseBlock(_StrictBlock):
     #: A boolean parameter saying how far each curve runs, for curves of unequal length.
     points: str | None = None
     description: str | None = None
+
+    @property
+    def nominated(self) -> str | None:
+        """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
+        return self.points if self.points in {link.values for link in self.links} else None
 
     @property
     def curve(self) -> tuple[PiecewiseLink, PiecewiseLink]:
@@ -612,23 +637,22 @@ SOS_TYPES = frozenset(get_args(SosType))
 class SosBlock(_StrictBlock):
     """A special-ordered set over one dimension of one variable.
 
-    One set per coordinate of the variable's ``dims`` minus ``over``; the
-    members are the variable's *existing* coordinates along ``over``, in that
-    dimension's declared order, and ``big_m`` is the optional cap a consumer
-    that reformulates the set puts on its linking rows.
+    One set per coordinate of the variable's ``dims`` minus ``along``; the
+    members are the variable's *existing* coordinates along ``along``, in that
+    dimension's declared order.
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
-    and those two consecutive. Unlike every other block this one declares no
-    math to read off ``A``: it is a *set*, carried to a consumer that has the
-    concept and reformulated for one that does not.
+    and those two consecutive. A consumer with the concept takes the set as
+    one; :meth:`Spec.expand` states it as binaries instead, and the rows it
+    writes multiply by the member's own ``bounds``, which is why a member
+    needs both.
     """
 
     _label: ClassVar[str] = 'a sos declaration'
 
     variable: str
-    over: str
+    along: str
     type: SosType
-    big_m: float | None = None
     description: str | None = None
 
     @field_validator('type', mode='wrap')
@@ -643,14 +667,6 @@ class SosBlock(_StrictBlock):
         except ValidationError:
             raise ValueError(msg) from None
 
-    @field_validator('big_m')
-    @classmethod
-    def _check_big_m(cls, v: float | None) -> float | None:
-        if v is not None and not (v > 0 and math.isfinite(v)):
-            msg = f'big_m must be a positive, finite number, got {v!r} — it caps a linking coefficient.'
-            raise ValueError(msg)
-        return v
-
 
 #: The language surfaces this reader understands. A **language** version, not a
 #: package one: it moves when the accepted YAML surface moves, which most
@@ -658,11 +674,6 @@ class SosBlock(_StrictBlock):
 #: and wrong. `0` is the unstable surface — no compatibility promise, per
 #: *breaking changes are free* in CONTRIBUTING.
 SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
-
-
-def undeclared_dimension(kind: str, name: str, dimension: str) -> str:
-    """The one wording for a declaration naming a dimension the file does not declare."""
-    return f"{kind} '{name}' references undeclared dimension '{dimension}'. Declare it under 'dimensions:'."
 
 
 def _without_absence(value: object) -> object:
@@ -689,22 +700,19 @@ class Spec(_StrictBlock):
 
     A ``Spec`` that exists has passed the whole language: constructing one by
     any route — ``to_spec``, :meth:`model_validate`, the constructor — runs
-    every load-time check, expansion and expression pass included, and raises
+    every load-time check, expression pass included, and raises
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the ten declaration sections plus ``version`` and
-    ``description``, and two ways back out: :meth:`to_dict` for the model as
-    data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
-    this class is pydantic's, not a contract this package keeps.
+    The API is the eleven declaration sections plus ``version`` and
+    ``description``, three ways back out — :meth:`to_dict` for the model as
+    data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
+    same math with its formulations written out — and :attr:`program`, the
+    model typed, which every reader after load walks. Everything else on this
+    class is pydantic's, not a contract this package keeps.
     """
 
     _label: ClassVar[str] = 'the top level of the file'
-
-    #: The :class:`_ExpandedSpec` built from this model, at load — it holds
-    #: the resolved trees. Owned entirely — written and read — by
-    #: :func:`~math_spec.piecewise.expand_piecewise`; only the slot lives here.
-    _expansion: _ExpandedSpec | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
@@ -724,10 +732,23 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+    assumptions: dict[str, AssumptionBlock] = {}
 
-    def relations_of(self, dimension: str) -> dict[str, RelationBlock]:
-        """The relations with a column over *dimension*, by name."""
-        return {n: lk for n, lk in self.relations.items() if dimension in lk.dims}
+    @cached_property
+    def program(self) -> Program:
+        """This model typed, section for section — what every reader after load walks.
+
+        Computing it *is* the expression pass, so a model the language refuses
+        raises here; loading forces it, so every ask on a model in hand is the
+        one object. It mirrors the model: a ``piecewise:`` block still in it is
+        a curve under ``program.piecewise`` and a ``sos:`` block a set under
+        ``program.sos``, and :meth:`expand` is what writes either out as rows,
+        so a consumer building rows reads ``spec.expand(...).program`` and
+        refuses a block it does not take.
+        """
+        from math_spec.lowering import lower
+
+        return lower(self)
 
     @classmethod
     @override
@@ -795,6 +816,40 @@ class Spec(_StrictBlock):
 
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
+    def expand(self, *kinds: Formulation) -> Spec:
+        """This model with its formulations written out as plain variables and constraints.
+
+        A formulation states rows rather than being one — ``piecewise:`` states
+        a curve, ``sos:`` states which members of a family may be nonzero — and
+        expanding one writes those rows under names prefixed with the block's
+        own, then drops the block. The math is the same afterwards, and so is
+        the data that binds it: neither a set nor a curve emits a parameter,
+        and a curve's rows sit on ``where`` predicates over the file's own.
+
+        Args:
+            kinds: Which formulations to write out — ``'piecewise'``,
+                ``'sos'``, or none of them for every one. They go in
+                :data:`FORMULATIONS` order whatever order they are asked in,
+                because a ``method: sos2`` curve emits a set and no set emits a
+                curve.
+
+        Returns:
+            The model those blocks wrote out, or this one where it declares
+            none of them. It is a model like any other: :meth:`to_yaml` writes
+            it, and the file binds the same data as the one it came from.
+
+        Raises:
+            ValueError: *kinds* names something that is not a formulation.
+        """
+        wanted = _formulations(kinds)
+        from math_spec.piecewise import expand_piecewise
+        from math_spec.sos import expand_sets
+
+        expanded = expand_piecewise(self) if 'piecewise' in wanted else self
+        if 'sos' in wanted and expanded.sos:
+            expanded = expand_sets(expanded)
+        return expanded
+
     @model_validator(mode='after')
     def _names_are_names(self) -> Spec:
         """Every declaration is keyed by something an expression could write.
@@ -818,216 +873,25 @@ class Spec(_StrictBlock):
         return self
 
     @model_validator(mode='after')
-    def _validate_references(self) -> Spec:
-        """Every cross-declaration rule the schema can decide without data, collected rather than raised on the first."""
-        errors = [
-            *self._name_collisions(),
-            *self._frame_dimensions(),
-            *self._relation_targets(),
-            *self._bound_names(),
-            *self._sos_shapes(),
-        ]
-        if errors:
-            raise ValueError('\n'.join(errors))
-        return self
+    def _lower(self) -> Spec:
+        """Every rule that reads across declarations, then every expression and where string.
 
-    def _name_collisions(self) -> Iterator[str]:
-        """A name is declared once, and never as a built-in operator."""
-        kinds: list[tuple[str, Iterable[str]]] = [
-            ('dimension', self.dimensions),
-            ('relation', self.relations),
-            ('parameter', self.parameters),
-            ('variable', self.variables),
-            ('named expression', self.expressions),
-            ('macro', self.macros),
-        ]
-        seen: dict[str, str] = {}
-        for kind, group in kinds:
-            for name in group:
-                if name in BUILTIN_NAMES:
-                    yield (
-                        f"{kind.capitalize()} '{name}' collides with the built-in operator "
-                        f"'{name}'. The operator set is closed and its names are reserved; "
-                        f'rename the {kind}.'
-                    )
-                if name in seen:
-                    yield (
-                        f"{kind.capitalize()} '{name}' collides with the {seen[name]} of "
-                        f'the same name. Names share one flat namespace — rename one of them.'
-                    )
-                else:
-                    seen[name] = kind
-
-    def _frame_dimensions(self) -> Iterator[str]:
-        """Every frame is a product of distinct, declared dimensions."""
-        frames = [
-            *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
-            *(('Variable', name, v.dims) for name, v in self.variables.items()),
-            *(('Constraint', name, c.dims) for name, c in self.constraints.items()),
-            *(('Named expression', name, e.dims or []) for name, e in self.expressions.items()),
-        ]
-        for kind, name, dims in frames:
-            yield from (undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)
-            yield from (
-                f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
-                for d, count in Counter(dims).items()
-                if count > 1
-            )
-
-    def _relation_targets(self) -> Iterator[str]:
-        """A relation has at least two columns over declared dimensions, each named once, and a key naming some of them."""
-        for lname, lk in self.relations.items():
-            if len(lk.pairs) < 2:
-                yield (
-                    f"Relation '{lname}' has {len(lk.pairs)} column(s). A relation relates dimensions, so 'key:' and "
-                    f"'values:' name at least two between them — a label on one dimension is a parameter over it."
-                )
-            if not lk.key_roles:
-                yield (
-                    f"Relation '{lname}' names no key column. A relation is keyed by the columns a row is identified "
-                    f"by — name them under 'key:', and leave the columns they determine to 'values:'."
-                )
-            for side, written in (('key', lk.key), ('values', lk.values)):
-                yield from (
-                    f"Relation '{lname}' names dimension '{d}' twice under '{side}:'. Give the two columns roles: "
-                    f'{side}: {{{d}0: {d}, {d}1: {d}}}.'
-                    for d, count in Counter(dim for _, dim in _side(written)).items()
-                    if count > 1 and not isinstance(written, dict)
-                )
-            yield from (
-                f"Relation '{lname}' names column '{role}' under both 'key:' and 'values:'. A relation names each "
-                f'column once — name the value column after what it holds: values: {{<name>: {dict(lk.pairs)[role]}}}.'
-                for role in dict.fromkeys(lk.key_roles)
-                if role in lk.value_roles
-            )
-            yield from (
-                undeclared_dimension('Relation', lname, d) for d in dict.fromkeys(lk.dims) if d not in self.dimensions
-            )
-            yield from (
-                f"Relation '{lname}' names column '{role}' after dimension '{role}', but the column is over "
-                f"'{dim}'. A column named like a dimension is read as over it — name it after what it holds."
-                for role, dim in lk.pairs
-                if role in self.dimensions and role != dim
-            )
-            if lk.value_roles:
-                yield from (
-                    f"Relation '{lname}' has two key columns over '{d}' "
-                    f'({[k for k in lk.key_roles if dict(lk.pairs)[k] == d]}). A key that determines a value is read '
-                    f'its dimensions, and no frame carries a dimension twice — key the table by one column over '
-                    f'each, or leave one of them a value column.'
-                    for d, count in Counter(dict(lk.pairs)[k] for k in lk.key_roles).items()
-                    if count > 1
-                )
-
-    def _bound_names(self) -> Iterator[str]:
-        """A named bound is a numeric parameter."""
-        for vname, vdef in self.variables.items():
-            for side in ('lower', 'upper'):
-                val = getattr(vdef.bounds, side)
-                if not isinstance(val, str):
-                    continue
-                if val in self.parameters:
-                    dtype = self.parameters[val].dtype
-                    if dtype not in NUMERIC_DTYPES:
-                        yield (
-                            f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "
-                            f'is a number. Declare it dtype: float or int, or bound the variable by another.'
-                        )
-                    continue
-                detail = (
-                    f"'{val}' is not a declared parameter"
-                    if val.isidentifier()
-                    else f'bounds accept a parameter name or a number, not an expression (got {val!r}). '
-                    f'Precompute it as a parameter'
-                )
-                yield (f"Variable '{vname}' bounds.{side}: {detail}.")
-
-    def _sos_shapes(self) -> Iterator[str]:
-        """A set runs along one dim of one declared variable, and a variable carries one set."""
-        claimed: dict[str, str] = {}
-        for sname, block in self.sos.items():
-            context = f"Sos '{sname}'"
-            if block.over not in self.dimensions:
-                yield (undeclared_dimension('Sos', sname, block.over))
-            elif block.variable not in self.variables:
-                yield (
-                    f"{context}: '{block.variable}' is not a declared variable.\n"
-                    f'  Variables: {sorted(self.variables)}\n'
-                    f'A set is over one variable, so a parameter or an expression cannot carry one.'
-                )
-            elif block.over not in self.variables[block.variable].dims:
-                yield (
-                    f"{context}: over '{block.over}' is not a dim of variable "
-                    f"'{block.variable}' (dims {self.variables[block.variable].dims}). The set runs "
-                    f"along one of the variable's own dims — one set per coordinate of the rest."
-                )
-            elif block.variable in claimed:
-                yield (
-                    f"{context}: variable '{block.variable}' already carries the set declared by "
-                    f"'{claimed[block.variable]}'. A variable holds one set — declare a second "
-                    f'variable, or state the other restriction as a constraint.'
-                )
-            else:
-                claimed[block.variable] = sname
-
-    @model_validator(mode='after')
-    def _validate_expressions(self) -> Spec:
-        """Every expression and where string — after expansion, whose emitted declarations are language too.
-
-        The expansion is what holds the resolved trees, so it is built here
-        for every model, ``piecewise:`` or not. The expander imports this
-        module, so the import is local.
+        A fault in a curve's link is named against the link the file wrote. The
+        rows a curve states are held to the language when :meth:`expand`
+        writes them out, since an expansion is a model like any other.
         """
-        from math_spec.piecewise import expand_piecewise
-
-        _ = expand_piecewise(self).resolved
+        _ = self.program
         return self
 
 
-class ExpandedPiecewise(_StrictBlock):
-    """A ``piecewise:`` block after expansion: the block, and the parameters it emitted.
+def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:
+    """What *asked* names, in :data:`FORMULATIONS` order — all of them where it names none.
 
-    ``points`` is the mask the weights carry — the file's own parameter, or
-    the one derived from a values parameter; ``starts`` and ``ends`` are the
-    edge flags an ``lp`` block under a mask sits its domain rows on.
+    Raises:
+        ValueError: A name that is not a formulation.
     """
-
-    _label: ClassVar[str] = 'an expanded piecewise block'
-
-    block: PiecewiseBlock
-    points: str | None = None
-    starts: str | None = None
-    ends: str | None = None
-
-
-class _ExpandedSpec(Spec):
-    """A model with nothing left to expand — what rows are built from.
-
-    :func:`~math_spec.piecewise.expand_piecewise` produces one, and
-    ``variables:`` and ``constraints:`` then hold the whole model. A consumer
-    that builds takes this type; one that reads takes :class:`Spec` and
-    accepts either.
-    """
-
-    #: What each ``piecewise:`` block became, under the block's name — the
-    #: block as written and the names its expansion chose, which is what a
-    #: program's :class:`~math_spec.program.PiecewiseDeclaration` is built from.
-    expanded_piecewise: dict[str, ExpandedPiecewise] = {}
-
-    @model_validator(mode='after')
-    def _nothing_left_to_expand(self) -> _ExpandedSpec:
-        if self.piecewise:
-            msg = 'an _ExpandedSpec carries no piecewise: — expand_piecewise is what produces one'
-            raise ValueError(msg)
-        return self
-
-    @cached_property
-    def resolved(self) -> Resolved:
-        """Every expression and where string typed, once — what every reader after validation walks.
-
-        Computing it *is* the expression pass, so a model the language refuses
-        raises here; loading forces it, so a spec in hand already holds it.
-        """
-        from math_spec.validation import validate_expressions
-
-        return validate_expressions(self)
+    if unknown := [kind for kind in asked if kind not in FORMULATIONS]:
+        spelled = ' and '.join(repr(kind) for kind in FORMULATIONS)
+        msg = f'{unknown[0]!r} is not a formulation. Expand {spelled}, or pass none of them for every one.'
+        raise ValueError(msg)
+    return tuple(kind for kind in FORMULATIONS if not asked or kind in asked)

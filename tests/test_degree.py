@@ -13,16 +13,16 @@ from __future__ import annotations
 import pytest
 
 from math_spec import LanguageError
-from math_spec._expression_parser import NameNode
-from math_spec.degree import calls_dual, carries_variable, check_binary, check_expression
-from math_spec.resolution import Namespace, expression_of
-from tests.fixtures import SMALL_MODEL, schema_of
+from math_spec.degree import calls_dual, check_binary, check_expression
+from math_spec.program import carries_variable
+from math_spec.resolution import Namespace
+from tests.fixtures import SMALL_MODEL, expression_of, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)
 
 
 def _ast(text: str):
-    return expression_of(text, SCHEMA, Namespace.of(SCHEMA), 'test')
+    return expression_of(text, Namespace(SCHEMA), 'test')
 
 
 @pytest.mark.parametrize(
@@ -106,14 +106,9 @@ def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(conte
         check_binary(_ast('p * q'), context, ceiling=1)
 
 
-def test_carries_variable_refuses_an_unresolved_name():
-    with pytest.raises(AssertionError, match=r'resolution\.expression_of'):
-        carries_variable(NameNode('p'))
-
-
 def _dual_ast(text: str):
     schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
-    return expression_of(text, schema, Namespace.of(schema), 'test')
+    return expression_of(text, Namespace(schema), 'test')
 
 
 def test_a_dual_carries_no_variable():
@@ -136,12 +131,12 @@ def test_calls_dual_finds_a_dual_wherever_it_stands(text, found):
 
 
 def test_calls_dual_finds_a_dual_inside_a_cased_arm():
-    """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
+    """`calls_dual` recurses through a region of a `Cases`, not only the top node.
 
-    The reference resolves straight to the `CasesNode` expansion.py builds, so
-    this also guards that `children()` walking its arm values reaches a dual a
-    non-recursive check — one that only inspected the node it was handed —
-    would miss.
+    The reference resolves to the `Named` node carrying the block, so this also
+    guards that the walk steps through it into the region values, reaching a
+    dual a non-recursive check — one that only inspected the node it was
+    handed — would miss.
     """
     schema = schema_of(
         SMALL_MODEL,
@@ -154,5 +149,5 @@ def test_calls_dual_finds_a_dual_inside_a_cased_arm():
             },
         },
     )
-    ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
+    ast = expression_of('dcase', Namespace(schema), 'test')
     assert calls_dual(ast) is True

@@ -8,9 +8,10 @@ SPDX-License-Identifier: CC-BY-4.0
 ## What `to_spec` checks
 
 `to_spec` binds no data. Before it returns a `Spec`, it parses the file,
-expands every `piecewise:` block, resolves every name, checks every dimension
-rule and every degree, and reads every `where` string and every macro template,
-including the templates that nothing calls.
+resolves every name, checks every dimension rule and every degree, and reads
+every `where` string and every macro template, including the templates that
+nothing calls. A `piecewise:` block is checked as written, against every rule
+its expansion would be held to, and stays a block.
 
 Anything the language refuses is refused there, so a repository of models
 validates in CI with no data and no solver. An array that does not bind, or a
@@ -31,10 +32,10 @@ Check for typos, or ensure 'p_charge' is declared.
 `python -m math_spec check model.yaml` prints them. Advice is a warning: the file
 loads.
 
-| `kind`          | The file has…                                                                                       | The advice says…                                                      |
-| --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                  | remove it, or keep it knowingly if its declarations are still to come |
-| `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have | give it a finite bound, or the constraint that was meant to define it |
+| `kind`          | The file has…                                                                                                     | The advice says…                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                                | remove it, or keep it knowingly if its declarations are still to come |
+| `unbounded`     | a variable that no constraint, set or curve uses, whose objective term pushes it towards a bound it does not have | give it a finite bound, or the constraint that was meant to define it |
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and
@@ -50,13 +51,12 @@ variable with no constraint row.
 
 ## Which error you get
 
-|                           |                                                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `MathSpecError`           | The root. Everything below is an instance of it                                                                                  |
-| `LanguageError`           | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
-| `SchemaError`             | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
-| `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
-| `PiecewiseExpansionError` | A `piecewise:` block that cannot be expanded                                                                                     |
+|                  |                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `MathSpecError`  | The root. Everything below is an instance of it                                                                                  |
+| `LanguageError`  | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
+| `SchemaError`    | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
+| `DimensionError` | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
 
 Every one of these is reproducible from the YAML alone. An engine that binds
 numbers or calls a solver adds its own errors below `MathSpecError`.

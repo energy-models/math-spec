@@ -74,6 +74,21 @@ def test_check_accepts_the_model_that_carries_every_construct(capsys):
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
+def test_check_reads_a_curve_as_written(capsys):
+    """`check` expanded every curve on the user's behalf, then refused a curve without `--expand`; either way
+    it read a file differently from the typeset verbs, which print it as written.
+
+    Advice reads a block as the rows it states, so `check` takes the file as
+    written and has no `--expand`: the rows are a different document to
+    print, not a different model to advise on.
+    """
+    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 0, 'a curve left as written is checked as written'
+    assert capsys.readouterr() == ('', ''), 'no advice, no output'
+    with pytest.raises(SystemExit) as left:
+        front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand'])
+    assert left.value.code == 2, 'check has no --expand, since it would change nothing'
+
+
 def _carries(stream: str, said: str) -> bool:
     """*stream* mentions *said*, or is silent where *said* is empty."""
     return said in stream if said else stream == ''
@@ -130,6 +145,18 @@ def test_inline_expressions_substitutes_the_named_expressions_away(capsys):
     assert front.main(['latex', MODEL, '--no-legend', '--inline-expressions']) == 0
     expanded = capsys.readouterr().out
     assert r'\mathit{spend}' in defined and r'\mathit{spend}' not in expanded
+
+
+def test_expand_prints_the_rows_the_blocks_state_rather_than_the_blocks(capsys):
+    """A shell cannot write `spec.expand()`, so the flag is the composition."""
+    assert front.main(['latex', MODEL, '--no-legend']) == 0
+    stated = capsys.readouterr().out
+    assert front.main(['latex', MODEL, '--no-legend', '--expand']) == 0
+    written = capsys.readouterr().out
+
+    assert r'\mathrm{pwl}' in stated and r'\mathrm{pwl}' not in written, 'the curve prints as a curve, once'
+    assert r'\mathrm{SOS}' in stated and r'\mathrm{SOS}' not in written, 'and the set as a set, once'
+    assert r'\mathit{hull\_curve\_lam}' in written, 'the weights print where the rows do'
 
 
 def test_a_format_nothing_can_render_is_refused_rather_than_guessed():

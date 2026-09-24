@@ -67,6 +67,16 @@ constraints:
       dispatch - shift(dispatch, along=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
+assumptions:
+  output_floor_fits_under_the_cap:
+    holds: "min_output <= capacity"
+    where: "committable"
+    description: >-
+      `lower` and `upper` hold one dispatch between them, so a floor above the
+      cap makes a running unit infeasible rather than expensive. A unit that
+      cannot be switched off is held to its floor in every snapshot, so the
+      check is the committable ones'.
+
 objective:
   sense: minimize
   expression: sum(dispatch * cost)

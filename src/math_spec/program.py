@@ -5,9 +5,10 @@
 """The program: what a file declares, with names resolved and shapes fixed.
 
 The second public state, and the one a consumer reads. A :class:`Program` is
-every declaration a file makes and no data at all;
-:func:`~math_spec.lowering.to_program` is the only thing that builds one, so
-nothing here re-checks a hand-built one.
+the file typed, section for section: every declaration it makes, with names
+resolved, shapes fixed and every rule decidable without data checked, and no
+data at all. Lowering, as a :class:`~math_spec.model.Spec` loads, is the only
+thing that builds one, so nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
 node's structure does not show are :func:`children` and :func:`fan_in`; the
@@ -23,9 +24,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, assert_never, get_args
+from typing import TYPE_CHECKING, Literal, assert_never
 
-import math_spec.model as _model
 from math_spec._expression_parser import ComparisonOperator
 from math_spec._sealed import Sealed
 from math_spec.errors import did_you_mean
@@ -37,20 +37,17 @@ if TYPE_CHECKING:
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
-    'QUADRATIC_POSITIONS',
     'Add',
     'And',
-    'AtLeastTwo',
+    'Assumption',
     'BooleanLiteral',
     'Cases',
-    'Check',
     'Connective',
     'Constant',
     'ConstraintDeclaration',
     'ConstraintSense',
-    'Contiguous',
-    'Curved',
-    'Derivation',
+    'CountComparison',
+    'DeclaredDtype',
     'DimensionComparison',
     'DimensionDeclaration',
     'DimensionDtype',
@@ -59,16 +56,15 @@ __all__ = [
     'Divide',
     'Dual',
     'Expression',
+    'ExpressionComparison',
     'ExpressionDeclaration',
     'FanIn',
-    'FirstOf',
     'Footprint',
     'GroupSum',
-    'Increasing',
-    'LastOf',
+    'Link',
     'Mask',
-    'MaskOf',
     'Multiply',
+    'Named',
     'Negate',
     'Not',
     'ObjectiveDeclaration',
@@ -81,11 +77,13 @@ __all__ = [
     'ParameterDtype',
     'Partition',
     'PiecewiseDeclaration',
+    'PiecewiseMethod',
     'Power',
     'Predicate',
     'PredicateOperator',
     'Program',
     'Pullback',
+    'PulledBackPredicate',
     'QuadraticPosition',
     'Reach',
     'Region',
@@ -95,8 +93,10 @@ __all__ = [
     'RelationPairComparison',
     'Separability',
     'SosDeclaration',
+    'SosType',
     'Sum',
     'Translate',
+    'TranslatedPredicate',
     'TypedPredicate',
     'Variable',
     'VariableAbsence',
@@ -104,8 +104,8 @@ __all__ = [
     'VariableDefined',
     'VariableDomain',
     'WindowSum',
+    'assumption_message',
     'carries_variable',
-    'check_message',
     'children',
     'divisor_parameters',
     'fan_in',
@@ -124,32 +124,48 @@ ConstraintSense = ComparisonOperator
 #: How a shape operator's output rows relate to its input slots, answered by
 #: :func:`fan_in` for every node.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
-ObjectiveSense = Literal['minimize', 'maximize']
 
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
 #: link are read affinely (``math_spec.degree``), so those are the two.
 QuadraticPosition = Literal['objective', 'constraint']
 
-#: The set form, for a consumer pinning its own table against the vocabulary:
-#: ``QUADRATIC_POSITIONS <= handled`` is how one says it covers every position
-#: and hears about it when the language admits another.
-QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
+#: The dtype a dimension index may declare (the declaration rules), and what
+#: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
+#: order and compare, where a *value* of that type is a moment nothing
+#: computes with.
+DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 
-#: What a dimension's labels are — the language's own vocabulary
-#: (:data:`~math_spec.model.DimensionDtype`), under the name a consumer reads
-#: it by.
-DimensionDtype = _model.DimensionDtype
+#: The dtype a parameter may declare (the declaration rules), and what its bound
+#: column must be. ``bool`` is a parameter's alone — a value column may be a
+#: flag a mask reads, where a label set of two members is a dimension nothing
+#: indexes by.
+ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
-#: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
-ParameterDtype = _model.ParameterDtype
+#: What a *name* a where comparison tests may be — a parameter's dtype or a
+#: dimension's, since a relation's is its target's. The union rather than either
+#: half, because a mask names all three kinds and reads the dtype the same way.
+DeclaredDtype = ParameterDtype | DimensionDtype
 
-#: What a masked variable's non-existence means
-#: (:data:`~math_spec.model.VariableAbsence`).
-VariableAbsence = _model.VariableAbsence
+#: The domain a variable may declare.
+VariableDomain = Literal['continuous', 'integer', 'binary']
 
-#: A variable's domain (:data:`~math_spec.model.VariableDomain`).
-VariableDomain = _model.VariableDomain
+#: What a masked variable's non-existence *means* where it does not exist.
+#: ``undefined`` is the absence rules' default — a term carrying it takes its
+#: row. ``zero`` says the quantity *is* zero there, so the term contributes
+#: nothing and the row stands.
+VariableAbsence = Literal['undefined', 'zero']
+
+#: Which way an objective is optimised (the declaration rules).
+ObjectiveSense = Literal['minimize', 'maximize']
+
+#: The order of special ordered set.
+SosType = Literal[1, 2]
+
+#: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
+#: with :data:`~math_spec.model.PIECEWISE_METHODS`, which says what each one
+#: emits, by ``tests/test_schema.py``.
+PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
 
 # --------------------------------------------------------------------------
@@ -350,6 +366,21 @@ class Cases:
     regions: tuple[Region, ...]
 
 
+@dataclass(frozen=True)
+class Named:
+    """A use of an ``expressions:`` entry, standing where its name was written, with the entry's body under it.
+
+    Its value is its body's: a consumer building rows steps through it, as
+    :func:`children` does. It is kept as a node rather than written in so the
+    typesetter can print the symbol where the name stood and define it once.
+    Every use of one entry holds the one node resolution built for it, whose
+    :attr:`body` is the :attr:`ExpressionDeclaration.expression` of that entry.
+    """
+
+    name: str
+    body: Expression
+
+
 #: Every expression node, as one type — what a walk takes. The set is
 #: *closed*: nothing registers into it, so a consumer that walks it ends in
 #: ``assert_never`` and a node added without a branch is a type error at the
@@ -376,6 +407,7 @@ Expression = (
     | Translate
     | WindowSum
     | Cases
+    | Named
 )
 
 
@@ -383,8 +415,11 @@ def fan_in(expression: Expression) -> FanIn:
     """How *expression*'s output rows relate to its input slots.
 
     For the absence rules, both classes other than ``'one-to-one'`` sum
-    several input slots into an output row.
+    several input slots into an output row. A :class:`Named` answers as its
+    body does.
     """
+    if isinstance(expression, Named):
+        return fan_in(expression.body)
     if isinstance(expression, (Sum, GroupSum)):
         return 'many-to-one'
     if isinstance(expression, WindowSum):
@@ -399,6 +434,8 @@ def fan_in(expression: Expression) -> FanIn:
 
 def children(expression: Expression) -> tuple[Expression, ...]:
     """The sub-expressions of *expression* — what every walk recurses through."""
+    if isinstance(expression, Named):
+        return (expression.body,)
     if isinstance(expression, Negate):
         return (expression.operand,)
     if isinstance(expression, (Add, Multiply)):
@@ -437,6 +474,7 @@ class RelationDeclaration:
 
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...]
+    description: str | None = None
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -538,146 +576,40 @@ class DimensionDeclaration:
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
     #: about a value column, one axis over.
     dtype: DimensionDtype = 'str'
+    description: str | None = None
 
 
 @dataclass(frozen=True)
-class MaskOf:
-    """A ``bool`` parameter true wherever *values* has a row.
+class Assumption:
+    """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
 
-    The mask a ``points:`` naming one of the block's own breakpoints derives:
-    the curve runs as far as its values do. ``values`` is the name the file
-    wrote, so a refusal about the mask can say it.
+    ``predicate`` is true at every coordinate of its frame — the product of
+    every dim the two masks name — that ``where`` admits, a missing row
+    reading as false as it does in any mask. Nothing here is decidable at
+    load: both sides are the data's, which is why the consumer binding it
+    checks.
     """
 
-    block: str
-    values: str
+    predicate: Mask
+    where: Mask | None = None
+    #: What the file wrote under ``description:``, or the sentence a
+    #: ``piecewise:`` method implies. The refusal trails it: the names alone
+    #: say which columns are wrong, and not why the rule is there.
+    description: str | None = None
 
 
-@dataclass(frozen=True)
-class FirstOf:
-    """A ``bool`` parameter marking, per curve, the first breakpoint *mask* admits."""
-
-    block: str
-    mask: str
-
-
-@dataclass(frozen=True)
-class LastOf:
-    """Its sibling for the last breakpoint."""
-
-    block: str
-    mask: str
-
-
-#: How an emitted parameter is filled — closed, so a consumer binding data
-#: dispatches on it and a kind added later is a type error at that match.
-#: Each names the ``piecewise:`` block whose expansion emitted the parameter.
-Derivation = MaskOf | FirstOf | LastOf
-
-
-@dataclass(frozen=True)
-class Increasing:
-    """*parameter* is strictly increasing along *over* within each curve — the x-axis a method sorts by."""
-
-    parameter: str
-    over: str
-
-
-@dataclass(frozen=True)
-class Curved:
-    """*y* over *x* bends, along *over*, the way *curvature* says.
-
-    That is the shape the method is exact for. ``either`` is the hull's
-    weaker condition: any single bend, so only a mixed curve fails it.
-    """
-
-    x: str
-    y: str
-    over: str
-    curvature: _model.Curvature
-
-
-@dataclass(frozen=True)
-class AtLeastTwo:
-    """Each curve has at least two breakpoints — every position along *over*, or those *mask* admits."""
-
-    over: str
-    mask: str | None
-
-
-@dataclass(frozen=True)
-class Contiguous:
-    """*mask* admits one consecutive run of at least one breakpoint per curve."""
-
-    mask: str
-    #: The breakpoint parameter the mask was derived from, where it was — the
-    #: name the file wrote, and the one a refusal names.
-    values: str | None
-
-
-#: What a ``piecewise:`` block assumes of the numbers it is bound to. The data
-#: decides whether each holds, so the language names the condition with its
-#: subjects and its sentence (:func:`check_message`), and the consumer holding
-#: the numbers checks. Closed, like :data:`Derivation`.
-Check = Increasing | Curved | AtLeastTwo | Contiguous
-
-
-@dataclass(frozen=True)
-class PiecewiseDeclaration:
-    """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
-
-    The expansion lowered the links into constraints and emitted the
-    parameters it needs — each of those says how it is filled, on its own
-    :attr:`ParameterDeclaration.derivation`. What is left here is the curve
-    and what the block assumes of it.
-
-    Attributes:
-        over: The breakpoint dimension.
-        method: How the weights are restricted.
-        breakpoints: The links' values parameters, in link order.
-        checks: What the block assumes of the numbers, each carrying its own
-            subjects, for the consumer holding them to check.
-    """
-
-    over: str
-    method: _model.PiecewiseMethod
-    breakpoints: tuple[str, ...]
-    checks: tuple[Check, ...]
-
-
-def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:
-    """The sentence a consumer raises when the data bound to *block* fails *check*.
+def assumption_message(name: str, assumption: Assumption) -> str:
+    """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
-    a consumer appends what it saw.
+    a consumer appends the coordinates it saw. Where the file wrote a
+    ``description:``, or a ``piecewise:`` method implied one, it trails the
+    sentence: the names say which columns are wrong, and the description says
+    why the rule is there.
     """
-    ctx = f"piecewise '{block}'"
-    match check:
-        case Increasing(parameter, over):
-            return (
-                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
-            )
-        case Curved(x, y, over, curvature):
-            shape = 'a single bend' if curvature == 'either' else f'a {curvature} curve'
-            return (
-                f"{ctx}: method: {pw.method} is exact only for {shape}, and '{y}' over '{x}' along "
-                f"'{over}' is not one, so the answer is wrong rather than loose. Use method: adjacency "
-                f'or sos2, which take a curve of any shape.'
-            )
-        case AtLeastTwo():
-            return (
-                f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
-                f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
-                f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
-            )
-        case Contiguous(mask, values):
-            return (
-                f"{ctx}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
-                f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
-                f"the domain rows sit on the curve's own first and last."
-            )
-        case _:
-            assert_never(check)
+    read = ', '.join(f"'{n}'" for n in sorted(assumption.predicate.names_read))
+    sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+    return f'{sentence} — {assumption.description}' if assumption.description else sentence
 
 
 @dataclass(frozen=True)
@@ -691,11 +623,7 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
-    #: How this parameter is filled where a ``piecewise:`` expansion emitted
-    #: it, or ``None`` for one the file declares. Who supplies the data
-    #: follows: the caller binds a declared parameter, and an emitted one is
-    #: built from the block's own breakpoints the way its derivation says.
-    derivation: Derivation | None = None
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -706,6 +634,7 @@ class VariableDeclaration:
     upper: Expression = field(default_factory=lambda: Constant(float('inf')))
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -722,27 +651,24 @@ class ConstraintDeclaration:
     sense: ConstraintSense
     rhs: Expression
     where: Mask | None = None
+    description: str | None = None
 
 
 @dataclass(frozen=True)
 class SosDeclaration:
-    """One special-ordered set per coordinate of the variable's ``dims`` minus ``over``.
+    """One special-ordered set per coordinate of the variable's ``dims`` minus ``along``.
 
     The only declaration that adds neither a column nor a row: it names
     columns a consumer already has and says what may be nonzero among them. Which
     dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
     (:attr:`Program.variables`).
-
-    ``big_m`` caps the linking coefficient a consumer without the concept
-    reformulates with, and is ``None`` where the variable's own upper bound is
-    the only cap.
     """
 
     variable: str
-    over: str
-    sos_type: Literal[1, 2]
-    big_m: float | None = None
+    along: str
+    sos_type: SosType
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -751,13 +677,14 @@ class ObjectiveDeclaration:
 
     sense: ObjectiveSense
     expression: Expression
+    description: str | None = None
 
 
 @dataclass(frozen=True)
 class ExpressionDeclaration:
     """A named quantity — one the math reads, or one only read back after a solve.
 
-    ``in_math`` where the objective or a constraint inlines it, directly or
+    ``in_math`` where the objective or a constraint reads it, directly or
     through another entry or a macro; its body then stands inside
     :attr:`Program.roots` and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
@@ -766,7 +693,66 @@ class ExpressionDeclaration:
     """
 
     expression: Expression
+    #: The frame the entry is read over: the ``dims:`` a cased entry
+    #: declares, or the dims a plain entry's body carries.
+    dims: tuple[str, ...]
     in_math: bool
+    description: str | None = None
+
+
+@dataclass(frozen=True)
+class Link:
+    """One link of a ``piecewise:`` block: an expression tied to the breakpoints a values parameter holds.
+
+    ``sign`` is ``'=='`` where the link is pinned to the curve, and one side
+    of it where the link is bounded by the curve instead.
+    """
+
+    expression: Expression
+    values: str
+    sign: ConstraintSense = '=='
+
+
+@dataclass(frozen=True)
+class PiecewiseDeclaration:
+    """A ``piecewise:`` block as the curve it states, which :meth:`~math_spec.model.Spec.expand` writes out as rows.
+
+    A program of a model that still declares one carries it here, typed; a
+    program of the expanded model carries the rows instead, under
+    :attr:`Program.variables` and :attr:`Program.constraints`, and what the
+    method assumes of the breakpoints under :attr:`Program.assumptions`. A
+    consumer building rows takes the expanded model.
+
+    Attributes:
+        over: The breakpoint dimension.
+        links: The links, in the order the file wrote them.
+        method: How the weights are restricted.
+        activity: The binary the weights sum to, or ``None`` where they sum
+            to 1.
+        points: The parameter saying how far each curve runs, or ``None``.
+        frame: The dimensions the block builds one curve per coordinate of,
+            in declaration order.
+        description: What the file wrote under ``description:``, or ``None``.
+    """
+
+    over: str
+    links: tuple[Link, ...]
+    method: PiecewiseMethod
+    frame: tuple[str, ...]
+    activity: str | None = None
+    points: str | None = None
+    description: str | None = None
+
+    @property
+    def nominated(self) -> str | None:
+        """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
+        return self.points if self.points in {link.values for link in self.links} else None
+
+    @property
+    def curve(self) -> tuple[Link, Link]:
+        """The two links as ``(x, y)``, the bounded one last. Two-link blocks only."""
+        x, y = self.links
+        return (y, x) if x.sign != '==' else (x, y)
 
 
 @dataclass(frozen=True)
@@ -786,7 +772,7 @@ class Footprint:
 
     quadratic: frozenset[QuadraticPosition]
     domains: frozenset[VariableDomain]
-    sos_types: frozenset[Literal[1, 2]]
+    sos_types: frozenset[SosType]
     kinds: frozenset[type[Expression]]
 
 
@@ -924,15 +910,23 @@ class Program:
     dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
     relations: Mapping[str, RelationDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
-    #: Each ``piecewise:`` block the file wrote, as facts — see
-    #: :class:`PiecewiseDeclaration`.
+    #: Each ``piecewise:`` block the model still declares, as the curve it
+    #: states; empty on a program of a model whose curves are written out.
     piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
-    #: Declared ``expressions:``, lowered, each saying whether the math reads
-    #: it. None builds a row of its own — one the math reads is inlined where
-    #: it is read — but all are lowered with the program, so a file whose
+    #: What the data has to satisfy for the answer to mean anything, by the
+    #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
+    #: what each ``piecewise:`` block's method assumes of its breakpoints. The
+    #: language decides none of it, so the consumer binding the data checks
+    #: each and refuses with :func:`assumption_message`.
+    assumptions: Mapping[str, Assumption] = Sealed({})
+    #: Declared ``expressions:``, each saying whether the math reads it. None
+    #: builds a row of its own — one the math reads stands as a :class:`Named`
+    #: where it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    #: What the file as a whole is, as its ``description:`` says.
+    description: str | None = None
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""
@@ -946,17 +940,29 @@ class Program:
         yield 'objective', (self.objective.expression,) if self.objective is not None else ()
         yield 'constraint', tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
 
+    def relations_of(self, dimension: str) -> Mapping[str, RelationDeclaration]:
+        """The relations with a column over *dimension*, by name."""
+        return Sealed({n: lk for n, lk in self.relations.items() if dimension in lk.dims})
+
     @property
     def roots(self) -> tuple[Expression, ...]:
         """Every tree a row is built from — the objective and both sides of each constraint.
 
-        An :attr:`expressions` entry builds no row and is not among them.
+        An :attr:`expressions` entry builds no row and is not among them. Nor is
+        a curve still under :attr:`piecewise`: it is not a row until
+        :meth:`~math_spec.model.Spec.expand` writes it out, and its rows are in
+        the program of the expansion.
         """
         return tuple(e for _, group in self._by_position() for e in group)
 
     @cached_property
     def footprint(self) -> Footprint:
-        """Which constructs this program uses — walked once, then held."""
+        """Which constructs this program uses — walked once, then held.
+
+        It answers for the rows this program holds. A curve still under
+        :attr:`piecewise` is not counted, so a ``sos2`` curve adds no set order
+        here; ask the program of ``spec.expand('piecewise')`` for its rows.
+        """
         return Footprint(
             quadratic=frozenset(
                 position for position, group in self._by_position() if any(is_quadratic(e) for e in group)
@@ -985,6 +991,11 @@ class Program:
         for the same reason — a program cannot change after construction — and
         answering for every axis costs what answering for one did, every
         construct that ties an axis naming the axis it ties (#248).
+
+        It answers for the rows this program holds, as :attr:`footprint` does.
+        A curve still under :attr:`piecewise` ties nothing here, although its
+        rows sum over its breakpoint dimension; ask the program of
+        ``spec.expand('piecewise')``.
         """
         from math_spec.separability import separabilities
 
@@ -1139,6 +1150,22 @@ class ParameterComparison:
 
 
 @dataclass(frozen=True)
+class ExpressionComparison:
+    """Compare two variable-free expressions, coordinate by coordinate — ``p_min <= 0.5 * p_max``.
+
+    ``dims`` is every dim either side carries. A side whose value is absent at
+    a coordinate — a parameter row missing, a translation that vacated it —
+    makes the comparison false there, as a null does in every other
+    comparison; under a summing operator the absent term is one fewer.
+    """
+
+    left: Expression
+    op: PredicateOperator
+    right: Expression
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class DimensionComparison:
     """Compare a dimension's own coordinates against a literal."""
 
@@ -1207,6 +1234,56 @@ class RelationDefined:
 
 
 @dataclass(frozen=True)
+class CountComparison:
+    """How many coordinates *predicate* admits along *over*, against a literal — ``count(points, over=bp) >= 2``.
+
+    The count is one number per coordinate of ``dims``, which is every dim
+    *predicate* reads minus *over*, so a claim about each curve is written
+    without saying "each curve". A predicate a leaf reads arrives as a
+    :class:`Mask`, where a connective's operand is a bare :data:`Predicate`:
+    a walk recurses through the second and stops at the first.
+    """
+
+    predicate: Mask
+    over: str
+    op: PredicateOperator
+    value: float
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TranslatedPredicate:
+    """*operand* read at a neighbouring coordinate — ``shift(points, along=bp, offset=1)``.
+
+    False where the translation vacates, and there is no ``edge=`` to state.
+    The arithmetic translation needs one because no number is neutral and
+    inventing one changes the answer; false is what a missing row already
+    means in a mask, so the predicate form has the value the language already
+    gives it.
+    """
+
+    operand: Mask
+    along: str
+    offset: int
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PulledBackPredicate:
+    """*operand* read through a relation — ``at(has_curve, by=converter_of, over=converter, into=flow)``.
+
+    True at a coordinate where the relation has a row and *operand* holds at
+    the coordinate that row reads. False where the relation has no row, which
+    is what a missing row already means in a mask. The dims ``direction``
+    consumes go and the dims it produces arrive, as :class:`Pullback`'s do.
+    """
+
+    operand: Mask
+    direction: Direction
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Not:
     operand: Predicate
 
@@ -1223,30 +1300,12 @@ class Or:
     right: Predicate
 
 
-#: Every resolved predicate node — what a lowered mask's ``root`` is built of.
-#: The parser's ``Unresolved*`` nodes are not members: they live with the
-#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
-#: before anything here is asked.
-Predicate = (
-    BooleanLiteral
-    | DimensionPosition
-    | ParameterDefined
-    | VariableDefined
-    | ParameterComparison
-    | DimensionComparison
-    | RelationComparison
-    | RelationPairComparison
-    | RelationDefined
-    | Not
-    | And
-    | Or
-)
-
 #: Every predicate resolution has typed: it names a declaration and the kind is
 #: settled. Resolution passes these straight through, having nothing left to
 #: decide about them.
 TypedPredicate = (
     ParameterComparison
+    | ExpressionComparison
     | ParameterDefined
     | VariableDefined
     | DimensionComparison
@@ -1254,6 +1313,9 @@ TypedPredicate = (
     | RelationComparison
     | RelationPairComparison
     | RelationDefined
+    | CountComparison
+    | TranslatedPredicate
+    | PulledBackPredicate
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
@@ -1261,6 +1323,11 @@ TypedPredicate = (
 #: these classes directly, over leaves still unresolved, so a pre-resolution
 #: tree shares them — the transient impurity resolution normalizes away.
 Connective = Not | And | Or
+
+#: Every resolved predicate node. The parser's ``Unresolved*`` nodes are not members: they live with the
+#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
+#: before anything here is asked.
+Predicate = BooleanLiteral | TypedPredicate | Connective
 
 
 def where_children(where: Predicate) -> tuple[Predicate, ...]:
@@ -1308,14 +1375,23 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
     than a wrong dim set at the first model to use it.
     """
     match atom:
-        case ParameterComparison() | ParameterDefined() | VariableDefined():
+        case (
+            ParameterComparison()
+            | ExpressionComparison()
+            | ParameterDefined()
+            | VariableDefined()
+            | CountComparison()
+            | TranslatedPredicate()
+            | RelationComparison()
+            | RelationPairComparison()
+            | RelationDefined()
+            | PulledBackPredicate()
+        ):
             return frozenset(atom.dims)
         case DimensionComparison():
             return frozenset({atom.name})
         case DimensionPosition():
             return frozenset({atom.name, *(atom.partition.joined_dims if atom.partition is not None else ())})
-        case RelationComparison() | RelationPairComparison() | RelationDefined():
-            return frozenset(atom.dims)
         case _:
             assert_never(atom)
 
@@ -1324,8 +1400,10 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
     """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
 
     A comparison on a dimension names no declaration — a coordinate is not
-    data to feed — and a relation pair names both maps it compares.
-    ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
+    data to feed — a relation pair names both maps it compares, and a
+    comparison of expressions names every parameter and relation its sides
+    read, answered on the program's form of it since only a program mask is
+    asked. ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
     node added without a reading is a type error at this one branch rather
     than a name silently dropped at the first model to use it.
     """
@@ -1334,10 +1412,42 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
             return frozenset({atom.name})
         case RelationPairComparison():
             return frozenset({atom.name, atom.other})
+        case ExpressionComparison():
+            return _names_under(atom.left, atom.right)
+        case CountComparison():
+            return atom.predicate.names_read
+        case TranslatedPredicate():
+            return atom.operand.names_read
+        case PulledBackPredicate():
+            return atom.operand.names_read | {atom.direction.name}
         case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:
             assert_never(atom)
+
+
+def _names_under(*expressions: Expression) -> frozenset[str]:
+    """Every parameter and relation the data has to supply for *expressions* — what a mask's ``names_read`` promises.
+
+    :func:`parameters_of` alone misses the data an operator reads beside its
+    operand: the relation a grouping or a pullback reads through, the one a
+    translation or a window is partitioned by, the parameter a named offset or
+    width is read from, and whatever decides which region of a cased value
+    applies.
+    """
+    names: set[str] = set(parameters_of(*expressions))
+    for node in walk(*expressions):
+        if isinstance(node, Cases):
+            names.update(*(region.when.names_read for region in node.regions))
+        elif isinstance(node, (GroupSum, Pullback)):
+            names.add(node.direction.name)
+        elif isinstance(node, (Translate, WindowSum)):
+            if node.partition is not None:
+                names.add(node.partition.name)
+            amount = node.offset if isinstance(node, Translate) else node.width
+            if isinstance(amount, str):
+                names.add(amount)
+    return frozenset(names)
 
 
 def _conjuncts(where: Predicate) -> tuple[Predicate, ...]:

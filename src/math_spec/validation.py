@@ -2,66 +2,47 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Load-time validation: the front door, and the pass that decides every expression."""
+"""The front door, and the rules a declaration is held to against the others before any expression is read.
+
+:func:`to_spec` reads a model definition into a :class:`~math_spec.model.Spec`.
+:func:`reference_errors` holds the rules one declaration is held to against
+the others — a name declared once, a frame over declared dimensions, a bound
+naming a numeric parameter, a set over one dim of one variable, a curve
+through parameters carrying its breakpoints — which lowering runs before it
+reads any expression, since resolution assumes every one of them.
+:func:`emitted_name_errors` is read off the program instead: what a block's
+expansion writes is decided by the block as lowered. The rules that need a
+typed expression stay with the expressions in :func:`~math_spec.lowering.lower`:
+a macro formal against a dimension, a curve's links, and every dim rule.
+"""
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Literal, assert_never, overload
+from typing import TYPE_CHECKING
 
-import math_spec.degree as degree
-from math_spec._expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    CaseArm,
-    CasesNode,
-    ComparisonNode,
-    DefinitionNode,
-    DualNode,
-    FunctionCallNode,
-    KeywordNode,
-    KwargNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
-    ParsedNode,
-    UnaryOperatorNode,
-    VariableNode,
-    case_context,
-    children,
-)
 from math_spec._yaml import read_model
-from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError
-from math_spec.exclusivity import overlapping
-from math_spec.expansion import expand, parse_and_expand, parse_template
-from math_spec.model import Spec
-from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
-from math_spec.program import BooleanLiteral
-from math_spec.resolution import (
-    Namespace,
-    Resolved,
-    ResolvedConstraint,
-    mask_of,
-    names_in,
-    resolve_expression,
-    resolve_where_text,
-)
+from math_spec.errors import SchemaError
+from math_spec.model import NUMERIC_DTYPES, Spec, side_columns
+from math_spec.operators import BUILTIN_NAMES
+from math_spec.piecewise import Emitted as EmittedCurve
+from math_spec.sos import Emitted as EmittedSet
+from math_spec.sos import coefficients
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
     from pathlib import Path
 
-    from math_spec.model import ExpressionBlock
-    from math_spec.program import Predicate
+    from math_spec.program import Program
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
-    expression and where string, every macro template, and every declaration a
-    formulation emits.
+    rule one declaration is held to against the others, every expression and
+    where string, and every macro template.
 
     Args:
         model: A YAML path — a :class:`~pathlib.Path`, or a ``str`` with no
@@ -84,294 +65,274 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
 
 
-def _once(errors: list[str]) -> str:
-    """The errors as one message, an identical sentence kept only the first time.
+def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
+    """Every name a set or curve of *program* would write out that *schema* already declares.
 
-    A cased expression is expanded at every use, so a fault in one of its arms
-    is found again at each constraint naming it. Every error carries the
-    context it was found in, so two that differ at all are two faults and an
-    exact repeat is one seen twice.
+    Read off the program rather than the file, since what a curve writes is
+    decided by the curve as lowered — its links, its method, its mask.
     """
-    return '\n'.join(dict.fromkeys(errors))
+    by_block = [
+        *((f"Sos '{name}'", EmittedSet.of(name, block.sos_type).by_kind) for name, block in program.sos.items()),
+        *((f"piecewise '{name}'", EmittedCurve.of(name, curve).by_kind) for name, curve in program.piecewise.items()),
+    ]
+    return [error for context, by_kind in by_block for error in _collisions(schema, context, by_kind)]
 
 
-def validate_expressions(schema: Spec) -> Resolved:
-    """Validate and resolve every expression and where string in *schema*, once for every reader.
+def reference_errors(schema: Spec) -> list[str]:
+    """Every cross-declaration rule *schema* breaks, collected rather than raised on the first."""
+    return [
+        *_name_collisions(schema),
+        *_frame_dimensions(schema),
+        *_relation_targets(schema),
+        *_bound_names(schema),
+        *_sos_shapes(schema),
+        *_sos_bounds(schema),
+        *_piecewise_references(schema),
+    ]
 
-    What is checked:
 
-    - the expression parses, and constraints hold exactly one comparison where
-      objectives hold none;
-    - every referenced name resolves, and every operator is a built-in whose
-      dimension arguments name declared dimensions;
-    - where strings parse *and* resolve — an unknown name there is an error,
-      not a silently-empty mask;
-    - macro formals may shadow model names but not a declared dimension, since
-      ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
-    - every dim rule (``dimensions.check_schema``), once names resolve.
+def undeclared_dimension(kind: str, name: str, dimension: str) -> str:
+    """The one wording for a declaration naming a dimension the file does not declare."""
+    return f"{kind} '{name}' references undeclared dimension '{dimension}'. Declare it under 'dimensions:'."
 
-    Returns:
-        Every declaration's typed tree — what the dim rules, lowering and the
-        typesetter read instead of resolving the text again.
 
-    Raises:
-        SchemaError: Listing every problem found, one per line.
-        DimensionError: The first dim rule a declaration breaks, once every
-            name resolves.
-    """
-    ns = Namespace.of(schema)
-    errors: list[str] = []
+def _flat_namespace(schema: Spec) -> list[tuple[str, Iterable[str]]]:
+    """Each kind of declaration whose names share the one namespace an expression reads, in declaration order."""
+    return [
+        ('dimension', schema.dimensions),
+        ('relation', schema.relations),
+        ('parameter', schema.parameters),
+        ('variable', schema.variables),
+        ('named expression', schema.expressions),
+        ('macro', schema.macros),
+    ]
 
-    for mname, macro in schema.macros.items():
-        context = f"Macro '{mname}'"
-        formals = frozenset((*macro.args, *macro.kwargs))
-        try:
-            body_ast = expand(parse_template(mname, macro, context), schema, context, shadow=formals)
-        except ValueError as e:
-            errors.append(_prefixed(context, e))
-            continue
-        errors.extend(
-            f"{context}: formal '{f}' collides with declared dimension '{f}'. "
-            f'Rename the formal — a dimension name inside a template is '
-            f'ambiguous with the dimension itself.'
-            for f in sorted(formals & ns.dimensions)
+
+def _name_collisions(schema: Spec) -> Iterator[str]:
+    """A name is declared once, and never as a built-in operator."""
+    seen: dict[str, str] = {}
+    for kind, group in _flat_namespace(schema):
+        for name in group:
+            if name in BUILTIN_NAMES:
+                yield (
+                    f"{kind.capitalize()} '{name}' collides with the built-in operator "
+                    f"'{name}'. The operator set is closed and its names are reserved; "
+                    f'rename the {kind}.'
+                )
+            if name in seen:
+                yield (
+                    f"{kind.capitalize()} '{name}' collides with the {seen[name]} of "
+                    f'the same name. Names share one flat namespace — rename one of them.'
+                )
+            else:
+                seen[name] = kind
+
+
+def _frame_dimensions(schema: Spec) -> Iterator[str]:
+    """Every frame is a product of distinct, declared dimensions."""
+    frames = [
+        *(('Parameter', name, p.dims) for name, p in schema.parameters.items()),
+        *(('Variable', name, v.dims) for name, v in schema.variables.items()),
+        *(('Constraint', name, c.dims) for name, c in schema.constraints.items()),
+        *(('Named expression', name, e.dims or []) for name, e in schema.expressions.items()),
+    ]
+    for kind, name, dims in frames:
+        yield from (undeclared_dimension(kind, name, d) for d in dims if d not in schema.dimensions)
+        yield from (
+            f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
+            for d, count in Counter(dims).items()
+            if count > 1
         )
-        _check_template_names(body_ast, context, ns, formals, errors)
-
-    expressions: dict[str, CasesNode | DefinitionNode] = {}
-    for ename, block in schema.expressions.items():
-        if (node := _named(ename, block, schema, ns, errors)) is not None:
-            expressions[ename] = node
-
-    variables = {
-        vname: mask_of(resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname))
-        for vname, vdef in schema.variables.items()
-    }
-
-    constraints: dict[str, ResolvedConstraint] = {}
-    for cname, cdef in schema.constraints.items():
-        context = f"Constraint '{cname}'"
-        where = resolve_where_text(cdef.where, ns, context, errors)
-        expression = _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
-        if expression is not None:
-            constraints[cname] = ResolvedConstraint(expression, mask_of(where))
-
-    objective = None
-    if schema.objective is not None:
-        objective = _check_expression(
-            schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
-        )
-
-    if errors:
-        raise SchemaError(_once(errors))
-
-    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
-    check_schema(schema, resolved)
-    return resolved
 
 
-def _named(
-    name: str, block: ExpressionBlock, schema: Spec, ns: Namespace, errors: list[str]
-) -> CasesNode | DefinitionNode | None:
-    """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
-
-    A cased entry's arms are checked one by one, so every fault is collected
-    rather than the first, and proved apart only once all of them resolve.
-    """
-    context = f"Named expression '{name}'"
-    if not block.cases:
-        assert block.expression is not None
-        body = _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
-        return None if body is None else DefinitionNode(name, body)
-
-    found = len(errors)
-    arms: list[CaseArm] = []
-    masks: dict[str, Predicate] = {}
-    for case_name, case in block.cases.items():
-        arm_context = case_context(name, case_name)
-        when = resolve_where_text(case.when, ns, arm_context, errors)
-        if isinstance(when, BooleanLiteral):
-            errors.append(_constant_arm(arm_context, value=when.value))
-        elif when is not None:
-            masks[case_name] = when
-        value = _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
-        if when is not None and value is not None:
-            arms.append(CaseArm(case_name, when, value))
-    assert block.otherwise is not None
-    fallback = _check_expression(
-        block.otherwise, schema, ns, case_context(name, None), errors, comparison=False, ceiling=None
-    )
-    if len(errors) > found or fallback is None:
-        return None
-    errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
-    return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
-
-
-def _prefixed(context: str, e: ValueError) -> str:
-    """*e* under *context*, once — expansion errors already carry it."""
-    return str(e) if str(e).startswith(context) else f'{context}: {e}'
-
-
-def _constant_arm(context: str, *, value: bool) -> str:
-    """The refusal for a case arm whose mask the connectives already decided.
-
-    Cases are proved apart rather than ranked, so an always-true arm is not
-    one that shadows the arms under it — it is one no other arm can be proved
-    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
-    is the plainer half: nothing to apply to.
-    """
-    if value:
-        return (
-            f'{context}: the mask admits every row, so no other arm can hold anywhere '
-            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
-            f'or narrow the `when`.'
-        )
-    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
-
-
-@overload
-def _check_expression(
-    expression: str,
-    schema: Spec,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: Literal[True],
-    ceiling: int | None,
-) -> ComparisonNode | None: ...
-@overload
-def _check_expression(
-    expression: str,
-    schema: Spec,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: Literal[False],
-    ceiling: int | None,
-) -> ArithmeticNode | None: ...
-
-
-def _check_expression(
-    expression: str,
-    schema: Spec,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    *,
-    comparison: bool,
-    ceiling: int | None,
-) -> ParsedNode | None:
-    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
-
-    Returns the typed tree, or ``None`` once anything failed, the problem
-    appended to *errors*. ``ceiling`` is the degree the position honours, and
-    ``None`` for an ``expressions:`` entry's body: what the math admits
-    (:func:`~math_spec.degree.check_expression`) is a rule about the position
-    that *reads* it, so it fires on the expanded tree of every constraint,
-    objective, bound, where and piecewise link, and not where an entry is
-    declared.
-    """
-    try:
-        ast = parse_and_expand(expression, schema, context)
-    except ValueError as e:
-        errors.append(_prefixed(context, e))
-        return None
-    if comparison and not isinstance(ast, ComparisonNode):
-        errors.append(
-            f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {expression!r}'
-        )
-        return None
-    if not comparison and isinstance(ast, ComparisonNode):
-        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
-        return None
-    resolved = resolve_expression(ast, ns, context, errors)
-    if resolved is None or ceiling is None:
-        return resolved
-    try:
-        degree.check_expression(resolved, context, ceiling=ceiling)
-    except LanguageError as e:
-        errors.append(str(e))
-        return None
-    if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
-        errors.append(
-            f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
-            f'Got: {expression!r}\n'
-            f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
-            f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or drop the declaration and check the fact where the data is prepared.'
-        )
-        return None
-    return resolved
-
-
-def _check_template_names(
-    node: ArithmeticNode,
-    context: str,
-    ns: Namespace,
-    formals: frozenset[str],
-    errors: list[str],
-) -> None:
-    """Check a macro body's names and call shapes, treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
-
-    An operator call is refused by its signature here, as at a call site, so a
-    keyword the operator does not declare is caught in a template nothing calls.
-    A case arm's value only: its ``when`` is the declaration's, checked there.
-    """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
-        return
-
-    if isinstance(node, NameNode):
-        if node.name not in formals and ns.kind(node.name) is None:
-            errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
-        return
-
-    if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | CasesNode | DefinitionNode):
-        for child in children(node):
-            _check_template_names(child, context, ns, formals, errors)
-        return
-
-    if isinstance(node, FunctionCallNode):
-        builtin = BUILTINS.get(node.name)
-        if builtin is None:
-            errors.append(f'{context}: {unknown_operator_message(node.name)}')
-        else:
-            shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
-            if shape_error is not None:
-                errors.append(f'{context}: {shape_error}')
-        if node.name == 'dual':
-            errors.extend(
-                ns.unknown_constraint(arg.name, context, formals=formals)
-                for arg in node.args
-                if isinstance(arg, NameNode) and arg.name not in formals and arg.name not in ns.constraints
+def _relation_targets(schema: Spec) -> Iterator[str]:
+    """A relation has at least two columns over declared dimensions, each named once, and a key naming some of them."""
+    for lname, lk in schema.relations.items():
+        if len(lk.pairs) < 2:
+            yield (
+                f"Relation '{lname}' has {len(lk.pairs)} column(s). A relation relates dimensions, so 'key:' and "
+                f"'values:' name at least two between them — a label on one dimension is a parameter over it."
             )
-            return
-        for arg in node.args:
-            _check_template_names(arg, context, ns, formals, errors)
-        for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
-                case 'dimension':
-                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
-                        errors.append(
-                            f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                            f'declared dimension or a formal of this macro.'
-                        )
-                case 'relation':
-                    errors.extend(
-                        f'{context}: {node.name}({kwarg}={one}) does not name a relation or a formal of this macro.'
-                        for one in names_in(value)
-                        if one not in formals and ns.kind(one) != 'relation'
-                    )
-                case 'value':
-                    _check_template_names(value, context, ns, formals, errors)
-                case 'role':
-                    pass
-                case 'edge':
-                    pass  # a keyword or a number: nothing in it to name
-                case None:
-                    pass  # a keyword the operator does not declare; the shape error above named it
-        return
+        if not lk.key_roles:
+            yield (
+                f"Relation '{lname}' names no key column. A relation is keyed by the columns a row is identified "
+                f"by — name them under 'key:', and leave the columns they determine to 'values:'."
+            )
+        for side, written in (('key', lk.key), ('values', lk.values)):
+            yield from (
+                f"Relation '{lname}' names dimension '{d}' twice under '{side}:'. Give the two columns roles: "
+                f'{side}: {{{d}0: {d}, {d}1: {d}}}.'
+                for d, count in Counter(dim for _, dim in side_columns(written)).items()
+                if count > 1 and not isinstance(written, dict)
+            )
+        yield from (
+            f"Relation '{lname}' names column '{role}' under both 'key:' and 'values:'. A relation names each "
+            f'column once — name the value column after what it holds: values: {{<name>: {dict(lk.pairs)[role]}}}.'
+            for role in dict.fromkeys(lk.key_roles)
+            if role in lk.value_roles
+        )
+        yield from (
+            undeclared_dimension('Relation', lname, d) for d in dict.fromkeys(lk.dims) if d not in schema.dimensions
+        )
+        yield from (
+            f"Relation '{lname}' names column '{role}' after dimension '{role}', but the column is over "
+            f"'{dim}'. A column named like a dimension is read as over it — name it after what it holds."
+            for role, dim in lk.pairs
+            if role in schema.dimensions and role != dim
+        )
+        if lk.value_roles:
+            yield from (
+                f"Relation '{lname}' has two key columns over '{d}' "
+                f'({[k for k in lk.key_roles if dict(lk.pairs)[k] == d]}). A key that determines a value is read '
+                f'its dimensions, and no frame carries a dimension twice — key the table by one column over '
+                f'each, or leave one of them a value column.'
+                for d, count in Counter(dict(lk.pairs)[k] for k in lk.key_roles).items()
+                if count > 1
+            )
 
-    assert_never(node)
+
+def _bound_names(schema: Spec) -> Iterator[str]:
+    """A named bound is a numeric parameter."""
+    for vname, vdef in schema.variables.items():
+        for side in ('lower', 'upper'):
+            val = getattr(vdef.bounds, side)
+            if not isinstance(val, str):
+                continue
+            if val in schema.parameters:
+                dtype = schema.parameters[val].dtype
+                if dtype not in NUMERIC_DTYPES:
+                    yield (
+                        f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "
+                        f'is a number. Declare it dtype: float or int, or bound the variable by another.'
+                    )
+                continue
+            detail = (
+                f"'{val}' is not a declared parameter"
+                if val.isidentifier()
+                else f'bounds accept a parameter name or a number, not an expression (got {val!r}). '
+                f'Precompute it as a parameter'
+            )
+            yield (f"Variable '{vname}' bounds.{side}: {detail}.")
+
+
+def _sos_shapes(schema: Spec) -> Iterator[str]:
+    """A set runs along one dim of one declared variable, and a variable carries one set."""
+    claimed: dict[str, str] = {}
+    for sname, block in schema.sos.items():
+        context = f"Sos '{sname}'"
+        if block.along not in schema.dimensions:
+            yield (undeclared_dimension('Sos', sname, block.along))
+        elif block.variable not in schema.variables:
+            yield (
+                f"{context}: '{block.variable}' is not a declared variable.\n"
+                f'  Variables: {sorted(schema.variables)}\n'
+                f'A set is over one variable, so a parameter or an expression cannot carry one.'
+            )
+        elif block.along not in schema.variables[block.variable].dims:
+            yield (
+                f"{context}: along '{block.along}' is not a dim of variable "
+                f"'{block.variable}' (dims {schema.variables[block.variable].dims}). The set runs "
+                f"along one of the variable's own dims — one set per coordinate of the rest."
+            )
+        elif block.variable in claimed:
+            yield (
+                f"{context}: variable '{block.variable}' already carries the set declared by "
+                f"'{claimed[block.variable]}'. A variable holds one set — declare a second "
+                f'variable, or state the other restriction as a constraint.'
+            )
+        else:
+            claimed[block.variable] = sname
+
+
+def _sos_bounds(schema: Spec) -> Iterator[str]:
+    """A set states what the binaries it expands to state: each side of a member carries a coefficient.
+
+    The rewrite holds an unpicked member at zero from both sides, so a side
+    the model leaves open leaves the member free of it. Either coefficient
+    may be a parameter, because a row multiplies by it rather than reading
+    it. Decided here rather than where the rewrite runs, so a set the
+    language cannot state twice is refused before any data exists.
+    """
+    for sname, block in schema.sos.items():
+        if (member := schema.variables.get(block.variable)) is None:
+            continue
+        context = f"Sos '{sname}'"
+        below, above = coefficients(member.domain, member.bounds.lower, member.bounds.upper)
+        if below is None:
+            yield (
+                f"{context}: variable '{block.variable}' has no lower bound, and the set expands to rows "
+                f'that hold an unpicked member at zero from below as well as above. Declare bounds.lower, '
+                f'as a number or a parameter.'
+            )
+        if above is None:
+            yield (
+                f"{context}: variable '{block.variable}' has no upper bound, and the set expands to rows "
+                f'that hold an unpicked member at zero from above as well as below. Declare bounds.upper, '
+                f'as a number or a parameter.'
+            )
+
+
+def _piecewise_references(schema: Spec) -> Iterator[str]:
+    """A curve runs along a declared dimension through numeric values parameters carrying it, gated by a binary, masked by a bool."""
+    for name, pw in schema.piecewise.items():
+        context = f"piecewise '{name}'"
+        if pw.over not in schema.dimensions:
+            yield undeclared_dimension('piecewise', name, pw.over)
+            continue
+        for i, link in enumerate(pw.links):
+            if link.values not in schema.parameters:
+                yield f"{context}: link {i} values references undeclared parameter '{link.values}'"
+            elif (dtype := schema.parameters[link.values].dtype) not in NUMERIC_DTYPES:
+                yield (
+                    f"{context}: link {i} values parameter '{link.values}' is declared dtype: {dtype}, and a "
+                    f'breakpoint is a number. Declare it dtype: float or int.'
+                )
+            elif pw.over not in schema.parameters[link.values].dims:
+                yield (
+                    f"{context}: link {i} values parameter '{link.values}' must carry dim "
+                    f"'{pw.over}' (has {schema.parameters[link.values].dims})"
+                )
+        if (activity := pw.activity) is not None:
+            if activity not in schema.variables:
+                yield (
+                    f"{context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "
+                    f'declare it, or drop activity: for weights that sum to 1.'
+                )
+            elif schema.variables[activity].domain != 'binary':
+                yield f"{context}: activity variable '{activity}' must be binary"
+        if (points := pw.points) is None or pw.nominated is not None:
+            continue
+        if points not in schema.parameters:
+            yield f"{context}: points references undeclared parameter '{points}'"
+        elif (dtype := schema.parameters[points].dtype) != 'bool':
+            yield (
+                f"{context}: points parameter '{points}' is {dtype}, and a mask is a bool parameter — one "
+                f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
+            )
+        elif pw.over not in schema.parameters[points].dims:
+            yield (
+                f"{context}: points parameter '{points}' must carry dim '{pw.over}' — "
+                f'it says how far each curve runs along it (has {schema.parameters[points].dims})'
+            )
+
+
+def _collisions(schema: Spec, context: str, by_kind: Iterable[tuple[str, Iterable[str]]]) -> Iterator[str]:
+    """The refusal for each name *context*'s expansion writes that the file already declares, by kind.
+
+    An emitted variable joins the flat namespace, so any declaration there
+    takes its name; a constraint, a set and an assumption each have their own.
+    """
+    sections = {'named expression': 'expressions', 'sos': 'sos'}
+    declared: dict[str, dict[str, str]] = {
+        'variable': {name: kind for kind, group in _flat_namespace(schema) for name in group},
+        'constraint': dict.fromkeys(schema.constraints, 'constraint'),
+        'sos': dict.fromkeys(schema.sos, 'sos'),
+        'assumption': dict.fromkeys(schema.assumptions, 'assumption'),
+    }
+    for kind, names in by_kind:
+        yield from (
+            f"{context}: its expansion writes {kind} '{one}', which this file already declares under "
+            f"'{sections.get(declared[kind][one], declared[kind][one] + 's')}:'. Rename one of them."
+            for one in names
+            if one in declared[kind]
+        )

@@ -14,12 +14,11 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.lowering import to_program
 from math_spec.program import DimensionPosition
-from math_spec.resolution import Namespace, where_of
+from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -113,6 +112,25 @@ class TestValidateExpressions:
         assert 'exactly one comparison' in message, 'the second fault is reported beside the first, not behind it'
 
     @pytest.mark.parametrize(
+        'patch',
+        [
+            pytest.param({'macros': {'m': {'args': ['x'], 'template': 'x + nope'}}}, id='a-macro'),
+            pytest.param({'expressions': {'e': 'nope'}}, id='a-named-expression'),
+        ],
+    )
+    def test_a_fault_in_a_macro_or_an_entry_hides_no_other_fault(self, patch):
+        """Validation raised after the macros and the `expressions:` entries, so a constraint's fault waited for the next load."""
+        message = _refusal(**patch, constraints={'c': {'dims': ['g'], 'expression': 'p <= also_nope'}})
+        assert "'nope' not found" in message
+        assert "Constraint 'c': 'also_nope' not found" in message, 'every declaration is read, whatever an entry did'
+
+    def test_a_refused_call_is_not_read_by_the_call_around_it(self):
+        """`sum(sum(p, into=g))`: the inner call names a column with no `by=`, and the outer bare sum then said its operand was already a scalar, because the refused call was still built."""
+        message = _refusal(objective={'expression': 'sum(sum(p, into=g))'})
+        assert 'no by= names the relation' in message
+        assert 'already a scalar' not in message, 'a refused call builds nothing for the call around it to read'
+
+    @pytest.mark.parametrize(
         ('patch', 'fragments'),
         [
             pytest.param(
@@ -153,13 +171,13 @@ class TestValidateExpressions:
             ),
             pytest.param(
                 {'constraints': {'cap': {'dims': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
-                "'bad' not found",
+                'a where compares expressions, and one side names a variable',
                 id='where',
             ),
         ],
     )
     def test_a_bound_or_where_cannot_name_an_expression(self, patch, fragment):
-        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve whatever the entry's body."""
+        """A bound names a parameter and nothing else; a where reads the entry as arithmetic, and a body carrying a variable is refused there."""
         with pytest.raises(LanguageError) as exc:
             _schema(**_NONLINEAR_ENTRY, **patch)
         assert fragment in str(exc.value)
@@ -176,7 +194,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).expressions['lcoe'].in_math is False, (
+        assert to_spec(model).program.expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
@@ -319,6 +337,22 @@ class TestDimensionKwargs:
     )
     def test_declared_dimensions_still_pass(self, expression, dims):
         to_spec(_kwarg_model(expression, dims))
+
+    @pytest.mark.parametrize(
+        ('expression', 'fragment'),
+        [
+            pytest.param('sum(p, over=1)', 'sum(over=...) must name a dimension', id='a-number-as-a-dimension'),
+            pytest.param("sum(p, by='lk', over=g, into=h)", 'sum(by=...) must name a relation', id='a-quoted-relation'),
+            pytest.param(
+                'sum(p, by=lk, over=1, into=h)',
+                'sum(over=...) names columns of the relation',
+                id='a-number-as-a-column',
+            ),
+        ],
+    )
+    def test_a_kwarg_that_names_nothing_is_refused(self, expression, fragment):
+        """A kwarg that takes a name and gets a number or a label is refused by the kind the operator declares for it."""
+        assert fragment in _refusal(objective={'expression': expression})
 
     def test_macro_formals_are_not_mistaken_for_dimensions(self):
         """A formal in a dim position is legal inside the template body."""
@@ -464,13 +498,24 @@ class TestArithmeticDtype:
 
     def test_a_named_amount_keeps_its_own_sentence(self):
         """`offset=` has a stricter rule of its own — a count of positions is integral — and that sentence arrives."""
-        with pytest.raises(LanguageError, match='counts positions along'):
+        with pytest.raises(SchemaError, match="counts positions, but 'lag' is declared dtype: str"):
             _schema(
                 **{
                     'parameters.lag': {'dims': [], 'dtype': 'str'},
                     'objective': {'expression': "sum(shift(p, along=g, offset=lag, edge='wrap'))"},
                 }
             )
+
+    def test_a_negated_named_amount_is_first_held_to_its_dtype(self):
+        """`offset=-lag` with `lag` a str parameter said only that the offset was negated, and nothing about the dtype."""
+        message = _refusal(
+            **{
+                'parameters.lag': {'dims': [], 'dtype': 'str'},
+                'objective': {'expression': "sum(shift(p, along=g, offset=-lag, edge='wrap'))"},
+            }
+        )
+        assert "'lag' is declared dtype: str" in message
+        assert 'negates a named offset' not in message, 'the sign is read once the name is a count'
 
 
 class TestVersion:
@@ -522,7 +567,7 @@ class TestPositionResolves:
         ids=['first', 'first of each period'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
-        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        resolved = where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         assert resolved is not None
         node = resolved.root
         assert isinstance(node, DimensionPosition)
@@ -548,22 +593,21 @@ class TestPositionResolves:
     )
     def test_it_refuses(self, mask: str, fragments: list[str]):
         with pytest.raises(LanguageError) as excinfo:
-            where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+            where_of(mask, Namespace(POSITION_SCHEMA), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
 
 
 class TestAWhereSideIsReadInResolution:
-    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be."""
+    """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be.
+
+    A ``position()`` call is held to its shape, a literal is the expression grammar's, and
+    everything else on a side is a comparison of expressions, decided with no data bound.
+    """
 
     @pytest.mark.parametrize(
         ('where', 'fragments'),
         [
-            pytest.param(
-                'c > 2 * k', ('a side here is arithmetic, which is not in the language',), id='arithmetic-on-a-side'
-            ),
-            pytest.param('2 < c', ('a side here is arithmetic',), id='a-literal-on-the-left'),
-            pytest.param('sum(c, over=g) >= k', ('a side here is arithmetic',), id='a-reduction-on-a-side'),
             pytest.param(
                 'position(g) == 1.5',
                 ('compared against an integer index', 'position(g) == <integer>'),
@@ -596,6 +640,375 @@ class TestAWhereSideIsReadInResolution:
         """`-1` and `inf` are the expression grammar's literals, so a where reads them as it reads any number."""
         spec = _schema(**{'variables.p.where': 'c > -1 AND c < inf'})
         assert spec.variables['p'].where == 'c > -1 AND c < inf'
+
+    @pytest.mark.parametrize(
+        ('patch', 'where'),
+        [
+            pytest.param({}, 'c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param({}, 'c > k', id='two-parameters'),
+            pytest.param({}, '2 < c', id='a-literal-on-the-left'),
+            pytest.param({'macros.half': {'args': ['x'], 'template': 'x / 2'}}, 'c <= half(k)', id='a-macro'),
+            pytest.param({'expressions.e': 'c * 2'}, 'e > 0', id='a-named-expression-on-the-left'),
+            pytest.param({'expressions.e': 'c * 2'}, 'k < e', id='a-named-expression-on-the-right'),
+            pytest.param(
+                {'parameters.d': {'dims': ['h']}},
+                'c <= at(d, by=lk, over=h, into=g)',
+                id='a-pullback-through-a-relation',
+            ),
+            pytest.param(
+                {}, 'c - shift(c, along=g, offset=1, edge=0) <= k AND position(g) > 0', id='a-translation-with-its-edge'
+            ),
+        ],
+    )
+    def test_a_where_comparing_expressions_loads(self, patch, where):
+        spec = _schema(**patch, **{'variables.p.where': where})
+        assert spec.variables['p'].where == where
+
+    def test_a_reduction_on_a_side_leaves_the_frame_it_reduced(self):
+        spec = _schema(
+            constraints={'t': {'dims': [], 'where': 'sum(c, over=g) >= k', 'expression': 'sum(p, over=g) <= k'}}
+        )
+        assert list(spec.constraints) == ['t'], 'a scalar constraint whose where reduces the frame it lacks loads'
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'variables.p.where': 'c > 2 * q'},
+                ('one side names a variable', 'built before variables exist'),
+                id='a-variable-inside-arithmetic',
+            ),
+            pytest.param(
+                {'constraints': {'x': {'dims': ['g'], 'expression': 'p <= c'}}, 'variables.p.where': 'dual(x) * 2 > 0'},
+                ('one side reads a dual', 'test the data instead'),
+                id='a-dual-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': 'tag * 2 > 0'},
+                ("'tag' is declared dtype: str, and an expression is arithmetic",),
+                id='a-label-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c > flag'},
+                ("'flag' is declared dtype: bool, and an expression is arithmetic",),
+                id='a-flag-against-a-parameter',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c / (k + 1) > 0'},
+                ('a divisor must be a single Constant/Parameter factor',),
+                id='a-divisor-that-adds',
+            ),
+            pytest.param(
+                {'variables.p.where': 'shift(c, along=g, offset=1) <= k'},
+                ('shift() over a variable-free expression leaves vacated positions with no value',),
+                id='a-translation-with-no-edge',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c * nope > 0'},
+                ("'nope' not found",),
+                id='an-unknown-name-inside-arithmetic',
+            ),
+            pytest.param(
+                {'parameters.d': {'dims': ['h']}, 'variables.p.where': 'c > d * 2'},
+                ("a where-comparison of expressions reads dims ['h'] outside the frame ['g']",),
+                id='a-side-outside-the-frame',
+            ),
+            pytest.param(
+                {'variables.p.where': 'lk.h > 2 * k'},
+                ("'lk.h' is a column of a relation", 'not read in arithmetic'),
+                id='a-relation-column-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': "2 * k == 'x'"},
+                ("'x' is a quoted label, which is compared against one name",),
+                id='a-label-against-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': 'position(g) + 1 == 0'},
+                ("Unknown operator 'position'",),
+                id='a-position-inside-arithmetic',
+            ),
+            pytest.param(
+                {'variables.p.where': '2 < 1 AND c > 0'},
+                ("'2 < 1' compares two numbers", 'decided before any data arrives'),
+                id='two-numbers',
+            ),
+            pytest.param(
+                {'variables.p.where': '-(1 + 1) * 3 >= 0'},
+                ('compares two numbers',),
+                id='arithmetic-over-numbers-alone',
+            ),
+        ],
+    )
+    def test_a_bad_comparison_of_expressions_is_refused_at_load(self, patch, fragments):
+        message = _refusal(**patch)
+        for fragment in fragments:
+            assert fragment in message
+
+    def test_a_case_comparing_expressions_is_refused_as_undecidable(self):
+        """Two cases split by arithmetic cannot be proved apart without the numbers, and the rewrite is named."""
+        message = _refusal(
+            expressions={
+                'e': {
+                    'dims': ['g'],
+                    'cases': {
+                        'wide': {'when': 'c > 2 * k', 'expression': 'c'},
+                        'narrow': {'when': 'c <= 2 * k', 'expression': 'k'},
+                    },
+                    'otherwise': 0,
+                }
+            }
+        )
+        assert 'cannot be told apart before the data arrives: it compares expressions' in message
+        assert 'precompute the test as a boolean parameter' in message
+
+    def test_a_lone_case_comparing_expressions_is_refused_too(self):
+        """One case has no pair to be proved apart from, and it loaded: the pairwise
+        check never observed it. The rule is on the case, not on the pair — the
+        `otherwise` is its negation, and only the data decides where that falls."""
+        message = _refusal(
+            expressions={
+                'e': {'dims': ['g'], 'cases': {'wide': {'when': 'c > 2 * k', 'expression': 'c'}}, 'otherwise': 0}
+            }
+        )
+        assert "case 'wide' cannot be told apart before the data arrives: it compares expressions" in message
+
+
+class TestAPredicateIsAnOperand:
+    """``count``, ``shift`` and ``at`` over a predicate — the three calls that read one rather than arithmetic.
+
+    Everything else in the language takes arithmetic, so the grammar reads
+    these shapes itself and resolution decides what each name is.
+    """
+
+    @pytest.mark.parametrize(
+        'where',
+        [
+            pytest.param('count(flag, over=g) >= 2', id='a-bare-mask'),
+            pytest.param('count(c > 0, over=g) == 0', id='a-comparison'),
+            pytest.param('count(flag AND NOT shift(flag, along=g, offset=1), over=g) == 1', id='a-run-start'),
+            pytest.param('count(c > 0, over=g) == 0 OR count(c < 0, over=g) == 0', id='two-counts-under-or'),
+            pytest.param('shift(flag, along=g, offset=1)', id='a-translated-mask'),
+            pytest.param('shift(flag, along=g, offset=-1)', id='a-translation-forwards'),
+            pytest.param('count(shift(flag, along=g, offset=1), over=g) >= 1', id='a-translation-under-a-count'),
+            pytest.param('at(r, by=lk, over=h, into=g)', id='a-mask-read-through-a-relation'),
+            pytest.param("flag AND NOT at(h == 'north', by=lk, over=h, into=g)", id='a-read-under-connectives'),
+            pytest.param('count(at(r, by=lk, over=h, into=g), over=g) >= 1', id='a-read-under-a-count'),
+        ],
+    )
+    def test_a_shape_the_language_admits(self, where):
+        mask = where_of(where, Namespace(_schema()), 'probe')
+        assert mask is not None, 'the predicate decides some rows, so it is a mask rather than nothing'
+
+    @pytest.mark.parametrize(
+        ('where', 'fragments'),
+        [
+            pytest.param(
+                'count(flag, by=lk) >= 2',
+                ("count(<predicate>) needs 'over='",),
+                id='a-count-with-no-over',
+            ),
+            pytest.param(
+                'count(flag, over=g, by=lk) >= 2',
+                ("does not take 'by='", "It takes 'over=', and nothing else."),
+                id='a-count-with-a-keyword-it-lacks',
+            ),
+            pytest.param(
+                'count(flag, over=g, over=h) >= 2',
+                ('count(over=) is given twice',),
+                id='a-count-with-a-keyword-given-twice',
+            ),
+            pytest.param(
+                'count(flag, over=g)',
+                ('count() answers a number', 'count(<predicate>, over=<dimension>) <op> <integer>'),
+                id='a-count-standing-as-a-predicate',
+            ),
+            pytest.param(
+                '2 <= count(flag, over=g)',
+                ('count() stands on the left of its comparison',),
+                id='a-count-on-the-right',
+            ),
+            pytest.param(
+                'count(flag, over=c) >= 2',
+                ('names the dimension the coordinates are counted along',),
+                id='a-count-over-a-parameter',
+            ),
+            pytest.param(
+                'count(flag, over=h) >= 2',
+                ('counts along a dimension the predicate does not carry', "it reads 'g'"),
+                id='a-count-over-a-dim-the-predicate-lacks',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= 2.5',
+                ('a count is a whole number of coordinates',),
+                id='a-count-against-a-fraction',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= k',
+                ('a count is a whole number of coordinates',),
+                id='a-count-against-a-parameter',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= -1',
+                ('a count is never negative',),
+                id='a-count-against-a-negative-number',
+            ),
+            pytest.param(
+                'count(flag, over=g) >= 0',
+                ('holds at every coordinate', 'a count is never negative'),
+                id='a-count-at-least-zero',
+            ),
+            pytest.param(
+                'count(flag, over=g) < 0',
+                ('holds at no coordinate', 'a count is never negative'),
+                id='a-count-below-zero',
+            ),
+            pytest.param(
+                'shift(flag, along=g, offset=1, edge=0)',
+                ("does not take 'edge='", 'A predicate is false where a translation vacates'),
+                id='a-translated-predicate-with-an-edge',
+            ),
+            pytest.param(
+                'shift(flag, along=g, offset=1, offset=2)',
+                ('shift(offset=) is given twice',),
+                id='a-translation-with-a-keyword-given-twice',
+            ),
+            pytest.param(
+                'shift(flag, along=g)',
+                ("shift(<predicate>) needs 'offset='",),
+                id='a-translation-with-no-offset',
+            ),
+            pytest.param(
+                'shift(flag, along=h, offset=1)',
+                ('reads the predicate back along a dimension it does not carry',),
+                id='a-translation-along-a-dim-the-predicate-lacks',
+            ),
+            pytest.param(
+                'shift(flag, along=g, offset=0.5)',
+                ('counts whole coordinates back',),
+                id='a-translation-by-a-fraction',
+            ),
+            pytest.param(
+                'at(r, by=lk)',
+                ("at(<predicate>) needs 'over=' and 'into='",),
+                id='a-read-naming-no-columns',
+            ),
+            pytest.param(
+                'at(r, by=lk, over=h, into=g, edge=0)',
+                ("does not take 'edge='", "It takes 'by=', 'over=' and 'into=', and nothing else."),
+                id='a-read-with-a-keyword-it-lacks',
+            ),
+            pytest.param(
+                'at(flag, by=lk, over=h, into=g)',
+                ("at(by=lk) reads through ['h'], which the predicate does not carry",),
+                id='a-read-through-a-dim-the-predicate-lacks',
+            ),
+            pytest.param(
+                'at(q, by=lk, over=h, into=g)',
+                ("at(by=lk) lands on ['g'], which the expression already carries",),
+                id='a-read-onto-a-dim-the-predicate-carries',
+            ),
+            pytest.param(
+                'at(flag, by=lk, over=g, into=h)',
+                ("into=['h'] names ['h'], which the key of 'lk' does not hold",),
+                id='a-read-landing-off-the-key',
+            ),
+            pytest.param(
+                'at(r, by=nope, over=h, into=g)',
+                ('at(by=nope) does not name a relation',),
+                id='a-read-through-no-relation',
+            ),
+            pytest.param(
+                'sum_back(flag, along=g, window=2)',
+                ("'sum_back()' does not read a predicate", '`count` reads one and answers a number'),
+                id='an-operator-that-reads-arithmetic',
+            ),
+        ],
+    )
+    def test_a_shape_the_language_refuses(self, where, fragments):
+        with pytest.raises(LanguageError) as caught:
+            where_of(where, Namespace(_schema()), 'probe')
+        for fragment in fragments:
+            assert fragment in str(caught.value)
+
+    @pytest.mark.parametrize(
+        'where',
+        [
+            pytest.param('count(nope, over=g) >= 2', id='under-a-count'),
+            pytest.param('shift(nope, along=g, offset=1)', id='under-a-translation'),
+            pytest.param('at(nope, by=lk, over=h, into=g)', id='under-a-read'),
+        ],
+    )
+    def test_a_name_the_operand_does_not_declare_is_reported_rather_than_walked(self, where):
+        """The operand is asked for its dims, and a walk over an unresolved node asserts rather than refusing (#590).
+
+        Resolution collects problems instead of raising, so a failed operand
+        comes back unresolved and the count had walked it anyway.
+        """
+        with pytest.raises(LanguageError) as caught:
+            where_of(where, Namespace(_schema()), 'probe')
+        assert "'nope' not found" in str(caught.value)
+
+    def test_a_count_is_undecidable_in_a_case_when(self):
+        """Two cases are proved apart with no data, and how many coordinates a mask admits is the data's to say."""
+        message = _refusal(
+            expressions={
+                'pick': {
+                    'dims': ['g'],
+                    'cases': {
+                        'many': {'when': 'count(flag, over=g) >= 2', 'expression': '1'},
+                        'some': {'when': 'c > 0', 'expression': '2'},
+                    },
+                    'otherwise': '0',
+                }
+            },
+            constraints={'cap': {'dims': ['g'], 'expression': 'p <= pick'}},
+        )
+        assert 'it counts the coordinates a predicate admits, which only the data decides' in message
+
+    def test_a_read_through_a_relation_is_undecidable_in_a_case_when(self):
+        """Which rows a relation maps onto a coordinate is the data's to say, so two cases split by one are not proved apart."""
+        message = _refusal(
+            expressions={
+                'pick': {
+                    'dims': ['g'],
+                    'cases': {
+                        'mapped': {'when': 'at(r, by=lk, over=h, into=g)', 'expression': '1'},
+                        'some': {'when': 'c > 0', 'expression': '2'},
+                    },
+                    'otherwise': '0',
+                }
+            },
+            constraints={'cap': {'dims': ['g'], 'expression': 'p <= pick'}},
+        )
+        assert "it reads a predicate through 'lk', and which rows that admits only the data decides" in message
+
+    def test_a_read_landing_outside_the_frame_names_the_relation(self):
+        """The read adds the dims it lands on, so a mask over the coarse side cannot carry the fine one."""
+        message = _refusal(
+            constraints={'cap': {'dims': ['h'], 'where': 'at(r, by=lk, over=h, into=g)', 'expression': 'r <= 1'}}
+        )
+        assert "a where-predicate read through 'lk' reads dims ['g'] outside the frame ['h']" in message
+
+    def test_a_read_given_an_edge_is_not_told_about_translations(self):
+        """The edge sentence explains a shift; under a read it would explain an operator the file did not write."""
+        with pytest.raises(LanguageError) as caught:
+            where_of('at(r, by=lk, over=h, into=g, edge=0)', Namespace(_schema()), 'probe')
+        assert 'translation' not in str(caught.value)
+
+    def test_a_read_lands_on_the_dims_it_produces_and_reads_the_relation(self):
+        """The mask is over what the relation maps onto, and a consumer binds the relation as well as the operand."""
+        mask = where_of("at(h == 'north', by=lk, over=h, into=g)", Namespace(_schema()), 'probe')
+        assert mask is not None
+        assert sorted(mask.dims) == ['g'], "'h' is read at lk(g), so g is all the mask is over"
+        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer binds, the label is not'
+
+    def test_a_count_reduces_the_dim_it_counts_along_away(self):
+        """The count is one number per remaining coordinate, so a claim about each group needs no word for the group."""
+        mask = where_of('count(q, over=h) >= 2', Namespace(_schema()), 'probe')
+        assert mask is not None
+        assert sorted(mask.dims) == ['g'], "'q' is read over g and h, and h is counted away"
+        assert mask.names_read == frozenset({'q'}), 'a consumer binds what the counted predicate reads'
 
 
 class TestRulesDecidedWithoutData:
@@ -645,44 +1058,53 @@ class TestRulesDecidedWithoutData:
                 id='an-unknown-name-in-a-where',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'z', 'type': 1}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'z', 'type': 1}}},
                 ("undeclared dimension 'z'",),
-                id='sos-over-undeclared',
+                id='sos-along-undeclared',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'c', 'over': 'g', 'type': 1}}},
+                {'sos': {'s': {'variable': 'c', 'along': 'g', 'type': 1}}},
                 ("'c' is not a declared variable",),
                 id='sos-over-a-parameter',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'h', 'type': 1}}},
-                ("over 'h' is not a dim of variable 'p'",),
+                {'sos': {'s': {'variable': 'p', 'along': 'h', 'type': 1}}},
+                ("along 'h' is not a dim of variable 'p'",),
                 id='sos-along-a-dim-the-variable-lacks',
             ),
             pytest.param(
                 {
                     'sos': {
-                        's': {'variable': 'p', 'over': 'g', 'type': 1},
-                        't': {'variable': 'p', 'over': 'g', 'type': 2},
+                        's': {'variable': 'p', 'along': 'g', 'type': 1},
+                        't': {'variable': 'p', 'along': 'g', 'type': 2},
                     }
                 },
                 ("already carries the set declared by 's'",),
                 id='two-sets-on-one-variable',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 3}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 3}}},
                 ('sos type must be 1 or 2, got 3',),
                 id='sos-of-order-three',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'big_m': 0}}},
-                ('big_m must be a positive, finite number',),
-                id='sos-big-m-zero',
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1}}, 'variables.p.bounds': {'lower': 0}},
+                ("variable 'p' has no upper bound", 'Declare bounds.upper'),
+                id='sos-over-a-member-with-no-coefficient',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'big_m': float('inf')}}},
-                ('big_m must be a positive, finite number',),
-                id='sos-big-m-infinite',
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1}}, 'variables.p.bounds': {'upper': 10}},
+                ("variable 'p' has no lower bound", 'Declare bounds.lower'),
+                id='sos-over-a-member-with-no-floor',
+            ),
+            pytest.param(
+                {
+                    'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1}},
+                    'variables.p.bounds': {'lower': 0, 'upper': 10},
+                    'variables.s_seg': {'dims': ['g'], 'domain': 'binary'},
+                },
+                ("its expansion writes variable 's_seg'",),
+                id='sos-whose-expansion-collides-with-a-declaration',
             ),
             pytest.param(
                 {'relations.tag': {'key': 'g', 'dtype': 'str'}},
@@ -965,17 +1387,17 @@ class TestRulesDecidedWithoutData:
                 id='a-mask-naming-its-own-variable',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': [1]}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': [1]}}},
                 ('sos type must be 1 or 2, got [1]',),
                 id='sos-type-a-list',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': True}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': True}}},
                 ('sos type must be 1 or 2, got True',),
                 id='sos-type-a-boolean',
             ),
             pytest.param(
-                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1.0}}},
+                {'sos': {'s': {'variable': 'p', 'along': 'g', 'type': 1.0}}},
                 ('sos type must be 1 or 2, got 1.0',),
                 id='sos-type-a-float',
             ),
@@ -1066,9 +1488,6 @@ class TestRulesDecidedWithoutData:
                 id='where-two-relations-with-different-keys',
             ),
             pytest.param(
-                {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
-            ),
-            pytest.param(
                 {'variables.p.where': 'c > q'},
                 ('compares against variable', 'built before variables exist'),
                 id='where-against-a-variable',
@@ -1087,6 +1506,67 @@ class TestRulesDecidedWithoutData:
                 {'variables.p.where': 'g'},
                 ('a bare dimension name is true at every coordinate',),
                 id='where-a-bare-dimension',
+            ),
+            pytest.param(
+                {
+                    'macros.scaled': {'args': ['x'], 'kwargs': ['n'], 'template': 'x * n'},
+                    'constraints': {'cap': {'dims': ['g'], 'expression': "scaled(p, n='wrap') <= c"}},
+                },
+                ("'wrap' is a quoted keyword", 'In an expression, quote nothing'),
+                id='a-quoted-keyword-as-an-operand',
+            ),
+            pytest.param(
+                {
+                    'macros.scaled': {'args': ['x'], 'kwargs': ['n'], 'template': 'x * n'},
+                    'constraints': {'cap': {'dims': ['g'], 'expression': 'scaled(p, n=[c, k]) <= c'}},
+                },
+                ('[c, k] is a list of names', 'write the terms out and add them'),
+                id='a-name-list-as-an-operand',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'shift(p, along=g, offset=p) <= c'}}},
+                ('shift(offset=...) must be a whole number, or the name of an integer parameter',),
+                id='a-shift-offset-naming-a-variable',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'shift(p, along=g, offset=1, edge=clip) <= c'}}},
+                ('shift(edge=clip) is not an edge policy', "Write edge='wrap'"),
+                id='an-edge-that-is-a-bare-name-other-than-wrap',
+            ),
+            pytest.param(
+                {'variables.p.where': 'shift(flag, along=c, offset=1)'},
+                ('shift(<predicate>, along=) names the dimension', 'Name a declared dimension'),
+                id='where-a-shifted-predicate-along-a-parameter',
+            ),
+            pytest.param(
+                {'macros.half': {'args': ['x'], 'template': 'x / 2'}, 'variables.p.where': 'c > half(k, k)'},
+                ("Variable 'p': macro 'half' expects 1 positional argument(s), got 2",),
+                id='where-a-side-whose-macro-call-does-not-expand',
+            ),
+            pytest.param(
+                {'variables.p.where': "c.h == 'x'"},
+                ("'c.h' reads a column of 'c', which is a parameter", 'Only a relation has columns'),
+                id='where-a-column-of-a-parameter',
+            ),
+            pytest.param(
+                {'variables.p.where': 'r > 0'},
+                ("where references variable 'r'", 'built before variables exist'),
+                id='where-a-variable-on-the-left',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'relations.lk.values': ['h', 'z'], 'variables.p.where': "lk == 'x'"},
+                ("'lk' has 2 value columns (['h', 'z'])", 'say which the comparison reads: lk.h'),
+                id='where-a-relation-of-two-value-columns-read-bare',
+            ),
+            pytest.param(
+                {'variables.p.where': "lk.zz == 'x'"},
+                ("'zz' is not a column of 'lk', whose columns are ['g', 'h']",),
+                id='where-a-column-the-relation-lacks',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'relations.lz': {'key': 'g', 'values': 'z'}, 'variables.p.where': 'lk == lz'},
+                ("compares 'lk' (a column over 'h') with 'lz' (a column over 'z')", 'can only mask everything out'),
+                id='where-two-relations-whose-columns-are-over-different-dimensions',
             ),
         ],
     )
@@ -1114,6 +1594,95 @@ class TestRulesDecidedWithoutData:
         assert named is not None, f'the refusal holds out no at() to write instead: {message}'
         rewrite = named.group(1).replace("'", '').replace('...', 'r')
         _schema(objective={'expression': f'sum({rewrite})'})
+
+
+class TestAssumptions:
+    """What an ``assumptions:`` entry may state, and what the load refuses.
+
+    Everything here is about the data, so nothing in it is decided at load but
+    the shape of the predicate: the entry is refused where the connectives
+    already settle it, and where it names a variable, which is what the solver
+    decides rather than what the caller binds.
+    """
+
+    @pytest.mark.parametrize(
+        ('entry', 'fragments'),
+        [
+            pytest.param(
+                'c > 0 OR true',
+                ('folds to true', 'assumes nothing of the data'),
+                id='a-predicate-that-is-always-true',
+            ),
+            pytest.param(
+                'false AND c > 0',
+                ('folds to false', 'holds on no data at all'),
+                id='a-predicate-that-is-always-false',
+            ),
+            pytest.param(
+                'p',
+                ("variable 'p' stands in what the assumption assumes",),
+                id='a-variable-in-the-predicate',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'p'},
+                ("variable 'p' stands in what the assumption is checked where",),
+                id='a-variable-in-the-where',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'false'},
+                ('folds to false', 'checked on no row'),
+                id='a-where-that-is-always-false',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'p AND false'},
+                ('folds to false', 'checked on no row'),
+                id='a-where-that-hides-a-variable-behind-a-fold',
+            ),
+            pytest.param(
+                {'holds': 'c > 0', 'where': 'flag OR true'},
+                ('folds to true', 'narrows nothing'),
+                id='a-where-that-is-always-true',
+            ),
+            pytest.param(
+                'c > tag',
+                ("'tag' is declared dtype: str, and an expression is arithmetic",),
+                id='a-label-parameter-on-a-side',
+            ),
+            pytest.param('nope > 0', ("'nope' not found",), id='an-unknown-name'),
+        ],
+    )
+    def test_an_entry_the_language_refuses(self, entry, fragments):
+        message = _refusal(assumptions={'sound': entry})
+        assert "Assumption 'sound'" in message
+        for fragment in fragments:
+            assert fragment in message
+
+    @pytest.mark.parametrize(
+        'entry',
+        [
+            pytest.param('c <= k', id='two-parameters'),
+            pytest.param('c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param('sum(c, over=g) >= k', id='a-reduction-on-a-side'),
+            pytest.param("lk == 'north' AND c > 0", id='a-relation-and-a-connective'),
+            pytest.param({'holds': 'c > 0', 'where': 'flag'}, id='a-where-of-its-own'),
+            pytest.param({'holds': 'c > 0', 'description': 'costs are positive'}, id='a-description'),
+        ],
+    )
+    def test_an_entry_the_language_admits(self, entry):
+        spec = _schema(assumptions={'sound': entry})
+        assert set(spec.assumptions) == {'sound'}, 'the entry loads under the name the file wrote'
+
+    def test_an_entry_round_trips_as_the_form_it_was_written_in(self):
+        """A bare string stays one, and a mapping keeps only the keys it carried."""
+        spec = _schema(assumptions={'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}})
+        assert spec.to_dict()['assumptions'] == {'plain': 'c > 0', 'masked': {'holds': 'c > 0', 'where': 'flag'}}, (
+            'neither form gains a key the file did not write'
+        )
+
+    def test_a_variable_free_comparison_is_pointed_at_assumptions_rather_than_at_data_prep(self):
+        """The refusal named nowhere to put the fact until this section existed."""
+        message = _refusal(constraints={'cap': {'dims': ['g'], 'expression': 'c <= 1'}})
+        assert '`assumptions:`' in message, 'the refusal names the section that now holds such a fact'
 
 
 class TestTheFrontDoor:
@@ -1359,7 +1928,7 @@ class TestExpressionCases:
             to_spec(model)
 
     def test_a_fault_in_an_arm_names_the_declaration_and_is_reported_once(self):
-        """The block is expanded at every use, and the fault is in one place.
+        """The block is resolved once, and the fault is in one place.
 
         Naming the use site would report a case on a constraint that has none,
         and one sentence per constraint reading the expression is the same
@@ -1373,7 +1942,10 @@ class TestExpressionCases:
         message = _refusal(model)
         assert message.count("'nope' not found") == 1, 'two constraints read it; the fault is reported once'
         assert "Named expression 'headroom', case 'opening'" in message
-        assert 'Constraint' not in message, "the arm is the declaration's, not the use site's"
+        for name in ('cap', 'floor'):
+            assert f"Constraint '{name}': named expression 'headroom' does not load" in message, (
+                'a use site names the entry it could not read, and does not repeat its fault'
+            )
 
     def test_the_fallback_is_not_named_as_a_case(self):
         """`otherwise:` is what is left, not a region like the cases are.
@@ -1462,7 +2034,7 @@ class TestADeclarationIsNamed:
             'macros': {'args': ['x'], 'template': 'x * 2'},
             'constraints': {'dims': ['g'], 'expression': 'p <= c'},
             'piecewise': {'over': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
-            'sos': {'variable': 'p', 'over': 'g', 'type': 1},
+            'sos': {'variable': 'p', 'along': 'g', 'type': 1},
         }
         model = copy.deepcopy(SMALL_MODEL)
         model.setdefault(section, {})[name] = declarations[section]
@@ -1503,6 +2075,37 @@ def test_an_expression_too_deep_to_walk_fails_as_a_language_error(patch, nests):
         to_spec(override(DISPATCH_MODEL, **patch))
 
 
+def _chain(n: int, *, deepest_first: bool) -> dict[str, str]:
+    """*n* named expressions, each reading the one before; the body of `e{n-1}` resolves `2n - 1` deep with every entry written in."""
+    entries = {'e0': 'load'} | {f'e{i}': f'e{i - 1} + 1' for i in range(1, n)}
+    return dict(reversed(list(entries.items()))) if deepest_first else entries
+
+
+@pytest.mark.parametrize('deepest_first', [True, False], ids=['declared-deepest-first', 'declared-deepest-last'])
+def test_a_chain_of_named_expressions_is_held_to_the_resolved_depth_and_costs_no_stack(deepest_first):
+    """A chain of entries recursed once per entry, so a long one raised `RecursionError`, or the parser's refusal about a tree that was not deep.
+
+    Where the interpreter's stack ran out decided the message: a chain of 120
+    declared deepest first was a `RecursionError` out of `to_spec`, and one
+    whose parse was the deepest frame was refused as nesting past the 100
+    levels a text may, which the text did not. The entries are now resolved
+    in an order that reads each one's dependencies first, from a worklist,
+    and the resolved tree is held to one depth however it was written.
+    """
+    chain = _chain(150, deepest_first=deepest_first)
+    constraint = {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) <= e149'}
+    spec = to_spec(override(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
+    to_markdown(spec.program and spec)
+
+    with pytest.raises(LanguageError, match='nests 301 deep with every named expression it reads written in') as caught:
+        to_spec(override(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
+    assert 'past the 300 levels' in str(caught.value)
+    assert "Named expression 'e150'" in str(caught.value), 'refused at the first entry past the depth, by name'
+
+    with pytest.raises(LanguageError, match='past the 300 levels'):
+        to_spec(override(DISPATCH_MODEL, expressions=_chain(400, deepest_first=deepest_first)))
+
+
 def test_a_name_may_open_with_an_underscore():
     """`expressions.md` said a name opens with a letter while the schema and the grammar both admitted `_`, so the page refused what the language accepts."""
     schema = to_spec(
@@ -1517,13 +2120,14 @@ def test_a_name_may_open_with_an_underscore():
 def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     """Loading, lowering and typesetting a model resolve each expression and where string once.
 
-    Every reader after validation — the dim rules, lowering, the typesetter —
-    used to parse, expand and resolve the declaration's text again, so one
-    constraint was resolved four times per load and the trees the readers
-    walked were built apart from the one the language checked (#401). They
-    read the trees validation built now.
+    Every reader after validation — the dim rules, the typesetter — used to
+    parse, expand and resolve the declaration's text again, so one constraint
+    was resolved four times per load and the trees the readers walked were
+    built apart from the one the language checked (#401). They read the
+    program lowering built now. A curve's links were resolved again for its
+    rules at load and again when printed.
     """
-    from math_spec import resolution, validation
+    from math_spec import lowering, resolution
 
     seen: list[tuple[str, str]] = []
 
@@ -1534,8 +2138,9 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
 
         return record
 
-    for module in (validation, resolution):
-        for door in (resolution.resolve_expression, resolution.resolve_where_text):
+    doors = (resolution.resolve_expression, resolution.resolve_constraint_text, resolution.resolve_where_text)
+    for module in (lowering, resolution):
+        for door in doors:
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
     spec = to_spec(
@@ -1549,20 +2154,46 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
                     'otherwise': 'p_max - p',
                 },
                 'constraints.spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+                'dimensions.bp': {'dtype': 'int'},
+                'parameters.bp_x': {'dims': ['generator', 'bp']},
+                'parameters.bp_y': {'dims': ['generator', 'bp']},
+                'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+                'piecewise.curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
             },
         )
     )
-    to_program(spec)
+    _ = spec.program
     to_markdown(spec)
 
     assert sorted(seen) == [
-        ('resolve_expression', "Constraint 'balance'"),
-        ('resolve_expression', "Constraint 'spare'"),
+        ('resolve_constraint_text', "Constraint 'balance'"),
+        ('resolve_constraint_text', "Constraint 'spare'"),
         ('resolve_expression', "Named expression 'headroom', case 'opening'"),
         ('resolve_expression', "Named expression 'headroom', otherwise"),
         ('resolve_expression', 'The objective'),
+        ('resolve_expression', "piecewise 'curve' link 0"),
+        ('resolve_expression', "piecewise 'curve' link 1"),
+        ('resolve_where_text', "Assumption 'curve_complete'"),
+        ('resolve_where_text', "Assumption 'curve_complete', where"),
         ('resolve_where_text', "Constraint 'balance'"),
         ('resolve_where_text', "Constraint 'spare'"),
         ('resolve_where_text', "Named expression 'headroom', case 'opening'"),
+        ('resolve_where_text', "Variable 'op_cost'"),
         ('resolve_where_text', "Variable 'p'"),
     ], 'every expression and where position once, under the context validation reads it in, and nothing after'
+
+
+@pytest.mark.parametrize(
+    'constraints',
+    [
+        pytest.param({}, id='an-entry-nothing-reads'),
+        pytest.param({'c': {'dims': ['g'], 'expression': 'p <= bad'}}, id='an-entry-a-constraint-reads'),
+    ],
+)
+def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_name(constraints):
+    """An entry nothing read loaded and failed only when printed, and one a constraint read was
+    refused under the constraint's name. The program reads an entry's frame off its body at
+    load, so the fault is the entry's, wherever it is read."""
+    model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
+    with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
+        to_spec(model)

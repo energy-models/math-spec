@@ -15,17 +15,17 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
-from math_spec.piecewise import expand_piecewise
-from math_spec.program import Predicate
-from math_spec.typesetting import FORMATS, to_latex, typeset, walk
+from math_spec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
+from math_spec.typesetting import FORMATS, legend, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from math_spec.typesetting.format import Format
 
 
@@ -119,40 +119,42 @@ def _nodes(tree: object) -> Iterator[object]:
 
 
 def _rendered_trees() -> Iterator[object]:
-    """Every resolved tree the walk is handed for the golden model."""
-    resolved = expand_piecewise(to_spec(golden.MODEL)).resolved
-    yield resolved.objective
-    for expression, mask in resolved.constraints.values():
-        yield expression
-        if mask is not None:
+    """Every resolved tree the walk is handed for the golden model.
+
+    The model as the file declares it, because that is what the walk prints: a
+    curve's links are trees of its own, and the rows it stands for are not
+    printed at all.
+    """
+    schema = to_spec(golden.MODEL)
+    program = schema.program
+    assert program.objective is not None
+    yield program.objective.expression
+    for name in schema.constraints:
+        constraint = program.constraints[name]
+        yield constraint.lhs
+        yield constraint.rhs
+        if constraint.where is not None:
+            yield constraint.where.root
+    for name in schema.variables:
+        if (mask := program.variables[name].where) is not None:
             yield mask.root
-    for mask in resolved.variables.values():
-        if mask is not None:
-            yield mask.root
-    yield from resolved.expressions.values()
+    for assumption in program.assumptions.values():
+        yield assumption.predicate.root
+        if assumption.where is not None:
+            yield assumption.where.root
+    for name in schema.expressions:
+        yield program.expressions[name].expression
+    for curve in program.piecewise.values():
+        yield from (link.expression for link in curve.links)
 
 
-#: What resolution never hands the walk: the four nodes a where carries before
-#: its sides are read, and the three an expression only carries before names
-#: are resolved. The walk raises on each rather than rendering it, so a fixture
-#: reaching one would be a bug in resolution rather than a case worth
-#: committing output for.
-UNRESOLVED = {
-    'UnresolvedNameNode',
-    'UnresolvedComparisonNode',
-    'ColumnNode',
-    'QuotedNode',
-    'NameNode',
-    'NameListNode',
-    'KeywordNode',
-}
-
-#: A dataclass the walk steps *through* rather than renders: an arm has no
-#: branch of its own — its ``when`` and ``value`` do — and a direction and the
-#: relation it reads are the facts a node carries rather than nodes. None is a
-#: member of any node union, so they are subtracted from what the tree walk
-#: finds rather than added to what the vocabulary declares.
-CARRIERS = {'CaseArm', 'Direction', 'Partition', 'RelationDeclaration'}
+#: A dataclass the walk steps *through* rather than renders: a region has no
+#: branch of its own — its ``when`` and ``value`` do — a direction and the
+#: relation it reads are the facts a node carries rather than nodes, and a
+#: ``Mask`` is the wrapper a leaf carries a predicate in. None is a member of
+#: any node union, so they are subtracted from what the tree walk finds rather
+#: than added to what the vocabulary declares.
+CARRIERS = {'Region', 'Direction', 'Mask', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
@@ -164,10 +166,10 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     `coverage` installed, and its failure names the construct rather than a line.
     """
     kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)} - CARRIERS
-    declared = {node.__name__ for node in (*get_args(Predicate), *get_args(ArithmeticNode), ComparisonNode)}
-    assert kinds == declared - UNRESOLVED, (
+    declared = {node.__name__ for node in (*get_args(Predicate), *get_args(Expression), Named)}
+    assert kinds == declared, (
         f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
-        f'{sorted(declared - UNRESOLVED - kinds)}. Every node the walk renders needs a case here, '
+        f'{sorted(declared - kinds)}. Every node the walk renders needs a case here, '
         f'or its arm ships output nobody has read.'
     )
 
@@ -175,36 +177,45 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
 def test_the_golden_model_calls_every_operator_in_the_language():
     """``BUILTINS`` is the closed set, so a new operator lands with its case here.
 
-    ``dual`` resolves to its own leaf rather than staying a call, so it is
-    counted by that leaf.
+    Each operator resolves to the node it is, so the census counts the nodes
+    by the verb the file writes them with.
     """
+    verbs = {Sum: 'sum', GroupSum: 'sum', Pullback: 'at', Translate: 'shift', WindowSum: 'sum_back', Dual: 'dual'}
     nodes = [node for tree in _rendered_trees() for node in _nodes(tree)]
-    calls = {node.name for node in nodes if isinstance(node, FunctionCallNode)}
-    calls |= {'dual' for node in nodes if isinstance(node, DualNode)}
+    calls = {verb for node in nodes for kind, verb in verbs.items() if isinstance(node, kind)}
     assert calls == BUILTIN_NAMES, (
         f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'
     )
 
 
-#: What the fixture cannot reach, by the source text of the line. The guards
-#: are what the walk raises when resolution hands it something it types away,
-#: so a model reaching one is a bug upstream. The absent objective is the arm a
+#: What the fixture cannot reach, by module and the source text of the line.
+#: A bare ``Cases`` stands under the ``Named`` node resolution builds for its
+#: entry and nowhere else, so the arm that would print one in place is the
+#: type's closure rather than a case. The absent objective is the arm a
 #: *different* model takes — a file declares at most one — and
-#: `test_a_model_with_no_objective_prints_the_rest` covers it.
+#: `test_a_model_with_no_objective_prints_the_rest` covers it; that model
+#: declares no parameter, which is the legend's convention note with nothing
+#: to quote. A refusal of the name asked for renders nothing, and
+#: `test_declaration.py` pins both.
 UNREACHABLE = {
-    'if isinstance(node, UnresolvedNode | KwargNode):',
-    "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
-    'if not isinstance(node, ComparisonNode):',
-    "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
-    'raise AssertionError(msg)',
-    'assert_never(node)',
-    'if block is None:',
-    'return []',
+    walk: {
+        'return self.format.cases(self._arms(node, ctx)), _ATOM',
+        'assert_never(node)',
+        'assert_never(check)',
+        'if block is None:',
+        'return []',
+        'everything = {n for group, _ in kinds.values() for n in group}',
+        'msg = (',
+        'raise SchemaError(msg)',
+        'msg = f"\'{name}\' is declared twice, as {found[0]} and as {found[1]}, and one line prints one of them — rename one."',
+    },
+    legend: {'return []'},
 }
 
 
-def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
+@pytest.mark.parametrize('module', [walk, legend], ids=['walk', 'legend'])
+def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path, module: ModuleType):
     """The strongest form of what the fixture claims about itself: the arm itself
     is counted, where the two censuses above see neither a width taken from a
     parameter nor an integer variable with no bounds.
@@ -216,7 +227,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     coverage = pytest.importorskip(
         'coverage', reason='the bare-install job has no dev tools; the guard runs wherever they are'
     )
-    data = tmp_path / 'walk.coverage'
+    data = tmp_path / f'{module.__name__}.coverage'
     render = tmp_path / 'render.py'
     render.write_text(
         'from math_spec import to_latex, to_spec, typeset_declaration\n'
@@ -224,8 +235,9 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
         'to_latex(model)\n'
         'to_latex(model, inline_expressions=True)\n'
         'spec = to_spec(model)\n'
-        'for name in (*spec.expressions, *spec.constraints, *spec.variables):\n'
+        'for name in (*spec.expressions, *spec.constraints, *spec.assumptions, *spec.piecewise, *spec.variables):\n'
         "    typeset_declaration(model, name, 'latex')\n"
+        'to_latex(spec.expand())\n'
     )
     subprocess.run(
         [
@@ -234,19 +246,20 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
             'coverage',
             'run',
             f'--data-file={data}',
-            f'--source={Path(walk.__file__).parent}',
+            f'--source={Path(module.__file__).parent}',
             str(render),
         ],
         check=True,
     )
     measured = coverage.Coverage(data_file=str(data))
     measured.load()
-    _, _, missing, _ = measured.analysis(walk.__file__)
-    source = Path(walk.__file__).read_text().splitlines()
-    unread = {line: source[line - 1].strip() for line in missing if source[line - 1].strip() not in UNREACHABLE}
+    _, _, missing, _ = measured.analysis(module.__file__)
+    source = Path(module.__file__).read_text().splitlines()
+    excused = UNREACHABLE[module]
+    unread = {line: source[line - 1].strip() for line in missing if source[line - 1].strip() not in excused}
     assert not unread, (
-        f'tests/typesetting/golden/model.yaml never renders {len(unread)} line(s) of the walk:\n'
-        + '\n'.join(f'  {walk.__name__}:{line}  {text}' for line, text in sorted(unread.items()))
+        f'tests/typesetting/golden/model.yaml never renders {len(unread)} line(s) of {module.__name__}:\n'
+        + '\n'.join(f'  {module.__name__}:{line}  {text}' for line, text in sorted(unread.items()))
         + '\nAdd the case that reaches it, or say in UNREACHABLE why no model can.'
     )
 

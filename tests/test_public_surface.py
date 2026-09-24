@@ -16,30 +16,31 @@ from pathlib import Path
 import pytest
 
 import math_spec
-from math_spec import program, typesetting
+from math_spec import Spec, program, typesetting
 
 #: Every name `math_spec` promises. Grouped as a reader meets them, not
 #: alphabetically: the alphabetical form is `__all__` itself, and repeating it
 #: here would make the two one list checked against itself.
 SURFACE = frozenset(
     {
-        # the two public states, and the conversion to each
-        'Spec', 'to_spec', 'program', 'to_program',
-        # the error tree
+        # the two public states, and the door to both
+        'Spec', 'to_spec', 'program',
+        # the error tree, and the one wording a consumer's own refusals share
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
-        'PiecewiseExpansionError', 'did_you_mean', 'schema_error',
+        'did_you_mean',
         # the verdicts a consumer asks for rather than re-deriving
-        'advice', 'Advice',
-        # the closed operator set, and the wording of its refusals
-        'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
-        'unknown_operator_message',
-        # the declaration vocabularies a consumer pins its own tables against
-        'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE', 'ADVICE_KINDS',
-        'CURVATURES', 'SosBlock',
+        'advice', 'Advice', 'AdviceKind',
+        # the closed operator set, the one vocabulary with no Literal form, which a consumer pins its table against
+        'BUILTIN_NAMES',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
     }
 )  # fmt: skip
+
+#: What `Spec` promises beyond the sections a file declares: the two ways back
+#: out, the verb that writes a formulation out, and the program the file means.
+#: A `model_`-prefixed name is pydantic's, not a contract this project keeps.
+SPEC_SURFACE = frozenset({'to_dict', 'to_yaml', 'expand', 'program'})
 
 #: The modules whose `__all__` a consumer imports from.
 MODULES = [
@@ -47,6 +48,14 @@ MODULES = [
     pytest.param(typesetting, id='typesetting'),
     pytest.param(program, id='program'),
 ]
+
+
+def test_spec_promises_the_pinned_methods_and_nothing_else():
+    """A method on `Spec` is as public as a name in `__all__`, so adding one is the same decision."""
+    found = {name for name in vars(Spec) if not name.startswith(('_', 'model_')) and name not in Spec.model_fields}
+    assert found == SPEC_SURFACE, (
+        f'only on Spec: {sorted(found - SPEC_SURFACE)}; only in SPEC_SURFACE: {sorted(SPEC_SURFACE - found)}'
+    )
 
 
 def test_all_matches_the_pinned_surface():

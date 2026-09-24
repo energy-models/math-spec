@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec.model import PIECEWISE_METHODS
-from tools import gallery, home_math, notation, spec_math
+from tools import expansion_math, gallery, home_math, notation, spec_math
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -33,6 +33,7 @@ GENERATED: list[tuple[str, Path, Callable[[str], str], str]] = [
     ('operators', spec_math.PAGE, spec_math.rendered, 'spec_math'),
     ('home:index', home_math.PAGE, home_math.rendered_page, 'home_math'),
     ('home:readme', home_math.README, home_math.rendered_readme, 'home_math'),
+    ('expansion', expansion_math.PAGE, expansion_math.rendered_page, 'expansion_math'),
 ]
 
 
