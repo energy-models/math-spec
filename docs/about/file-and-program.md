@@ -46,8 +46,9 @@ ask.
 A curve or a set stands for plain variables and constraints.
 `spec.expand('piecewise')` writes each curve out as those rows, and
 `spec.expand()` writes the sets out too. Each returns a new `Spec`, checked as
-any other, with a program of its own. The spec caches each expansion, so a
-second ask costs nothing.
+any other, with a program of its own. It is a different model from the one it
+came from, and the two do not compare equal. The spec keeps no expansion, so a
+caller that needs the rows twice holds the result.
 
 **Nothing in the package expands a model unasked.** Each tool reads the model
 as it arrives. A caller that wants the rows asks for them, and
