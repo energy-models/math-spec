@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from math_spec.dimensions import check_schema, dims_of
 from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
-from math_spec.piecewise import assumptions_of, declaration_of, lp_domain_refusal, resolve_links
+from math_spec.piecewise import assumptions_of, declaration_of, lp_domain_refusal, resolve_links, resolve_walks
 from math_spec.program import (
     Assumption,
     BooleanLiteral,
@@ -52,7 +52,7 @@ from math_spec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
     from math_spec.model import AssumptionBlock, Spec
-    from math_spec.program import Expression
+    from math_spec.program import Direction, Expression
 
 
 def lower(schema: Spec) -> Program:
@@ -159,15 +159,16 @@ def lower(schema: Spec) -> Program:
         if (assumption := _assumption(aname, adef, ns, errors)) is not None:
             assumptions[aname] = assumption
 
-    curves: dict[str, tuple[tuple[Expression, ...], Mask | None]] = {}
+    curves: dict[str, tuple[tuple[Expression, ...], dict[str, Direction], Mask | None]] = {}
     for pname, pdef in schema.piecewise.items():
         links = resolve_links(pname, pdef, ns, errors)
+        walks = resolve_walks(pname, pdef, ns, errors)
         where = mask_of(resolve_where_text(pdef.where, ns, f"piecewise '{pname}' where", errors))
-        if links is None:
+        if links is None or walks is None:
             continue
         if pdef.method == 'lp' and (refusal := lp_domain_refusal(pname, pdef, links)) is not None:
             errors.append(refusal)
-        curves[pname] = (links, where)
+        curves[pname] = (links, walks, where)
 
     if errors:
         raise SchemaError('\n'.join(errors))
@@ -175,13 +176,13 @@ def lower(schema: Spec) -> Program:
     roots = [side for c in constraints.values() for side in (c.lhs, c.rhs)]
     if objective is not None:
         roots.append(objective.expression)
-    roots.extend(link for links, _ in curves.values() for link in links)
+    roots.extend(link for links, _, _ in curves.values() for link in links)
     in_math = frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
 
     piecewise = {}
-    for pname, (links, where) in curves.items():
+    for pname, (links, walks, where) in curves.items():
         pdef = schema.piecewise[pname]
-        piecewise[pname] = declaration_of(schema, pname, pdef, links, where)
+        piecewise[pname] = declaration_of(schema, pname, pdef, links, walks, where)
         for aname, assumed in assumptions_of(pname, piecewise[pname], pdef.where).items():
             assumption = _assumption(aname, assumed, ns, errors)
             assert assumption is not None and not errors, 'what a method assumes is stated in the language'

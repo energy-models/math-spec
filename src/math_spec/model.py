@@ -539,6 +539,12 @@ class PiecewiseLink(_StrictBlock):
                 f'consumes and the columns it produces, as at() does; none is defaulted.'
             )
             raise ValueError(msg)
+        if empty := [k for k in ('over', 'into') if written[k] == []]:
+            msg = (
+                f'{empty[0]}: [] names no column — a walk consumes at least one column of the relation and produces '
+                f'at least one. Name a column, or a list of them.'
+            )
+            raise ValueError(msg)
         return self
 
     @model_validator(mode='before')
