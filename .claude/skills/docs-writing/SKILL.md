@@ -52,24 +52,23 @@ Two questions decide it, and they work on a paragraph as well as a page:
 | Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`, model pages in `docs/examples/` |
 | Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                          |
 
-The nav is arranged by reader first, then by kind. Each top-level tab is one
-reader:
+The nav and the tree are both arranged by kind, for someone who writes a
+model. A new page goes in the folder of its kind and under the nav section of
+the same name. The model pages sit at the end of the Reference section, after
+the pages a reader looks things up in. A worked example is neither a tutorial
+nor a how-to: it teaches no path and names no task, it shows that the language
+says a model.
 
-- **Writing models** is for someone who writes a model file. Its sections are
-  the four kinds.
+The Development section, last in the nav, holds every page a model writer does
+not need, in three groups:
+
 - **Building on math-spec** is for someone who writes a tool against `Spec`
-  and `Program`: an engine such as specsolve, a renderer, a checker. Its
-  sections are the kinds it has pages for.
-- **Development** is for contributors, and holds proof-of-concept pages. It is
-  outside the four kinds. Its PyPSA pages stay in `docs/examples/`, where
-  `tools/gallery.py` writes them.
+  and `Program`: an engine such as specsolve, a renderer, a checker.
+- **Contributing** is for someone who changes math-spec itself.
+- **Proofs of concept** holds the PyPSA pages. They stay in `docs/examples/`,
+  where `tools/gallery.py` writes them.
 
-The tree is arranged by kind only. A new page goes in the folder of its kind,
-under the tab of its reader, in the section of its kind. The model pages sit
-at the end of the Reference section of Writing models, after the pages a
-reader looks things up in. A worked example is neither a tutorial nor a
-how-to: it teaches no path and names no task, it shows that the language says
-a model.
+A page in Development keeps the folder of its kind.
 
 Each kind has one job, and one thing it must not do:
 
@@ -103,7 +102,7 @@ section, saying why a reader would open it.
 `docs/reference/api.md` holds one `:::` entry per name in `math_spec.__all__`,
 and mkdocstrings renders each from its docstring. `docs/static/hooks.py`
 renders one page per module under `src/math_spec/`, and puts them in the
-Development section as `Modules`. The prose of both is the docstring rules in
+Contributing group of the Development section as `Modules`. The prose of both is the docstring rules in
 `AGENTS.md`.
 
 Mixing kinds is the most common failure. Rationale inside a reference section
