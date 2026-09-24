@@ -418,3 +418,19 @@ def parse_expression(text: str) -> ParsedNode:
             grammar's own complaint.
     """
     return parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE)
+
+
+def names_in(value: ArithmeticNode) -> tuple[str, ...]:
+    """The names a relation kwarg carries: one bare, several bracketed, none otherwise."""
+    if isinstance(value, NameNode):
+        return (value.name,)
+    return value.names if isinstance(value, NameListNode) else ()
+
+
+def literal_number(value: ArithmeticNode) -> NumberNode | None:
+    """The number a literal names, its sign folded in — ``None`` where *value* is not one."""
+    if isinstance(value, NumberNode):
+        return value
+    if isinstance(value, UnaryOperatorNode) and isinstance(value.operand, NumberNode):
+        return NumberNode(-value.operand.value if value.op == '-' else value.operand.value)
+    return None
