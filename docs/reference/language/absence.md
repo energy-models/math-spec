@@ -6,8 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Absence and `where`
 
 A `where:` does not set a variable to zero. It leaves the variable **unbuilt**
-at the masked coordinates: no column, and no value. Every rule on this page
-follows from that.
+at the masked coordinates: no column, and no value.
 
 ```yaml
 dimensions:
@@ -23,8 +22,7 @@ variables:
 With `capacity = {wind: 10, gas: 5, old: 0}`, the model has `dispatch[wind]` and
 `dispatch[gas]`. There is no `dispatch[old]`.
 
-The [grammar](expressions.md#where-strings) says what a `where:` may contain.
-This page says what the mask means for the rows that are built.
+The [grammar](expressions.md#where-strings) says what a `where:` may hold.
 
 ## What creates absence
 
@@ -41,7 +39,8 @@ in a `where`.
 
 Where no such value exists, loading is refused. There are four such positions:
 a divisor, a `bounds:` entry, the whole constant side of a comparison, and a
-[`piecewise:`](piecewise.md) breakpoint.
+[`piecewise:`](piecewise.md) breakpoint. For a bound only where the data has
+one, supply `inf` elsewhere or mask the variable.
 
 ## How absence travels
 
@@ -64,9 +63,8 @@ constraints:
     expression: sum(x, over=g) + sum(y, over=g) >= 1 # x[old] is back in
 ```
 
-`each` has no row at `old`. `total` sums the summand wherever the summand
-exists, so `x[old]` goes away with `y[old]`. `split` sums each operand over its
-own domain, so `x[old]` counts. The two are different constraints.
+`total` sums the summand wherever the summand exists. `split` sums each
+operand over its own domain. The two are different constraints.
 
 Beside a parameter, the rule reads the other way:
 
@@ -91,12 +89,9 @@ there instead, write `where: rel_max` on the constraint.
 
 ## What a missing coordinate means
 
-By default a masked coordinate has **no value**. A store that is not there has no
-state of charge, so a row that needs that state is not built.
-
-Some quantities are **zero** outside their mask. A reservoir with no inflow spills
-nothing, and a model like that wants its row. The variable says which reading
-applies:
+By default a masked coordinate has **no value**, and a row that needs it is not
+built. Some quantities are **zero** outside their mask, and the variable says
+which reading applies:
 
 ```yaml
 variables:
@@ -121,26 +116,12 @@ a storage with inflow and no store, there is no row.
 ## Rows with no variable terms
 
 A missing parameter row can leave a row with nothing to decide, such as
-`0 == load` at a bus with no generator. Such a row is not built, and the engine
-reports it. An expression that names no variable _in the file_ is refused at
+`0 == load` at a bus with no generator. Such a row is not built. An expression that names no variable _in the file_ is refused at
 load.
 
 ## Reported values
 
-A [reported expression](named.md#reported-expressions) is arithmetic over
-solved numbers, and it inherits their absence by the rule above. Through
-arithmetic, a null spreads: `cost / delivered` has no value wherever either
-operand is masked. Out of a summing operator, it does not.
-
-A quotient whose divisor solved to zero is absent in the same way. `dual(c)` has
-no value at a row that `c`'s `where:` leaves unbuilt.
-
-## Asking for the opposite reading
-
-| You want                                       | You write                                                                                    |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| the row kept, the masked variable read as zero | `absence: zero` on the variable                                                              |
-| the row dropped where a parameter has no data  | `where: capacity` on the constraint                                                          |
-| a vacated shift position to contribute         | `shift(x, along=d, offset=n, edge=0)`                                                        |
-| to test whether a variable exists here         | its bare name in a `where`                                                                   |
-| a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models |
+A [reported expression](named.md#reported-expressions) inherits the absence of
+the solved numbers it reads, by the rules above. A quotient whose divisor solved
+to zero is absent too. A deleted row has
+[no dual](named.md#reading-a-constraints-dual).

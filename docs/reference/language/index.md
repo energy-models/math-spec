@@ -36,29 +36,13 @@ objective:
   expression: sum(dispatch * cost) # an objective is one number, so the sum is written
 ```
 
-That file is a complete model. The pages below give the exact rules, and the
-[glossary](../glossary.md) defines each word they use in a fixed sense.
-
-## The pages
-
-|                                                                         |                                                                           |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [File shape](file.md)                                                   | the eleven keys, `version` and `description`                              |
-| [Dimensions](dimensions.md)                                             | the axes                                                                  |
-| [Relations](relations.md)                                               | the maps from one axis onto another                                       |
-| [Parameters, variables, constraints and the objective](declarations.md) | the four blocks that carry the math                                       |
-| [Expressions](expressions.md)                                           | the arithmetic grammar, the `where` grammar, and how dimensions combine   |
-| [Named expressions and macros](named.md)                                | quantities named once, templates with arguments, and what a solve reports |
-| [Operators](operators.md)                                               | `sum`, `sum_back`, `at` and `shift`                                       |
-| [Absence and `where`](absence.md)                                       | which rows are built, and which are not                                   |
-| [Piecewise curves and SOS](piecewise.md)                                | `piecewise:` and `sos:`                                                   |
-| [Assumptions](assumptions.md)                                           | what the model expects of the data it is bound to                         |
-| [Errors and limits](errors.md)                                          | what fails when, and what the language will not express                   |
+That file is a complete model. The pages of this section give the exact rules,
+and the [glossary](../glossary.md) defines each word they use in a fixed sense.
 
 ## The ten rules
 
-`to_spec` checks everything it can without data, and refuses the file with a
-message that names the fix. These are the rules it checks.
+`to_spec` refuses a file that breaks one of these rules, with a message that
+names the fix.
 
 | #   | Rule                                                                                                                                                                  |                                                                 |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
