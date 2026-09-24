@@ -266,6 +266,8 @@ names:
   StorageUnit_marginal_cost_storage: '\mathrm{c}^{\mathrm{soc}}'
   StorageUnit_spill_cost: '\mathrm{c}^{\mathrm{spill}}'
   StorageUnit_p_set: '\mathrm{h}^{\mathrm{set}}'
+  StorageUnit_p_dispatch_set: '\mathrm{h}^{+,\mathrm{set}}'
+  StorageUnit_p_store_set: '\mathrm{h}^{-,\mathrm{set}}'
   StorageUnit_state_of_charge_set: '\mathrm{soc}^{\mathrm{set}}'
   Store_e: "e"
   Store_p: "q"
@@ -285,6 +287,7 @@ names:
   Store_marginal_cost_quadratic: '\mathrm{c}^{q,(2)}'
   Store_marginal_cost_storage: '\mathrm{c}^{e}'
   Store_e_set: '\mathrm{e}^{\mathrm{set}}'
+  Store_p_set: '\mathrm{q}^{\mathrm{set}}'
   scenario_weight: '\pi'
   CVaR_omega: '\omega'
   CVaR_inv_tail: '\mathrm{v}'

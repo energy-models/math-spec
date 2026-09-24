@@ -718,6 +718,12 @@ parameters:
   StorageUnit_p_set:
     description: a given net dispatch schedule; a unit without one has no row here
     dims: [snapshot, storage_unit]
+  StorageUnit_p_dispatch_set:
+    description: a given dispatch schedule; a unit without one has no row here
+    dims: [snapshot, storage_unit]
+  StorageUnit_p_store_set:
+    description: a given charging schedule; a unit without one has no row here
+    dims: [snapshot, storage_unit]
   StorageUnit_state_of_charge_set:
     description: a given charge schedule; a unit without one has no row here
     dims: [snapshot, storage_unit]
@@ -784,6 +790,9 @@ parameters:
     dims: [snapshot, store]
   Store_e_set:
     description: a given energy schedule; a store without one has no row here
+    dims: [snapshot, store]
+  Store_p_set:
+    description: a given schedule of power delivered; a store without one has no row here
     dims: [snapshot, store]
   Line_s_nom:
     description: nominal apparent power
@@ -3424,6 +3433,16 @@ constraints:
     dims: [scenario, snapshot, storage_unit]
     where: StorageUnit_p_set AND StorageUnit_active
     expression: StorageUnit_p_dispatch - StorageUnit_p_store == StorageUnit_p_set
+  StorageUnit_p_dispatch_set:
+    description: "`StorageUnit-p_dispatch_set` — dispatch pinned to the given schedule, wherever one is given"
+    dims: [scenario, snapshot, storage_unit]
+    where: StorageUnit_p_dispatch_set AND StorageUnit_active
+    expression: StorageUnit_p_dispatch == StorageUnit_p_dispatch_set
+  StorageUnit_p_store_set:
+    description: "`StorageUnit-p_store_set` — charging pinned to the given schedule, wherever one is given"
+    dims: [scenario, snapshot, storage_unit]
+    where: StorageUnit_p_store_set AND StorageUnit_active
+    expression: StorageUnit_p_store == StorageUnit_p_store_set
   StorageUnit_state_of_charge_set:
     description: "`StorageUnit-state_of_charge_set` — charge pinned to the given schedule, wherever one is given"
     dims: [scenario, snapshot, storage_unit]
@@ -3434,6 +3453,11 @@ constraints:
     dims: [scenario, snapshot, store]
     where: Store_e_set AND Store_active
     expression: Store_e == Store_e_set
+  Store_p_set:
+    description: "`Store-p_set` — power delivered pinned to the given schedule, wherever one is given"
+    dims: [scenario, snapshot, store]
+    where: Store_p_set AND Store_active
+    expression: Store_p == Store_p_set
   GlobalConstraint_primary_energy_ub:
     description: "`primary_energy` — its total, at most its constant"
     dims: [scenario, global_constraint]

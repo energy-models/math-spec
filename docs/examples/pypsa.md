@@ -128,7 +128,7 @@ def build():
 | [`StorageUnit-fix-*`](#storageunit-fix-p_dispatch-lower), [`Store-fix-e-*`](#store-fix-e-lower) | done |                                 |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance) | done | the charge carried into a snapshot is a cased quantity — cyclic, opening, carried; `(1-loss)**eh` is prep |
 | [`Store-energy_balance`](#store-energy_balance)       | done   | same                                                          |
-| [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set` |
+| [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set`; `Store-p_set`, `StorageUnit-p_dispatch_set`, `-p_store_set` in rung 37 |
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
@@ -3090,6 +3090,66 @@ def build():
 </details>
 <!-- reference:rung_36_quadratic_storage_process:end -->
 
+### Rung 37 — storage dispatch pinned to a schedule
+
+PyPSA pins a store's power delivered to `p_set`, and a storage unit's dispatch
+and charging to `p_dispatch_set` and `p_store_set`, each on its own
+(`optimize.py:846`, `:851`; `constraints.py:1961-2019`). A row stands only
+where a value is given and the storage is active. A plain run gives no value,
+so no row stands.
+
+The rung pins a store to deliver 10 in the first snapshot and to take 5 in the
+last, and pins a storage unit's dispatch in the first snapshot and its
+charging in the second. With the same network and no pins, PyPSA solves to
+`5811.111111111111`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Store-p_set`](#store-p_set), [`StorageUnit-p_dispatch_set`](#storageunit-p_dispatch_set), [`StorageUnit-p_store_set`](#storageunit-p_store_set) | done | `where:` a value is given and the storage is active |
+
+<!-- reference:rung_37_fixed_storage_dispatch:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `6395.833333333333`, 76 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_37_fixed_storage_dispatch.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 37: storage dispatch pinned — a store's power delivered, and a storage unit's dispatch and charging, each on its own schedule."""
+
+from __future__ import annotations
+
+from math import nan
+
+import spine
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.generators_t.marginal_cost['gas'] = [15, 60, 15, 60]
+    n.add('Store', 'tank37', bus='south', e_nom=40, e_initial=20, p_set=[10, nan, nan, -5])
+    n.add(
+        'StorageUnit',
+        'battery37',
+        bus='south',
+        p_nom=20,
+        max_hours=2,
+        state_of_charge_initial=10,
+        p_dispatch_set=[6, nan, nan, nan],
+        p_store_set=[nan, 4, nan, nan],
+    )
+    return n
+```
+
+</details>
+<!-- reference:rung_37_fixed_storage_dispatch:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -3316,6 +3376,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{c}^{\mathrm{soc}}`$ | `StorageUnit_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of charge held over one snapshot |
 | $`\mathrm{c}^{\mathrm{spill}}`$ | `StorageUnit_spill_cost` over $`\mathcal{T} \times \mathcal{S}`$ — cost of one unit of inflow passed on unused |
 | $`\mathrm{h}^{\mathrm{set}}`$ | `StorageUnit_p_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given net dispatch schedule; a unit without one has no row here |
+| $`\mathrm{h}^{+,\mathrm{set}}`$ | `StorageUnit_p_dispatch_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given dispatch schedule; a unit without one has no row here |
+| $`\mathrm{h}^{-,\mathrm{set}}`$ | `StorageUnit_p_store_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given charging schedule; a unit without one has no row here |
 | $`\mathrm{soc}^{\mathrm{set}}`$ | `StorageUnit_state_of_charge_set` over $`\mathcal{T} \times \mathcal{S}`$ — a given charge schedule; a unit without one has no row here |
 | $`\mathrm{e}^{\mathrm{nom}}`$ | `Store_e_nom` over $`\mathcal{V}`$ — nominal energy capacity |
 | $`\mathrm{ext}^{e}`$ | `Store_e_nom_extendable` over $`\mathcal{V}`$ — whether the nominal energy capacity is a decision |
@@ -3332,6 +3394,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{c}^{q,(2)}`$ | `Store_marginal_cost_quadratic` over $`\mathcal{T} \times \mathcal{V}`$ — cost of the square of the net power delivered, so charging costs as much as delivering |
 | $`\mathrm{c}^{e}`$ | `Store_marginal_cost_storage` over $`\mathcal{T} \times \mathcal{V}`$ — cost of one unit of energy held over one snapshot |
 | $`\mathrm{e}^{\mathrm{set}}`$ | `Store_e_set` over $`\mathcal{T} \times \mathcal{V}`$ — a given energy schedule; a store without one has no row here |
+| $`\mathrm{q}^{\mathrm{set}}`$ | `Store_p_set` over $`\mathcal{T} \times \mathcal{V}`$ — a given schedule of power delivered; a store without one has no row here |
 | $`\mathrm{s}^{\mathrm{nom}}`$ | `Line_s_nom` over $`\mathcal{K}`$ — nominal apparent power |
 | $`\mathrm{ext}^{s}`$ | `Line_s_nom_extendable` over $`\mathcal{K}`$ — whether the nominal apparent power is a decision |
 | $`\overline{\mathrm{s}}`$ | `Line_s_max_pu` over $`\mathcal{T} \times \mathcal{K}`$ — most flow either way, per unit of nominal apparent power |
@@ -7134,6 +7197,38 @@ StorageUnit_p_set:
 h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
 ```
 
+### `StorageUnit-p_dispatch_set`
+
+`StorageUnit_p_dispatch_set`
+
+```yaml
+StorageUnit_p_dispatch_set:
+  description: "`StorageUnit-p_dispatch_set` — dispatch pinned to the given schedule, wherever one is given"
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_dispatch_set AND StorageUnit_active
+  expression: StorageUnit_p_dispatch == StorageUnit_p_dispatch_set
+```
+
+```math
+h^{+}_{\xi,t,s} = \mathrm{h}^{+,\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{+,\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
+```
+
+### `StorageUnit-p_store_set`
+
+`StorageUnit_p_store_set`
+
+```yaml
+StorageUnit_p_store_set:
+  description: "`StorageUnit-p_store_set` — charging pinned to the given schedule, wherever one is given"
+  dims: [scenario, snapshot, storage_unit]
+  where: StorageUnit_p_store_set AND StorageUnit_active
+  expression: StorageUnit_p_store == StorageUnit_p_store_set
+```
+
+```math
+h^{-}_{\xi,t,s} = \mathrm{h}^{-,\mathrm{set}}_{t,s} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ s \in \mathcal{S} \,:\, \mathrm{h}^{-,\mathrm{set}}_{t,s} \text{ is defined} \wedge \mathrm{on}^{h}_{t,s}
+```
+
 ### `StorageUnit-state_of_charge_set`
 
 `StorageUnit_state_of_charge_set`
@@ -7164,6 +7259,22 @@ Store_e_set:
 
 ```math
 e_{\xi,t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
+```
+
+### `Store-p_set`
+
+`Store_p_set`
+
+```yaml
+Store_p_set:
+  description: "`Store-p_set` — power delivered pinned to the given schedule, wherever one is given"
+  dims: [scenario, snapshot, store]
+  where: Store_p_set AND Store_active
+  expression: Store_p == Store_p_set
+```
+
+```math
+q_{\xi,t,v} = \mathrm{q}^{\mathrm{set}}_{t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{q}^{\mathrm{set}}_{t,v} \text{ is defined} \wedge \mathrm{on}^{e}_{t,v}
 ```
 
 ### `primary_energy`
