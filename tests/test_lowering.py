@@ -19,7 +19,6 @@ from math_spec import LanguageError, Spec, to_spec
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
 from math_spec.program import (
-    QUADRATIC_POSITIONS,
     Add,
     And,
     Assumption,
@@ -50,6 +49,7 @@ from math_spec.program import (
     Program,
     Pullback,
     PulledBackPredicate,
+    QuadraticPosition,
     Region,
     RelationDeclaration,
     Sum,
@@ -960,8 +960,10 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.kinds)} == {frozenset}, (
         'every field is a set, so one rule reads all of them'
     )
-    assert footprint.quadratic <= QUADRATIC_POSITIONS, 'and the vocabulary a consumer pins its table against'
-    assert {'objective', 'constraint'} == QUADRATIC_POSITIONS, (
+    assert footprint.quadratic <= set(get_args(QuadraticPosition)), (
+        'and the vocabulary a consumer pins its table against'
+    )
+    assert {'objective', 'constraint'} == set(get_args(QuadraticPosition)), (
         'a position admitted later widens this, which is what a consumer pins against to hear about it'
     )
 
@@ -1151,6 +1153,12 @@ def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
     declaration = program.expressions['shadow_price']
     assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
     assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'
+
+
+def test_a_spec_answers_with_one_program_however_often_it_is_asked():
+    """The public-API page promises one object, so a cache a reader may key on it holds."""
+    spec = to_spec(DISPATCH_MODEL)
+    assert spec.program is spec.program
 
 
 def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
