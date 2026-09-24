@@ -58,7 +58,6 @@ nav:
               - Assumptions: reference/language/assumptions.md
               - Absence and where: reference/language/absence.md
               - Errors and limits: reference/language/errors.md
-          - Every construct, as math: reference/notation.md
           - Typeset the math: reference/typeset.md
           - Glossary: reference/glossary.md
           - Examples:
@@ -78,13 +77,15 @@ nav:
       - About:
           - The file and the program: about/file-and-program.md
           - What counts as language: about/what-counts-as-language.md
-  # Outside the four kinds: contributor material and proof-of-concept pages.
+  # Outside the four kinds: contributor material, proof-of-concept pages, and
+  # the notation page, which renders the typesetting test model.
   # The PyPSA pages stay in `docs/examples/`, where `tools/gallery.py` writes
   # them. `docs/static/hooks.py` appends one page per module under
   # `src/math_spec/`, as `Modules`.
   - Development:
       - Contributing: contributing.md
       - What counts as public API: about/what-counts-as-public-api.md
+      - Every construct, as math: reference/notation.md
       - PyPSA parity:
           - PyPSA in one file: examples/pypsa.md
           - PyPSA, the quadratic class: examples/pypsa_quadratic.md
