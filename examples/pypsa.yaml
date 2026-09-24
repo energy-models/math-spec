@@ -8,8 +8,8 @@ description: >-
   chosen in) and every asset stands in the investment `period`s its build year
   and lifetime span. Capacity is chosen once, before the future is known, and
   paid once per active period; operation is the expectation over the scenarios'
-  weights, with a share priced at the tail through the CVaR rows. A plain run
-  feeds one scenario, one period, all-active masks and unit weights, and the
+  weights, with a share priced at the tail through the CVaR rows, which stand
+  only where that share is positive. A plain run feeds one scenario, one period, all-active masks and unit weights, and the
   model collapses to the standard one. A security-constrained run copies each
   branch flow limit once per outage in an `outage` set that a plain run leaves
   empty. Which snapshots an asset is active in, a scenario's weight, and the
@@ -364,6 +364,9 @@ parameters:
   Process_marginal_cost:
     description: cost of one unit of internal power
     dims: [snapshot, process]
+  Process_marginal_cost_quadratic:
+    description: cost of the square of one unit of internal power
+    dims: [snapshot, process]
   Process_ramp_limit_up:
     description: most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit
     dims: [process]
@@ -703,6 +706,9 @@ parameters:
   StorageUnit_marginal_cost:
     description: cost of one unit of dispatch
     dims: [snapshot, storage_unit]
+  StorageUnit_marginal_cost_quadratic:
+    description: cost of the square of one unit of dispatch; storing is not charged
+    dims: [snapshot, storage_unit]
   StorageUnit_marginal_cost_storage:
     description: cost of one unit of charge held over one snapshot
     dims: [snapshot, storage_unit]
@@ -769,6 +775,9 @@ parameters:
     dtype: int
   Store_marginal_cost:
     description: cost of one unit of power delivered
+    dims: [snapshot, store]
+  Store_marginal_cost_quadratic:
+    description: cost of the square of the net power delivered, so charging costs as much as delivering
     dims: [snapshot, store]
   Store_marginal_cost_storage:
     description: cost of one unit of energy held over one snapshot
@@ -1975,10 +1984,13 @@ expressions:
       + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
       + sum(sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
       + sum(sum(Process_p * Process_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+      + sum(sum(Process_p * Process_p * Process_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
       + sum(sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+      + sum(sum(StorageUnit_p_dispatch * StorageUnit_p_dispatch * StorageUnit_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
       + sum(sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
       + sum(sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
       + sum(sum(Store_p * Store_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+      + sum(sum(Store_p * Store_p * Store_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
       + sum(sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
       + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_start_up * Generator_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
@@ -3540,10 +3552,12 @@ constraints:
   CVaR_excess:
     description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"
     dims: [scenario]
+    where: CVaR_omega > 0
     expression: CVaR_a - scenario_opex + CVaR_theta >= 0
   CVaR_def:
     description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
     dims: []
+    where: CVaR_omega > 0
     expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
 
 assumptions:
@@ -3752,6 +3766,46 @@ assumptions:
     description: >-
       the same for an `operational_limit` row, over the periods it counts —
       PyPSA refuses it (`global_constraints.py:695`)
+  Generator_marginal_cost_quadratic_without_risk_preference:
+    holds: "Generator_marginal_cost_quadratic == 0"
+    where: "CVaR_omega > 0"
+    description: >-
+      a quadratic cost puts a square into every `CVaR-excess` row, and PyPSA
+      refuses quadratic costs under any risk preference
+      (`optimize.py:467-474`). The spec cannot tell no risk preference from
+      one with `omega = 0`, so it refuses only where `omega` is positive
+  Link_marginal_cost_quadratic_without_risk_preference:
+    holds: "Link_marginal_cost_quadratic == 0"
+    where: "CVaR_omega > 0"
+    description: >-
+      a quadratic cost puts a square into every `CVaR-excess` row, and PyPSA
+      refuses quadratic costs under any risk preference
+      (`optimize.py:467-474`). The spec cannot tell no risk preference from
+      one with `omega = 0`, so it refuses only where `omega` is positive
+  Process_marginal_cost_quadratic_without_risk_preference:
+    holds: "Process_marginal_cost_quadratic == 0"
+    where: "CVaR_omega > 0"
+    description: >-
+      a quadratic cost puts a square into every `CVaR-excess` row, and PyPSA
+      refuses quadratic costs under any risk preference
+      (`optimize.py:467-474`). The spec cannot tell no risk preference from
+      one with `omega = 0`, so it refuses only where `omega` is positive
+  StorageUnit_marginal_cost_quadratic_without_risk_preference:
+    holds: "StorageUnit_marginal_cost_quadratic == 0"
+    where: "CVaR_omega > 0"
+    description: >-
+      a quadratic cost puts a square into every `CVaR-excess` row, and PyPSA
+      refuses quadratic costs under any risk preference
+      (`optimize.py:467-474`). The spec cannot tell no risk preference from
+      one with `omega = 0`, so it refuses only where `omega` is positive
+  Store_marginal_cost_quadratic_without_risk_preference:
+    holds: "Store_marginal_cost_quadratic == 0"
+    where: "CVaR_omega > 0"
+    description: >-
+      a quadratic cost puts a square into every `CVaR-excess` row, and PyPSA
+      refuses quadratic costs under any risk preference
+      (`optimize.py:467-474`). The spec cannot tell no risk preference from
+      one with `omega = 0`, so it refuses only where `omega` is positive
 
 objective:
   sense: minimize
