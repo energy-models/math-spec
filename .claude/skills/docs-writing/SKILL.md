@@ -188,7 +188,7 @@ not
 
 - **Gloss house vocabulary at first use** — _spec_, _program_, _declaration_,
   _dimension_, _coordinate_, _frame_, _relation_, _absence_, _macro_, _named
-  expression_, _reported expression_, _escape_. One clause with a concrete
+  expression_, _reported expression_. One clause with a concrete
   instance: "one point of it, one generator in one snapshot, is a coordinate".
 - **Gloss every acronym and domain term at first use**, in parentheses, six
   words or fewer.

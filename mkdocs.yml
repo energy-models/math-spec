@@ -60,6 +60,7 @@ nav:
       - Typeset the math: reference/typeset.md
       - Reading a loaded model: reference/reading.md
       - Python API: reference/api.md
+      - Glossary: reference/glossary.md
       - Examples:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md

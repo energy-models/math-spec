@@ -25,12 +25,10 @@ costs to add.
   it, and the typesetter has to print it in LaTeX, Typst and Markdown.
 - **A formulation** is a block that states ordinary variables and constraints
   rather than being one. `piecewise:` and `sos:` are the two. It costs as much as
-  a primitive to build, but composes as freely as a macro. A formulation emits
-  variables and constraints, states what it assumes of the data as ordinary
-  assumptions, and emits no parameter — so the same data binds a model and its
-  expansion, and
+  a primitive to build, but composes as freely as a macro. It emits variables,
+  constraints and assumptions, and no parameter, so
   [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
-  needs no source a reader has to supply.
+  writes it out with the data the model already binds.
 
 A request that is none of the three is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
