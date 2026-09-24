@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Literal
 import math_spec.sos as sos
 from math_spec.dimensions import dims_of
 from math_spec.errors import DimensionError
-from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, Spec
-from math_spec.program import PiecewiseDeclaration, PiecewiseMethod, carries_variable
+from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, Spec, VariableBlock
+from math_spec.program import PiecewiseDeclaration, PiecewiseMethod, VariableDeclaration, carries_variable
 from math_spec.resolution import resolve_expression_text
 
 if TYPE_CHECKING:
@@ -262,6 +262,19 @@ class Emitted:
             tuple(assumptions_of(name, pw)),
         )
 
+    def written(self, method: PiecewiseMethod, *, ungated: bool) -> tuple[str, ...]:
+        """The variables and constraints :meth:`~math_spec.model.Spec.expand` declares for a block of *method*.
+
+        *ungated* is :func:`leaves_ungated` of the block's gate. The set a
+        ``sos2`` or ``adjacency`` block states is written out too, since
+        ``expand()`` writes every set.
+        """
+        if method == 'lp':
+            return (self.chord, self.domain_lo, self.domain_hi)
+        convexity = (self.convexity, self.convexity + _UNGATED) if ungated else (self.convexity,)
+        restriction = (self.set.seg, self.set.pick, self.set.link) if method in ('sos2', 'adjacency') else ()
+        return (self.lam, *convexity, *self.links, *restriction)
+
     @property
     def by_kind(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
         """Each name by the kind of declaration it would collide with."""
@@ -283,6 +296,15 @@ class Emitted:
             ('sos', (self.name,)),
             ('assumption', self.assumptions),
         )
+
+
+def leaves_ungated(gate: VariableBlock | VariableDeclaration | None) -> bool:
+    """Whether a curve gated by *gate* runs ungated where the gate does not exist, which takes a second convexity row.
+
+    A masked gate is absent off its mask, and there the curve sums to 1;
+    ``absence: zero`` reads the gate as 0 there instead, which one row states.
+    """
+    return gate is not None and gate.where is not None and gate.absence != 'zero'
 
 
 def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[Expression]) -> tuple[str, ...]:
@@ -425,8 +447,7 @@ class _Block:
         activity = self.pw.activity
         if activity is None:
             return (('', None, '1'),)
-        gate = self.schema.variables[activity]
-        if gate.where is None or gate.absence == 'zero':
+        if not leaves_ungated(self.schema.variables[activity]):
             return (('', None, f'({activity})'),)
         return (('', activity, f'({activity})'), (_UNGATED, f'NOT {activity}', '1'))
 
