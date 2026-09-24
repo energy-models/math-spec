@@ -105,18 +105,17 @@ def library_block(path: Path) -> str:
 
 
 def composed_block(fragments: list[Path], patches: dict[str, Path]) -> str:
-    """The mapping `merge` returns for *fragments* as YAML, then its document as composed and under each patch.
+    """The model `merge` returns for *fragments* as YAML, then its document as composed and under each patch.
 
     The composed YAML is generated rather than committed, so the page cannot
     show a composition the fragments beside it no longer make. A patch is
     refused on its own, so its tab carries the patch file and then the whole
     document of the model it is laid over.
     """
-    composed = merge({path.stem: path for path in fragments})
-    model = to_spec(composed)
+    model = merge({path.stem: path for path in fragments})
     tabs = [tab('As composed', to_markdown(model, symbols=symbols_for(model), numbered=False).strip())]
     for name, path in patches.items():
-        patched = to_spec(override(composed, {name: path}))
+        patched = override(model, {name: path})
         tabs.append(
             tab(
                 f'With {name}',
@@ -124,7 +123,9 @@ def composed_block(fragments: list[Path], patches: dict[str, Path]) -> str:
                 f'{to_markdown(patched, symbols=symbols_for(patched), numbered=False).strip()}',
             )
         )
-    dumped = yaml.safe_dump(composed, sort_keys=False, default_flow_style=None, allow_unicode=True, width=100).strip()
+    dumped = yaml.safe_dump(
+        model.to_dict(), sort_keys=False, default_flow_style=None, allow_unicode=True, width=100
+    ).strip()
     return f'```yaml\n{dumped}\n```\n\n' + '\n\n'.join(tabs)
 
 

@@ -20,12 +20,12 @@ import copy
 
 import pytest
 
-from math_spec import LanguageError, merge, override, to_markdown, to_spec
+from math_spec import LanguageError, merge, model, override, to_markdown, to_spec
 from tests.fixtures import DISPATCH_MODEL
 
 #: The coupling surface a component library agrees on: one flow per port, and
-#: one balance per bus. The two fragments below name `flow` and declare none of
-#: it, which is what makes each of them a load error on its own.
+#: one balance per bus. The two fragments below read `flow` under `given:`, so
+#: each is a model on its own as well as a piece of the composition.
 SURFACE = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'port': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
     'relations': {'port_bus': {'key': 'port', 'values': 'bus'}},
@@ -38,6 +38,7 @@ SURFACE = {
 SUPPLY = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'port': {'dtype': 'str'}, 'generator': {'dtype': 'str'}},
     'relations': {'gen_port': {'key': 'generator', 'values': 'port'}},
+    'given': {'variables': {'flow': {'dims': ['snapshot', 'port']}}},
     'parameters': {'gen_cost': {'dims': ['generator']}, 'gen_p_max': {'dims': ['generator']}},
     'variables': {'gen_p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'gen_p_max'}}},
     'constraints': {
@@ -52,6 +53,7 @@ SUPPLY = {
 DEMAND = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'port': {'dtype': 'str'}, 'demand': {'dtype': 'str'}},
     'relations': {'dem_port': {'key': 'demand', 'values': 'port'}},
+    'given': {'variables': {'flow': {'dims': ['snapshot', 'port']}}},
     'parameters': {'dem_load': {'dims': ['snapshot', 'demand']}},
     'constraints': {
         'dem_withdraws': {
@@ -64,21 +66,30 @@ DEMAND = {
 LIBRARY = {'surface': SURFACE, 'supply': SUPPLY, 'demand': DEMAND}
 
 
-def test_a_fragment_names_what_a_sibling_declares():
-    """The whole reason merging happens before validation: `supply` reads `flow` and declares none of it."""
-    with pytest.raises(LanguageError, match=r'flow'):
-        to_spec(SUPPLY)
-    spec = to_spec(merge(LIBRARY))
+def test_a_fragment_reads_what_a_sibling_declares():
+    """`supply` reads `flow` under `given:`, so it is a model on its own and a piece of the composition."""
+    assert to_markdown(SUPPLY), 'a fragment prints as math on its own'
+    spec = merge(LIBRARY)
     assert sorted(spec.variables) == ['flow', 'gen_p'], "both fragments' columns are in the one model"
+    assert not spec.given, 'the reading is spent once the fragment that builds the column is in the composition'
     assert to_markdown(spec), 'a composed library prints as math'
+
+
+def test_a_fragment_that_does_not_load_on_its_own_is_refused():
+    """A sibling's declarations must not make a broken file load: a fragment is a model before it is a piece."""
+    unread = {key: value for key, value in SUPPLY.items() if key != 'given'}
+    with pytest.raises(LanguageError, match=r"fragment 'supply' does not load on its own") as raised:
+        merge({**LIBRARY, 'supply': unread})
+    assert "'flow' not found" in str(raised.value), "the fragment's own refusal follows, so the fix is named"
 
 
 def test_the_balance_does_not_grow_when_a_component_type_is_added():
     """What the port convention buys: a component pins its own flow rather than adding a term."""
-    three = to_spec(merge(LIBRARY)).constraints['balance'].expression
+    three = merge(LIBRARY).constraints['balance'].expression
     storage = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'port': {'dtype': 'str'}, 'store': {'dtype': 'str'}},
         'relations': {'st_port': {'key': 'store', 'values': 'port'}},
+        'given': {'variables': {'flow': {'dims': ['snapshot', 'port']}}},
         'parameters': {'st_capacity': {'dims': ['store']}},
         'variables': {'st_p': {'dims': ['snapshot', 'store'], 'bounds': {'lower': 0, 'upper': 'st_capacity'}}},
         'constraints': {
@@ -88,7 +99,7 @@ def test_the_balance_does_not_grow_when_a_component_type_is_added():
             }
         },
     }
-    four = to_spec(merge({**LIBRARY, 'storage': storage})).constraints['balance'].expression
+    four = merge({**LIBRARY, 'storage': storage}).constraints['balance'].expression
     assert three == four, 'the balance is written once, whatever is plugged into it'
 
 
@@ -106,20 +117,20 @@ def test_merging_is_order_independent(fragments):
     assert merge(fragments) == merge(dict(reversed(list(fragments.items()))))
 
 
-def test_the_fragments_are_never_mutated_and_share_nothing_with_the_result():
+def test_the_fragments_are_never_mutated():
     before = copy.deepcopy(LIBRARY)
-    composed = merge(LIBRARY)
-    assert before == LIBRARY, 'a composed model is a new mapping, and the fragments are untouched'
-    assert composed['parameters']['gen_cost'] is not SUPPLY['parameters']['gen_cost'], (
-        "a declaration carried over is a copy, not the fragment's own object"
-    )
+    merge(LIBRARY)
+    assert before == LIBRARY, 'a composed model is a new model, and the fragments are untouched'
 
 
 @pytest.mark.parametrize(
     ('fragments', 'says'),
     [
         pytest.param(
-            {'supply': SUPPLY, 'demand': {**DEMAND, 'parameters': {'gen_cost': {'dims': ['demand']}}}},
+            {
+                'supply': SUPPLY,
+                'demand': {**DEMAND, 'parameters': {**DEMAND['parameters'], 'gen_cost': {'dims': ['demand']}}},
+            },
             'two rows of a dimension',
             id='one-name-declared-twice',
         ),
@@ -135,11 +146,6 @@ def test_the_fragments_are_never_mutated_and_share_nothing_with_the_result():
             {'supply': SUPPLY, 'demand': {**DEMAND, 'objective': {'sense': 'maximize', 'expression': 'sum(dem_load)'}}},
             'negate the terms',
             id='objectives-that-run-opposite-ways',
-        ),
-        pytest.param(
-            {'supply': {**SUPPLY, 'version': 0}, 'demand': {**DEMAND, 'version': 1}},
-            'One model has one version',
-            id='two-language-versions',
         ),
     ],
 )
@@ -157,7 +163,7 @@ def test_two_descriptions_of_one_dimension_agree_and_the_first_is_carried():
     first = {**SUPPLY, 'dimensions': {**SUPPLY['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'an hour'}}}
     second = {**DEMAND, 'dimensions': {**DEMAND['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'a step'}}}
     composed = merge({'supply': first, 'demand': second})
-    assert composed['dimensions']['snapshot'] == {'dtype': 'int', 'description': 'an hour'}, (
+    assert composed.dimensions['snapshot'].description == 'an hour', (
         "the claim is carried whole, under the first fragment's wording of the prose"
     )
 
@@ -166,24 +172,30 @@ def test_the_objectives_are_summed_each_term_parenthesised():
     """`a + b * k` reassociates, so an unparenthesised join composes a different objective."""
     priced = {**DEMAND, 'objective': {'sense': 'minimize', 'expression': 'sum(dem_load) * 2'}}
     composed = merge({'surface': SURFACE, 'supply': SUPPLY, 'demand': priced})
-    assert composed['objective']['expression'] == '(sum(dem_load) * 2) + (sum(gen_p * gen_cost))', (
+    assert composed.objective is not None
+    assert composed.objective.expression == '(sum(dem_load) * 2) + (sum(gen_p * gen_cost))', (
         "the terms are summed in the fragments' name order, which no argument order can change"
     )
 
 
 def test_one_fragment_s_objective_is_carried_as_it_was_written():
-    assert merge(LIBRARY)['objective']['expression'] == SUPPLY['objective']['expression']
+    objective = merge(LIBRARY).objective
+    assert objective is not None
+    assert objective.expression == SUPPLY['objective']['expression']
 
 
-def test_a_version_no_fragment_pins_is_left_out():
-    assert 'version' not in merge(LIBRARY), 'a composition claims a version only where a fragment wrote one'
-    assert merge({**LIBRARY, 'supply': {**SUPPLY, 'version': 0}})['version'] == 0
+def test_fragments_written_against_two_language_versions_are_refused(monkeypatch):
+    """This reader knows one version, so a second is stood up for the fragments to disagree about."""
+    monkeypatch.setattr(model, 'SUPPORTED_VERSIONS', (0, 1))
+    with pytest.raises(LanguageError, match=r'One model has one version') as raised:
+        merge({'supply': {**SUPPLY, 'version': 0}, 'demand': {**DEMAND, 'version': 1}})
+    assert "'supply' says 0" in str(raised.value) and "'demand' says 1" in str(raised.value), 'both are named'
 
 
 def test_the_description_belongs_to_the_composition():
     described = merge({**LIBRARY, 'supply': {**SUPPLY, 'description': 'a fleet'}}, description='a fleet against a load')
-    assert described['description'] == 'a fleet against a load'
-    assert 'description' not in merge({**LIBRARY, 'supply': {**SUPPLY, 'description': 'a fleet'}}), (
+    assert described.description == 'a fleet against a load'
+    assert merge({**LIBRARY, 'supply': {**SUPPLY, 'description': 'a fleet'}}).description is None, (
         "no fragment's own description is carried"
     )
 
@@ -197,14 +209,14 @@ def test_merge_composes_the_model_and_override_configures_the_run():
 def test_every_section_a_fragment_owns_reaches_the_composition():
     """`merge` listed its sections by hand, so `assumptions:` fell out of every composed model."""
     assumed = {**DEMAND, 'assumptions': {'dem_load_positive': 'dem_load >= 0'}}
-    composed = to_spec(merge({**LIBRARY, 'demand': assumed}))
+    composed = merge({**LIBRARY, 'demand': assumed})
     assert sorted(composed.assumptions) == ['dem_load_positive'], "the fragment's assumption is in the one model"
 
 
 def test_a_fragment_is_a_path_as_readily_as_a_mapping(tmp_path):
     surface = tmp_path / 'surface.yaml'
     surface.write_text(to_spec(SURFACE).to_yaml(), encoding='utf-8')
-    assert to_spec(merge({**LIBRARY, 'surface': str(surface)})) == to_spec(merge(LIBRARY))
+    assert merge({**LIBRARY, 'surface': str(surface)}) == merge(LIBRARY)
 
 
 #: A patch that adds what it needs and a constraint that reads it, so the
@@ -229,11 +241,10 @@ FEASIBILITY = {k: v for k, v in DISPATCH_MODEL.items() if k != 'objective'}
 
 def test_a_patch_names_only_the_field_it_changes():
     laid = override(DISPATCH_MODEL, {'operate': {'variables': {'p': {'where': 'p_max > 0'}}}})
-    assert laid['variables']['p'] == {
-        'dims': ['snapshot', 'generator'],
-        'bounds': {'lower': 0, 'upper': 'p_max'},
-        'where': 'p_max > 0',
-    }, 'the fields the patch does not name are the ones the base declared'
+    p = laid.variables['p']
+    assert (p.dims, p.bounds.lower, p.bounds.upper, p.where) == (['snapshot', 'generator'], 0, 'p_max', 'p_max > 0'), (
+        'the fields the patch does not name are the ones the base declared'
+    )
 
 
 def test_the_base_and_the_patches_are_never_mutated():
@@ -245,7 +256,7 @@ def test_the_base_and_the_patches_are_never_mutated():
 
 
 def test_a_whole_declaration_is_created_and_the_model_loads():
-    spec = to_spec(override(DISPATCH_MODEL, {'carbon': CARBON}))
+    spec = override(DISPATCH_MODEL, {'carbon': CARBON})
     assert 'co2_cap' in spec.constraints
     assert to_markdown(spec), 'a composed model is one a reviewer can read as math'
 
@@ -279,8 +290,7 @@ def test_a_partial_entry_that_lands_on_nothing_is_refused(patch, says):
 
 def test_a_null_removes_a_declaration_and_the_model_still_loads():
     laid = override(DISPATCH_MODEL, {'unconstrained': {'constraints': {'balance': None}}})
-    assert laid['constraints'] == {}, 'the declaration is gone rather than emptied'
-    assert to_spec(laid).constraints == {}
+    assert laid.constraints == {}, 'the declaration is gone rather than emptied'
 
 
 def test_a_stale_removal_is_refused():
@@ -296,32 +306,18 @@ def test_a_null_inside_a_declaration_is_a_value_rather_than_a_removal():
     """
     masked = override(DISPATCH_MODEL, {'masked': {'variables': {'p': {'where': 'p_max > 0'}}}})
     laid = override(masked, {'unmasked': {'variables': {'p': {'where': None}}}})
-    assert 'where' in laid['variables']['p'], 'the field is set to none, and is not deleted from the declaration'
-    assert laid['variables']['p']['where'] is None
-    assert to_spec(laid).variables['p'].where is None
+    assert laid.variables['p'].where is None, 'the field is set to none, and the rest of the declaration stays'
+    assert laid.variables['p'].bounds.upper == 'p_max'
 
 
 def test_a_null_two_levels_down_is_a_value_too():
-    """The removal marker reaches no deeper than the declaration, however deep the `null` sits."""
-    laid = override(DISPATCH_MODEL, {'unbounded': {'variables': {'p': {'bounds': {'upper': None}}}}})
-    assert laid['variables']['p']['bounds'] == {'lower': 0, 'upper': None}, (
-        'the bound is set to none beside the one the base keeps, and neither is deleted'
-    )
+    """The removal marker reaches no deeper than the declaration, however deep the `null` sits.
 
-
-def test_the_result_shares_no_declaration_with_the_base_or_the_patch():
-    """Both sides are copied, so editing a composed model cannot reach back into either.
-
-    A declaration no patch names is the case worth pinning: it is carried over
-    untouched, which is exactly where a reference would be passed on instead.
+    Removing `upper` would leave the default, an open bound, and the model would
+    load. As a value, `null` is one the schema refuses for a bound.
     """
-    laid = override(DISPATCH_MODEL, {'carbon': CARBON})
-    assert laid['parameters']['load'] is not DISPATCH_MODEL['parameters']['load'], (
-        "a declaration the patches leave alone is a copy, not the base's own object"
-    )
-    assert laid['parameters']['co2'] is not CARBON['parameters']['co2'], (
-        "a declaration a patch adds is a copy, not the patch mapping's own object"
-    )
+    with pytest.raises(LanguageError, match=r'variables\.p\.bounds\.upper'):
+        override(DISPATCH_MODEL, {'unbounded': {'variables': {'p': {'bounds': {'upper': None}}}}})
 
 
 @pytest.mark.parametrize(
@@ -370,7 +366,7 @@ def test_layering_is_written_out_as_nesting():
     """The second call lays on the first's result, which is where an order is allowed to matter."""
     once = override(DISPATCH_MODEL, {'pathway': {'variables': {'p': {'where': 'p_max > 0'}}}})
     twice = override(once, {'project': {'variables': {'p': {'where': 'cost > 0'}}}})
-    assert twice['variables']['p']['where'] == 'cost > 0'
+    assert twice.variables['p'].where == 'cost > 0'
 
 
 def test_a_patch_adds_a_dimension_and_may_restate_one_it_shares():
@@ -378,7 +374,7 @@ def test_a_patch_adds_a_dimension_and_may_restate_one_it_shares():
         DISPATCH_MODEL,
         {'periods': {'dimensions': {'snapshot': {'dtype': 'int'}, 'investment_period': {'dtype': 'int'}}}},
     )
-    assert sorted(laid['dimensions']) == ['generator', 'investment_period', 'snapshot'], (
+    assert sorted(laid.dimensions) == ['generator', 'investment_period', 'snapshot'], (
         'the dimension the patch adds joins the two the base declares, and the restated one is not doubled'
     )
 
@@ -427,20 +423,20 @@ def test_a_whole_section_set_to_null_is_refused(patch):
 
 def test_the_objective_is_laid_over_field_by_field():
     laid = override(DISPATCH_MODEL, {'maximised': {'objective': {'sense': 'maximize'}}})
-    assert laid['objective'] == {'sense': 'maximize', 'expression': 'sum(p * cost)'}, (
+    assert laid.objective is not None
+    assert (laid.objective.sense, laid.objective.expression) == ('maximize', 'sum(p * cost)'), (
         'the sense the patch names changes, and the expression the base wrote stays'
     )
 
 
 def test_the_objective_can_be_removed_and_the_model_is_a_feasibility_problem():
     laid = override(DISPATCH_MODEL, {'feasible': {'objective': None}})
-    assert 'objective' not in laid
-    assert to_spec(laid).objective is None
+    assert laid.objective is None
 
 
 def test_a_whole_objective_is_created_where_the_base_has_none():
     laid = override(FEASIBILITY, {'priced': {'objective': DISPATCH_MODEL['objective']}})
-    assert to_spec(laid).objective is not None
+    assert laid.objective is not None
 
 
 @pytest.mark.parametrize(
@@ -461,11 +457,9 @@ def test_an_objective_a_base_does_not_declare_is_refused(patch, says):
 def test_a_patch_over_one_kind_of_given_leaves_the_other_alone():
     """`given:` is laid over a kind at a time, so patching the columns cannot drop the row families."""
     laid = override(GIVEN_BASE, {'wider': {'given': {'variables': {'p': {'domain': 'binary'}}}}})
-    assert laid['given']['variables']['p'] == {'dims': ['g'], 'domain': 'binary'}, (
-        'the given column is edited field by field like any declaration'
-    )
-    assert sorted(laid['given']['constraints']) == ['cap'], 'the kind the patch did not name is still there'
-    assert to_spec(laid).given.variables['p'].domain == 'binary'
+    p = laid.given.variables['p']
+    assert (p.dims, p.domain) == (['g'], 'binary'), 'the given column is edited field by field like any declaration'
+    assert sorted(laid.given.constraints) == ['cap'], 'the kind the patch did not name is still there'
 
 
 @pytest.mark.parametrize(
@@ -478,7 +472,7 @@ def test_a_patch_over_one_kind_of_given_leaves_the_other_alone():
 def test_a_whole_given_entry_is_created_and_the_model_loads(base, reads):
     """A patch adds a column to read, whether or not the base opened the block."""
     laid = override(base, {'solved': {'given': {'variables': {'q': {'dims': ['g']}}}}})
-    assert sorted(to_spec(laid).given.variables) == reads, 'the created column joins whatever the base read'
+    assert sorted(laid.given.variables) == reads, 'the created column joins whatever the base read'
 
 
 def test_a_patch_is_a_path_as_readily_as_a_mapping(tmp_path):
@@ -486,9 +480,16 @@ def test_a_patch_is_a_path_as_readily_as_a_mapping(tmp_path):
     patch = tmp_path / 'carbon.yaml'
     patch.write_text('parameters:\n  co2: {dims: [generator]}\n', encoding='utf-8')
     laid = override(DISPATCH_MODEL, {'carbon': str(patch)})
-    assert 'co2' in laid['parameters']
+    assert 'co2' in laid.parameters
+
+
+def test_a_base_that_does_not_load_is_refused_though_a_patch_would_mend_it():
+    """A base is a model a framework ships, so one that does not load is refused before a patch reaches it."""
+    unpriced = {**DISPATCH_MODEL, 'parameters': {k: v for k, v in DISPATCH_MODEL['parameters'].items() if k != 'cost'}}
+    with pytest.raises(LanguageError, match=r"'cost' not found"):
+        override(unpriced, {'priced': {'parameters': {'cost': {'dims': ['generator']}}}})
 
 
 def test_a_loaded_spec_is_a_base_as_readily_as_a_mapping():
     laid = override(to_spec(DISPATCH_MODEL), {'carbon': CARBON})
-    assert 'co2_cap' in to_spec(laid).constraints
+    assert 'co2_cap' in laid.constraints

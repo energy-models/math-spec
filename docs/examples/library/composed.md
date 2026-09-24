@@ -12,10 +12,10 @@ What [the surface](surface.md), [generators](generator.md) and
 import math_spec as ms
 
 model = ms.merge({'surface': 'surface.yaml', 'generator': 'generator.yaml', 'load': 'load.yaml'})
-spec = ms.to_spec(model)
 ```
 
-The file below is `model`, the mapping `merge` returns, written as YAML. No
+The file below is `model`, the model `merge` returns, written as YAML with
+every default spelled out. No
 fragment holds it, and nothing in the repository commits it. `Port_p` is one
 declaration here. Each component fragment read it under `given:`, and merging
 folded those readings into the surface's own declaration.
@@ -30,7 +30,7 @@ above. **With commitment** lays `variants/commitment.yaml` over it with
 generator a committed unit:
 
 ```python
-spec = ms.to_spec(ms.override(model, {'commitment': 'variants/commitment.yaml'}))
+committed = ms.override(model, {'commitment': 'variants/commitment.yaml'})
 ```
 
 A patch is refused on its own, since it edits declarations it does not
@@ -39,6 +39,7 @@ tab prints the patch beside that math.
 
 <!-- gallery:begin -->
 ```yaml
+version: 0
 dimensions:
   snapshot: {dtype: datetime, description: dispatch periods}
   bus: {dtype: str, description: network nodes}
@@ -52,36 +53,43 @@ relations:
 parameters:
   Generator_p_nom:
     dims: [generator]
+    dtype: float
     description: nominal power
   Generator_marginal_cost:
     dims: [generator]
+    dtype: float
     description: cost of one unit of output
   Load_p_set:
     dims: [snapshot, load]
+    dtype: float
     description: '`Load-p_set` — what a load takes in a snapshot'
 variables:
   Port_p:
     dims: [snapshot, port]
+    domain: continuous
+    absence: undefined
     description: what a port puts into its bus in a snapshot, negative for a withdrawal
   Generator_p:
     dims: [snapshot, generator]
-    bounds: {lower: 0, upper: Generator_p_nom}
+    bounds: {lower: 0.0, upper: Generator_p_nom}
+    domain: continuous
+    absence: undefined
     description: '`Generator-p` — what a generator produces in a snapshot'
 constraints:
   Bus_nodal_balance:
-    description: '`Bus-nodal_balance` — what the ports on a bus put in nets to nothing'
     dims: [snapshot, bus]
     expression: sum(Port_p, by=Port_bus, over=port, into=bus) == 0
+    description: '`Bus-nodal_balance` — what the ports on a bus put in nets to nothing'
   Generator_injection:
-    description: 'what a generator produces is what its port injects. No PyPSA row stands for this: PyPSA
-      writes the generator into the balance instead'
     dims: [snapshot, generator]
     expression: at(Port_p, by=Generator_port, over=port, into=generator) == Generator_p
+    description: 'what a generator produces is what its port injects. No PyPSA row stands for this: PyPSA
+      writes the generator into the balance instead'
   Load_withdrawal:
-    description: 'what a load takes is what its port withdraws. No PyPSA row stands for this: PyPSA writes
-      the load into the balance instead'
     dims: [snapshot, load]
     expression: at(Port_p, by=Load_port, over=port, into=load) == -Load_p_set
+    description: 'what a load takes is what its port withdraws. No PyPSA row stands for this: PyPSA writes
+      the load into the balance instead'
 objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_cost)}
 ```
 

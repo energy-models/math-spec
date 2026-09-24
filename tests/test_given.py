@@ -140,9 +140,8 @@ def test_an_expression_reads_a_given_column_as_it_reads_any_other():
 
 
 def test_merging_folds_the_given_declaration_into_the_one_that_introduces_it():
-    composed = merge({'surface': SURFACE, 'supply': SUPPLY})
-    assert 'given' not in composed, 'the expectation is spent once the column is in the composition'
-    spec = to_spec(composed)
+    spec = merge({'surface': SURFACE, 'supply': SUPPLY})
+    assert not spec.given, 'the expectation is spent once the column is in the composition'
     assert sorted(spec.variables) == ['flow', 'gen_p']
     assert spec.variables['flow'].bounds.lower == -1000, "the introducer's declaration is the one that survives"
     assert sorted(to_spec(spec).program.variables) == ['flow', 'gen_p'], 'a composed library lowers like any model'
@@ -159,18 +158,28 @@ def test_merging_folds_the_given_declaration_into_the_one_that_introduces_it():
 def test_a_given_declaration_may_say_less_than_the_introducer(reads):
     """Bounds are the introducer's, so the reader states the frame and stops."""
     composed = merge({'surface': SURFACE, 'supply': {**SUPPLY, 'given': {'variables': {'flow': reads}}}})
-    assert to_spec(composed).variables['flow'].bounds.upper == 1000
+    assert composed.variables['flow'].bounds.upper == 1000
+
+
+#: A fragment that reads `flow` over `port` alone, and loads so: it only
+#: declares what it reads.
+PORTS_ONLY = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'port': {'dtype': 'str'}},
+    'given': {'variables': {'flow': {'dims': ['port']}}},
+}
 
 
 @pytest.mark.parametrize(
-    'reads',
+    'misread',
     [
-        pytest.param({'dims': ['snapshot', 'generator']}, id='another-frame'),
-        pytest.param({'dims': ['snapshot', 'port'], 'domain': 'binary'}, id='another-domain'),
+        pytest.param(PORTS_ONLY, id='another-frame'),
+        pytest.param(
+            {**SUPPLY, 'given': {'variables': {'flow': {'dims': ['snapshot', 'port'], 'domain': 'binary'}}}},
+            id='another-domain',
+        ),
     ],
 )
-def test_a_given_declaration_that_disagrees_with_the_introducer_is_refused(reads):
-    misread = {**SUPPLY, 'given': {'variables': {'flow': reads}}}
+def test_a_given_declaration_that_disagrees_with_the_introducer_is_refused(misread):
     with pytest.raises(LanguageError, match=r'says the same as the declaration it is folded into, or less') as raised:
         merge({'surface': SURFACE, 'supply': misread})
     message = str(raised.value)
@@ -178,42 +187,36 @@ def test_a_given_declaration_that_disagrees_with_the_introducer_is_refused(reads
 
 
 def test_two_fragments_must_read_one_column_the_same_way():
-    other = {
-        'dimensions': {'snapshot': {'dtype': 'int'}, 'port': {'dtype': 'str'}},
-        'given': {'variables': {'flow': {'dims': ['port']}}},
-    }
     with pytest.raises(LanguageError, match=r'say different things about the given variable'):
-        merge({'supply': SUPPLY, 'other': other})
+        merge({'supply': SUPPLY, 'other': PORTS_ONLY})
 
 
 @pytest.mark.parametrize(
-    ('fragment', 'says'),
+    ('given', 'says'),
     [
         pytest.param(
-            {**SUPPLY, 'given': {'variables': {'gen_p': {'dims': ['snapshot', 'generator']}}}},
-            "the variable 'gen_p'",
+            {'variables': {**SUPPLY['given']['variables'], 'gen_p': {'dims': ['snapshot', 'generator']}}},
+            "Given variable 'gen_p' collides with the variable",
             id='a-column-it-builds',
         ),
         pytest.param(
-            {**SUPPLY, 'given': {'constraints': {'gen_injects': {'dims': ['snapshot', 'generator']}}}},
-            "the constraint 'gen_injects'",
+            {**SUPPLY['given'], 'constraints': {'gen_injects': {'dims': ['snapshot', 'generator']}}},
+            "Given constraint 'gen_injects' is also declared under 'constraints:'",
             id='a-row-family-it-builds',
         ),
     ],
 )
-def test_a_fragment_that_reads_what_it_builds_is_refused(fragment, says):
-    """`to_spec` refuses such a file, and folding it silently would put it in a model that loads."""
-    with pytest.raises(LanguageError) as raised:
-        merge({'surface': SURFACE, 'supply': fragment})
-    message = str(raised.value)
-    assert says in message and "'supply'" in message, 'the refusal names the fragment and the name it reads twice'
-    assert 'drop the given' in message, 'the refusal names the rewrite'
+def test_a_fragment_that_reads_what_it_builds_is_refused(given, says):
+    """`to_spec` refuses such a file, so a composition refuses it too rather than folding the reading away."""
+    with pytest.raises(LanguageError, match=r"fragment 'supply' does not load on its own") as raised:
+        merge({'surface': SURFACE, 'supply': {**SUPPLY, 'given': given}})
+    assert says in str(raised.value), "the fragment's own refusal names the name it reads twice"
 
 
 def test_a_given_declaration_nothing_introduces_stays_for_a_consumer_to_bind():
     composed = merge({'supply': SUPPLY, 'other': {'dimensions': {'snapshot': {'dtype': 'int'}}}})
-    assert composed['given'] == SUPPLY['given'], 'a name no fragment introduces is still read, and is carried'
-    assert sorted(to_spec(composed).program.given.variables) == ['flow']
+    assert composed.given.variables['flow'].dims == ['snapshot', 'port'], 'a name nothing introduces is still read'
+    assert sorted(composed.program.given.variables) == ['flow']
 
 
 #: A layer over a model this language never sees: it reads a column and the
@@ -290,8 +293,8 @@ def test_merging_folds_a_row_family_into_the_file_that_builds_it():
         'constraints': {'balance': {'dims': ['snapshot', 'bus'], 'expression': 'p >= 0'}},
     }
     composed = merge({'builder': builder, 'layer': LAYER})
-    assert 'given' not in composed
-    program = to_spec(composed).program
+    assert not composed.given
+    program = composed.program
     assert sorted(program.constraints) == ['balance', 'cap']
     assert not program.given.constraints, 'nothing is left for a consumer to bind'
 

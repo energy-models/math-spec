@@ -8,9 +8,10 @@ SPDX-License-Identifier: CC-BY-4.0
 Build one model out of files that each say part of it. `merge` composes
 **fragments**: the files of a component library, each owning part of the math.
 `override` lays **patches** over a **base**: the model a framework ships, and
-the change a project makes to it. Each hands back one mapping, which
-[`to_spec`](../reference/language/errors.md#what-to_spec-checks) loads like any
-file, and the two compose as `override(merge({…}), {…})`.
+the change a project makes to it. Each loads every fragment and the base with
+[`to_spec`](../reference/language/errors.md#what-to_spec-checks) before it
+composes them, and hands back the composed model loaded the same way. The two
+compose as `override(merge({…}), {…})`.
 
 ## A library of components
 
@@ -91,11 +92,10 @@ file, and the two compose as `override(merge({…}), {…})`.
    import math_spec as ms
 
    model = ms.merge({'surface': 'surface.yaml', 'generator': 'generator.yaml', 'load': 'load.yaml'})
-   spec = ms.to_spec(model)
    ```
 
    `merge` folds each given declaration into the declaration that introduces
-   it, so `spec` declares `Port_p` once and carries no `given:`. The objectives
+   it, so `model` declares `Port_p` once and carries no `given:`. The objectives
    of the fragments are summed, each term in parentheses, in the order the
    fragment names sort in.
 
@@ -107,16 +107,16 @@ file, and the two compose as `override(merge({…}), {…})`.
 
 ## What a fragment may share
 
-| The entry                                                   | What happens                                                                              |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| a dimension or a relation                                   | every fragment may declare it, and the ones that do say the same thing about it           |
-| a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried              |
-| any other declaration                                       | one fragment declares it, and a second is refused                                         |
-| an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it          |
-| a given entry no fragment introduces                        | it stays under `given:` for a consumer to bind                                            |
-| `objective`                                                 | the terms are summed in fragment-name order, each in parentheses, and the senses agree    |
-| `version`                                                   | the fragments that write one say the same one, and a composition nothing pins writes none |
-| `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=`  |
+| The entry                                                   | What happens                                                                             |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| a dimension or a relation                                   | every fragment may declare it, and the ones that do say the same thing about it          |
+| a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried             |
+| any other declaration                                       | one fragment declares it, and a second is refused                                        |
+| an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it         |
+| a given entry no fragment introduces                        | it stays under `given:` for a consumer to bind                                           |
+| `objective`                                                 | the terms are summed in fragment-name order, each in parentheses, and the senses agree   |
+| `version`                                                   | every fragment is written against the same one                                           |
+| `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=` |
 
 ## A name two fragments declare
 
@@ -131,30 +131,35 @@ fragments 'gas' and 'coal' both declare the parameter 'Generator_p_nom'. Two of 
 
 What a fragment states about a column it reads has to agree with the fragment
 that introduces the column. The reader may say less, such as the frame with no
-`domain`, and may not say something else:
+`domain`, and may not say something else. Here the generator reads `Port_p` as
+binary:
 
 ```text
-fragment 'generator' reads the given variable 'Port_p' as {'dims': ['snapshot', 'generator']}, where 'surface' introduces it as {'dims': ['snapshot', 'port'], 'description': 'what a port puts into its bus'}. A given declaration says the same as the declaration it is folded into, or less: restate the frame as the introducer declares it, or leave the field out.
+fragment 'generator' reads the given variable 'Port_p' as {'dims': ['snapshot', 'port'], 'domain': 'binary'}, where 'surface' introduces it as {'dims': ['snapshot', 'port'], 'domain': 'continuous', 'absence': 'undefined', 'description': 'what a port puts into its bus'}. A given declaration says the same as the declaration it is folded into, or less: restate the frame as the introducer declares it, or leave the field out.
 ```
 
 Two fragments that both only read a column have to read it the same way, and
 a difference is refused as it is for a dimension.
 
-## A name one fragment both builds and reads
+## A fragment that does not load on its own
 
-A fragment reads what another file builds. A fragment that declares a name and
-reads it as well is a file `to_spec` refuses on its own. So `merge` refuses it
-too, rather than folding the reading away:
+A fragment is a whole model, so `merge` loads each one before it composes
+them. A fragment `to_spec` refuses is refused under its own name, with the
+refusal `to_spec` gives. A sibling cannot make it load. Here the generator
+declares `Generator_p` and reads it under `given:` as well:
 
 ```text
-fragment 'generator' declares the variable 'Generator_p' and reads it under 'given: variables:' as well. A given declaration is what one file expects of another, and this fragment builds the name itself: drop the given entry, or move the declaration to the fragment this one reads it from.
+fragment 'generator' does not load on its own. A fragment is a whole model: it declares what it builds, and reads what a sibling builds under 'given:'.
+Given variable 'Generator_p' collides with the variable of the same name. Names share one flat namespace — rename one of them.
 ```
 
 ## A base and its patches
 
 1. **Write the base as a model**, and each patch as the change it makes. A
    patch names only the fields it changes. A declaration a patch does not name
-   stays as the base wrote it.
+   stays as the base wrote it. The base loads on its own, and `override` loads
+   it first. A patch is not a model, so it is laid over as written, and the
+   patched model is loaded after.
 
    ```yaml title="base.yaml"
    dimensions:
@@ -197,10 +202,9 @@ fragment 'generator' declares the variable 'Generator_p' and reads it under 'giv
    import math_spec as ms
 
    model = ms.override('base.yaml', {'carbon': 'carbon.yaml', 'operate': 'operate.yaml'})
-   spec = ms.to_spec(model)
    ```
 
-   `spec` declares `emission_cap` beside `power_balance`, and `dispatch` carries
+   `model` declares `emission_cap` beside `power_balance`, and `dispatch` carries
    the mask `capacity > 0`.
 
 3. **Remove a declaration with `null`.** A patch that does not mention a

@@ -165,10 +165,10 @@ column under
 [`given: variables:`](../reference/language/declarations.md#given). So it
 loads on its own, and prints as math on its own.
 
-Composition happens before `to_spec`, and two verbs do it. `merge` composes
-fragments as peers: a name two of them declare is refused, and a given
+Two verbs compose a model, and each hands back a model `to_spec` loaded.
+`merge` loads each fragment, then composes them as peers: a name two of them declare is refused, and a given
 declaration is folded into the fragment that introduces the name. `override`
-lays a patch over a base, one field at a time. A project that extends a model
+loads the base and lays a patch over it, one field at a time. A project that extends a model
 it does not own writes a patch instead of a copy. It refuses a patch
 that lands on nothing, two patches that write one field, and a dimension or a
 relation redeclared under the math. The recipe for both is in

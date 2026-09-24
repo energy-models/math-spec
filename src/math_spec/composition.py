@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Several files into one model, before any of them is validated.
+"""Several files into one model, each checked as a model where it is one.
 
 Two verbs, and they answer different questions. :func:`merge` composes
 **peers**: fragments that each own part of the math, where a name two of them
@@ -33,10 +33,12 @@ at a time::
     constraints:
       ramp: {dims: [snapshot, generator, investment_period]}
 
-A patch is not a :class:`~math_spec.model.Spec`. It is read before validation,
-so it may carry ``null`` where a declaration would go and may name what only
-its base declares. Nothing here resolves a name or checks a dim: the laid
-mapping goes through :func:`~math_spec.validation.to_spec` like any other file.
+A fragment is a :class:`~math_spec.model.Spec` of its own, and a base is one
+too: each goes through :func:`~math_spec.validation.to_spec` before anything is
+composed, so a composed model never hides a file that does not load alone. A
+patch is not one. It names only what it changes and may carry ``null`` where a
+declaration would go, so it is laid over as written, and the result goes
+through :func:`~math_spec.validation.to_spec` like any other file.
 
 What a patch may say, and what is refused:
 
@@ -69,6 +71,7 @@ from pydantic import BaseModel, ValidationError
 from math_spec._yaml import read_model
 from math_spec.errors import LanguageError, did_you_mean, schema_error
 from math_spec.model import GivenBlock, Spec
+from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -104,9 +107,7 @@ IRREGULAR = {
 }
 
 
-def merge(
-    fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], description: str | None = None
-) -> dict[str, object]:
+def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], description: str | None = None) -> Spec:
     """*fragments* composed as peers, each owning the math it declares.
 
     Args:
@@ -118,24 +119,20 @@ def merge(
             ``description`` is about the fragment, and is not carried.
 
     Returns:
-        One mapping, ready for :func:`~math_spec.validation.to_spec`. Nothing
-        in it has been resolved, name-checked or lowered, and it shares no
-        object with any fragment. A given declaration a sibling introduces is
+        The composed model, loaded. A given declaration a sibling introduces is
         folded away; one nothing introduces stays under ``given:``.
 
     Raises:
-        LanguageError: Two fragments declare one name; two fragments say
-            different things about one dimension, relation or given
-            declaration; a fragment reads a name as something other than what
-            its sibling introduces; a fragment declares a name and reads it as
-            well; two fragments pin different language versions; or their
-            objectives run opposite ways.
+        LanguageError: A fragment does not load on its own; two fragments
+            declare one name; two fragments say different things about one
+            dimension, relation or given declaration; a fragment reads a name as
+            something other than what its sibling introduces; two fragments are
+            written against different language versions; their objectives run
+            opposite ways; or the composed model does not load.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    read = {name: deepcopy(_declarations(fragment)) for name, fragment in fragments.items()}
-    merged: dict[str, object] = {}
-    if (version := _one_version(read)) is not None:
-        merged['version'] = version
+    read = {name: _fragment(name, fragment).to_dict() for name, fragment in fragments.items()}
+    merged: dict[str, object] = {'version': _one_version(read)}
     if description is not None:
         merged['description'] = description
     for section in SHARED_SECTIONS:
@@ -148,24 +145,31 @@ def merge(
         merged['given'] = given
     if (objective := _summed_objective(read)) is not None:
         merged['objective'] = objective
-    return merged
+    return to_spec(merged)
 
 
-def _one_version(read: Mapping[str, dict[str, object]]) -> int | None:
-    """The language version the fragments are written against, or ``None`` where none of them writes one.
+def _fragment(name: str, source: str | Path | Mapping[str, object] | Spec) -> Spec:
+    """One fragment loaded as the model it is on its own, refused under its own name where it is not one."""
+    try:
+        return to_spec(source)
+    except LanguageError as e:
+        msg = (
+            f"fragment '{name}' does not load on its own. A fragment is a whole model: it declares "
+            f"what it builds, and reads what a sibling builds under 'given:'.\n{e}"
+        )
+        raise type(e)(msg) from None
 
-    A fragment that writes none is version 0, which is the schema's default, so
-    a composition of such fragments claims no version rather than writing the
-    default out as though a file had asked for it.
-    """
-    declared = {name: sections['version'] for name, sections in read.items() if 'version' in sections}
+
+def _one_version(read: Mapping[str, dict[str, object]]) -> int:
+    """The language version every fragment is written against."""
+    declared = {name: cast('int', sections['version']) for name, sections in read.items()}
     if len(set(declared.values())) > 1:
         spelled = ', '.join(f"'{name}' says {version}" for name, version in sorted(declared.items()))
         raise LanguageError(
             f'the fragments are written against different language versions: {spelled}. One model has '
-            f'one version, so write the same one in each, or leave it out of the fragments that do not pin it.'
+            f'one version, so write every fragment against the same one.'
         )
-    return cast('int | None', next(iter(declared.values()), None))
+    return next(iter(declared.values()), 0)
 
 
 def _author_of(read: Mapping[str, dict[str, object]], section: str, key: str) -> str:
@@ -223,14 +227,12 @@ def _folded(read: Mapping[str, dict[str, object]], merged: Mapping[str, object])
     then dropped, so the composed model declares the name once.
     """
     asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
-    _reads_only_what_it_does_not_build(read, asked)
     left: dict[str, object] = {}
     for kind, label in GIVEN_KINDS.items():
-        cls = _entry_class(GivenBlock, kind)
         introduced = _mapping(merged.get(kind))
         agreed = _agreed(asked, kind, label)
         for key, block in agreed.items():
-            if key in introduced and not _says_less(cls, block, introduced[key]):
+            if key in introduced and not _says_less(block, introduced[key]):
                 raise LanguageError(
                     f"fragment '{_author_of(asked, kind, key)}' reads the {label} {key!r} as {block!r}, where "
                     f"'{_author_of(read, kind, key)}' introduces it as {introduced[key]!r}. A given declaration "
@@ -242,35 +244,13 @@ def _folded(read: Mapping[str, dict[str, object]], merged: Mapping[str, object])
     return left
 
 
-def _reads_only_what_it_does_not_build(
-    read: Mapping[str, dict[str, object]], asked: Mapping[str, dict[str, object]]
-) -> None:
-    """Refuse a fragment that declares a name and reads it under ``given:`` too.
+def _says_less(reader: object, introducer: object) -> bool:
+    """Whether every claim *reader* makes is one *introducer* makes too.
 
-    :func:`~math_spec.validation.to_spec` refuses such a file, so folding the
-    reading away silently would put a fragment that loads nowhere on its own
-    into a composition that loads.
+    Both come from a loaded model's ``to_dict``, which writes every default
+    out, so a field one of them left to its default is still a claim here.
     """
-    for name, given in asked.items():
-        for kind in GIVEN_KINDS:
-            built = _mapping(read[name].get(kind))
-            for key in _mapping(given.get(kind)):
-                if key in built:
-                    raise LanguageError(
-                        f"fragment '{name}' declares the {_singular(kind)} {key!r} and reads it under "
-                        f"'given: {kind}:' as well. A given declaration is what one file expects of another, "
-                        f'and this fragment builds the name itself: drop the given entry, or move the '
-                        f'declaration to the fragment this one reads it from.'
-                    )
-
-
-def _says_less(cls: type[BaseModel], reader: object, introducer: object) -> bool:
-    """Whether every claim *reader* makes is one *introducer* makes too, a field left to its default counting as said."""
-    fields = cls.model_fields
-    return all(
-        _mapping(introducer).get(key, fields[key].default if key in fields else None) == value
-        for key, value in _mapping(_claims(reader)).items()
-    )
+    return all(_mapping(introducer).get(key) == value for key, value in _mapping(_claims(reader)).items())
 
 
 def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object] | None:
@@ -300,7 +280,7 @@ def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object
 def override(
     base: str | Path | Mapping[str, object] | Spec,
     patches: Mapping[str, str | Path | Mapping[str, object] | Spec],
-) -> dict[str, object]:
+) -> Spec:
     """*base* with each patch laid over it, and nothing laid over another patch.
 
     Args:
@@ -311,12 +291,11 @@ def override(
             order they are given in cannot change the result.
 
     Returns:
-        One mapping, ready for :func:`~math_spec.validation.to_spec`. Nothing
-        in it has been resolved, name-checked or lowered, and it shares no
-        object with *base* or any patch.
+        The patched model, loaded.
 
     Raises:
-        LanguageError: A patch edits or removes a declaration its base does not
+        LanguageError: The base does not load; the patched model does not
+            load; a patch edits or removes a declaration its base does not
             declare; a patch creates one that is not whole; a patch redeclares
             or removes a dimension or a relation; a patch sets a whole section
             to ``null``; or two patches write one field.
@@ -325,18 +304,17 @@ def override(
     read = {name: _declarations(patch) for name, patch in patches.items()}
     _disjoint(read)
 
-    result = deepcopy(_declarations(base))
+    result = to_spec(base).to_dict()
     for name, patch in read.items():
         result = _lay_over(result, deepcopy(patch), name)
-    return result
+    return to_spec(result)
 
 
 def _declarations(source: str | Path | Mapping[str, object] | Spec) -> dict[str, object]:
-    """A fragment, a base or a patch as the mapping it declares, whatever shape it arrived in.
+    """A patch as the mapping it declares, whatever shape it arrived in.
 
     Deliberately not :func:`~math_spec.validation.to_spec`: a patch carrying a
-    ``null`` or naming only the field it changes is not a model, and validating
-    it here would refuse the files this module exists to read.
+    ``null`` or naming only the field it changes is not a model.
     """
     if isinstance(source, Spec):
         return source.to_dict()

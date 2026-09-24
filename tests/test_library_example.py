@@ -40,7 +40,7 @@ def test_a_component_file_reads_the_surface_and_introduces_no_flow(name):
 
 
 def test_the_library_composes_into_one_model():
-    spec = to_spec(merge(FRAGMENTS))
+    spec = merge(FRAGMENTS)
     assert sorted(spec.variables) == ['Generator_p', 'Port_p'], 'the composition declares each column once'
     assert sorted(spec.constraints) == ['Bus_nodal_balance', 'Generator_injection', 'Load_withdrawal'], (
         'the composition carries every row family of every fragment, and no other'
@@ -59,7 +59,7 @@ def test_the_library_composes_into_one_model():
     ],
 )
 def test_the_balance_is_written_once_however_many_fragments_are_merged(names):
-    merged = to_spec(merge({name: FRAGMENTS[name] for name in names}))
+    merged = merge({name: FRAGMENTS[name] for name in names})
     surface = to_spec(FRAGMENTS['surface'])
     assert merged.constraints['Bus_nodal_balance'] == surface.constraints['Bus_nodal_balance'], (
         'a component file pins the flow at its own port, so merging leaves the balance as the surface wrote it'
@@ -98,7 +98,7 @@ def test_the_variant_needs_the_fragment_it_patches():
     """Picking commitment without the generator is a patch that lands on nothing, and it is refused at load."""
     without_generator = merge({name: FRAGMENTS[name] for name in ('surface', 'load')})
     with pytest.raises(LanguageError, match="edits the variable 'Generator_p', which its base does not declare"):
-        to_spec(override(without_generator, {'commitment': PATCH}))
+        override(without_generator, {'commitment': PATCH})
 
 
 def test_every_variant_in_the_library_is_typeset_on_the_composed_page():
