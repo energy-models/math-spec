@@ -21,9 +21,7 @@ machine and in CI.
    ```
 
    Advice prints on stdout and exits with status 0. A model the language
-   accepts with nothing to advise prints nothing. A `piecewise:` or `sos:`
-   block is read as the rows it states, so the answer is the one its
-   expansion gets, with nothing expanded.
+   accepts with nothing to advise prints nothing.
 
    ```text
    Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is -inf, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.

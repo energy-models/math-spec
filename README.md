@@ -28,10 +28,8 @@ math-spec reads that file, checks everything that can be checked without data,
 and hands the result on: to an engine that builds and solves the model, or to the
 typesetter that prints it as LaTeX, Typst or Markdown. It builds nothing and
 solves nothing itself. Every tool reads the file through the same checked syntax
-tree, so an engine and a renderer cannot disagree about what the file means; that
-is the [test](docs/about/what-counts-as-language.md) for what belongs here.
-
-Three properties follow:
+tree, so an engine and a renderer cannot disagree about what the file means
+([what counts as language](docs/about/what-counts-as-language.md)).
 
 - **Nothing is guessed.** A misspelled name, a `where` string on an undeclared
   parameter, a constraint whose dimensions do not match its `dims`: each fails
@@ -42,7 +40,8 @@ Three properties follow:
   composition of them goes in `macros:` ([the limits](docs/about/limits.md)).
 - **The file is the document.** `to_latex(spec)` prints the model as equations
   from the file alone, so the math you publish is the math you solve
-  ([typeset](docs/reference/typeset.md)).
+  ([typeset](docs/reference/typeset.md)). The file diffs in review, and no
+  Python state changes what it means.
 
 <!--- --8<-- [start:flow] -->
 
@@ -102,13 +101,10 @@ objective:
 
 <!--- --8<-- [end:model] -->
 
-That file is a complete model. Nothing outside it changes what it means.
-
 ### The math it prints
 
-Here is that model as math, printed from the file above and nothing else. No
-data, no solver, and no second copy of the equations to keep in step. Markdown
-is one of three formats, so GitHub renders it here.
+The typesetter prints the file above as math, with no data and no solver.
+Markdown is one of three formats, and GitHub renders it here.
 
 <!-- Prettier pads the legend tables that the generator emits unpadded, so the
      two would rewrite each other forever. The range keeps this file formatted
@@ -261,7 +257,7 @@ $ upright("dispatch") & 0 <= italic("dispatch")_(t,g) & <= upright("capacity")_(
 <!-- readme-math:end -->
 <!-- prettier-ignore-end -->
 
-Each format is one call, and the file is read and checked once:
+Each format is one call:
 
 ```python
 import math_spec as ms
@@ -273,108 +269,27 @@ ms.to_latex(spec)  # amsmath align
 ms.to_typst(spec)  # compiles without a TeX toolchain
 ```
 
-Those symbols are the file's own names: `load` prints as $`\mathrm{load}_t`$,
-and `capacity` as $`\mathrm{capacity}_g`$. Nothing had to be set up for
-that. Pass `symbols='dispatch.symbols.yaml'` and the typesetter prints
-$`\ell_t`$ and $`\bar p_g`$ instead, above a legend that defines them. The
-first folded block shows it. The table can be a dict, a `SymbolTable`, or a
-path to YAML. A key that names nothing in the model is an error, and nothing
-in a table changes what the file means.
+A [symbol table](docs/reference/typeset.md#symbol-tables) gives the names their
+conventional spelling, as in the first folded block.
+[Print a model as math](docs/howto/print.md) does the same from a shell.
+`to_spec` returns a `Spec`, and `spec.program` the model it builds
+([reading a loaded model](docs/reference/reading.md#spec-and-program)).
 
-Or from a shell, beside `pdflatex` in a Makefile:
+## Documentation
 
-```bash
-python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml --standalone -o dispatch.tex
-python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
-python -m math_spec markdown dispatch.yaml
-```
-
-### `Spec` and `Program`
-
-<!--- --8<-- [start:load] -->
-
-Whatever is wrong with a model is wrong when it loads, not when it solves:
-
-```python
-import math_spec as ms
-
-spec = ms.to_spec('dispatch.yaml')  # schema, names, dimensions, degree: all checked here
-sorted(spec.variables)  # ['dispatch']
-
-program = spec.program  # names typed, operators resolved to nodes
-sorted(program.constraints)  # ['power_balance']
-```
-
-Neither needs data or a solver, so a repository of models compiles in CI with
-nothing bound to any of them. **A `Spec` holds the file as written, and a
-`Program` holds the model it builds**, with every macro expanded and every curve
-kept as the block it is.
-[`spec.expand()`](docs/reference/reading.md#formulations-written-out) writes the
-curves out as rows.
-
-<!--- --8<-- [end:load] -->
-
-[Reading a loaded model](docs/reference/reading.md) says what a tool gets
-from each, and [the file and the program](docs/about/file-and-program.md) says
-why there are two.
-
-## Why
-
-- **Declarative math.** A file is readable without knowing any implementation,
-  and no Python state changes what it means. It diffs in review and travels as a
-  research artefact.
-- **Fail early, fail loud.** Nothing falls back silently, and an error names the
-  problem and its rewrite. A model that does not load does not print either.
-- **One flat namespace, ten rules.** A collision is a load error naming both
-  declarations, position decides which kinds of name are legal, and a name's kind
-  is fixed at load. The [ten rules](docs/reference/language/index.md) are one
-  principle in ten positions.
-- **A closed operator set.** `sum`, `sum_back`, `at` and `shift`, with the
-  arithmetic and `where` grammars. A composition of them goes in `macros:`, so
-  every engine expands it the same way.
-- **A finite language.** An operator joins the language only if each output row
-  reads a bounded number of input rows, and a file cannot add one. Math the
-  language cannot express is refused, with the rewrite named.
-
-## Docs
-
-Start with [the language](https://math-spec.readthedocs.io/latest/reference/language/):
-the ten rules, and the pages that give the exact ones. Then
-[every construct as math](https://math-spec.readthedocs.io/latest/reference/notation/),
-which prints all of it beside the notation the typesetter gives it, and
-[typeset the math](https://math-spec.readthedocs.io/latest/reference/typeset/)
-for how to print your own. Why the language is shaped this way, what may enter
-it, and who owns a rule once it is in are under
-[about](https://math-spec.readthedocs.io/latest/about/limits/). To work on it,
-read [CONTRIBUTING.md](CONTRIBUTING.md).
+The documentation is at <https://math-spec.readthedocs.io>.
 
 ## Installation
 
-This project is managed by [pixi](https://pixi.prefix.dev/). To develop against
-it:
-
-<!--- --8<-- [start:docs-install-dev] -->
-
-```bash
-git clone https://github.com/energy-models/math-spec
-cd math-spec
-
-pixi run pre-commit-install
-pixi run test
-```
-
-<!--- --8<-- [end:docs-install-dev] -->
-
-Releases are on the alpha stream, and **nothing is published yet**. The publish
-job is off until the project leaves it, so `pip install math-spec` is what the
-first release will look like, not what today does. Install from a checkout or a
-git reference until then; see [RELEASING.md](RELEASING.md).
+Nothing is published yet.
+[Installation](docs/howto/installation.md) gives the command that installs from
+git, and [contributing](docs/contributing.md#setting-up-a-development-environment)
+sets up a development clone.
 
 ## Prior art
 
 Every file under `src/` was written in [specsolve](https://github.com/fluxopt/specsolve)
-and extracted here, so that the language and the syntax tree a tool reads it
-through are a dependency rather than one engine's internals. The keys themselves,
+and extracted here. The keys themselves,
 which are YAML math, a block per component, `dims:` and a `where:` string,
 come from [Calliope](https://github.com/calliope-project/calliope).
 [linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
@@ -387,17 +302,12 @@ Alpha, pre-1.0.
 
 <!--- --8<-- [start:status] -->
 
-**Breaking changes land without a deprecation cycle.** When a construct is named
-wrong, a default is wrong, or a permissive input hides a silent wrong answer, it
-is fixed rather than aliased. A compatibility shim for every earlier spelling
-would defeat the point of a small language.
-
-Pin an exact version if you depend on this, and read the
+**Breaking changes land without a deprecation cycle.** Pin an exact version if
+you depend on this, and read the
 [changelog](https://github.com/energy-models/math-spec/blob/main/CHANGELOG.md)
-before upgrading. What exists is tested: every construct the language has
-round-trips through the schema, the parsers and all three typeset formats, and
-the LaTeX is compiled rather than eyeballed. It is the accepted YAML that is not
-yet frozen, not the behaviour.
+before upgrading. Every construct round-trips through the schema, the parsers
+and all three typeset formats, and the LaTeX is compiled. The accepted YAML is
+not yet frozen.
 
 <!--- --8<-- [end:status] -->
 

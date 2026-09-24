@@ -19,13 +19,8 @@ A function may join the public API when both of these hold:
    on a page of this reference, so somebody could rewrite the function in another
    language from the pages alone and get the same answer.
 
-## Where a new feature lands
-
-When the language gained piecewise-linear curves, it gained a `piecewise:` key
-in the YAML. A key in the file
-shows up in a git diff, the typesetter prints it as math, and an engine written
-in another language can read it. So wherever a feature can be a key in the
-file, it is one.
+Wherever a feature can be a key in the file, it is one: a key shows up in a git
+diff, the typesetter prints it, and an engine in another language reads it.
 
 ## What every function keeps
 
@@ -35,26 +30,10 @@ file, it is one.
 - **A value or an error, and nothing between.** `to_spec` either returns a
   `Spec` or raises an error that names the rewrite. `advice()` is separate: it
   talks about a file the language accepts, and changes nothing.
-- **Safe to call again.** `spec.program` is one object, however often it is
-  asked for.
 - **Nothing is written out unasked.** A `piecewise:` or `sos:` block stays the
   block until a caller calls
-  [`spec.expand()`](../reference/reading.md#formulations-written-out). An
-  engine that writes curves out at its own door makes that choice for its
-  users, not for the language.
+  [`spec.expand()`](../reference/reading.md#formulations-written-out).
 
-## Three things a function never decides
-
-- What one solver or file format can take. That is the engine's question.
-- How the numbers bind to the names. That is the engine's too.
-- Which solver runs.
-
-## What this refuses
-
-| Asked for                                        | Why                                                                 |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| A Python API for building models                 | The model is the file you review and diff                           |
-| A hook, a callback, a registry, a plugin         | Cannot be diffed, printed or read from another language             |
-| A function that binds data or calls a solver     | Needs more than the file                                            |
-| A setting that changes what a file means         | Two callers would read one file two ways                            |
-| A function whose answer a declaration could give | A declaration can be diffed, printed and read from another language |
+What a solver or file format can take, how the numbers bind to the names, and
+which solver runs are each engine's to decide
+([what counts as language](what-counts-as-language.md#what-each-tool-decides-for-itself)).

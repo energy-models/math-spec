@@ -18,5 +18,4 @@ Every model is a file under `examples/` in the repository.
 The PyPSA parity pages, from [PyPSA in one file](pypsa.md) on, are a proof of
 concept. They sit in the Development section.
 
-The math on these pages is printed by the typesetter from the file above it. See
-[Typeset the math](../reference/typeset.md) to print your own.
+[Typeset the math](../reference/typeset.md) prints your own.

@@ -188,10 +188,8 @@ call.
 
 ## Install it
 
---8<-- "README.md:docs-install-dev"
-
-Or as a dependency, once the project leaves the alpha stream. See
-[installation](howto/installation.md) for every package manager.
+Nothing is published yet. [Installation](howto/installation.md) gives the
+command that installs from git.
 
 !!! warning "Alpha, pre-1.0"
 
