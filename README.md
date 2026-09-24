@@ -308,7 +308,8 @@ sorted(program.constraints)  # ['power_balance']
 Neither needs data or a solver, so a repository of models compiles in CI with
 nothing bound to any of them. **A `Spec` holds the file as written, and a
 `Program` holds the model it builds**, with every macro expanded and every curve
-turned into its variables and constraints. An engine reads the `Program`.
+kept as the block it is. `spec.expand()` turns each curve into its variables and
+constraints; an engine that builds rows reads that model's `Program`.
 
 <!--- --8<-- [end:load] -->
 

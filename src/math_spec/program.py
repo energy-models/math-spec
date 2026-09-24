@@ -379,8 +379,8 @@ class Named:
     Its value is its body's: a consumer building rows steps through it, as
     :func:`children` does. It is kept as a node rather than written in so the
     typesetter can print the symbol where the name stood and define it once.
-    Every use of one entry holds the one node resolution built for it, which
-    is the :attr:`ExpressionDeclaration.expression` of that entry.
+    Every use of one entry holds the one node resolution built for it, whose
+    :attr:`body` is the :attr:`ExpressionDeclaration.expression` of that entry.
     """
 
     name: str
@@ -690,7 +690,7 @@ class ObjectiveDeclaration:
 class ExpressionDeclaration:
     """A named quantity — one the math reads, or one only read back after a solve.
 
-    ``in_math`` where the objective or a constraint inlines it, directly or
+    ``in_math`` where the objective or a constraint reads it, directly or
     through another entry or a macro; its body then stands inside
     :attr:`Program.roots` and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
@@ -738,6 +738,7 @@ class PiecewiseDeclaration:
         points: The parameter saying how far each curve runs, or ``None``.
         frame: The dimensions the block builds one curve per coordinate of,
             in declaration order.
+        description: What the file wrote under ``description:``, or ``None``.
     """
 
     over: str

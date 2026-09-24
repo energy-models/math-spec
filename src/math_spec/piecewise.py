@@ -4,8 +4,9 @@
 
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
-A block becomes ordinary affine declarations before anything reads the model,
-under names prefixed with the block's own; what each method emits is tabled in
+A block becomes ordinary affine declarations when a caller asks
+:meth:`~math_spec.model.Spec.expand` for them, under names prefixed with the
+block's own; what each method emits is tabled in
 ``docs/reference/language/piecewise.md``. Every rule a block is held to is
 decided at load, before this runs: the names it references in
 :class:`~math_spec.model.Spec`, its links where every expression is typed, and

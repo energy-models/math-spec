@@ -17,9 +17,10 @@ to_spec  →  Spec  →  .program  →  Program
 
 A `Spec` holds the file as written: its `macros:`, its descriptions, and a
 `piecewise:` block as one block. A `Program` holds the model the file builds:
-every macro expanded, every curve turned into the variables and constraints it
-stands for, every name typed, every operator resolved to a node, and every
-dimension and degree rule already checked.
+every macro expanded, every name typed, every operator resolved to a node, and
+every dimension and degree rule already checked. A curve stays one curve there;
+`spec.expand('piecewise')` turns it into the variables and constraints it
+stands for.
 
 The curve below [expands](language/piecewise.md) into a weight per breakpoint,
 a convexity row and one row per link:
