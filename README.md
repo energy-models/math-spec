@@ -313,8 +313,9 @@ constraints; an engine that builds rows reads that model's `Program`.
 
 <!--- --8<-- [end:load] -->
 
-[Reading a loaded model](docs/reference/reading.md) says what a tool
-gets from each.
+[Reading a loaded model](docs/reference/reading.md) says what a tool gets
+from each, and [the file and the program](docs/about/file-and-program.md) says
+why there are two.
 
 ## Why
 

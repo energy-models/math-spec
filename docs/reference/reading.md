@@ -20,7 +20,8 @@ A `Spec` holds the file as written: its `macros:`, its descriptions, and a
 every macro expanded, every name typed, every operator resolved to a node, and
 every dimension and degree rule already checked. A curve stays one curve there;
 `spec.expand('piecewise')` turns it into the variables and constraints it
-stands for.
+stands for. [The file and the program](../about/file-and-program.md) says why
+the two are split, and which tool reads which.
 
 The curve below [expands](language/piecewise.md) into a weight per breakpoint,
 a convexity row and one row per link:
@@ -74,17 +75,14 @@ sorted(rows.variables)  # ['cost', 'curve_lam', 'p']
 
 `to_spec` takes a path, the YAML, a mapping or a `Spec`. `spec.program` is the
 program built when the model loaded, so every ask on one model returns one
-object. The program mirrors the model: a `piecewise:` block the model still
-declares is a curve under `program.piecewise`, typed, and a `sos:` block is a
-set under `program.sos`. `spec.expand('piecewise')` is the model with each
-curve written out as rows, and `spec.expand()` writes the sets out too. Which
-to read is the caller's to say, because a consumer printing a curve wants the
-curve and a consumer building rows wants the rows. A consumer building rows
-reads the sections it takes and refuses the rest: a curve or a set still on
-the program is a block it did not ask to have written out. Nothing in the
-package writes a block out unasked, so a consumer that wants the rows calls
-`spec.expand('piecewise')` at its own door, and a consumer that refuses a
-curve does so in its own words, naming that call:
+object. A `piecewise:` block is a curve under `program.piecewise`, typed, and a
+`sos:` block is a set under `program.sos`. `spec.expand('piecewise')` is the
+model with each curve written out as rows, and `spec.expand()` writes the sets
+out too.
+
+Nothing in the package expands a model unasked. A consumer that builds rows
+calls `spec.expand('piecewise')` at its own door. A consumer that cannot take a
+curve refuses it in its own words, naming that call:
 
 ```python
 def rows_of(program):
@@ -95,12 +93,6 @@ def rows_of(program):
 
 rows_of(rows) is rows  # True
 ```
-
-| you are                                                             | take      | because                                      |
-| ------------------------------------------------------------------- | --------- | -------------------------------------------- |
-| building rows, as a solver backend or a second front end does       | `Program` | Every declaration is there, and resolved     |
-| printing, or checking a model without data                          | `Program` | Every description and every curve is there   |
-| rewriting the file, for `macros:` or the text a link was written as | `Spec`    | A program holds trees, and a file holds text |
 
 ## Formulations written out
 
@@ -115,11 +107,10 @@ sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_l
 spec.expand() is spec.expand()  # True
 ```
 
-A consumer that takes a set lowers `spec.expand('piecewise')`, and one that
-does not lowers `spec.expand()`; what a set is written out as is on the
-[piecewise page](language/piecewise.md#what-a-set-is-written-out-as). A
-consumer handed a program still carrying a curve or a set it cannot take
-refuses it and names the expansion.
+A consumer that takes a set reads the program of `spec.expand('piecewise')`,
+and one that does not reads the program of `spec.expand()`. The
+[piecewise page](language/piecewise.md#what-a-set-is-written-out-as) says what a
+set is written out as.
 
 Every parameter the program declares is one the file declared, and the engine
 binds each from its data. The program of an expansion keeps no curve: the
