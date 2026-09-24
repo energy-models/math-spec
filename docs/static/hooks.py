@@ -118,7 +118,7 @@ def _py_to_md(filepath: Path, api_nav: dict, config: dict) -> File:
 
 
 def _update_nav(api_nav: dict, config: dict) -> None:
-    """Append the per-module API pages to the Development section, as `Modules`.
+    """Append the per-module API pages to the Contributing group of Development, as `Modules`.
 
     Mkdocs navigation is composed of lists of dictionaries.
     Lists nesting defines navigation nesting, dictionary keys are the page names, and values are the pointers to markdown files.
@@ -128,7 +128,7 @@ def _update_nav(api_nav: dict, config: dict) -> None:
         config (dict): mkdocs config dictionary (in which `nav` can be found).
     """
     modules_nav = {'Modules': [*api_nav.pop('top_level'), *[{k: v} for k, v in api_nav.items()]]}
-    _get_nav_list(config['nav'], 'Development').append(modules_nav)
+    _get_nav_list(_get_nav_list(config['nav'], 'Development'), 'Contributing').append(modules_nav)
 
 
 def _get_nav_list(nav: list[dict | str], ref: str) -> list:
