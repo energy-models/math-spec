@@ -1393,5 +1393,50 @@
       "Process-status-p-fixed-upper": 8,
       "Process-status-p_nom-variable-upper": 4
     }
+  },
+  "rung_35_period_global_constraints": {
+    "columns": {
+      "Generator-p": 32,
+      "StorageUnit-p_dispatch": 8,
+      "StorageUnit-p_store": 8,
+      "StorageUnit-state_of_charge": 8,
+      "Store-e": 8,
+      "Store-p": 8
+    },
+    "global_constraints": {
+      "co2_2030": {
+        "sense": "<=",
+        "type": "primary_energy"
+      },
+      "co2_all": {
+        "sense": "<=",
+        "type": "primary_energy"
+      },
+      "hydro_2020": {
+        "sense": "<=",
+        "type": "operational_limit"
+      }
+    },
+    "objective": 4886.764705882353,
+    "objective_constant": 0.0,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 8,
+      "Generator-fix-p-lower": 32,
+      "Generator-fix-p-upper": 32,
+      "GlobalConstraint-co2_2030": 1,
+      "GlobalConstraint-co2_all": 1,
+      "GlobalConstraint-hydro_2020": 1,
+      "StorageUnit-energy_balance": 8,
+      "StorageUnit-fix-p_dispatch-lower": 8,
+      "StorageUnit-fix-p_dispatch-upper": 8,
+      "StorageUnit-fix-p_store-lower": 8,
+      "StorageUnit-fix-p_store-upper": 8,
+      "StorageUnit-fix-state_of_charge-lower": 8,
+      "StorageUnit-fix-state_of_charge-upper": 8,
+      "Store-energy_balance": 8,
+      "Store-fix-e-lower": 8,
+      "Store-fix-e-upper": 8
+    }
   }
 }

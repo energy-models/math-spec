@@ -491,6 +491,12 @@ parameters:
   period_weight_objective:
     description: PyPSA's `investment_period_weightings.objective` — what a period's cost weighs
     dims: [period]
+  period_weight_years:
+    description: >-
+      PyPSA's `investment_period_weightings.years` — what a period's energy
+      weighs in a `primary_energy` or `operational_limit` row; PyPSA reads it
+      only under `multi_investment_periods`, so data prep feeds one otherwise
+    dims: [period]
   Generator_active:
     description: whether a generator stands in a snapshot's period — PyPSA's `active`, from build year and lifetime, data prep
     dims: [snapshot, generator]
@@ -930,13 +936,20 @@ parameters:
   GlobalConstraint_constant:
     description: >-
       the constant the total is held against; what a variable cannot carry —
-      an initial charge, a non-extendable build — is folded in here by data
-      prep
+      an initial charge, times its period's years for each counted period
+      where the storage reopens per period, or a non-extendable build — is
+      folded in here by data prep
     dims: [global_constraint]
-  snapshot_is_last:
-    description: one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level
-    dims: [snapshot]
-    dtype: int
+  GlobalConstraint_counts_snapshot:
+    description: >-
+      whether a row counts a snapshot — PyPSA's `investment_period`: every
+      snapshot where the row names none, and only that period's where it
+      names one, data prep. A row that names a period the run does not model
+      has no label here, as PyPSA skips it (`global_constraints.py:377`);
+      PyPSA reads the column only under `multi_investment_periods`, and fails
+      on a row that names a period without it (`global_constraints.py:375`)
+    dims: [global_constraint, snapshot]
+    dtype: bool
   Generator_primary_energy_weight:
     description: >-
       the constrained attribute per unit of energy at the bus — the carrier's
@@ -959,36 +972,68 @@ parameters:
     description: one where the store is in the row's set — data prep; one outside it has no row
     dims: [global_constraint, store]
   Line_volume_weight:
-    description: the line's length where its carrier is in the row's set — data prep; a line outside it has no row
+    description: >-
+      the line's length where its carrier is in the row's set — data prep; a
+      line outside it, or one that does not stand in the row's
+      `investment_period`, has no row
     dims: [global_constraint, line]
   Link_volume_weight:
-    description: the link's length where its carrier is in the row's set — data prep; a link outside it has no row
+    description: >-
+      the link's length where its carrier is in the row's set — data prep; a
+      link outside it, or one that does not stand in the row's
+      `investment_period`, has no row
     dims: [global_constraint, link]
   Line_expansion_cost_weight:
-    description: the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row
+    description: >-
+      the line's capital cost where its carrier is in the row's set, times
+      the objective weights of the periods it stands in where the row names
+      no `investment_period` under `multi_investment_periods` — data prep; a
+      line outside the set, or one that does not stand in the row's period,
+      has no row
     dims: [global_constraint, line]
   Link_expansion_cost_weight:
-    description: the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row
+    description: >-
+      the link's capital cost where its carrier is in the row's set, times
+      the objective weights of the periods it stands in where the row names
+      no `investment_period` under `multi_investment_periods` — data prep; a
+      link outside the set, or one that does not stand in the row's period,
+      has no row
     dims: [global_constraint, link]
   Generator_tech_capacity_weight:
     description: >-
       one where the generator is in the row's carrier-and-bus set — data
-      prep; one outside it has no row
+      prep; one outside it, or one that does not stand in the row's
+      `investment_period`, has no row
     dims: [global_constraint, generator]
   Link_tech_capacity_weight:
-    description: one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row
+    description: >-
+      one where the link is in the row's carrier-and-bus set — data prep; one
+      outside it, or one that does not stand in the row's `investment_period`,
+      has no row
     dims: [global_constraint, link]
   Line_tech_capacity_weight:
-    description: one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row
+    description: >-
+      one where the line is in the row's carrier-and-bus set — data prep; one
+      outside it, or one that does not stand in the row's `investment_period`,
+      has no row
     dims: [global_constraint, line]
   StorageUnit_tech_capacity_weight:
-    description: one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row
+    description: >-
+      one where the storage unit is in the row's carrier-and-bus set — data prep; one
+      outside it, or one that does not stand in the row's `investment_period`,
+      has no row
     dims: [global_constraint, storage_unit]
   Store_tech_capacity_weight:
-    description: one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row
+    description: >-
+      one where the store is in the row's carrier-and-bus set — data prep; one
+      outside it, or one that does not stand in the row's `investment_period`,
+      has no row
     dims: [global_constraint, store]
   Process_tech_capacity_weight:
-    description: one where the process is in the row's carrier-and-bus set — data prep; one outside it has no row
+    description: >-
+      one where the process is in the row's carrier-and-bus set — data prep; one
+      outside it, or one that does not stand in the row's `investment_period`,
+      has no row
     dims: [global_constraint, process]
 
 relations:
@@ -1834,24 +1879,75 @@ expressions:
         when: Process_output_cyclic_delay
         expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap')
     otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0)
+  GlobalConstraint_energy_weight:
+    description: >-
+      what one unit of power at a snapshot counts for in a row — the
+      generator weighting times the years of the snapshot's period, where the
+      row counts the snapshot, and nothing where it does not
+    dims: [global_constraint, snapshot]
+    cases:
+      counted:
+        when: GlobalConstraint_counts_snapshot
+        expression: snapshot_weightings_generators * at(period_weight_years, by=snapshot_period, over=period, into=snapshot)
+    otherwise: 0
+  GlobalConstraint_snapshot_closes:
+    description: one at the last snapshot a row counts, and zero elsewhere
+    dims: [global_constraint, snapshot]
+    cases:
+      last_counted:
+        when: GlobalConstraint_counts_snapshot AND NOT shift(GlobalConstraint_counts_snapshot, along=snapshot, offset=-1)
+        expression: 1
+    otherwise: 0
+  StorageUnit_closing_weight:
+    description: >-
+      what the charge a unit holds at a snapshot counts for in a row as its
+      closing level — the years of the period at the last snapshot of each
+      counted period where the unit reopens per period, one at the last
+      counted snapshot where it does not, and nothing elsewhere
+    dims: [global_constraint, snapshot, storage_unit]
+    cases:
+      per_period:
+        when: StorageUnit_state_of_charge_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
+        expression: at(period_weight_years, by=snapshot_period, over=period, into=snapshot)
+      carried_over:
+        when: NOT StorageUnit_state_of_charge_initial_per_period
+        expression: GlobalConstraint_snapshot_closes
+    otherwise: 0
+  Store_closing_weight:
+    description: >-
+      what the energy a store holds at a snapshot counts for in a row as its
+      closing level — the years of the period at the last snapshot of each
+      counted period where the store reopens per period, one at the last
+      counted snapshot where it does not, and nothing elsewhere
+    dims: [global_constraint, snapshot, store]
+    cases:
+      per_period:
+        when: Store_e_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
+        expression: at(period_weight_years, by=snapshot_period, over=period, into=snapshot)
+      carried_over:
+        when: NOT Store_e_initial_per_period
+        expression: GlobalConstraint_snapshot_closes
+    otherwise: 0
   primary_energy:
     description: >-
-      what a `primary_energy` row totals — weighted generator energy, less
-      the charge left in weighted storage at the horizon's end; the initial
-      charge it is compared against is folded into the row's constant
+      what a `primary_energy` row totals — weighted generator energy over the
+      snapshots it counts, less the charge left in weighted storage at the
+      close; the initial charge it is compared against is folded into the
+      row's constant
     expression: >-
-      sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
-      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
-      - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
+      sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_primary_energy_weight, over=snapshot), over=generator)
+      - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+      - sum(sum(Store_e * Store_closing_weight * Store_primary_energy_weight, over=snapshot), over=store)
   operational_limit:
     description: >-
       what an `operational_limit` row totals — the weighted energy its
-      generators deliver, plus what its non-cyclic storage draws down; the
-      initial charge it draws from is folded into the row's constant
+      generators deliver over the snapshots it counts, plus what its
+      non-cyclic storage draws down; the initial charge it draws from is
+      folded into the row's constant
     expression: >-
-      sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
-      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-      - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, over=snapshot), over=store)
+      sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_operational_limit_weight, over=snapshot), over=generator)
+      - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+      - sum(sum(Store_e * Store_closing_weight * Store_operational_limit_weight, over=snapshot), over=store)
   transmission_volume_expansion:
     description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
     expression: >-
@@ -3614,6 +3710,48 @@ assumptions:
       a store that opens past the first snapshot of the horizon opens on
       its initial level, or its last level where it is cyclic, only where
       `Store_opens_late` marks the snapshot
+  StorageUnit_primary_energy_per_period_closes_over_the_horizon:
+    holds: "count(NOT GlobalConstraint_counts_snapshot, over=snapshot) == 0"
+    where: "StorageUnit_primary_energy_weight AND StorageUnit_state_of_charge_initial_per_period"
+    description: >-
+      PyPSA reads the closing charge of a unit that reopens per period at
+      the last snapshot of every period, and fails on a `primary_energy` row
+      that names an `investment_period` (`global_constraints.py:474`)
+  StorageUnit_primary_energy_carried_over_has_unit_years:
+    holds: "period_weight_years == 1"
+    where: "StorageUnit_primary_energy_weight AND NOT StorageUnit_state_of_charge_initial_per_period"
+    description: >-
+      a unit that carries its charge from one period to the next closes
+      once, at the last counted snapshot, and no period's years weighs that
+      level — PyPSA refuses it where any period's years is not one
+      (`global_constraints.py:448`)
+  StorageUnit_operational_limit_carried_over_has_unit_years:
+    holds: "at(period_weight_years == 1, by=snapshot_period, over=period, into=snapshot)"
+    where: "StorageUnit_operational_limit_weight AND NOT StorageUnit_state_of_charge_initial_per_period AND GlobalConstraint_counts_snapshot"
+    description: >-
+      the same for an `operational_limit` row, over the periods it counts —
+      PyPSA refuses it (`global_constraints.py:647`)
+  Store_primary_energy_per_period_closes_over_the_horizon:
+    holds: "count(NOT GlobalConstraint_counts_snapshot, over=snapshot) == 0"
+    where: "Store_primary_energy_weight AND Store_e_initial_per_period"
+    description: >-
+      PyPSA reads the closing energy of a store that reopens per period at
+      the last snapshot of every period, and fails on a `primary_energy` row
+      that names an `investment_period` (`global_constraints.py:526`)
+  Store_primary_energy_carried_over_has_unit_years:
+    holds: "period_weight_years == 1"
+    where: "Store_primary_energy_weight AND NOT Store_e_initial_per_period"
+    description: >-
+      a store that carries its energy from one period to the next closes
+      once, at the last counted snapshot, and no period's years weighs that
+      level — PyPSA refuses it where any period's years is not one
+      (`global_constraints.py:500`)
+  Store_operational_limit_carried_over_has_unit_years:
+    holds: "at(period_weight_years == 1, by=snapshot_period, over=period, into=snapshot)"
+    where: "Store_operational_limit_weight AND NOT Store_e_initial_per_period AND GlobalConstraint_counts_snapshot"
+    description: >-
+      the same for an `operational_limit` row, over the periods it counts —
+      PyPSA refuses it (`global_constraints.py:695`)
 
 objective:
   sense: minimize

@@ -924,8 +924,6 @@ parameters:
   Transformer_s_set:
     - snapshot
     - transformer
-  snapshot_is_last:
-    - snapshot
   snapshot_weightings_generators:
     - snapshot
   snapshot_weightings_objective:

@@ -414,8 +414,8 @@ each type is three blocks by sense.
 
 | PyPSA type                            | status      | note                                              |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
-| [`primary_energy`](#primary_energy)   | split       | a block per sense — sense as data is beyond #70; carrier weights and the horizon-end charge read are prep |
-| [`operational_limit`](#operational_limit) | split   | a block per sense                                 |
+| [`primary_energy`](#primary_energy)   | split       | a block per sense — sense as data is beyond #70; carrier weights are prep; one period in rung 35 |
+| [`operational_limit`](#operational_limit) | split   | a block per sense; one period in rung 35          |
 | [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | split | a block per sense; membership from PyPSA's carrier string is prep |
 | [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
@@ -1360,6 +1360,7 @@ own dimensions.
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) for storage built in a later period or retired early | done | rung 32 |
+| [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit) for one investment period, weighted by period years | done | rung 35 |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
@@ -2911,6 +2912,120 @@ def build():
 </details>
 <!-- reference:rung_34_committable_maintenance:end -->
 
+### Rung 35 — a global constraint for one investment period
+
+`n.optimize(multi_investment_periods=True)` with `primary_energy` and
+`operational_limit` rows that name an `investment_period`. PyPSA sums such a
+row over the snapshots of that period only, and over the whole horizon where
+the row names none (`global_constraints.py:373-378`, `600-606`). Each snapshot
+counts with its generator weighting times the `years` weighting of its period
+(`:326`, `:615`). A storage unit or store that reopens per period closes at the
+last snapshot of each counted period, weighted by that period's years
+(`:474-477`, `:673-676`). One that carries its level across periods closes
+once, at the last counted snapshot (`:459-470`, `:658-668`). The file states
+the counted snapshots as `GlobalConstraint_counts_snapshot`, data prep, and
+the years as `period_weight_years`. A plain run feeds all true and one, so the
+rows collapse to the standard ones.
+
+The rung caps CO2 in 2030 alone, caps it again over the horizon, and limits a
+hydro carrier with a per-period storage unit and store in 2020. The years
+weightings are 5 and 10. With the same network and no `investment_period`,
+PyPSA solves to `10675.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit) over one investment period | done | `GlobalConstraint_energy_weight` is zero outside the counted snapshots, and the years weigh each snapshot |
+| the closing level of storage in those rows | done | `StorageUnit_closing_weight`, `Store_closing_weight`: each counted period's last snapshot where the storage reopens per period, the last counted snapshot otherwise |
+| a `primary_energy` row for one period over storage that reopens per period | refused, as PyPSA | assumed: [`StorageUnit_primary_energy_per_period_closes_over_the_horizon`](#storageunit_primary_energy_per_period_closes_over_the_horizon), and the `Store` one |
+
+<!-- reference:rung_35_period_global_constraints:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `4886.764705882353`, 155 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_35_period_global_constraints.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 35: a global constraint for one investment period — a CO2 cap on 2030 alone, one over the horizon, and a 2020 limit on a carrier with storage that reopens per period."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def build():
+    """A whole network, not the spine: eight snapshots over two periods of unequal years, two emitting units, a hydro carrier with a unit and storage."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(4)] + [(2030, datetime(2030, 1, 1, t)) for t in range(4)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [5.0, 10.0]
+    n.snapshot_weightings['generators'] = [1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
+    n.add('Carrier', 'coal35', co2_emissions=1.0)
+    n.add('Carrier', 'gas35', co2_emissions=0.4)
+    n.add('Carrier', 'hydro35')
+    n.add('Bus', 'hub')
+    n.add('Generator', 'coal35', bus='hub', carrier='coal35', p_nom=100, marginal_cost=10, efficiency=0.4)
+    n.add('Generator', 'gas35', bus='hub', carrier='gas35', p_nom=100, marginal_cost=30, efficiency=0.5)
+    n.add('Generator', 'clean35', bus='hub', p_nom=200, marginal_cost=60)
+    n.add('Generator', 'river35', bus='hub', carrier='hydro35', p_nom=30, marginal_cost=5)
+    n.add(
+        'StorageUnit',
+        'dam35',
+        bus='hub',
+        carrier='hydro35',
+        p_nom=15,
+        max_hours=4,
+        state_of_charge_initial=20,
+        state_of_charge_initial_per_period=True,
+    )
+    n.add('Store', 'pond35', bus='hub', carrier='hydro35', e_nom=30, e_initial=10, e_initial_per_period=True)
+    n.add('Load', 'town35', bus='hub', p_set=[60, 80, 70, 50, 90, 110, 100, 80])
+    n.add(
+        'GlobalConstraint',
+        'co2_2030',
+        type='primary_energy',
+        carrier_attribute='co2_emissions',
+        sense='<=',
+        constant=3500,
+        investment_period=2030,
+    )
+    n.add(
+        'GlobalConstraint',
+        'co2_all',
+        type='primary_energy',
+        carrier_attribute='co2_emissions',
+        sense='<=',
+        constant=6000,
+    )
+    n.add(
+        'GlobalConstraint',
+        'hydro_2020',
+        type='operational_limit',
+        carrier_attribute='hydro35',
+        sense='<=',
+        constant=600,
+        investment_period=2020,
+    )
+    return n
+```
+
+</details>
+<!-- reference:rung_35_period_global_constraints:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -2924,7 +3039,9 @@ where it should live — language, data prep, or harness — is one open questio
 | `ValueError`, `constraints.py:1850`          | fixed modular `p_nom` not a multiple of `p_nom_mod` | a fractional module cap | X1   |
 | `ValueError`, `constraints.py:1557`          | load on a bus with nothing attached               | row not built, unserved | X2   |
 | `ValueError`, `optimize.py:436`              | no component carries a cost                       | feasibility problem     | X3   |
-| `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
+| `NotImplementedError`, `global_constraints.py:457`, `:509`, `:656`, `:704` | storage that carries its level across periods in a `primary_energy` or `operational_limit` row, with period `years` `!= 1` | assumed: [`StorageUnit_primary_energy_carried_over_has_unit_years`](#storageunit_primary_energy_carried_over_has_unit_years), [`StorageUnit_operational_limit_carried_over_has_unit_years`](#storageunit_operational_limit_carried_over_has_unit_years), and the `Store` ones | |
+| `KeyError`, `global_constraints.py:474`, `:526` | a `primary_energy` row for one period over storage that reopens per period | assumed: [`StorageUnit_primary_energy_per_period_closes_over_the_horizon`](#storageunit_primary_energy_per_period_closes_over_the_horizon), and the `Store` one | |
+| `UnboundLocalError`, `global_constraints.py:375`, `:602` | a `primary_energy` or `operational_limit` row that names an `investment_period` without `multi_investment_periods` | data prep, at `GlobalConstraint_counts_snapshot` | |
 | `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` and `Transformer_loss_max` | X4   |
 | `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
 | `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused | |
@@ -3068,6 +3185,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
 | $`\mathrm{v}`$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
 | $`\mathrm{w}^{y}`$ | `period_weight_objective` over $`\mathcal{Y}`$ — PyPSA's `investment_period_weightings.objective` — what a period's cost weighs |
+| $`\mathrm{w}^{\mathrm{yr}}`$ | `period_weight_years` over $`\mathcal{Y}`$ — PyPSA's `investment_period_weightings.years` — what a period's energy weighs in a `primary_energy` or `operational_limit` row; PyPSA reads it only under `multi_investment_periods`, so data prep feeds one otherwise |
 | $`\mathrm{on}`$ | `Generator_active` over $`\mathcal{T} \times \mathcal{G}`$ — whether a generator stands in a snapshot's period — PyPSA's `active`, from build year and lifetime, data prep |
 | $`\mathrm{on}^{f}`$ | `Link_active` over $`\mathcal{T} \times \mathcal{L}`$ — whether a link stands in a snapshot's period — PyPSA's `active`, data prep |
 | $`\mathrm{on}^{h}`$ | `StorageUnit_active` over $`\mathcal{T} \times \mathcal{S}`$ — whether a storage unit stands in a snapshot's period — PyPSA's `active`, data prep |
@@ -3180,24 +3298,24 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{b}^{\sigma}`$ | `Transformer_loss_offset` over $`\mathcal{T} \times \mathcal{M} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
 | $`\mathrm{type}`$ | `GlobalConstraint_type` over $`\mathcal{I}`$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
 | $`\mathrm{sense}`$ | `GlobalConstraint_sense` over $`\mathcal{I}`$ — which way the row binds — `<=`, `>=` or `==` |
-| $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
-| $`\mathrm{last}`$ | `snapshot_is_last` over $`\mathcal{T}`$ — one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level |
+| $`\mathrm{K}`$ | `GlobalConstraint_constant` over $`\mathcal{I}`$ — the constant the total is held against; what a variable cannot carry — an initial charge, times its period's years for each counted period where the storage reopens per period, or a non-extendable build — is folded in here by data prep |
+| $`\mathrm{in}`$ | `GlobalConstraint_counts_snapshot` over $`\mathcal{I} \times \mathcal{T}`$ — whether a row counts a snapshot — PyPSA's `investment_period`: every snapshot where the row names none, and only that period's where it names one, data prep. A row that names a period the run does not model has no label here, as PyPSA skips it (`global_constraints.py:377`); PyPSA reads the column only under `multi_investment_periods`, and fails on a row that names a period without it (`global_constraints.py:375`) |
 | $`\mathrm{a}`$ | `Generator_primary_energy_weight` over $`\mathcal{I} \times \mathcal{G}`$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
 | $`\mathrm{a}^{h}`$ | `StorageUnit_primary_energy_weight` over $`\mathcal{I} \times \mathcal{S}`$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
 | $`\mathrm{a}^{e}`$ | `Store_primary_energy_weight` over $`\mathcal{I} \times \mathcal{V}`$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
 | $`\mathrm{b}`$ | `Generator_operational_limit_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's set — data prep; one outside it has no row |
 | $`\mathrm{b}^{h}`$ | `StorageUnit_operational_limit_weight` over $`\mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's set — data prep; one outside it has no row |
 | $`\mathrm{b}^{e}`$ | `Store_operational_limit_weight` over $`\mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's set — data prep; one outside it has no row |
-| $`\mathrm{len}`$ | `Line_volume_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's length where its carrier is in the row's set — data prep; a line outside it has no row |
-| $`\mathrm{len}^{f}`$ | `Link_volume_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's length where its carrier is in the row's set — data prep; a link outside it has no row |
-| $`\mathrm{cc}`$ | `Line_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row |
-| $`\mathrm{cc}^{f}`$ | `Link_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row |
-| $`\mathrm{m}`$ | `Generator_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{f}`$ | `Link_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{L}`$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{l}`$ | `Line_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{K}`$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{h}`$ | `StorageUnit_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{e}`$ | `Store_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row |
-| $`\mathrm{m}^{z}`$ | `Process_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{J}`$ — one where the process is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $`\mathrm{len}`$ | `Line_volume_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's length where its carrier is in the row's set — data prep; a line outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{len}^{f}`$ | `Link_volume_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's length where its carrier is in the row's set — data prep; a link outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{cc}`$ | `Line_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{K}`$ — the line's capital cost where its carrier is in the row's set, times the objective weights of the periods it stands in where the row names no `investment_period` under `multi_investment_periods` — data prep; a line outside the set, or one that does not stand in the row's period, has no row |
+| $`\mathrm{cc}^{f}`$ | `Link_expansion_cost_weight` over $`\mathcal{I} \times \mathcal{L}`$ — the link's capital cost where its carrier is in the row's set, times the objective weights of the periods it stands in where the row names no `investment_period` under `multi_investment_periods` — data prep; a link outside the set, or one that does not stand in the row's period, has no row |
+| $`\mathrm{m}`$ | `Generator_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{G}`$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{m}^{f}`$ | `Link_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{L}`$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{m}^{l}`$ | `Line_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{K}`$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{m}^{h}`$ | `StorageUnit_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{S}`$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{m}^{e}`$ | `Store_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{V}`$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
+| $`\mathrm{m}^{z}`$ | `Process_tech_capacity_weight` over $`\mathcal{I} \times \mathcal{J}`$ — one where the process is in the row's carrier-and-bus set — data prep; one outside it, or one that does not stand in the row's `investment_period`, has no row |
 
 #### Variables
 
@@ -3290,8 +3408,12 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overleftarrow{e}`$ | `Store_energy_carried_in` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — the energy a store opens a snapshot with — at the first snapshot it stands in, its last such snapshot's less standing loss where it is cyclic and the given initial energy, which no standing loss has touched yet, where it is not; the previous snapshot's less standing loss otherwise. A store built in a later period opens in that period, and a cyclic one that retires closes on its own last snapshot. Per period, the same holds with each investment period as the horizon |
 | $`\overrightarrow{f}`$ | `Link_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
 | $`\overrightarrow{z}`$ | `Process_output_arrival` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — what a process transfers at a port at a snapshot — its internal power times the port's rate, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed transfer wraps from the horizon's end, and where it is not the energy still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) transfers at once, cyclic or not |
-| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
-| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{I}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $`\mathit{w}^{\mathrm{gc}}`$ | `GlobalConstraint_energy_weight` over $`\mathcal{I} \times \mathcal{T}`$ — what one unit of power at a snapshot counts for in a row — the generator weighting times the years of the snapshot's period, where the row counts the snapshot, and nothing where it does not |
+| $`\mathit{last}`$ | `GlobalConstraint_snapshot_closes` over $`\mathcal{I} \times \mathcal{T}`$ — one at the last snapshot a row counts, and zero elsewhere |
+| $`\mathit{w}^{h}`$ | `StorageUnit_closing_weight` over $`\mathcal{I} \times \mathcal{T} \times \mathcal{S}`$ — what the charge a unit holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the unit reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
+| $`\mathit{w}^{e}`$ | `Store_closing_weight` over $`\mathcal{I} \times \mathcal{T} \times \mathcal{V}`$ — what the energy a store holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the store reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
+| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy over the snapshots it counts, less the charge left in weighted storage at the close; the initial charge it is compared against is folded into the row's constant |
+| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{I}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver over the snapshots it counts, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
 | $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\mathcal{I}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
 | $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
@@ -3312,6 +3434,8 @@ $`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the 
 $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` steps along, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
 $`\mathrm{pos}_{\mathrm{relation}(t)}(t)`$ counts within the group a relation puts $`t`$ in: the subscript names the map, $`\mathcal{T}_{\mathrm{relation}(t)}`$ is the group it lands in, and that group has a first position of its own.
+
+$`\lvert \mathcal{T} \rvert`$ denotes the size of the set being counted along, and a position counted from the end prints against it — $`\lvert \mathcal{T} \rvert - 1`$ is the last position, one less than the size because the first is $`0`$.
 
 ### Objective
 
@@ -7978,22 +8102,108 @@ Process_output_arrival:
 \overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
 ```
 
+### `GlobalConstraint_energy_weight`
+
+```yaml
+GlobalConstraint_energy_weight:
+  description: >-
+    what one unit of power at a snapshot counts for in a row — the
+    generator weighting times the years of the snapshot's period, where the
+    row counts the snapshot, and nothing where it does not
+  dims: [global_constraint, snapshot]
+  cases:
+    counted:
+      when: GlobalConstraint_counts_snapshot
+      expression: snapshot_weightings_generators * at(period_weight_years, by=snapshot_period, over=period, into=snapshot)
+  otherwise: 0
+```
+
+```math
+\mathit{w}^{\mathrm{gc}}_{i,t} = \begin{cases} \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{in}_{i,t} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T}
+```
+
+### `GlobalConstraint_snapshot_closes`
+
+```yaml
+GlobalConstraint_snapshot_closes:
+  description: one at the last snapshot a row counts, and zero elsewhere
+  dims: [global_constraint, snapshot]
+  cases:
+    last_counted:
+      when: GlobalConstraint_counts_snapshot AND NOT shift(GlobalConstraint_counts_snapshot, along=snapshot, offset=-1)
+      expression: 1
+  otherwise: 0
+```
+
+```math
+\mathit{last}_{i,t} = \begin{cases} 1 & \text{if } \mathrm{in}_{i,t} \wedge \neg \mathrm{in}_{i,t + 1} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T}
+```
+
+### `StorageUnit_closing_weight`
+
+```yaml
+StorageUnit_closing_weight:
+  description: >-
+    what the charge a unit holds at a snapshot counts for in a row as its
+    closing level — the years of the period at the last snapshot of each
+    counted period where the unit reopens per period, one at the last
+    counted snapshot where it does not, and nothing elsewhere
+  dims: [global_constraint, snapshot, storage_unit]
+  cases:
+    per_period:
+      when: StorageUnit_state_of_charge_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
+      expression: at(period_weight_years, by=snapshot_period, over=period, into=snapshot)
+    carried_over:
+      when: NOT StorageUnit_state_of_charge_initial_per_period
+      expression: GlobalConstraint_snapshot_closes
+  otherwise: 0
+```
+
+```math
+\mathit{w}^{h}_{i,t,s} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}_{s} \wedge \mathrm{in}_{i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{i,t} & \text{if } \neg \mathrm{reset}_{s} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T},\ s \in \mathcal{S}
+```
+
+### `Store_closing_weight`
+
+```yaml
+Store_closing_weight:
+  description: >-
+    what the energy a store holds at a snapshot counts for in a row as its
+    closing level — the years of the period at the last snapshot of each
+    counted period where the store reopens per period, one at the last
+    counted snapshot where it does not, and nothing elsewhere
+  dims: [global_constraint, snapshot, store]
+  cases:
+    per_period:
+      when: Store_e_initial_per_period AND GlobalConstraint_counts_snapshot AND position(snapshot, by=snapshot_period, within=period) == -1
+      expression: at(period_weight_years, by=snapshot_period, over=period, into=snapshot)
+    carried_over:
+      when: NOT Store_e_initial_per_period
+      expression: GlobalConstraint_snapshot_closes
+  otherwise: 0
+```
+
+```math
+\mathit{w}^{e}_{i,t,v} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}^{e}_{v} \wedge \mathrm{in}_{i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{i,t} & \text{if } \neg \mathrm{reset}^{e}_{v} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, i \in \mathcal{I},\ t \in \mathcal{T},\ v \in \mathcal{V}
+```
+
 ### `primary_energy`
 
 ```yaml
 primary_energy:
   description: >-
-    what a `primary_energy` row totals — weighted generator energy, less
-    the charge left in weighted storage at the horizon's end; the initial
-    charge it is compared against is folded into the row's constant
+    what a `primary_energy` row totals — weighted generator energy over the
+    snapshots it counts, less the charge left in weighted storage at the
+    close; the initial charge it is compared against is folded into the
+    row's constant
   expression: >-
-    sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
-    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
-    - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
+    sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_primary_energy_weight, over=snapshot), over=generator)
+    - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+    - sum(sum(Store_e * Store_closing_weight * Store_primary_energy_weight, over=snapshot), over=store)
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{i,t} \cdot \mathrm{a}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{i,t,s} \cdot \mathrm{a}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{i,t,v} \cdot \mathrm{a}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `operational_limit`
@@ -8002,16 +8212,17 @@ primary_energy:
 operational_limit:
   description: >-
     what an `operational_limit` row totals — the weighted energy its
-    generators deliver, plus what its non-cyclic storage draws down; the
-    initial charge it draws from is folded into the row's constant
+    generators deliver over the snapshots it counts, plus what its
+    non-cyclic storage draws down; the initial charge it draws from is
+    folded into the row's constant
   expression: >-
-    sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
-    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-    - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, over=snapshot), over=store)
+    sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_operational_limit_weight, over=snapshot), over=generator)
+    - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+    - sum(sum(Store_e * Store_closing_weight * Store_operational_limit_weight, over=snapshot), over=store)
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{i,t} \cdot \mathrm{b}_{i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{i,t,s} \cdot \mathrm{b}^{h}_{i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{i,t,v} \cdot \mathrm{b}^{e}_{i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `transmission_volume_expansion`
@@ -8830,6 +9041,102 @@ Store_opens_late_where_it_opens:
 
 ```math
 \mathrm{open}^{e}_{t,v} \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V} \,:\, \mathrm{on}^{e}_{t,v} \wedge \neg \mathrm{on}^{e}_{t - 1,v} \wedge \mathrm{pos}(t) > 0
+```
+
+### `StorageUnit_primary_energy_per_period_closes_over_the_horizon`
+
+```yaml
+StorageUnit_primary_energy_per_period_closes_over_the_horizon:
+  holds: "count(NOT GlobalConstraint_counts_snapshot, over=snapshot) == 0"
+  where: "StorageUnit_primary_energy_weight AND StorageUnit_state_of_charge_initial_per_period"
+  description: >-
+    PyPSA reads the closing charge of a unit that reopens per period at
+    the last snapshot of every period, and fails on a `primary_energy` row
+    that names an `investment_period` (`global_constraints.py:474`)
+```
+
+```math
+\lvert \{ t \in \mathcal{T} \,:\, \neg \mathrm{in}_{i,t} \} \rvert = 0 \qquad \forall\, s \in \mathcal{S},\ i \in \mathcal{I} \,:\, \mathrm{a}^{h}_{i,s} \text{ is defined} \wedge \mathrm{reset}_{s}
+```
+
+### `StorageUnit_primary_energy_carried_over_has_unit_years`
+
+```yaml
+StorageUnit_primary_energy_carried_over_has_unit_years:
+  holds: "period_weight_years == 1"
+  where: "StorageUnit_primary_energy_weight AND NOT StorageUnit_state_of_charge_initial_per_period"
+  description: >-
+    a unit that carries its charge from one period to the next closes
+    once, at the last counted snapshot, and no period's years weighs that
+    level — PyPSA refuses it where any period's years is not one
+    (`global_constraints.py:448`)
+```
+
+```math
+\mathrm{w}^{\mathrm{yr}}_{y} = 1 \qquad \forall\, s \in \mathcal{S},\ i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \mathrm{a}^{h}_{i,s} \text{ is defined} \wedge \neg \mathrm{reset}_{s}
+```
+
+### `StorageUnit_operational_limit_carried_over_has_unit_years`
+
+```yaml
+StorageUnit_operational_limit_carried_over_has_unit_years:
+  holds: "at(period_weight_years == 1, by=snapshot_period, over=period, into=snapshot)"
+  where: "StorageUnit_operational_limit_weight AND NOT StorageUnit_state_of_charge_initial_per_period AND GlobalConstraint_counts_snapshot"
+  description: >-
+    the same for an `operational_limit` row, over the periods it counts —
+    PyPSA refuses it (`global_constraints.py:647`)
+```
+
+```math
+\mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} = 1 \qquad \forall\, t \in \mathcal{T},\ s \in \mathcal{S},\ i \in \mathcal{I} \,:\, \mathrm{b}^{h}_{i,s} \text{ is defined} \wedge \neg \mathrm{reset}_{s} \wedge \mathrm{in}_{i,t}
+```
+
+### `Store_primary_energy_per_period_closes_over_the_horizon`
+
+```yaml
+Store_primary_energy_per_period_closes_over_the_horizon:
+  holds: "count(NOT GlobalConstraint_counts_snapshot, over=snapshot) == 0"
+  where: "Store_primary_energy_weight AND Store_e_initial_per_period"
+  description: >-
+    PyPSA reads the closing energy of a store that reopens per period at
+    the last snapshot of every period, and fails on a `primary_energy` row
+    that names an `investment_period` (`global_constraints.py:526`)
+```
+
+```math
+\lvert \{ t \in \mathcal{T} \,:\, \neg \mathrm{in}_{i,t} \} \rvert = 0 \qquad \forall\, v \in \mathcal{V},\ i \in \mathcal{I} \,:\, \mathrm{a}^{e}_{i,v} \text{ is defined} \wedge \mathrm{reset}^{e}_{v}
+```
+
+### `Store_primary_energy_carried_over_has_unit_years`
+
+```yaml
+Store_primary_energy_carried_over_has_unit_years:
+  holds: "period_weight_years == 1"
+  where: "Store_primary_energy_weight AND NOT Store_e_initial_per_period"
+  description: >-
+    a store that carries its energy from one period to the next closes
+    once, at the last counted snapshot, and no period's years weighs that
+    level — PyPSA refuses it where any period's years is not one
+    (`global_constraints.py:500`)
+```
+
+```math
+\mathrm{w}^{\mathrm{yr}}_{y} = 1 \qquad \forall\, v \in \mathcal{V},\ i \in \mathcal{I},\ y \in \mathcal{Y} \,:\, \mathrm{a}^{e}_{i,v} \text{ is defined} \wedge \neg \mathrm{reset}^{e}_{v}
+```
+
+### `Store_operational_limit_carried_over_has_unit_years`
+
+```yaml
+Store_operational_limit_carried_over_has_unit_years:
+  holds: "at(period_weight_years == 1, by=snapshot_period, over=period, into=snapshot)"
+  where: "Store_operational_limit_weight AND NOT Store_e_initial_per_period AND GlobalConstraint_counts_snapshot"
+  description: >-
+    the same for an `operational_limit` row, over the periods it counts —
+    PyPSA refuses it (`global_constraints.py:695`)
+```
+
+```math
+\mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} = 1 \qquad \forall\, t \in \mathcal{T},\ v \in \mathcal{V},\ i \in \mathcal{I} \,:\, \mathrm{b}^{e}_{i,v} \text{ is defined} \wedge \neg \mathrm{reset}^{e}_{v} \wedge \mathrm{in}_{i,t}
 ```
 <!-- gallery:end -->
 
