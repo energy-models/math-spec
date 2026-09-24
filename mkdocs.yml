@@ -30,8 +30,8 @@ nav:
   # says how one kind is told from another, and the folders under `docs/`
   # follow the same split. The model pages are reference in their own form
   # and sit at the end of the Reference section, after the pages a reader
-  # looks things up in; `docs/static/hooks.py` puts the Python API in front of
-  # them.
+  # looks things up in. The Development section, last, is outside the four
+  # kinds.
   - Tutorials:
       - Your first model: first-model.md
   - How-to guides:
@@ -60,26 +60,33 @@ nav:
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
       - Reading a loaded model: reference/reading.md
+      - Python API: reference/api.md
+      - Glossary: reference/glossary.md
       - Examples:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md
           - Unit commitment: examples/commitment.md
           - One construct per model: examples/operators.md
+  # Explanation: the design arguments, and what changed.
+  - About:
+      - The file and the program: about/file-and-program.md
+      - The limits: about/limits.md
+      - What counts as language: about/what-counts-as-language.md
+      - What counts as public API: about/what-counts-as-public-api.md
+      - Changelog: CHANGELOG.md
+  # Outside the four kinds: proof-of-concept pages and contributor material,
+  # which a reader writing a model does not need. The PyPSA pages stay in
+  # `docs/examples/`, where `tools/gallery.py` writes them. `docs/static/hooks.py`
+  # appends one page per module under `src/math_spec/`, as `Modules`.
+  - Development:
+      - Contributing: contributing.md
+      - PyPSA parity:
           - PyPSA in one file: examples/pypsa.md
           - PyPSA, the quadratic class: examples/pypsa_quadratic.md
           - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md
           - PyPSA, the lossy lines: examples/pypsa_losses.md
           - PyPSA, the two-stage class: examples/pypsa_stochastic.md
           - PyPSA, the multi-period class: examples/pypsa_multi_period.md
-  # Everything a reader does not need in order to write a model: the design
-  # arguments, how to contribute, what changed.
-  - About:
-      - The file and the program: about/file-and-program.md
-      - The limits: about/limits.md
-      - What counts as language: about/what-counts-as-language.md
-      - What counts as public API: about/what-counts-as-public-api.md
-      - Contributing: contributing.md
-      - Changelog: CHANGELOG.md
 
 theme:
   name: material

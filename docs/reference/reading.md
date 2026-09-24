@@ -18,10 +18,10 @@ to_spec  →  Spec  →  .program  →  Program
 A `Spec` holds the file as written: its `macros:`, its descriptions, and a
 `piecewise:` block as one block. A `Program` holds the model the file builds:
 every macro expanded, every name typed, every operator resolved to a node, and
-every dimension and degree rule already checked. A curve stays one curve there;
-`spec.expand('piecewise')` turns it into the variables and constraints it
-stands for. [The file and the program](../about/file-and-program.md) says why
-the two are split, and which tool reads which.
+every dimension and degree rule already checked. A curve stays one curve there
+until [`spec.expand()`](#formulations-written-out) writes it out.
+[The file and the program](../about/file-and-program.md) says why the two are
+split, and which tool reads which.
 
 The curve below [expands](language/piecewise.md) into a weight per breakpoint,
 a convexity row and one row per link:
@@ -76,13 +76,40 @@ sorted(rows.variables)  # ['cost', 'curve_lam', 'p']
 `to_spec` takes a path, the YAML, a mapping or a `Spec`. `spec.program` is the
 program built when the model loaded, so every ask on one model returns one
 object. A `piecewise:` block is a curve under `program.piecewise`, typed, and a
-`sos:` block is a set under `program.sos`. `spec.expand('piecewise')` is the
-model with each curve written out as rows, and `spec.expand()` writes the sets
-out too.
+`sos:` block is a set under `program.sos`. Every parameter the program declares
+is one the file declared, and the engine binds each from its data.
 
-Nothing in the package expands a model unasked. A consumer that builds rows
-calls `spec.expand('piecewise')` at its own door. A consumer that cannot take a
-curve refuses it in its own words, naming that call:
+## Formulations written out
+
+`spec.expand(*kinds)` returns a new `Spec` with each `piecewise:` and `sos:`
+block replaced by the variables and constraints it states.
+[Writing a formulation out](language/piecewise.md#writing-a-formulation-out)
+says what those are.
+
+```python
+expanded = spec.expand()
+expanded == spec  # False
+expanded.expand() is expanded  # True
+spec.expand('sos') is spec  # True
+```
+
+- **The kinds are `'piecewise'` and `'sos'`, and no argument means both.** Any
+  other string raises `ValueError`, naming the two. Curves go first whatever
+  the order of the arguments, so the set a `method: sos2` curve states is
+  written out too.
+- **The expansion is a different model.** It declares more variables and
+  constraints, so it does not compare equal to the model it came from. It
+  declares the same dimensions and parameters, so the same data binds both.
+- **A model with nothing to write out comes back as itself.** So does an
+  expansion asked for the same kinds again.
+- **The spec keeps no expansion.** A second call builds it again, so a caller
+  that needs it twice holds the result.
+- **The expansion is a model like any other.** `to_yaml()` writes it, and its
+  `program` holds the rows and no curve.
+- **Nothing expands a model unasked.** A consumer that builds rows reads the
+  program of `spec.expand('piecewise')` if it takes a set, and of
+  `spec.expand()` if it does not. It refuses a curve it finds on a program, in
+  its own words, naming the call:
 
 ```python
 def rows_of(program):
@@ -93,29 +120,6 @@ def rows_of(program):
 
 rows_of(rows) is rows  # True
 ```
-
-## Formulations written out
-
-`Spec.expand()` returns a `Spec` whose formulations — `piecewise:` and `sos:` —
-are stated as the variables and constraints they stand for. It is the same math,
-bound by the same data, and it is what to print for a reader who wants the rows
-rather than the curve:
-
-```python
-sorted(spec.expand().variables)  # ['cost', 'curve_lam', 'p']
-sorted(spec.expand().constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
-spec.expand() == spec.expand()  # True
-```
-
-A consumer that takes a set reads the program of `spec.expand('piecewise')`,
-and one that does not reads the program of `spec.expand()`. The
-[piecewise page](language/piecewise.md#what-a-set-is-written-out-as) says what a
-set is written out as.
-
-Every parameter the program declares is one the file declared, and the engine
-binds each from its data. The program of an expansion keeps no curve: the
-rows, the weights and the conditions the method states are declarations like
-any other.
 
 ## What the data has to satisfy
 

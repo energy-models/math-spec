@@ -41,27 +41,14 @@ ask.
 | A description    | as written               | on each declaration                         |
 | Written back out | `to_yaml()`, `to_dict()` | not at all: trees do not give the text back |
 
-## The rows
-
-A curve or a set stands for plain variables and constraints.
-`spec.expand('piecewise')` writes each curve out as those rows, and
-`spec.expand()` writes the sets out too. Each returns a new `Spec`, checked as
-any other, with a program of its own. It is a different model from the one it
-came from, and the two do not compare equal. The spec keeps no expansion, so a
-caller that needs the rows twice holds the result.
-
-**Nothing in the package expands a model unasked.** Each tool reads the model
-as it arrives. A caller that wants the rows asks for them, and
-[see what a curve or a set expands to](../howto/see-an-expansion.md) shows how.
-
 ## Which tool reads which
 
-| Tool                       | Reads                                                          | Because                                                       |
-| -------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------- |
-| The typesetter             | `spec.program`, or a `Program` handed to it                    | it prints each curve as the curve the file states             |
-| `advice`                   | `spec.program`                                                 | its notes are about the model the author wrote                |
-| An engine that builds rows | `spec.expand('piecewise').program`, or `spec.expand().program` | a solver takes rows, and the engine knows which sets it takes |
-| A tool that rewrites files | the `Spec`                                                     | only the spec holds the text and the macros                   |
+| Tool                       | Reads                                       | Because                                           |
+| -------------------------- | ------------------------------------------- | ------------------------------------------------- |
+| The typesetter             | `spec.program`, or a `Program` handed to it | it prints each curve as the curve the file states |
+| `advice`                   | `spec.program`                              | its notes are about the model the author wrote    |
+| An engine that builds rows | the program of `spec.expand()`              | a solver takes rows                               |
+| A tool that rewrites files | the `Spec`                                  | only the spec holds the text and the macros       |
 
 **The typesetter never reads the spec.** A `Program` handed to it prints the
 same as the spec it came from.
@@ -82,7 +69,8 @@ unbounded note. So advice on the spec and advice on its expansion agree.
   all three, so no reader parses text again or reads two objects.
 - **The program keeps the model the author wrote.** A curve is one declaration
   to print and one to explain. Its rows are one formulation of it, so the rows
-  are a second model that a caller asks for.
+  are a second model, which a caller asks for with
+  [`spec.expand()`](../reference/reading.md#formulations-written-out).
 - **The spec keeps the text.** A tool that rewrites a model needs the file as
   written: `to_yaml()` writes it back, and `expand()` rewrites it. A tree does
   not give the text back.
