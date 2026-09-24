@@ -13,15 +13,14 @@ from typing import TYPE_CHECKING
 
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
-from math_spec.lowering import to_program
-from math_spec.program import GroupSum, Pullback, walk
+from math_spec.program import GroupSum, Program, Pullback, walk
+from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from math_spec.model import Spec
-    from math_spec.program import Program
 
 
 def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
@@ -29,15 +28,15 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
 
     Args:
         model: A YAML path, a mapping, a loaded :class:`Spec`, or a
-            :class:`Program`. Both passes read the program, so the four
-            answer alike, and a ``piecewise:`` block still in the model is
-            refused as :func:`~math_spec.lowering.to_program` refuses it.
+            :class:`Program`, read as it arrived. A ``piecewise:`` or ``sos:``
+            block is read as the rows it states, so the answer is the one its
+            expansion gets, with nothing expanded.
 
     Returns:
         The never-an-axis advice in declaration order, then the unboundedness
         advice; ``str()`` of each is its sentence.
     """
-    program = to_program(model)
+    program = model if isinstance(model, Program) else to_spec(model).program
     return tuple(_never_an_axis(program) + unbounded_notes(program))
 
 

@@ -9,5 +9,5 @@ variables:
 sos:
   pick:
     variable: p
-    over: g
+    along: g
     type: 2

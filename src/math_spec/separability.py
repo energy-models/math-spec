@@ -47,9 +47,9 @@ class _Block(NamedTuple):
 def _built_blocks(program: Program) -> Iterator[_Block]:
     """Every block that builds rows.
 
-    A named expression is not one: it is inlined where it is referenced, so
-    walking the constraint sides reaches it, and walking it again would
-    report one coupling twice.
+    A named expression is not one: its body stands under each use, so walking
+    the constraint sides reaches it, and walking it again would report one
+    coupling twice.
     """
     for name, block in program.constraints.items():
         yield _Block(f"constraint '{name}'", name, (block.lhs, block.rhs), block.where, True)
@@ -144,9 +144,9 @@ def separabilities(program: Program) -> dict[str, Separability]:
     for name, block in program.sos.items():
         report(
             'coupled',
-            block.over,
+            block.along,
             f"set '{name}'",
-            f'is a set over {block.over}, which a window would cut — only a window holding every whole set keeps it',
+            f'is a set along {block.along}, which a window would cut — only a window holding every whole set keeps it',
         )
 
     def joined(kind: str, dimension: str) -> dict[str, str]:

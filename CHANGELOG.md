@@ -19,6 +19,55 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.121](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.120...v0.0.0-alpha.121) (2026-09-24)
+
+
+### Features
+
+* **language:** a model's program is an attribute of the model, and the one door to both states is to_spec ([#656](https://github.com/energy-models/math-spec/issues/656)) ([91f0640](https://github.com/energy-models/math-spec/commit/91f064019c580fa1342ee1c4f2307829b32db3c5))
+* **language:** nothing writes a formulation out unasked ([#661](https://github.com/energy-models/math-spec/issues/661)) ([b5241fd](https://github.com/energy-models/math-spec/commit/b5241fde3b04727f689e4b36142be5192462703f))
+
+
+### Bug Fixes
+
+* **language:** a name a curve writes is refused at load whatever declares it, and advice reads a named coefficient's sign ([#666](https://github.com/energy-models/math-spec/issues/666)) ([c1574ab](https://github.com/energy-models/math-spec/commit/c1574ab811e50bebcc6f69ae5d27a5a28828621d))
+
+
+### Refactoring
+
+* **language:** a model loads without writing its curves out, and the program owns the vocabulary the file declares in ([#653](https://github.com/energy-models/math-spec/issues/653)) ([7e93ecb](https://github.com/energy-models/math-spec/commit/7e93ecbafce83bcce9144877f306fafc566a3f28))
+* **language:** every rule that reads across declarations runs in lowering, before any expression is read ([#651](https://github.com/energy-models/math-spec/issues/651)) ([6c1fb6b](https://github.com/energy-models/math-spec/commit/6c1fb6b68dedfba64db5154283d35e20f4b0b350))
+* **language:** the top-level surface is the two states, the door, the errors, the advice and the typesetter ([#660](https://github.com/energy-models/math-spec/issues/660)) ([5c4f8be](https://github.com/energy-models/math-spec/commit/5c4f8be36044255518ee71105234546786aee111))
+* **program:** a program carries the trees the typesetter prints, and every curve is written out before a model becomes one ([#649](https://github.com/energy-models/math-spec/issues/649)) ([762394d](https://github.com/energy-models/math-spec/commit/762394d01521323de919b8ae7cbc3598a28ea875))
+* **program:** a program mirrors the file, descriptions and curves included, and the typesetter reads it alone ([#650](https://github.com/energy-models/math-spec/issues/650)) ([bfd628e](https://github.com/energy-models/math-spec/commit/bfd628e88e132639ce6569d5e0c9e3c8f0a05793))
+
+
+### Documentation
+
+* a page explains why a loaded model is a spec and a program, and which tool reads which ([#668](https://github.com/energy-models/math-spec/issues/668)) ([dc0d731](https://github.com/energy-models/math-spec/commit/dc0d731569355b823067bd58335449f081b017b8))
+
+## [0.0.0-alpha.120](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.119...v0.0.0-alpha.120) (2026-09-23)
+
+
+### Features
+
+* **language:** a sos block says along, not over, for the dimension its set runs along ([#646](https://github.com/energy-models/math-spec/issues/646)) ([57062de](https://github.com/energy-models/math-spec/commit/57062de713c31faa42aaceb101f1ad3a2df37a1a))
+
+## [0.0.0-alpha.119](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.118...v0.0.0-alpha.119) (2026-09-23)
+
+
+### Bug Fixes
+
+* **language:** a long chain of named expressions loads, a typo beside a formal is refused, and a fault in an entry hides no other ([#643](https://github.com/energy-models/math-spec/issues/643)) ([1e010ca](https://github.com/energy-models/math-spec/commit/1e010ca0f29994bd4b31099885d2696e3f7e979f))
+* **language:** a macro template nothing calls is held to every rule a call site is ([#628](https://github.com/energy-models/math-spec/issues/628)) ([ffab0ff](https://github.com/energy-models/math-spec/commit/ffab0ffe2dbc1cf9a4711954c6ae3c5372f4b8b8))
+
+
+### Refactoring
+
+* **language:** an expression resolves straight into the program's own nodes ([#638](https://github.com/energy-models/math-spec/issues/638)) ([b3cee88](https://github.com/energy-models/math-spec/commit/b3cee8879dd38306fa86f0db93211ea88b437477))
+* **language:** each named expression is resolved once, and every use reads that node ([#632](https://github.com/energy-models/math-spec/issues/632)) ([ceecf69](https://github.com/energy-models/math-spec/commit/ceecf694316a3af17cbb570b28c5c40585b6cc25))
+* **program:** a comparison of expressions is one node before and after lowering ([#631](https://github.com/energy-models/math-spec/issues/631)) ([f723602](https://github.com/energy-models/math-spec/commit/f7236025a70ce0958512b326e3ae789b56eed986))
+
 ## [0.0.0-alpha.118](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.117...v0.0.0-alpha.118) (2026-09-23)
 
 

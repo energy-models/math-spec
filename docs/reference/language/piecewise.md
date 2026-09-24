@@ -54,10 +54,10 @@ piecewise:
 
 A block states plain variables and constraints: one weight per breakpoint in
 `[0, 1]`, one row making the weights sum to 1, and one row per link tying its
-expression to the weighted breakpoints. A `Program` holds those rows, because a
-consumer builds them; the [typeset output](../typeset.md) prints the curve
-itself, and [`spec.expand()`](#writing-a-formulation-out) is what writes the
-rows into a model of their own.
+expression to the weighted breakpoints. A `Program` holds the block as one
+curve, and the [typeset output](../typeset.md) prints the curve itself.
+[`spec.expand()`](#writing-a-formulation-out) writes the rows into a model of
+their own, which is the model a consumer that builds rows reads.
 
 The breakpoint order is the declared order of `over`. A curve whose breakpoints
 decrease in that order is refused when the data binds.
@@ -175,7 +175,7 @@ variable, and how many members of that family may be non-zero at once.
 sos:
   pick_one_size:
     variable: build # the variable the set is over
-    over: size # the dimension it runs along — one set per coordinate of the rest
+    along: size # the dimension it runs along — one set per coordinate of the rest
     type: 1 # 1: at most one non-zero; 2: at most two, and consecutive
 ```
 
@@ -187,7 +187,7 @@ naming the same variable is a load error.
 
 Membership belongs to the variable. Its `where` decides which coordinates exist,
 so a masked-out member is not in the set. The order is the declared order of
-the `over` dimension.
+the `along` dimension.
 
 ### What a set is written out as
 
@@ -260,7 +260,8 @@ a model before and after, as whole files.
   emits a parameter. A curve under `points:` sits its rows on `where:`
   predicates over the mask the file named, and the expansion is a file like any
   other: `to_yaml()` writes it, and loading it back changes nothing.
-- **`to_program()` writes nothing out.** A model still carrying a curve is
-  refused, naming `spec.expand('piecewise')`. A program carries a set, because
-  a consumer with the concept takes one; a consumer without it refuses the
-  model and names `spec.expand()`.
+- **`spec.program` writes nothing out.** The program mirrors the model: a
+  curve the model still declares is under `program.piecewise`, typed, and
+  `spec.expand('piecewise').program` carries its rows instead. A consumer
+  building rows reads the expansion's program, and refuses a curve it finds on
+  a program; one that cannot take a set reads `spec.expand().program`.

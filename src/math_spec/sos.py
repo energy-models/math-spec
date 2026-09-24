@@ -18,9 +18,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from math_spec.model import SosType, Spec
+from math_spec.model import Spec
 
+if TYPE_CHECKING:
+    from math_spec.program import SosType
 
 #: One member's two linking coefficients, below and above. ``None`` on a side is
 #: a side the model leaves open, where no rewrite can hold the member at zero.
@@ -87,14 +88,10 @@ def expand_sets(schema: Spec) -> Spec:
     The curves an expansion wrote out ride along, because a model whose
     curves are already written out is the one this is usually asked of.
     """
-    from math_spec.model import Spec as Model
-
     raw = schema.model_dump()
     for name in list(schema.sos):
         emit(raw, name)
-    expanded = Model.model_validate(raw)
-    expanded._expanded_piecewise = dict(schema._expanded_piecewise)
-    return expanded
+    return Spec.model_validate(raw)
 
 
 def emit(raw: dict[str, object], name: str) -> None:
@@ -108,7 +105,7 @@ def emit(raw: dict[str, object], name: str) -> None:
     sets = section(raw, 'sos')
     block = sets.pop(name)
     assert isinstance(block, dict), 'a validated model carries each set as a mapping'
-    variable, over, order = block['variable'], block['over'], block['type']
+    variable, over, order = block['variable'], block['along'], block['type']
     member = section(raw, 'variables')[variable]
     assert isinstance(member, dict), 'a validated model carries each variable as a mapping'
     dims = list(member['dims'])

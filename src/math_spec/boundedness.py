@@ -26,6 +26,7 @@ from math_spec.program import (
     Expression,
     GroupSum,
     Multiply,
+    Named,
     Negate,
     Parameter,
     Power,
@@ -58,8 +59,8 @@ def unbounded_notes(program: Program) -> list[Advice]:
     """Name every variable the objective can drive to infinity unopposed.
 
     Args:
-        program: The lowered program, in which ``piecewise:`` has already
-            become the constraints it expands into.
+        program: The program as it is. A curve's links and a set's variable
+            count as named by a row, as the rows they expand into would be.
 
     Returns:
         One note per variable that is unbounded on the side its objective term
@@ -69,6 +70,8 @@ def unbounded_notes(program: Program) -> list[Advice]:
         return []
 
     constrained = {block.variable for block in program.sos.values()}
+    for curve in program.piecewise.values():
+        constrained |= variables_of(*(link.expression for link in curve.links))
     for constraint in program.constraints.values():
         constrained |= variables_of(constraint.lhs, constraint.rhs)
 
@@ -117,12 +120,14 @@ def _coefficient_sign(node: Expression) -> Sign:
     """The sign *node* scales a term by, or ``None`` unless it is a signed constant.
 
     ``-2`` lowers to a negation over a constant, so the sign of a literal
-    coefficient is not always on the node itself. Zero is ``None`` on purpose:
-    a term multiplied away is not in the objective, so the variable it names is
-    driven nowhere.
+    coefficient is not always on the node itself, and a named one is its
+    body's. Zero is ``None`` on purpose: a term multiplied away is not in the
+    objective, so the variable it names is driven nowhere.
     """
     if isinstance(node, Negate):
         return _flip(_coefficient_sign(node.operand))
+    if isinstance(node, Named):
+        return _coefficient_sign(node.body)
     if isinstance(node, Constant) and node.value != 0:
         return '+' if node.value > 0 else '-'
     return None
@@ -162,7 +167,7 @@ def _record_signs(node: Expression, sign: Sign, signs: dict[str, Sign]) -> None:
         _record_signs(node.base, None, signs)
         _record_signs(node.exponent, None, signs)
         return
-    if isinstance(node, Sum | GroupSum | Pullback | Translate | WindowSum | Cases):
+    if isinstance(node, Sum | GroupSum | Pullback | Translate | WindowSum | Cases | Named):
         for child in children(node):
             _record_signs(child, sign, signs)
         return

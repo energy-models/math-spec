@@ -4,8 +4,9 @@
 
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
-A block becomes ordinary affine declarations before anything reads the model,
-under names prefixed with the block's own; what each method emits is tabled in
+A block becomes ordinary affine declarations when a caller asks
+:meth:`~math_spec.model.Spec.expand` for them, under names prefixed with the
+block's own; what each method emits is tabled in
 ``docs/reference/language/piecewise.md``. Every rule a block is held to is
 decided at load, before this runs: the names it references in
 :class:`~math_spec.model.Spec`, its links where every expression is typed, and
@@ -20,20 +21,22 @@ from typing import TYPE_CHECKING, Literal
 import math_spec.sos as sos
 from math_spec.dimensions import dims_of
 from math_spec.errors import DimensionError
-from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, PiecewiseMethod, Spec
-from math_spec.program import PiecewiseDeclaration
+from math_spec.model import AssumptionBlock, Curvature, PiecewiseBlock, Spec, VariableBlock
+from math_spec.program import PiecewiseDeclaration, PiecewiseMethod, VariableDeclaration, carries_variable
+from math_spec.resolution import resolve_expression_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from math_spec.program import Expression
+    from math_spec.resolution import Namespace
 
 
 #: The suffix on the second gate row, where the gate variable does not exist.
 _UNGATED = '_ungated'
 
 
-def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
+def _curvature_required(pw: PiecewiseDeclaration) -> Curvature | None:
     """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
 
     A bounded link binds from one side, and that side is the hull boundary the
@@ -55,16 +58,41 @@ def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     return 'convex' if sign == '>=' else 'concave'
 
 
-def declaration_of(pw: PiecewiseBlock) -> PiecewiseDeclaration:
-    """The curve of one expanded block, as a program carries it."""
-    return PiecewiseDeclaration(
-        over=pw.over,
-        method=pw.method,
-        breakpoints=tuple(link.values for link in pw.links),
+def resolve_links(name: str, pw: PiecewiseBlock, ns: Namespace, errors: list[str]) -> tuple[Expression, ...] | None:
+    """Block *name*'s link expressions typed, in link order, or ``None`` once one failed, its refusal appended.
+
+    A link is read affinely, so it is held to degree 1 where it is read.
+    """
+    links = [
+        resolve_expression_text(link.expression, ns, f"piecewise '{name}' link {i}", errors, ceiling=1)
+        for i, link in enumerate(pw.links)
+    ]
+    if any(link is None for link in links):
+        return None
+    return tuple(link for link in links if link is not None)
+
+
+def lp_domain_refusal(name: str, pw: PiecewiseBlock, links: tuple[Expression, ...]) -> str | None:
+    """The refusal for a ``method: lp`` curve whose x-link carries no variable, or ``None``.
+
+    The method bounds the curve's domain with two rows comparing the x-link
+    against the first and the last breakpoint, and a row with no variable
+    decides nothing. Decided on the link the file wrote, rather than on the
+    row the expansion would write under a name the file never declared.
+    """
+    x = pw.curve[0]
+    i = next(i for i, link in enumerate(pw.links) if link is x)
+    if carries_variable(links[i]):
+        return None
+    return (
+        f"piecewise '{name}' link {i}: method: lp bounds the curve's domain by rows comparing this link's expression "
+        f'against its first and last breakpoint, and {x.expression!r} carries no variable, so those rows decide '
+        f'nothing. Name a variable in the link, or use method: convex, sos2 or adjacency, whose weights pin the '
+        f'domain themselves.'
     )
 
 
-def assumptions_of(block: str, pw: PiecewiseBlock) -> dict[str, AssumptionBlock]:
+def assumptions_of(block: str, pw: PiecewiseDeclaration) -> dict[str, AssumptionBlock]:
     """What *block* assumes of its numbers, by the name the document prints and a refusal quotes.
 
     Every curve assumes its breakpoints are there: a missing parameter row is
@@ -169,7 +197,7 @@ def _interior(over: str, mask: str | None) -> str:
     return f'{mask} AND shift({mask}, along={over}, offset=1) AND shift({mask}, along={over}, offset=-1)'
 
 
-def _bends(block: str, pw: PiecewiseBlock, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
+def _bends(block: str, pw: PiecewiseDeclaration, x: str, y: str, curvature: Curvature) -> AssumptionBlock:
     """The curve bends the way *curvature* says, as a comparison of the two slopes at each breakpoint.
 
     The slopes are compared as a cross-product rather than as two quotients,
@@ -220,7 +248,7 @@ class Emitted:
     assumptions: tuple[str, ...]
 
     @classmethod
-    def of(cls, name: str, pw: PiecewiseBlock) -> Emitted:
+    def of(cls, name: str, pw: PiecewiseDeclaration) -> Emitted:
         """The names block *name* writes."""
         return cls(
             name,
@@ -233,6 +261,19 @@ class Emitted:
             tuple(f'{name}_link{i}' for i in range(len(pw.links))),
             tuple(assumptions_of(name, pw)),
         )
+
+    def written(self, method: PiecewiseMethod, *, ungated: bool) -> tuple[str, ...]:
+        """The variables and constraints :meth:`~math_spec.model.Spec.expand` declares for a block of *method*.
+
+        *ungated* is :func:`leaves_ungated` of the block's gate. The set a
+        ``sos2`` or ``adjacency`` block states is written out too, since
+        ``expand()`` writes every set.
+        """
+        if method == 'lp':
+            return (self.chord, self.domain_lo, self.domain_hi)
+        convexity = (self.convexity, self.convexity + _UNGATED) if ungated else (self.convexity,)
+        restriction = (self.set.seg, self.set.pick, self.set.link) if method in ('sos2', 'adjacency') else ()
+        return (self.lam, *convexity, *self.links, *restriction)
 
     @property
     def by_kind(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -257,13 +298,21 @@ class Emitted:
         )
 
 
+def leaves_ungated(gate: VariableBlock | VariableDeclaration | None) -> bool:
+    """Whether a curve gated by *gate* runs ungated where the gate does not exist, which takes a second convexity row.
+
+    A masked gate is absent off its mask, and there the curve sums to 1;
+    ``absence: zero`` reads the gate as 0 there instead, which one row states.
+    """
+    return gate is not None and gate.where is not None and gate.absence != 'zero'
+
+
 def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[Expression]) -> tuple[str, ...]:
     """The dimensions block *name* builds one curve per coordinate of: every one its links and its gate carry.
 
     In declaration order, because iterating a set would vary the emitted
     ``dims`` — and every column index behind it — per process. *links* are the
-    block's link expressions typed, as
-    :attr:`~math_spec.resolution.Resolved.piecewise` holds them.
+    block's link expressions typed, as :func:`resolve_links` answers.
 
     Raises:
         DimensionError: A link or the gate carries the breakpoint dimension, or
@@ -309,14 +358,19 @@ class _Block:
     *schema* loaded.
     """
 
-    def __init__(self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock) -> None:
+    def __init__(
+        self, schema: Spec, raw: dict[str, object], name: str, pw: PiecewiseBlock, curve: PiecewiseDeclaration
+    ) -> None:
         self.schema = schema
         self.raw = raw
         self.name = name
+        #: The block as the file wrote it, for the link text the rows repeat.
         self.pw = pw
-        self.emitted = Emitted.of(name, pw)
+        #: The block as the program carries it, for its frame and the names it writes.
+        self.curve = curve
+        self.emitted = Emitted.of(name, curve)
         self.mask = pw.points
-        self.frame = curve_frame(schema, name, pw, schema.resolved.piecewise[name])
+        self.frame = curve.frame
 
     def expand(self) -> None:
         """Write the block's declarations into the raw model."""
@@ -334,7 +388,7 @@ class _Block:
         as something a consumer has to know to ask for.
         """
         assumptions = sos.section(self.raw, 'assumptions')
-        for name, assumed in assumptions_of(self.name, self.pw).items():
+        for name, assumed in assumptions_of(self.name, self.curve).items():
             assumptions[name] = assumed.model_dump()
 
     # -- emitters ----------------------------------------------------------
@@ -374,7 +428,7 @@ class _Block:
                 f'({link.expression}) {link.sign} sum({self.emitted.lam} * {link.values}, over={d})',
             )
         if self.pw.method in ('sos2', 'adjacency'):
-            sos.section(self.raw, 'sos')[self.name] = {'variable': self.emitted.lam, 'over': d, 'type': 2}
+            sos.section(self.raw, 'sos')[self.name] = {'variable': self.emitted.lam, 'along': d, 'type': 2}
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
         """What the weights sum to, as ``(name suffix, where, right-hand side)``.
@@ -393,8 +447,7 @@ class _Block:
         activity = self.pw.activity
         if activity is None:
             return (('', None, '1'),)
-        gate = self.schema.variables[activity]
-        if gate.where is None or gate.absence == 'zero':
+        if not leaves_ungated(self.schema.variables[activity]):
             return (('', None, f'({activity})'),)
         return (('', activity, f'({activity})'), (_UNGATED, f'NOT {activity}', '1'))
 
@@ -435,19 +488,18 @@ def expand_piecewise(schema: Spec) -> Spec:
     ``method: sos2`` states, and then that set is written out here too: the
     binaries are what the method *is*, so the model that comes back carries no
     set of its own (:func:`math_spec.sos.emit` is where they are spelled).
+    Each block's frame and names are read off the program *schema* lowered to.
     """
     if not schema.piecewise:
         return schema
-
+    program = schema.program
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
-        _Block(schema, raw, name, pw).expand()
+        _Block(schema, raw, name, pw, program.piecewise[name]).expand()
     raw['piecewise'].clear()
     for name, pw in schema.piecewise.items():
         if pw.method == 'adjacency':
             sos.emit(raw, name)
-    expanded = Spec.model_validate(raw)
-    expanded._expanded_piecewise = dict(schema.piecewise)
-    return expanded
+    return Spec.model_validate(raw)

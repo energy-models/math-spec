@@ -99,7 +99,7 @@ class UnresolvedCountNode:
 
 @dataclass(frozen=True)
 class UnresolvedComparisonNode:
-    """``side <op> side`` before the sides are read; ``resolution.py`` decides what each is.
+    """``side <op> side`` before the sides are read; ``_where_resolver.py`` decides what each is.
 
     A side is the expression grammar's arithmetic, so a name, a number and a
     ``position(...)`` call all arrive as the nodes an expression would carry

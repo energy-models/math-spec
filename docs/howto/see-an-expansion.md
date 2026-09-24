@@ -59,7 +59,7 @@ holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
         sos:
           pick:
             variable: p
-            over: g
+            along: g
             type: 1
         ```
 
@@ -248,7 +248,7 @@ writes out in two steps. Compare the tabs from left to right:
         sos:
           curve:
             variable: curve_lam
-            over: bp
+            along: bp
             type: 2
 
         assumptions:

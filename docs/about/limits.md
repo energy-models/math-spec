@@ -65,7 +65,7 @@ sums, `sum(x, over=i) * sum(y, over=j)`, is refused, because the file does not
 say how many terms either sum has. `x[i] * y[j] * a[i, j]` is allowed, because
 the table `a` says which pairs exist.
 
-A new primitive is finished when `to_program` lowers it, the typesetter prints
+A new primitive is finished when lowering builds it, the typesetter prints
 it in all three formats, and an engine's build of a model that uses it matches
 the same model written out by hand.
 
