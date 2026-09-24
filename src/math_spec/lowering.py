@@ -128,8 +128,7 @@ def lower(schema: Spec) -> Program:
         if vdef.domain == 'binary':
             lower_bound, upper_bound = Constant(0.0), Constant(1.0)
         else:
-            lower_bound = _bound(vdef.bounds.lower, float('-inf'))
-            upper_bound = _bound(vdef.bounds.upper, float('inf'))
+            lower_bound, upper_bound = _bound(vdef.bounds.lower), _bound(vdef.bounds.upper)
         variables[vname] = VariableDeclaration(
             tuple(vdef.dims),
             where=mask_of(where),
@@ -239,11 +238,12 @@ def _frame_of(name: str, entry: Named, schema: Spec) -> tuple[str, ...]:
     return tuple(d for d in schema.dimensions if d in carried)
 
 
-def _bound(value: float | str | None, open_side: float) -> Constant | Parameter:
-    """One side of a bound as the program holds it, an open side being *open_side*."""
+def _bound(value: float | str | None) -> Constant | Parameter | None:
+    if value is None:
+        return None
     if isinstance(value, str):
         return Parameter(value)
-    return Constant(open_side if value is None else value)
+    return Constant(value)
 
 
 def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:

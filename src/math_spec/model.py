@@ -216,16 +216,12 @@ class ParameterBlock(_StrictBlock):
     description: str | None = None
 
 
-#: The infinity that leaves each side of a bound open, read as ``None``.
-_OPEN_SIDE = {'lower': float('-inf'), 'upper': float('inf')}
-
-
 class BoundsBlock(_StrictBlock):
-    """Variable bounds — each side is a number, a parameter name, or ``None`` where it is open.
+    """Variable bounds — each side is a finite number, a parameter name, or ``None`` where it is open.
 
     An omitted bound leaves the variable unbounded on that side, not
-    implicitly non-negative. An infinity on the side it opens is read as
-    ``None``, so an open side is held one way however the file spells it.
+    implicitly non-negative. An infinity is refused: an open side is ``null``,
+    and the other infinity leaves no value at all.
     """
 
     _label: ClassVar[str] = 'a bounds block'
@@ -236,13 +232,17 @@ class BoundsBlock(_StrictBlock):
     @field_validator('lower', 'upper', mode='before')
     @classmethod
     def _a_number_or_a_name(cls, v: object, info: ValidationInfo[object]) -> object:
-        if v == _OPEN_SIDE.get(str(info.field_name)):
-            return None
         if isinstance(v, bool):
             msg = f'bounds.{info.field_name} is a boolean, and a bound is a number or a parameter name.'
             raise ValueError(msg)
         if isinstance(v, float) and math.isnan(v):
             msg = f'bounds.{info.field_name} is nan, which no value compares to. Write a number, or omit the bound.'
+            raise ValueError(msg)
+        if isinstance(v, float | int) and math.isinf(v):
+            msg = (
+                f'bounds.{info.field_name} is {v}, and a bound is finite. An open side is null: '
+                f'write {info.field_name}: null, or leave it out.'
+            )
             raise ValueError(msg)
         return v
 

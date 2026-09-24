@@ -48,7 +48,7 @@
     },
     "BoundsBlock": {
       "additionalProperties": false,
-      "description": "Variable bounds \u2014 each side is a number, a parameter name, or ``None`` where it is open.\n\nAn omitted bound leaves the variable unbounded on that side, not\nimplicitly non-negative. An infinity on the side it opens is read as\n``None``, so an open side is held one way however the file spells it.",
+      "description": "Variable bounds \u2014 each side is a finite number, a parameter name, or ``None`` where it is open.\n\nAn omitted bound leaves the variable unbounded on that side, not\nimplicitly non-negative. An infinity is refused: an open side is ``null``,\nand the other infinity leaves no value at all.",
       "properties": {
         "lower": {
           "anyOf": [

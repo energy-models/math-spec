@@ -14,7 +14,7 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.program import Constant, DimensionPosition
+from math_spec.program import DimensionPosition
 from math_spec.resolution import Namespace
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
@@ -1364,11 +1364,6 @@ class TestRulesDecidedWithoutData:
                 id='literal-bounds-that-cross',
             ),
             pytest.param(
-                {'variables.p.bounds': {'lower': float('inf'), 'upper': float('-inf')}},
-                ('bounds.lower inf is above bounds.upper -inf',),
-                id='infinite-bounds-that-cross',
-            ),
-            pytest.param(
                 {'variables.p.dims': ['g', 'g']},
                 ("Variable 'p' names dimension 'g' twice",),
                 id='dims-repeats-a-dim',
@@ -2204,12 +2199,30 @@ def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_n
     [
         pytest.param({}, id='omitted'),
         pytest.param({'upper': None}, id='null'),
-        pytest.param({'upper': float('inf')}, id='an-infinite-number'),
     ],
 )
-def test_an_open_bound_is_null_however_the_file_spells_it(upper):
+def test_an_open_bound_is_null_in_the_file_and_in_the_program(upper):
     """`upper: null` was refused, though every other field a file may leave open takes `null`."""
     spec = to_spec(override(DISPATCH_MODEL, **{'variables.p.bounds': {'lower': 0, **upper}}))
-    assert spec.variables['p'].bounds.upper is None, 'an open bound is stored one way, whatever the file wrote'
-    assert spec.program.variables['p'].upper == Constant(float('inf')), 'the program reads an open side as infinity'
+    assert spec.variables['p'].bounds.upper is None
+    assert spec.program.variables['p'].upper is None, 'the program says the side is open rather than infinite'
     assert spec.to_dict()['variables']['p']['bounds'] == {'lower': 0}, 'an open bound is not written back out'
+
+
+@pytest.mark.parametrize(
+    ('side', 'value'),
+    [
+        pytest.param('upper', float('inf'), id='the-infinity-that-opens-the-upper-side'),
+        pytest.param('lower', float('-inf'), id='the-infinity-that-opens-the-lower-side'),
+        pytest.param('lower', float('inf'), id='a-lower-bound-no-value-meets'),
+        pytest.param('upper', float('-inf'), id='an-upper-bound-no-value-meets'),
+    ],
+)
+def test_an_infinite_bound_is_refused_with_the_null_that_opens_a_side(side, value):
+    """An infinity is either the open side, which is `null`, or a bound no value meets.
+
+    A lone `lower: .inf` loaded: only two literal bounds that cross were refused.
+    """
+    message = _refusal(DISPATCH_MODEL, **{f'variables.p.bounds.{side}': value})
+    assert f'bounds.{side} is {value}, and a bound is finite' in message
+    assert f'{side}: null' in message, 'the refusal names the spelling of an open side'
