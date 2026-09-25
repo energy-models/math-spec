@@ -70,7 +70,7 @@ def test_a_dimension_something_reaches_is_in_use(patch):
 
 #: A model with one note of each kind: nothing reaches `h`, and `p` is driven
 #: down by the objective with an open lower bound and no constraint on it.
-BOTH_KINDS = varied(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
+BOTH_KINDS = varied(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': None}})
 
 
 def test_both_kinds_of_note_come_through_the_one_door():
@@ -104,9 +104,9 @@ def test_every_kind_a_consumer_can_pin_against_is_produced_here():
 
 
 def _written(model: dict, tmp_path: Path) -> Path:
-    """The model as a file on disk — JSON is YAML, once infinity is spelled its way."""
+    """The model as a file on disk — JSON is YAML."""
     path = tmp_path / 'model.yaml'
-    path.write_text(json.dumps(model).replace('-Infinity', '-.inf'))
+    path.write_text(json.dumps(model))
     return path
 
 

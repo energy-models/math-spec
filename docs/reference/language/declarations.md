@@ -11,8 +11,7 @@ another file. Each takes an optional `description:`, free text that the
 
 ## `parameters`
 
-A parameter declares a shape and nothing more. The engine that builds the model
-supplies the numbers, by name, from its own tables.
+A parameter declares a shape. The numbers arrive by name with the data.
 
 ```yaml
 dimensions:
@@ -65,22 +64,20 @@ variables:
       upper: capacity
 ```
 
-| Field                           |                                                                                                                   |                        |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `dims`                          | required. The dimensions it is indexed by                                                                         |                        |
-| `where`                         | which coordinates exist ([absence](absence.md))                                                                   | default `null`         |
-| `bounds.lower` / `bounds.upper` | a number, or the name of a `float` or `int` parameter                                                             | default `-inf` / `inf` |
-| `domain`                        | `continuous`, `integer` or `binary`. `binary` carries fixed 0/1 bounds                                            | default `continuous`   |
-| `absence`                       | `undefined` or `zero`: what a masked-out coordinate means ([absence](absence.md#what-a-missing-coordinate-means)) | default `undefined`    |
-| `description`                   | free text                                                                                                         | default `null`         |
+| Field                           |                                                                                                                   |                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `dims`                          | required. The dimensions it is indexed by                                                                         |                      |
+| `where`                         | which coordinates exist ([absence](absence.md))                                                                   | default `null`       |
+| `bounds.lower` / `bounds.upper` | a finite number, or the name of a `float` or `int` parameter. `null` leaves that side open                        | default `null`       |
+| `domain`                        | `continuous`, `integer` or `binary`. `binary` carries fixed 0/1 bounds                                            | default `continuous` |
+| `absence`                       | `undefined` or `zero`: what a masked-out coordinate means ([absence](absence.md#what-a-missing-coordinate-means)) | default `undefined`  |
+| `description`                   | free text                                                                                                         | default `null`       |
 
-!!! warning "A bound you omit leaves the variable unbounded on that side"
-
-    You write non-negativity. The language does not assume it.
+An open side is `null`. A bound is never infinite: `.inf` and `-.inf` are
+refused, with `null` named as the rewrite.
 
 A bound is a name or a number: `upper: capacity` is accepted,
-and `upper: -rating` is refused. Ship the negated column as data. The dimensions of
-a bound parameter are a subset of the variable's.
+and `upper: -rating` is refused. Ship the negated column as data.
 
 Equal bounds pin a variable ([fix a quantity](../../howto/pin-a-variable.md)).
 A pinned variable is still a variable.
@@ -197,8 +194,7 @@ The dimensions of the expression must **equal** its `dims`
 At least one side of the comparator carries a variable. A comparison between
 numbers and parameters alone is refused at load.
 
-`dims: []` gives one scalar row, for a rule such as a system-wide budget. A
-scalar variable may not carry a `where`; put the condition on the constraints
+`dims: []` gives one scalar row. A scalar variable may not carry a `where`; put the condition on the constraints
 that use it.
 
 Two regimes of one rule are two blocks, each under its own `where:`

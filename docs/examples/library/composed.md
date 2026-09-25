@@ -170,7 +170,7 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
         dims: [snapshot, generator]
         domain: binary
         description: "`Generator-status` — whether a unit is on in a snapshot"
-      Generator_p: { bounds: { upper: .inf } }
+      Generator_p: { bounds: { upper: null } }
     constraints:
       Generator_com_p_upper:
         description: "`Generator-com-p-upper` — a committed unit outputs at most its nominal power; off, at most nothing"

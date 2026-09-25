@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Typeset the math
 
 `to_latex`, `to_typst` and `to_markdown` print a model as the equations it
-stands for, from the file alone. No data binds, and no solver runs.
+stands for, from the file alone. No data is attached, and no solver runs.
 
 ```python
 import math_spec as ms
@@ -19,22 +19,18 @@ print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
 
 Each function takes a path, the YAML, a mapping, a `Spec` or a `Program`, and
-prints the program: the one a spec holds, or the one it was handed. The same
-three formats come from a shell:
-
-```bash
-python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
-python -m math_spec typst model.yaml --standalone -o model.typ
-python -m math_spec markdown model.yaml
-```
+prints the program: the one a spec holds, or the one it was handed.
+From a shell, `python -m math_spec latex model.yaml` prints the same, and
+`typst` or `markdown` in place of `latex` picks the format.
 
 [Print a model as math](../howto/print.md) is the recipe, and
-[every construct, as math](notation.md) shows what each construct prints.
+[every operator as math](language/operators.md#every-operator-as-math) shows
+what each operator prints.
 
 ## Options
 
 The three functions take the same keywords, and the command line spells each as
-a flag.
+a flag. The [Python API](api.md#typesetting) gives each signature.
 
 |                      |                        |                                                                                                                                 |
 | -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -49,9 +45,9 @@ a flag.
 
 - The model's `description:` opens the document.
 - A `piecewise:` block prints as one line: the curve it states, over the frame
-  it states one curve per coordinate of. To print the variables and constraints
-  it stands for instead, print
-  [`spec.expand()`](language/piecewise.md#writing-a-formulation-out).
+  it states one curve per coordinate of. To print its rows, print
+  [`spec.expand()`](api.md#math_spec.Spec.expand) or pass `--expand`
+  ([see an expansion](../howto/see-an-expansion.md)).
 - An [`assumptions:`](language/assumptions.md) entry prints under an
   **Assumptions** heading, last, beside what each curve assumes of its
   breakpoints. A model that assumes nothing of its data prints no such
@@ -107,57 +103,14 @@ expressions it uses are substituted. A cased expression prints by symbol, and a
 second call with its name prints its block.
 
 A name that is none of the four kinds is refused with the near miss. A name
-declared as two of them, such as a constraint and a variable, is refused too,
-because one line can print only one of them.
-
-## Printing what a formulation states
-
-A `piecewise:` block and a `sos:` block each state variables and constraints
-([formulations](language/piecewise.md#writing-a-formulation-out)). Printing
-those rows is printing a different model, so it is
-[`expand()`](language/piecewise.md#writing-a-formulation-out) that produces it
-and not an option on the render:
-
-```python
-ms.to_latex(spec)  # the curve, and the set beside its variable
-ms.to_latex(spec.expand())  # the weights, the convexity row, the binaries
-ms.to_latex(spec.expand('sos'))  # the curves as curves, the sets as binaries
-```
-
-A shell cannot compose that, so the command line spells it as a flag:
-
-```bash
-python -m math_spec latex model.yaml --expand --symbols model.symbols.yaml
-```
-
-One symbol table serves both, because a name a formulation emits counts as
-declared — which is what lets `<block>_lam` print as $\lambda$ in the expansion
-and the same table render the file it came from.
+declared as two of them, such as a constraint and a variable, is refused too.
 
 ## Symbol tables
 
 With no table, the symbols are **derived** from the names in the file, such as
 $\mathrm{load}_t$ and $\mathrm{capacity}_g$. A symbol table makes the output
-conventional:
-
-```python
-symbols = {
-    'notation': 'latex',
-    'dimensions': {
-        'snapshot': {'index': 's', 'set': '\\mathcal{S}'},
-        'generator': {'index': 'g', 'set': '\\mathcal{G}'},
-    },
-    'names': {
-        'cost': 'c',
-        'load': '\\ell',
-        'capacity': '\\bar p',
-    },
-}
-
-ms.to_latex('dispatch.yaml', symbols=symbols)
-```
-
-Pass a dict, a path to a YAML file, or a `ms.SymbolTable`. As a file:
+conventional. Pass a path to a YAML file, the same keys as a dict, or a
+`ms.SymbolTable`:
 
 ```yaml
 # dispatch.symbols.yaml
@@ -171,6 +124,10 @@ names:
   capacity: "\\bar p"
 ```
 
+```python
+ms.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')
+```
+
 | Section      |                                                                                 |
 | ------------ | ------------------------------------------------------------------------------- |
 | `notation`   | **Required.** `latex` or `typst`: the language the entries are written in       |
@@ -181,5 +138,4 @@ Every spelling is printed as you wrote it, and nothing translates notation, so
 rendering a LaTeX table as Typst is refused. A key that names nothing in the
 model, and nothing a formulation of it emits, is an error with the near miss.
 
-Nothing in a symbol table changes what the file means. What a declaration _is_
-stays in its own `description:`.
+Nothing in a symbol table changes what the file means.

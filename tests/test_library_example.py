@@ -75,7 +75,7 @@ def test_the_variant_is_a_patch_rather_than_a_model():
 def test_the_variant_patch_applies_to_the_composition():
     spec = to_spec(PATCHED)
     assert spec.variables['Generator_status'].domain == 'binary'
-    assert spec.variables['Generator_p'].bounds.upper == float('inf'), 'the cap moves from the bound to a constraint'
+    assert spec.variables['Generator_p'].bounds.upper is None, 'the cap moves from the bound to a constraint'
     assert sorted(spec.constraints) == [
         'Bus_nodal_balance',
         'Generator_com_p_lower',

@@ -803,18 +803,17 @@ class Walk:
         if block.domain == 'binary':
             left, right = symbol, f'{self._op("in")} {self._op("binary_set")}'
         else:
-            below, above = lower == Constant(float('-inf')), upper == Constant(float('inf'))
-            if below and above:
-                domain = self._op('integers' if block.domain == 'integer' else 'reals')
-                left, right = symbol, f'{self._op("in")} {domain}'
-            elif below:
-                left, right = symbol, f'{self._op("le")} {self._bound(ctx, upper)}'
-            elif above:
-                left, right = symbol, f'{self._op("ge")} {self._bound(ctx, lower)}'
-            else:
+            if lower is not None and upper is not None:
                 left = f'{self._bound(ctx, lower)} {self._op("le")} {symbol}'
                 right = f'{self._op("le")} {self._bound(ctx, upper)}'
-            if block.domain == 'integer' and not (below and above):
+            elif upper is not None:
+                left, right = symbol, f'{self._op("le")} {self._bound(ctx, upper)}'
+            elif lower is not None:
+                left, right = symbol, f'{self._op("ge")} {self._bound(ctx, lower)}'
+            else:
+                domain = self._op('integers' if block.domain == 'integer' else 'reals')
+                left, right = symbol, f'{self._op("in")} {domain}'
+            if block.domain == 'integer' and (lower is not None or upper is not None):
                 right = f'{right}, {symbol} {self._op("in")} {self._op("integers")}'
         return Line(label=name, left=left, right=right, condition=condition)
 

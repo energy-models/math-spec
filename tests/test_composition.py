@@ -21,7 +21,6 @@ import copy
 import pytest
 
 from math_spec import LanguageError, merge, model, override, to_markdown, to_spec
-from math_spec.program import Constant
 from tests.fixtures import DISPATCH_MODEL, varied
 
 #: The coupling surface a component library agrees on: one flow per port, and
@@ -306,7 +305,7 @@ def test_a_stale_removal_is_refused():
         pytest.param(
             {'variables': {'p': {'bounds': {'upper': None}}}},
             lambda s: s.program.variables['p'].upper,
-            Constant(float('inf')),
+            None,
             id='a-bound-two-levels-down',
         ),
         pytest.param(
@@ -321,8 +320,9 @@ def test_a_stale_removal_is_refused():
 def test_a_null_field_takes_its_default(patch, field, default):
     """`null` makes what it names absent: a declaration is removed, and a field takes its default.
 
-    The bound was the case that failed: `upper: null` was laid as a value the
-    schema refuses for a bound, so a patch could not open one.
+    A field that takes no null was the case that failed: `domain: null` was laid
+    as a value the schema refuses, so a patch could not put a field back to its
+    default.
     """
     base = varied(
         DISPATCH_MODEL,

@@ -5,46 +5,15 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Installation
 
-!!! warning "Not published yet"
+`math-spec` needs Python 3.12 or above. Nothing is published yet, so install it
+from git:
 
-    math-spec is on the alpha stream, and nothing is published yet. The
-    commands below are what the first release will look like. Until then,
-    install from a checkout or a git reference.
+```bash
+pip install git+https://github.com/energy-models/math-spec
+```
 
-`math-spec` needs Python 3.12 or above. Install it into a dedicated
-environment:
-
-=== "pixi"
-
-    ``` bash
-    pixi add --pypi math_spec
-    ```
-
-=== "uv"
-
-    ``` bash
-    uv add math_spec
-    ```
-
-=== "conda"
-
-    ``` bash
-    conda create -n math-spec "python>=3.12" "pip"
-    conda activate math-spec
-    pip install math_spec
-    ```
-
-=== "pip"
-
-    ``` bash
-    pip install math_spec
-    ```
-
-To develop against a clone instead:
-
---8<-- "README.md:docs-install-dev"
-
-[Contributing](../contributing.md) has the rest.
+To develop against a clone instead, follow
+[contributing](../contributing.md#setting-up-a-development-environment).
 
 ## Editor completion and offline checking
 
