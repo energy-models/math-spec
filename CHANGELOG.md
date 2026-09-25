@@ -12,7 +12,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
-- docs: every link to the documentation points at mathspec.readthedocs.io ([#PR](https://github.com/energy-models/mathspec/pull/PR))
+- docs: every link to the documentation points at mathspec.readthedocs.io ([#706](https://github.com/energy-models/mathspec/pull/706))
 
 ## [0.0.0-alpha.127](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.126...v0.0.0-alpha.127) (2026-09-25)
 
