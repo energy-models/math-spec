@@ -26,7 +26,11 @@ with no data and no solver.**
 
 ## What it is for
 
+<div class="grid cards" markdown>
+
 --8<-- "README.md:benefits"
+
+</div>
 
 --8<-- "README.md:engines"
 
