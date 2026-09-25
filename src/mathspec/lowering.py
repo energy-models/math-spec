@@ -222,7 +222,8 @@ def lower(schema: Spec) -> Program:
                 entry.body,
                 _frame_of(name, entry, schema),
                 in_math=name in in_math,
-                description=schema.expressions[name].description,
+                description=schema.expressions[name].description
+                or (schema.given.expressions[name].description if name in sums else None),
             )
             for name, entry in entries.items()
         },

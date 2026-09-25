@@ -89,6 +89,7 @@ def reference_errors(schema: Spec) -> list[str]:
         *_sos_bounds(schema),
         *_piecewise_references(schema),
         *_given_constraint_collisions(schema),
+        *_cased_terms(schema),
     ]
 
 
@@ -143,6 +144,17 @@ def _given_constraint_collisions(schema: Spec) -> Iterator[str]:
             yield (
                 f"Given constraint '{name}' is also declared under 'constraints:'. A row family is "
                 f'either built by this file or given to it — drop one of the two.'
+            )
+
+
+def _cased_terms(schema: Spec) -> Iterator[str]:
+    """A term of a sum is one expression, since the terms are summed as written."""
+    for name in sorted(defined_sums(schema)):
+        if schema.expressions[name].cases:
+            yield (
+                f"Named expression '{name}': a term of a sum is one `expression:`, and this has `cases:`. "
+                f'The terms are summed as written: name the cased term as its own expression, and write '
+                f'that name as the term.'
             )
 
 

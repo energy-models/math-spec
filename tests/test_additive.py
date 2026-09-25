@@ -91,43 +91,30 @@ def test_a_file_may_add_a_term_and_read_the_sum_when_it_marks_it():
     assert not program.given, 'a name this file defines is not one it reads from elsewhere'
 
 
-#: The hub with its entry over `bus` alone, so its own term is wider than the sum it marks.
-WIDE_HUB = {
-    **HUB,
-    'given': {'expressions': {'injection': {'dims': ['bus'], 'additive': True}}},
-    'constraints': {'capped': {'dims': ['bus'], 'expression': 'sum(injection, over=snapshot) <= 10'}},
-}
-
-#: The demand with its term written as `cases:`, beside the marked entry.
-CASED_HUB = {
-    **DEMAND,
-    'given': {'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'additive': True}}},
-    'expressions': {
-        'injection': {
-            'dims': ['snapshot', 'bus'],
-            'cases': {'peak': {'when': 'load > 5', 'expression': '-load'}},
-            'otherwise': '0',
-        }
-    },
-}
+def test_a_term_over_a_dimension_the_sum_does_not_state_is_refused_at_load():
+    narrow = {**HUB, 'given': {'expressions': {'injection': {'dims': ['bus'], 'additive': True}}}}
+    narrow = {
+        **narrow,
+        'constraints': {'capped': {'dims': ['bus'], 'expression': 'sum(injection, over=snapshot) <= 10'}},
+    }
+    with pytest.raises(LanguageError, match=r"Named expression 'injection' carries \['snapshot'\]"):
+        to_spec(narrow)
 
 
-@pytest.mark.parametrize('hub', [pytest.param(WIDE_HUB, id='wide-term'), pytest.param(CASED_HUB, id='cased-term')])
-def test_a_marked_file_s_own_term_is_held_to_no_rule_of_the_sum_at_load(hub):
-    """Alone the file reads its own term, which any named expression may be; only `merge` sums."""
-    assert 'injection' in to_spec(hub).program.expressions
-
-
-@pytest.mark.parametrize(
-    ('hub', 'message'),
-    [
-        pytest.param(WIDE_HUB, r"'hub' adds a term to 'injection' over \['bus', 'snapshot'\]", id='wide-term'),
-        pytest.param(CASED_HUB, r"'hub' adds a term to 'injection' written as `cases:`", id='cased-term'),
-    ],
-)
-def test_a_marked_file_s_own_term_is_held_to_the_rules_of_the_sum_by_merge(hub, message):
-    with pytest.raises(LanguageError, match=message):
-        merge({'hub': hub, 'other': {'dimensions': DIMS}})
+def test_a_cased_term_beside_the_marked_entry_is_refused_at_load():
+    cased = {
+        **DEMAND,
+        'given': {'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'additive': True}}},
+        'expressions': {
+            'injection': {
+                'dims': ['snapshot', 'bus'],
+                'cases': {'peak': {'when': 'load > 5', 'expression': '-load'}},
+                'otherwise': '0',
+            }
+        },
+    }
+    with pytest.raises(LanguageError, match=r'a term of a sum is one `expression:`'):
+        to_spec(cased)
 
 
 # ---------------------------------------------------------------------------
@@ -158,15 +145,18 @@ def test_a_composed_model_takes_more_terms_in_a_second_merge():
     assert 'gen_p' in extended.expressions['injection'].expression
 
 
-def test_the_kept_entry_keeps_the_readers_description():
-    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
-    assert composed.given.expressions['injection'].description == INJECTION
-    assert composed.program.expressions['injection'].description is None, 'no term said what it is'
+#: A term that says what it is.
+SAID = {**DEMAND, 'expressions': {'injection': {'expression': '-load', 'description': 'less the demand'}}}
 
 
-def test_the_sum_takes_the_first_term_s_description():
-    said = {**DEMAND, 'expressions': {'injection': {'expression': '-load', 'description': 'less the demand'}}}
-    composed = merge({'fleet': FLEET, 'demand': said, 'balance': BALANCE})
+def test_the_sum_takes_the_readers_description():
+    composed = merge({'fleet': FLEET, 'demand': SAID, 'balance': BALANCE})
+    assert composed.program.expressions['injection'].description == INJECTION, 'the reader wins over a term'
+
+
+def test_the_sum_takes_the_first_term_s_description_where_the_reader_says_nothing():
+    silent = {**BALANCE, 'given': {'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'additive': True}}}}
+    composed = merge({'fleet': FLEET, 'demand': SAID, 'balance': silent})
     assert composed.program.expressions['injection'].description == 'less the demand'
 
 

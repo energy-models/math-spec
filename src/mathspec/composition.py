@@ -304,7 +304,7 @@ def _summed_terms(
             'expression': bodies[0] if len(bodies) == 1 else ' + '.join(f'({body})' for body in bodies)
         }
         said = next((b['description'] for _, b in terms if b.get('description')), None)
-        if said is not None:
+        if said is not None and not entry.get('description'):
             term['description'] = said
         summed[key] = term
     return summed
