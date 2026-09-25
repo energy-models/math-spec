@@ -51,6 +51,7 @@ from mathspec.program import (
     WindowSum,
     children,
 )
+from mathspec.spec import empty_sums
 
 if TYPE_CHECKING:
     from mathspec.program import Program
@@ -70,7 +71,8 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
         return frozenset({**schema.parameters, **schema.given.parameters}[node.name].dims)
 
     if isinstance(node, Variable):
-        return frozenset({**schema.variables, **schema.given.variables, **schema.given.expressions}[node.name].dims)
+        columns = {**schema.variables, **schema.given.variables, **schema.given.expressions, **empty_sums(schema)}
+        return frozenset(columns[node.name].dims or ())
 
     if isinstance(node, Dual):
         return frozenset({**schema.constraints, **schema.given.constraints}[node.constraint].dims)

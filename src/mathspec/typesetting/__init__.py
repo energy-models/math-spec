@@ -216,11 +216,13 @@ def typeset_declaration(
     }
     given_kind = next((kind for kind, group in givens.items() if name in group), None)
     if given_kind is not None:
-        msg = (
-            f"'{name}' is a given {given_kind}, and a given declaration prints no line of its own — "
-            f"this file reads it and does not build it. It prints in the legend, under 'Given', "
-            f'so call typeset() for the whole spec.'
+        what = (
+            f"'{name}' is a sum other files add terms to, and it has no body yet"
+            if given.expressions.get(name) is not None and given.expressions[name].owned
+            else f"'{name}' is a given {given_kind}, and a given declaration prints no line of its own — "
+            f'this file reads it and does not build it'
         )
+        msg = f"{what}. It prints in the legend, under 'Given', so call typeset() for the whole spec."
         raise SchemaError(msg)
     return walk.format.equation(walk.line(name))
 

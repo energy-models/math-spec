@@ -26,15 +26,16 @@ What that means for each section:
   both named.
 * **The objectives are summed**, each term in parentheses, in the fragments'
   name order, and the senses have to agree.
-* **A term is added to the definition it names.** A ``given: expressions:``
+* **A term is added to the expression it names.** A ``given: expressions:``
   entry with a ``term:`` names the expression its fragment adds to the name.
-  The composed spec defines the name as the definition one fragment writes,
-  if any, plus every term by its name, in the fragments' name order, and keeps
-  each term as the named expression its fragment declares. A definition
-  written as ``cases:`` is refused, since it is summed as written. A later
-  merge adds to the composed definition the same way. Terms that land
-  on a name no fragment defines, reads or uses are refused: merge fills a
-  reading or extends a definition, and never invents a name.
+  The name is an ``expressions:`` block of one other fragment: a sum with a
+  frame and no body, or a definition. The composed spec writes its body as
+  that body, if it has one, plus every term by its name, in the fragments'
+  name order, and keeps each term as the named expression its fragment
+  declares. A definition written as ``cases:`` is refused, since it is summed
+  as written. A later merge adds to the composed body the same way. A term
+  that names no ``expressions:`` block of any fragment is refused: merge
+  fills or extends what a file declared, and never invents a name.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
   A given expression's body may carry no dimension its reader does not state,
@@ -88,7 +89,6 @@ from pydantic import BaseModel, ValidationError
 from mathspec._yaml import read_spec
 from mathspec.dimensions import dims_of
 from mathspec.errors import LanguageError, did_you_mean, schema_error
-from mathspec.program import Variable, walk
 from mathspec.spec import GivenBlock, Spec
 from mathspec.validation import to_spec
 
@@ -324,13 +324,14 @@ def _summed(
     defined: Mapping[str, object],
     readings: Mapping[str, object],
 ) -> dict[str, object]:
-    """Every name a fragment adds a term to, defined as the definition plus the terms.
+    """Every name a fragment adds a term to, its body written as the owner's body plus the terms.
 
-    The definition one fragment writes comes first, in parentheses where it
-    is more than a name, then every term by its name in the fragments' name
-    order; one body alone is carried as written. A definition written as
+    The owner's body comes first where it has one, in parentheses where it is
+    more than a name, then every term by its name in the fragments' name
+    order; one body alone is carried as written. An empty sum keeps its frame,
+    so the composed load holds the terms to it. A definition written as
     ``cases:`` is refused, since it is summed as written and a set of cases is
-    no one body. The definition keeps its own description, or takes the first
+    no one body. The block keeps the owner's description, or takes the first
     a reader wrote.
     """
     summed: dict[str, object] = {}
@@ -339,20 +340,22 @@ def _summed(
         terms = _terms(read, key)
         if not terms:
             continue
-        _landed(read, loaded, defined, key, [name for name, _ in terms])
+        _landed(read, defined, key, [name for name, _ in terms])
         bodies = [term for _, term in terms]
+        base = _as_mapping(defined[key])
+        if base.get('cases'):
+            raise LanguageError(
+                f"fragment '{_author_of(read, 'expressions', key)}' defines {key!r} as `cases:`, and fragment "
+                f"'{terms[0][0]}' adds a term to it. The definition is summed as written, and a set of cases is no "
+                f'one body: name the cased body as its own expression, and define {key!r} as that name.'
+            )
         block: dict[str, object] = {}
-        if key in defined:
-            base = _as_mapping(defined[key])
-            if base.get('cases'):
-                raise LanguageError(
-                    f"fragment '{_author_of(read, 'expressions', key)}' defines {key!r} as `cases:`, and fragment "
-                    f"'{terms[0][0]}' adds a term to it. The definition is summed as written, and a set of cases is no "
-                    f'one body: name the cased body as its own expression, and define {key!r} as that name.'
-                )
+        if base.get('dims'):
+            block['dims'] = base['dims']
+        if base.get('expression') is not None:
             bodies.insert(0, cast('str', base['expression']))
-            if base.get('description'):
-                block['description'] = base['description']
+        if base.get('description'):
+            block['description'] = base['description']
         block['expression'] = bodies[0] if len(bodies) == 1 else ' + '.join(_summand(body) for body in bodies)
         if 'description' not in block and entry.get('description'):
             block['description'] = entry['description']
@@ -362,37 +365,20 @@ def _summed(
 
 def _landed(
     read: Mapping[str, dict[str, object]],
-    loaded: Mapping[str, Spec],
     defined: Mapping[str, object],
     key: str,
     contributors: list[str],
 ) -> None:
-    """Refuse terms that land on a name no fragment owns.
+    """Refuse terms that name no ``expressions:`` block of any fragment.
 
-    A term adds to a name another file has: a definition under
-    ``expressions:``, a reading under ``given:`` with no term of its own, or a
-    use in its math. Terms alone would define a name nothing asked for, which
-    is what a mistyped name looks like, so the refusal names the near miss
-    among the names a term could land on, which a term is not.
+    A term adds to a name another file declares: a sum with a frame and no
+    body, or a definition. Terms alone would define a name nothing declared,
+    which is what a mistyped name looks like, so the refusal names the near
+    miss among the names a term could land on, which a term is not.
     """
     if key in defined:
         return
-    for spec in loaded.values():
-        reading = spec.given.expressions.get(key)
-        if reading is not None and reading.term is None:
-            return
-        program = spec.program
-        bodies = (entry.expression for entry in program.expressions.values())
-        if any(isinstance(node, Variable) and node.name == key for node in walk(*program.roots, *bodies)):
-            return
-    known = {
-        name
-        for sections in read.values()
-        for name in (
-            *_mapping(sections.get('expressions')),
-            *_mapping(_mapping(sections.get('given')).get('expressions')),
-        )
-    } - {key}
+    known = {name for sections in read.values() for name in _mapping(sections.get('expressions'))} - {key}
     terms = {
         _mapping(entry).get('term')
         for sections in read.values()
@@ -403,8 +389,9 @@ def _landed(
     who = f"fragments {spelled} and '{contributors[-1]}' add" if spelled else f"fragment '{contributors[0]}' adds"
     near = f' {hint}' if (hint := did_you_mean(key, known, listing=False)) else ''
     raise LanguageError(
-        f'{who} a term to {key!r}, which no fragment defines, reads or uses. A term adds to a name another '
-        f"file has: define it under 'expressions:', read it under 'given: expressions:', or fix the spelling.{near}"
+        f'{who} a term to {key!r}, which no fragment declares. A term adds to a name another file declares '
+        f"under 'expressions:': declare it there, with a `dims:` and no body where the files add every term, "
+        f'or fix the spelling.{near}'
     )
 
 
@@ -489,9 +476,12 @@ def _fits(
 
 
 def _definer_frame(loaded: Mapping[str, Spec], key: str) -> frozenset[str]:
-    """The frame of the composed body of *key*: the definition's, where a fragment writes one, with every term's."""
+    """The frame of the composed body of *key*: the frame its owner declares, else its body's with every term's."""
     frame: set[str] = set()
     for spec in loaded.values():
+        declared = spec.expressions[key].dims if key in spec.expressions else None
+        if declared is not None:
+            return frozenset(declared)
         if key in spec.program.expressions:
             frame |= set(spec.program.expressions[key].dims)
         given = spec.program.given.expressions.get(key)
