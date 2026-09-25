@@ -10,7 +10,7 @@ hide:
 
 # mathspec
 
-**Write the spec of an optimisation model as a YAML file. Check it and print it
+**Write the specification (spec) of an optimisation model as a YAML file. Check it and print it
 as math, with no data and no solver.**
 
 --8<-- "README.md:badges"
@@ -36,9 +36,10 @@ as math, with no data and no solver.**
 
 ## A spec is one file
 
-A file declares four things: the axes the spec runs over, the data it
-expects, the decisions the solver makes, and the rules those decisions obey.
-The file below is a complete spec.
+A file states one specification, or spec. A spec declares four things: the
+axes it runs over, the data it expects, the decisions the solver makes, and
+the rules those decisions obey. It holds no data: an engine attaches the data
+and builds a model. The file below is a complete spec.
 
 --8<-- "README.md:model"
 

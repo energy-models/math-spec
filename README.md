@@ -15,10 +15,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 <!--- --8<-- [end:badges] -->
 
-**Write the spec of an optimisation model as a YAML file. Check it and print it
+**Write the specification (spec) of an optimisation model as a YAML file. Check it and print it
 as math, with no data and no solver.**
 
-A mathspec file states a spec, which declares four things: the axes it runs
+A mathspec file states a specification, or spec. A spec declares four things: the axes it runs
 over, such as `snapshot` and `generator`; the data it expects, such as `load`
 and `cost`; the decisions the solver makes, such as `dispatch`; and the rules
 those decisions obey, such as `sum(dispatch, over=generator) == load`. The file

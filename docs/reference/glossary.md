@@ -12,7 +12,7 @@ its [language page](language/index.md).
 ## The file and what reads it
 
 **Spec**
-: The optimisation problem a file states: its dimensions, the data it expects,
+: Short for specification. The optimisation problem a file states: its dimensions, the data it expects,
 its decisions and its rules. A spec holds no data. In Python it is a `Spec`,
 the file as written and checked, which `to_spec` returns
 ([reading a spec and its program](reading.md#spec-and-program)).
