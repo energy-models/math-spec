@@ -310,6 +310,10 @@
 
 /* Benefit cards: the README bullet's bold lead-in is the card's title, and its
  * one link covers the whole card, since the README cannot carry card markup. */
+.md-typeset .landing .grid.cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+}
+
 .md-typeset .landing .grid.cards > ul > li {
   position: relative;
   color: var(--md-default-fg-color--light);
