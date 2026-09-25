@@ -62,7 +62,6 @@ OperatorName = Literal[
     'dual',
     'minimize',
     'maximize',
-    'ellipsis',
 ]
 
 #: Every operator a walk can emit, by the name the walk uses for it, with its
@@ -109,7 +108,6 @@ OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'dual': (r'\lambda', 'lambda'),
     'minimize': (r'\min', 'min'),
     'maximize': (r'\max', 'max'),
-    'ellipsis': (r'\cdots', 'dots.c'),
 }
 
 #: The set form, for the test pinning each format's table against the vocabulary.

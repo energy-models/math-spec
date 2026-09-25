@@ -110,8 +110,8 @@ import mathspec as ms
 print(ms.to_markdown('generators.yaml', legend=False))
 ```
 
-The term prints as its own definition, and then after dots, which stand for
-what the other files put in:
+The term prints as its own definition, and the legend, left out here, says
+what it adds to:
 
 !!! example "Rendered output"
 
@@ -129,12 +129,6 @@ what the other files put in:
 
     ```math
     \mathit{generation}_{t,b} = \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathit{dispatch}_{t,g} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
-    ```
-
-    **`injection`**
-
-    ```math
-    \mathit{injection}_{t,b} = \cdots + \mathit{generation}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
     ```
 
     #### Variable domains

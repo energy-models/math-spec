@@ -17,6 +17,7 @@ from __future__ import annotations
 import pytest
 
 from mathspec import FORMATS, LanguageError, advice, merge, to_markdown, to_spec, typeset
+from tests.fixtures import BALANCE
 
 #: One component file: it pins the flow at its own port, and the column it
 #: pins belongs to another fragment.
@@ -446,16 +447,6 @@ def test_the_advice_names_a_given_parameter_as_data_a_consumer_binds():
 # a named expression another file defines
 # ---------------------------------------------------------------------------
 
-#: A balance file: it clears each bus of what every component injects, and
-#: defines none of the injections.
-BALANCE = {
-    'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
-    'given': {
-        'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'description': 'what the components put into a bus'}}
-    },
-    'constraints': {'balance': {'dims': ['snapshot', 'bus'], 'expression': 'injection == 0'}},
-}
-
 #: A component file that defines the injection.
 INJECTOR = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}, 'generator': {'dtype': 'str'}},
@@ -514,7 +505,10 @@ def test_a_definition_over_a_dimension_the_reader_does_not_state_is_refused():
     """The reader's frame bounds what it reads, so a body carrying more is a disagreement `merge` names."""
     narrow = {**BALANCE, 'given': {'expressions': {'injection': {'dims': ['bus']}}}}
     narrow = {**narrow, 'constraints': {'balance': {'dims': ['bus'], 'expression': 'injection == 0'}}}
-    with pytest.raises(LanguageError, match=r"'balance' reads the given expression 'injection' over \['bus'\]"):
+    with pytest.raises(
+        LanguageError,
+        match=r"'balance' reads the given expression 'injection' as .*'injector' introduces it over \['bus', 'snapshot'\]",
+    ):
         merge({'balance': narrow, 'injector': INJECTOR})
 
 

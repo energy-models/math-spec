@@ -59,6 +59,18 @@ SMALL_MODEL: dict[str, Any] = {
     'variables': {'p': {'dims': ['g']}, 'q': {'dims': ['g', 'h']}, 'r': {'dims': ['h']}},
 }
 
+#: The frame a bus balance runs over, and the balance itself: a fragment that
+#: reads `injection` under `given:` and defines none of the injections. The
+#: tests of `given:` and of terms both compose it with component fragments.
+BUS_DIMS: dict[str, Any] = {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}}
+BUS_FRAME = ['snapshot', 'bus']
+INJECTION = 'what the components put into a bus'
+BALANCE: dict[str, Any] = {
+    'dimensions': BUS_DIMS,
+    'given': {'expressions': {'injection': {'dims': BUS_FRAME, 'description': INJECTION}}},
+    'constraints': {'balance': {'dims': BUS_FRAME, 'expression': 'injection == 0'}},
+}
+
 
 def varied(base: dict[str, Any], **patch: Any) -> dict[str, Any]:
     """A deep copy of ``base`` with dotted paths replaced, missing parents created.
