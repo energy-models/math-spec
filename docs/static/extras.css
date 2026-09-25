@@ -50,62 +50,40 @@
   --md-code-hl-generic-color: #f8f8f2;
 }
 
-/* --- Custom palette: soft dark slate primary + sky accent --- */
+/* --- Palette: one sky hue, as primary and accent ---
+ * In the modern variant the primary colour paints links, the primary button and
+ * the progress bar; the accent paints hover, focus and the active navigation
+ * entry. The primary is the shade that rests, the accent the one that answers
+ * the pointer. Links hold 4.5:1 on either background, and the dark scheme puts
+ * dark text on its light button.
+ */
 
-:root,
 [data-md-color-primary="custom"] {
-  --md-primary-fg-color: #334155; /* slate-700 — soft dark header */
-  --md-primary-fg-color--light: #475569; /* slate-600 */
-  --md-primary-fg-color--dark: #1e293b; /* slate-800 — hover/active */
+  --md-primary-fg-color: #0369a1; /* sky-700 */
+  --md-primary-fg-color--light: #0284c7; /* sky-600 */
+  --md-primary-fg-color--dark: #075985; /* sky-800 */
   --md-primary-bg-color: #ffffff;
   --md-primary-bg-color--light: #ffffffb3;
 }
 
-/* Light-mode accent: deeper sky for contrast on white */
 [data-md-color-accent="custom"] {
   --md-accent-fg-color: #0284c7; /* sky-600 */
-  --md-accent-fg-color--transparent: rgba(2, 132, 199, 0.1);
+  --md-accent-fg-color--transparent: #0284c71a;
   --md-accent-bg-color: #ffffff;
   --md-accent-bg-color--light: #ffffffb3;
 }
 
-/* Dark-mode accent: brighter sky for contrast on slate background */
+[data-md-color-scheme="slate"][data-md-color-primary="custom"] {
+  --md-primary-fg-color: #38bdf8; /* sky-400 */
+  --md-primary-fg-color--light: #7dd3fc; /* sky-300 */
+  --md-primary-fg-color--dark: #0ea5e9; /* sky-500 */
+  --md-primary-bg-color: #0f172a; /* slate-900 */
+  --md-primary-bg-color--light: #0f172ab3;
+}
+
 [data-md-color-scheme="slate"][data-md-color-accent="custom"] {
-  --md-accent-fg-color: #38bdf8; /* sky-400 — brighter for dark bg */
-  --md-accent-fg-color--transparent: rgba(56, 189, 248, 0.15);
-}
-
-/* The active entry in the right-hand table of contents, and a `code` span
-   inside it, are bound to --md-typeset-a-color, which defaults to
-   --md-primary-fg-color (slate-700). In slate that is slate-700 on a near-black
-   chip, measured at rgb(51,65,85) on rgb(43,45,49) — unreadable. Re-bind to the
-   sky link colours. The left sidebar needs nothing: the theme colours its
-   active item with the accent already. */
-:root,
-[data-md-color-scheme="default"] {
-  --md-typeset-a-color: #0284c7; /* sky-600 — matches link color */
-}
-
-[data-md-color-scheme="slate"] {
-  --md-typeset-a-color: #38bdf8; /* sky-400 — matches link color */
-}
-
-/* Light-mode resting link: brighter than the accent for prominence.
-   Hover keeps the accent (sky-600) for darken-on-hover affordance. */
-.md-typeset a {
-  color: #0284c7; /* sky-600 */
-}
-
-.md-typeset a:hover {
-  color: #0ea5e9; /* sky-500 — brighten on hover */
-}
-
-[data-md-color-scheme="slate"] .md-typeset a {
-  color: #38bdf8; /* sky-400 */
-}
-
-[data-md-color-scheme="slate"] .md-typeset a:hover {
-  color: #7dd3fc; /* sky-300 */
+  --md-accent-fg-color: #7dd3fc; /* sky-300 */
+  --md-accent-fg-color--transparent: #7dd3fc26;
 }
 
 /* --- Landing page --- */
@@ -236,29 +214,8 @@
   }
   25%,
   65% {
-    background-color: rgba(2, 132, 199, 0.35); /* sky-600 — matches accent */
-    box-shadow: -0.4rem 0 0 0 rgba(2, 132, 199, 0.75);
-  }
-  45% {
-    background-color: transparent;
-    box-shadow: -0.4rem 0 0 0 transparent;
-  }
-}
-
-[data-md-color-scheme="slate"] .md-content :target {
-  animation: target-flash-dark 1.5s ease-in-out;
-}
-
-@keyframes target-flash-dark {
-  0%,
-  100% {
-    background-color: transparent;
-    box-shadow: -0.4rem 0 0 0 transparent;
-  }
-  25%,
-  65% {
-    background-color: rgba(56, 189, 248, 0.22); /* sky-400 — matches dark accent */
-    box-shadow: -0.4rem 0 0 0 rgba(56, 189, 248, 0.65);
+    background-color: color-mix(in srgb, var(--md-accent-fg-color) 30%, transparent);
+    box-shadow: -0.4rem 0 0 0 color-mix(in srgb, var(--md-accent-fg-color) 70%, transparent);
   }
   45% {
     background-color: transparent;

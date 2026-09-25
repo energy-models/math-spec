@@ -93,21 +93,26 @@ nav:
 
 theme:
   palette:
-    # Dark first = default for new visitors (no auto/system-pref entry).
-    # Icon represents the CURRENT scheme — moon when active is dark,
-    # sun when active is light. The `name` describes the toggle action.
-    - scheme: slate
+    - media: "(prefers-color-scheme)"
       primary: custom
       accent: custom
       toggle:
-        icon: lucide/moon
+        icon: lucide/sun-moon
         name: Switch to light mode
-    - scheme: default
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: custom
       accent: custom
       toggle:
         icon: lucide/sun
         name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: lucide/moon
+        name: Switch to system preference
 
   icon:
     repo: fontawesome/brands/github
