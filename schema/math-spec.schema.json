@@ -272,7 +272,7 @@
     },
     "GivenBlock": {
       "additionalProperties": false,
-      "description": "What this file reads and does not build, by kind. Closed at the two kinds.",
+      "description": "What this file reads and does not build, by kind. Closed at the four kinds.",
       "properties": {
         "constraints": {
           "additionalProperties": {
@@ -280,6 +280,22 @@
           },
           "default": {},
           "title": "Constraints",
+          "type": "object"
+        },
+        "expressions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenExpressionBlock"
+          },
+          "default": {},
+          "title": "Expressions",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenParameterBlock"
+          },
+          "default": {},
+          "title": "Parameters",
           "type": "object"
         },
         "variables": {
@@ -322,6 +338,77 @@
         "dims"
       ],
       "title": "GivenConstraintBlock",
+      "type": "object"
+    },
+    "GivenExpressionBlock": {
+      "additionalProperties": false,
+      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed model holds the body to the rules\nof every place this file reads it.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "GivenExpressionBlock",
+      "type": "object"
+    },
+    "GivenParameterBlock": {
+      "additionalProperties": false,
+      "description": "Data this file reads and another file declares.\n\nIt says what a :class:`ParameterBlock` says, because the frame and the\ndtype are all a parameter declaration holds: a where compares against the\ndtype, and the dim rules read the frame.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        },
+        "dtype": {
+          "default": "float",
+          "enum": [
+            "float",
+            "int",
+            "bool",
+            "str"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "GivenParameterBlock",
       "type": "object"
     },
     "GivenVariableBlock": {
@@ -825,6 +912,8 @@
       "$ref": "#/$defs/GivenBlock",
       "default": {
         "constraints": {},
+        "expressions": {},
+        "parameters": {},
         "variables": {}
       }
     },

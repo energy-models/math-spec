@@ -133,8 +133,20 @@ def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
             f'and nothing translates between notations — write a {fmt.notation} table.'
         )
         raise SchemaError(msg)
-    chosen = frozenset(program.variables) | frozenset(program.given.variables) | chosen_expressions(program)
-    names = (*program.parameters, *program.variables, *program.given.variables, *program.expressions)
+    chosen = (
+        frozenset(program.variables)
+        | frozenset(program.given.variables)
+        | frozenset(program.given.expressions)
+        | chosen_expressions(program)
+    )
+    names = (
+        *program.parameters,
+        *program.given.parameters,
+        *program.variables,
+        *program.given.variables,
+        *program.expressions,
+        *program.given.expressions,
+    )
     declared = frozenset(names)
 
     name = {
@@ -274,9 +286,11 @@ def _declared(program: Program) -> set[str]:
     """Every name *program* declares that a table entry may spell."""
     return (
         set(program.parameters)
+        | set(program.given.parameters)
         | set(program.variables)
         | set(program.given.variables)
         | set(program.expressions)
+        | set(program.given.expressions)
         | set(program.constraints)
         | set(program.given.constraints)
     )

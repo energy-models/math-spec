@@ -107,16 +107,17 @@ compose as `override(merge({…}), {…})`.
 
 ## What a fragment may share
 
-| The entry                                                   | What happens                                                                             |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| a dimension or a relation                                   | every fragment may declare it, and the ones that do say the same thing about it          |
-| a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried             |
-| any other declaration                                       | one fragment declares it, and a second is refused                                        |
-| an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it         |
-| a given entry no fragment introduces                        | it stays under `given:` until a host model provides it                                   |
-| `objective`                                                 | the terms are summed in fragment-name order, each in parentheses, and the senses agree   |
-| `version`                                                   | every fragment is written against the same one                                           |
-| `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=` |
+| The entry                                         | What happens                                                                             |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| a dimension or a relation                         | every fragment may declare it, and the ones that do say the same thing about it          |
+| a `description` on a shared dimension or relation | it is prose rather than a claim, and the first fragment's wording is carried             |
+| any other declaration                             | one fragment declares it, and a second is refused                                        |
+| an entry under `given:`                           | it is checked against the fragment that introduces the name, then folded into it         |
+| a given expression                                | its frame is checked against the frame the definition's body carries                     |
+| a given entry no fragment introduces              | it stays under `given:` until a host model provides it                                   |
+| `objective`                                       | the terms are summed in fragment-name order, each in parentheses, and the senses agree   |
+| `version`                                         | every fragment is written against the same one                                           |
+| `description` at the top of a fragment            | it is about the fragment and is not carried. Pass the composed model's as `description=` |
 
 ## A name two fragments declare
 
@@ -232,16 +233,16 @@ Given variable 'Generator_p' collides with the variable of the same name. Names 
 
 ## What a patch may say
 
-| The entry                                                   | What happens                                                                  |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| some fields of a declaration                                | those fields change, and the rest of the declaration stays                    |
-| a whole declaration under a new name                        | it is added                                                                   |
-| `null` under a declaration's name                           | it is removed                                                                 |
-| `null` on a field of a declaration                          | the field takes its default, and the rest of the declaration stays            |
-| `null` under a section's name                               | it is refused                                                                 |
-| a dimension or a relation                                   | it is added, or restated word for word as the base declares it                |
-| an entry under `given: variables:` or `given: constraints:` | it is edited, added or removed like any declaration, and the other kind stays |
-| `version`, `description`                                    | the patch's value replaces the base's                                         |
+| The entry                            | What happens                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| some fields of a declaration         | those fields change, and the rest of the declaration stays                    |
+| a whole declaration under a new name | it is added                                                                   |
+| `null` under a declaration's name    | it is removed                                                                 |
+| `null` on a field of a declaration   | the field takes its default, and the rest of the declaration stays            |
+| `null` under a section's name        | it is refused                                                                 |
+| a dimension or a relation            | it is added, or restated word for word as the base declares it                |
+| an entry under one kind of `given:`  | it is edited, added or removed like any declaration, and the other kinds stay |
+| `version`, `description`             | the patch's value replaces the base's                                         |
 
 ## A partial entry on a missing name
 

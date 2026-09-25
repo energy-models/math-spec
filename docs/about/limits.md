@@ -31,9 +31,9 @@ costs to add.
 - **A declaration section** is a block of declarations of one kind, such as
   `variables:` or `given:`. One enters where it states something no section
   states, where a file decides it without data, and where the typesetter prints
-  it. `given:` entered on all three. No other section says that a column
-  belongs to another file, and that is what lets a component file load and
-  print on its own.
+  it. `given:` entered on all three. No other section says that a parameter,
+  a column, a named expression or a row family belongs to another file, and
+  that is what lets a component file load and print on its own.
 
 A request that is none of the four is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write

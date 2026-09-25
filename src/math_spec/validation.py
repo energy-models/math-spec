@@ -103,9 +103,11 @@ def _flat_namespace(schema: Spec) -> list[tuple[str, Iterable[str]]]:
         ('dimension', schema.dimensions),
         ('relation', schema.relations),
         ('parameter', schema.parameters),
+        ('given parameter', schema.given.parameters),
         ('variable', schema.variables),
         ('given variable', schema.given.variables),
         ('named expression', schema.expressions),
+        ('given expression', schema.given.expressions),
         ('macro', schema.macros),
     ]
 
@@ -149,7 +151,9 @@ def _frame_dimensions(schema: Spec) -> Iterator[str]:
     frames = [
         *(('Parameter', name, p.dims) for name, p in schema.parameters.items()),
         *(('Variable', name, v.dims) for name, v in schema.variables.items()),
+        *(('Given parameter', name, g.dims) for name, g in schema.given.parameters.items()),
         *(('Given variable', name, g.dims) for name, g in schema.given.variables.items()),
+        *(('Given expression', name, g.dims) for name, g in schema.given.expressions.items()),
         *(('Given constraint', name, g.dims) for name, g in schema.given.constraints.items()),
         *(('Constraint', name, c.dims) for name, c in schema.constraints.items()),
         *(('Named expression', name, e.dims or []) for name, e in schema.expressions.items()),
@@ -210,14 +214,15 @@ def _relation_targets(schema: Spec) -> Iterator[str]:
 
 
 def _bound_names(schema: Spec) -> Iterator[str]:
-    """A named bound is a numeric parameter."""
+    """A named bound is a numeric parameter, declared here or given."""
+    parameters = {**schema.parameters, **schema.given.parameters}
     for vname, vdef in schema.variables.items():
         for side in ('lower', 'upper'):
             val = getattr(vdef.bounds, side)
             if not isinstance(val, str):
                 continue
-            if val in schema.parameters:
-                dtype = schema.parameters[val].dtype
+            if val in parameters:
+                dtype = parameters[val].dtype
                 if dtype not in NUMERIC_DTYPES:
                     yield (
                         f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "

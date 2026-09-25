@@ -628,14 +628,20 @@ class GivenDeclaration:
 class GivenTargets:
     """What a program reads and does not build, by kind.
 
-    Both groups are empty in a program built from one whole model. Both are
-    sealed at construction, like every group of :class:`Program`.
+    Every group is empty in a program built from one whole model. Every group
+    is sealed at construction, like every group of :class:`Program`.
     """
 
+    #: Data another file declares, by name, with the dtype a where compares against.
+    parameters: Mapping[str, ParameterDeclaration] = Sealed({})
     #: Columns the host model provides, by name.
     variables: Mapping[str, GivenDeclaration] = Sealed({})
     #: Row families the host model provides, by name, read back after the solve.
     constraints: Mapping[str, GivenDeclaration] = Sealed({})
+    #: Named expressions the host model defines, by name. An expression reads
+    #: each as a :class:`Variable` over the frame declared here, since the
+    #: body is the host's.
+    expressions: Mapping[str, GivenDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
         for f in fields(self):
@@ -643,7 +649,7 @@ class GivenTargets:
 
     def __bool__(self) -> bool:
         """Whether the program reads anything it does not build."""
-        return bool(self.variables or self.constraints)
+        return bool(self.parameters or self.variables or self.constraints or self.expressions)
 
 
 @dataclass(frozen=True)

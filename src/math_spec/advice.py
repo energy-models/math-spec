@@ -51,12 +51,17 @@ def _given(program: Program) -> list[Advice]:
         Advice(
             'given',
             name,
-            f"{kind} '{name}' is read here and built elsewhere: the model this one is layered onto "
+            f"{kind} '{name}' is read here and declared elsewhere: the model this one is layered onto "
             f'provides it. A consumer checks that it does, on the same frame, and refuses the program where '
             f'it does not. A fragment is composed instead: merge() folds this declaration into the one a '
             f'sibling introduces.',
         )
-        for kind, group in (('variable', program.given.variables), ('row family', program.given.constraints))
+        for kind, group in (
+            ('parameter', program.given.parameters),
+            ('variable', program.given.variables),
+            ('expression', program.given.expressions),
+            ('row family', program.given.constraints),
+        )
         for name in group
     ]
 
@@ -75,7 +80,9 @@ def _never_an_axis(program: Program) -> list[Advice]:
         *program.parameters.values(),
         *program.variables.values(),
         *program.constraints.values(),
+        *program.given.parameters.values(),
         *program.given.variables.values(),
+        *program.given.expressions.values(),
         *program.given.constraints.values(),
     ):
         reached.update(declaration.dims)

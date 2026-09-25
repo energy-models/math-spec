@@ -506,3 +506,17 @@ def test_a_base_that_does_not_load_is_refused_though_a_patch_would_mend_it():
 def test_a_loaded_spec_is_a_base_as_readily_as_a_mapping():
     laid = override(to_spec(DISPATCH_MODEL), {'carbon': CARBON})
     assert 'co2_cap' in laid.constraints
+
+
+@pytest.mark.parametrize(
+    ('kind', 'entry'),
+    [
+        pytest.param('parameters', {'dims': ['g'], 'dtype': 'bool'}, id='a-parameter'),
+        pytest.param('expressions', {'dims': ['g']}, id='an-expression'),
+    ],
+)
+def test_a_patch_creates_a_given_entry_of_every_kind(kind, entry):
+    """`override` lays `given:` over by the kinds `merge` folds, so a kind added to one reaches the other."""
+    laid = override(GIVEN_BASE, {'reads': {'given': {kind: {'r': entry}}}})
+    assert getattr(laid.given, kind)['r'].dims == ['g']
+    assert sorted(laid.given.variables) == ['p'], 'the kinds the patch did not name are still there'
