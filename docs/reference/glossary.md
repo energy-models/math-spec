@@ -11,9 +11,14 @@ its [language page](language/index.md).
 
 ## The file and what reads it
 
+**Model**
+: The optimisation problem a file states: its dimensions, the data it expects,
+its decisions and its rules. A model holds no data. The Python objects that
+hold it are named for what they are, a `Spec` or a `Program`.
+
 **Spec**
 : The file as written, checked: what `to_spec` returns
-([reading a loaded model](reading.md#spec-and-program)).
+([reading a spec and its program](reading.md#spec-and-program)).
 
 **Program**
 : What the file means, `spec.program`: every name typed, every macro expanded,

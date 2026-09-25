@@ -121,5 +121,5 @@ the same _Assumptions_ heading as the written ones.
 | `curve_breakpoints` | `lp`              | each curve has at least two breakpoints                                                               |
 | `curve_contiguous`  | a block `points:` | the marked breakpoints are one consecutive run of at least one                                        |
 
-[Reading a loaded model](../reading.md#what-the-data-has-to-satisfy) says how
+[Reading a spec and its program](../reading.md#what-the-data-has-to-satisfy) says how
 a consumer runs them.

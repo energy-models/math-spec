@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Reading a loaded model
+# Reading a spec and its program
 
 This page is for whoever writes an engine that builds models, a renderer, or a
 checker. A tool reads the model through two objects, `Spec` and `Program`.

@@ -75,7 +75,7 @@ nav:
   # `tools/gallery.py` writes them.
   - Development:
       - Building on math-spec:
-          - Reading a loaded model: reference/reading.md
+          - Reading a spec and its program: reference/reading.md
           - Program API: reference/program.md
           - What counts as language: about/what-counts-as-language.md
       - Contributing:

@@ -117,7 +117,7 @@ prints from it. What a consumer does with a spec — the data it attaches, how i
 solves, what it reads back — is that consumer's page, not this tree's
 ([what counts as language](../../../docs/about/what-counts-as-language.md)).
 A rule about a consumer says only what the file guarantees it
-([reading a loaded model](../../../docs/reference/reading.md)).
+([reading a spec and its program](../../../docs/reference/reading.md)).
 
 Answer the two questions before starting. If a page needs two kinds, it is
 two sections with two headings, or two pages.

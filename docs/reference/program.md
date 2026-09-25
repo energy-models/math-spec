@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This page documents every name that `math_spec.program` exports: the
 declarations, the expression and predicate nodes, and the reports a program
-answers. [Reading a loaded model](reading.md) says how they fit together.
+answers. [Reading a spec and its program](reading.md) says how they fit together.
 
 <!-- prettier-ignore-start -->
 
