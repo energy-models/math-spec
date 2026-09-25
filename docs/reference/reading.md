@@ -262,3 +262,50 @@ that data as a file. Both round-trip, so `to_spec(spec.to_dict()) == spec`.
 `to_yaml()` writes every value and omits every absence. `domain: continuous` is
 written out. A `null` and an empty section are left out.
 `dims: []` is written, because it says the declaration is a scalar.
+
+## Comparing two models
+
+`to_yaml(canonical=True)` writes the normal form: the one text every file that
+means the same thing writes. Two models then differ in a diff only where they
+differ as models.
+
+```python
+spec.to_yaml(canonical=True) == to_spec(spec.to_yaml(canonical=True)).to_yaml(canonical=True)  # True
+```
+
+- **The sections come in one order**, whatever order the file wrote them in:
+  `version`, `description`, `dimensions`, `relations`, `parameters`,
+  `variables`, `constraints`, `objective`, `expressions`, `macros`,
+  `piecewise`, `sos`, `assumptions`. The keys of a declaration also come in one
+  order.
+- **Declarations are sorted by name** within each section.
+- **Every expression is printed from its parsed tree**, so the spacing and the
+  brackets are the printer's rather than the author's.
+- **The terms of a sum are sorted**, and so are the factors of a product and the
+  keyword arguments of a call. Subtraction, division, exponentiation and a
+  call's positional arguments keep the order the file wrote, because moving
+  those changes what the model says.
+- **A sum of two or more terms is broken one term to a line**, each under its
+  own sign. A term that changes is then one line of a diff.
+- **A constant is never folded into another.** `2 * 3` stays `2 * 3`, because a
+  coefficient that changed is what a reviewer is looking for.
+
+Four things are left as the file wrote them. They are a predicate in the
+`where` grammar, the order of a `cases:` block's regions, the order of a
+declaration's `dims`, and the order of a piecewise block's links. A difference
+in any of them is a difference in the text.
+
+Sorting `variables:` changes the order a
+[`piecewise:`](language/piecewise.md) expansion meets them in, so a constraint
+the expansion emits can carry its dims in another order. The frame is the same
+set of dimensions.
+
+The normal form loads to the same model. It does not load to a `Spec` equal to
+the original: a reprinted expression is a different string. Writing the form out
+again gives the same text, which is what the line above says.
+
+`python -m mathspec canonical model.yaml` writes it from a shell. `--write`
+rewrites the file in the form, and `--check` exits with status 1 if the file is
+not in the form. The form holds no YAML comments, so `--write` drops them.
+[Compare two models](../howto/compare.md) shows how to diff two files in this
+form.

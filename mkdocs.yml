@@ -43,6 +43,7 @@ nav:
       - Write a piecewise curve out by hand: howto/curve-by-hand.md
       - See what a curve or a set expands to: howto/see-an-expansion.md
       - Compose a model from several files: howto/compose.md
+      - Compare two models: howto/compare.md
   - Reference:
       - Language:
           - reference/language/index.md

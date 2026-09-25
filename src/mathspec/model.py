@@ -862,10 +862,23 @@ class Spec(_StrictBlock):
         """The model as plain data. ``to_spec(m.to_dict())`` reproduces it."""
         return self.model_dump()
 
-    def to_yaml(self) -> str:
-        """The file a reviewer reads — including for a model that never had one."""
+    def to_yaml(self, *, canonical: bool = False) -> str:
+        """The file a reviewer reads — including for a model that never had one.
+
+        Args:
+            canonical: Write the normal form instead: declarations sorted by
+                name, every expression printed from its parsed tree, one term
+                of a sum per line. Two files that mean the same thing write the
+                same text, so what a diff shows is a difference in the model.
+                The normal form loads to the same model and not to an equal
+                :class:`Spec`, a reprinted expression being a different string.
+        """
         import yaml
 
+        if canonical:
+            from mathspec.canonical import canonical_yaml
+
+            return canonical_yaml(self)
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
     def expand(self, *kinds: Formulation) -> Spec:
