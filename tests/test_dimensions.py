@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Dim sets are a type system, checked before any data is bound."""
+"""Dim sets are a type system, checked before any data is attached."""
 
 from __future__ import annotations
 

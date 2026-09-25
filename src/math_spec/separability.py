@@ -53,7 +53,8 @@ def _built_blocks(program: Program) -> Iterator[_Block]:
     for name, block in program.constraints.items():
         yield _Block(f"constraint '{name}'", name, (block.lhs, block.rhs), block.where, True)
     for name, variable in program.variables.items():
-        yield _Block(f"variable '{name}'", None, (variable.lower, variable.upper), variable.where, True)
+        bounds = tuple(side for side in (variable.lower, variable.upper) if side is not None)
+        yield _Block(f"variable '{name}'", None, bounds, variable.where, True)
     if program.objective is not None:
         yield _Block('the objective', None, (program.objective.expression,), None, False)
 

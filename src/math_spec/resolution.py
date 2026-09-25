@@ -394,7 +394,7 @@ def resolve_constraint_text(
             f'Got: {text!r}\n'
             f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
             f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
+            f'bound, or state the fact under `assumptions:`, where the consumer attaching the data checks it.'
         )
         return None
     return left, ast.op, right

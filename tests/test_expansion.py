@@ -323,11 +323,18 @@ def test_a_template_is_held_to_the_rules_a_call_site_is(template, match):
         schema_of(SMALL_MODEL, macros={'m': {'args': ['x'], 'template': template}})
 
 
-@pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'escape'])
+@pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'docs/about/limits.md'])
 def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     with pytest.raises(LanguageError) as exc:
         schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
     assert fragment in str(exc.value)
+
+
+def test_an_unknown_operator_names_no_construct_the_language_lacks():
+    """The refusal told the author to "use a declared escape", and the schema has no `escape:` key."""
+    with pytest.raises(LanguageError) as exc:
+        schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
+    assert 'escape' not in str(exc.value), 'the message points at a key the closed schema refuses'
 
 
 @pytest.mark.parametrize(

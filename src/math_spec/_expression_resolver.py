@@ -413,7 +413,7 @@ class ExpressionResolver:
         if (dtype := self.ns.dtypes[bare.name]) != 'int':
             self.errors.append(
                 f"{self.context}: {operator}({key}={bare.name}) counts positions, but '{bare.name}' is declared "
-                f'dtype: {dtype}. A count of positions is integral — declare it dtype: int, which binds only an '
+                f'dtype: {dtype}. A count of positions is integral — declare it dtype: int, which accepts only an '
                 f'integer column, so a fractional {words.noun} has nowhere to arrive from.'
             )
             return None
@@ -763,7 +763,7 @@ def not_a_number(name: str, dtype: str, context: str) -> str:
         )
     return (
         f"{context}: '{name}' is declared dtype: {dtype}, and an expression is arithmetic — "
-        f'only dtype: float and dtype: int bind a column it can be done to. {instead}'
+        f'only dtype: float and dtype: int accept a column it can be done to. {instead}'
     )
 
 

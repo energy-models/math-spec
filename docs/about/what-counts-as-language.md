@@ -54,11 +54,5 @@ So the boundary runs both ways:
   one, the rule goes into the language, once.
 - The language must not state a rule about what one tool can _build_.
 
-A file that every tool accepts can still be a file that one engine cannot
-build. Accepting and building are different steps.
-
-## How this differs from the limits
-
-[The limits](limits.md) answer a different question: which operators and blocks
-may be added to the language at all. This page answers who decides a rule once
-the operator or block exists.
+[The limits](limits.md) say which operators and blocks may be added to the
+language at all.

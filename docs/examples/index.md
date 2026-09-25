@@ -14,9 +14,8 @@ Every model is a file under `examples/` in the repository.
   by region, so a single inequality covers both regimes.
 - [One construct per model](operators.md) declares each operator in the smallest
   file that can, and prints the equation beside it.
-- [PyPSA in one file](pypsa.md) states the model `n.optimize()` builds, one
-  declaration at a time. PyPSA's name for each row sits beside the YAML and the
-  equation.
 
-The math on these pages is printed by the typesetter from the file above it. See
-[Typeset the math](../reference/typeset.md) to print your own.
+The PyPSA parity pages, from [PyPSA in one file](pypsa.md) on, are a proof of
+concept. They sit in the Development section.
+
+[Typeset the math](../reference/typeset.md) prints your own.

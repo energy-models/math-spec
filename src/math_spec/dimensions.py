@@ -4,7 +4,7 @@
 
 """Static dim-set checking — a type system whose type is a set of axes.
 
-Every node's dim set is computable before any data is bound, so this pass runs
+Every node's dim set is computable before any data is attached, so this pass runs
 at load on the resolved tree. The per-node rules are the "Dim algebra" table in
 ``docs/reference/language/expressions.md``; a constraint's two sides together
 must equal its ``dims``, and a where or a bound may not exceed the frame.

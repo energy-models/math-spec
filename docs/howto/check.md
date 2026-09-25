@@ -21,12 +21,10 @@ machine and in CI.
    ```
 
    Advice prints on stdout and exits with status 0. A model the language
-   accepts with nothing to advise prints nothing. A `piecewise:` or `sos:`
-   block is read as the rows it states, so the answer is the one its
-   expansion gets, with nothing expanded.
+   accepts with nothing to advise prints nothing.
 
    ```text
-   Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is -inf, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.
+   Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is open, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.
    Give it a finite bounds.lower, or the constraint that was meant to define it.
    ```
 
@@ -38,8 +36,9 @@ machine and in CI.
    ```
 
 3. **Ask from Python** where the check is one step of a longer script.
-   `to_spec` raises a `MathSpecError` for anything the language refuses, and
-   `advice` returns what it would print:
+   [`to_spec`](../reference/api.md#loading) raises a `MathSpecError` for
+   anything the language refuses, and [`advice`](../reference/api.md#advice)
+   returns what it would print:
 
    ```python
    import math_spec as ms
