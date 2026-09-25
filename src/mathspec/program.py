@@ -623,8 +623,8 @@ class GivenDeclaration:
     dims: tuple[str, ...]
     description: str | None = None
     #: The term this program adds to a given expression, or ``None`` where it
-    #: only reads the name. Resolved in this program's namespace, and read
-    #: over at most ``dims``.
+    #: only reads the name: the [`Named`][] node of the entry the term names,
+    #: read over at most ``dims``.
     term: Expression | None = None
 
 
@@ -703,8 +703,9 @@ class ObjectiveDeclaration:
 class ExpressionDeclaration:
     """A named quantity — one the math reads, or one only read back after a solve.
 
-    ``in_math`` where the objective or a constraint reads it, directly or
-    through another entry or a macro; its body then stands inside
+    ``in_math`` where the objective, a constraint or a term this program
+    adds to a given expression reads it, directly or through another entry or
+    a macro; its body then stands inside
     [`Program.roots`][] and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
     quantity, its body held to no degree, the one place a [`Dual`][] may

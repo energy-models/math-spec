@@ -127,6 +127,7 @@ parameters:
 
 | Symbol | Meaning |
 |---|---|
+| $`\mathrm{leak}`$ | `leak` over $`\mathcal{G}`$ |
 | $`\mathrm{spend}^{\mathrm{cap}}`$ | `spend_cap` over $`\mathcal{G}`$ |
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
@@ -736,6 +737,19 @@ expressions:
 
 ```math
 \mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+```
+
+#### Term a given expression names
+
+the term: an ordinary named expression, which a given expression names
+
+```yaml
+expressions:
+  leak: -eta
+```
+
+```math
+\mathrm{leak}_{g} = -\mathrm{eta}_{g} \qquad \forall\, g \in \mathcal{G}
 ```
 
 ### Shifts

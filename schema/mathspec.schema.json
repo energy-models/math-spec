@@ -342,7 +342,7 @@
     },
     "GivenExpressionBlock": {
       "additionalProperties": false,
-      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed spec holds the body to the rules\nof every place this file reads it.\n\n``term:`` is what this file adds to the name. It is one expression, read\nover at most the frame, and [`merge`][mathspec.composition.merge] sums it\nwith the definition another file writes and the terms other files add.\nThe file itself reads the name as the whole sum, alone and composed.",
+      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed spec holds the body to the rules\nof every place this file reads it.\n\n``term:`` names the expression this file adds to the name, one this file\ndeclares under ``expressions:`` and reads over at most the frame.\n[`merge`][mathspec.composition.merge] adds it by name to the definition\nanother file writes and to the terms other files add, and keeps it as a\nnamed expression. The file itself reads the name as the whole sum, alone\nand composed.",
       "properties": {
         "description": {
           "anyOf": [

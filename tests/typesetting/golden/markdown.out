@@ -64,6 +64,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 
 | Symbol | Meaning |
 |---|---|
+| $`\mathrm{leak}`$ | `leak` over $`\mathcal{G}`$ |
 | $`\mathrm{spend}^{\mathrm{cap}}`$ | `spend_cap` over $`\mathcal{G}`$ |
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
@@ -400,6 +401,12 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 
 #### Definitions
 
+**`leak`**
+
+```math
+\mathrm{leak}_{g} = -\mathrm{eta}_{g} \qquad \forall\, g \in \mathcal{G}
+```
+
 **`spend_cap`**
 
 ```math
@@ -433,7 +440,7 @@ p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g
 **`withdrawal`**
 
 ```math
-\mathit{withdrawal}_{t,g} = \cdots - \mathrm{eta}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\mathit{withdrawal}_{t,g} = \cdots + \mathrm{leak}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### Variable domains

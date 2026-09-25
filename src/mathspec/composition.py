@@ -26,11 +26,12 @@ What that means for each section:
 * **The objectives are summed**, each term in parentheses, in the fragments'
   name order, and the senses have to agree.
 * **A term is added to the definition it names.** A ``given: expressions:``
-  entry with a ``term:`` is what its fragment adds to the name. The composed
-  spec defines the name as the definition one fragment writes, if any, plus
-  every term, each in parentheses, in the fragments' name order. A definition
-  written as ``cases:`` is refused, since the terms are summed as written. A
-  later merge adds to the composed definition the same way. Terms that land
+  entry with a ``term:`` names the expression its fragment adds to the name.
+  The composed spec defines the name as the definition one fragment writes,
+  if any, plus every term by its name, in the fragments' name order, and keeps
+  each term as the named expression its fragment declares. A definition
+  written as ``cases:`` is refused, since it is summed as written. A later
+  merge adds to the composed definition the same way. Terms that land
   on a name no fragment defines, reads or uses are refused: merge fills a
   reading or extends a definition, and never invents a name.
 * **A given declaration is folded** into the declaration that introduces the
@@ -75,6 +76,7 @@ What a patch may say, and what is refused:
 
 from __future__ import annotations
 
+import difflib
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import TYPE_CHECKING, cast, get_args, get_origin
@@ -294,11 +296,12 @@ def _summed(
 ) -> dict[str, object]:
     """Every name a fragment adds a term to, defined as the definition plus the terms.
 
-    The definition one fragment writes comes first, then every term in the
-    fragments' name order, each in parentheses; one body alone is carried as
-    written. A definition written as ``cases:`` is refused, since the terms
-    are summed as written and a set of cases is no one body. The definition
-    keeps its own description, or takes the first a reader wrote.
+    The definition one fragment writes comes first, in parentheses where it
+    is more than a name, then every term by its name in the fragments' name
+    order; one body alone is carried as written. A definition written as
+    ``cases:`` is refused, since it is summed as written and a set of cases is
+    no one body. The definition keeps its own description, or takes the first
+    a reader wrote.
     """
     summed: dict[str, object] = {}
     for key, entry in readings.items():
@@ -313,13 +316,13 @@ def _summed(
             if base.get('cases'):
                 raise LanguageError(
                     f"fragment '{_author_of(read, 'expressions', key)}' defines {key!r} as `cases:`, and fragment "
-                    f"'{terms[0][0]}' adds a term to it. The terms are summed as written, and a set of cases is no "
+                    f"'{terms[0][0]}' adds a term to it. The definition is summed as written, and a set of cases is no "
                     f'one body: name the cased body as its own expression, and define {key!r} as that name.'
                 )
             bodies.insert(0, cast('str', base['expression']))
             if base.get('description'):
                 block['description'] = base['description']
-        block['expression'] = bodies[0] if len(bodies) == 1 else ' + '.join(f'({body})' for body in bodies)
+        block['expression'] = bodies[0] if len(bodies) == 1 else ' + '.join(_summand(body) for body in bodies)
         if 'description' not in block and entry.get('description'):
             block['description'] = entry['description']
         summed[key] = block
@@ -360,11 +363,16 @@ def _landed(
     } - {key}
     spelled = ', '.join(f"'{name}'" for name in contributors[:-1])
     who = f"fragments {spelled} and '{contributors[-1]}' add" if spelled else f"fragment '{contributors[0]}' adds"
-    near = f' {did_you_mean(key, known)}' if known else ''
+    near = ''.join(f" Did you mean '{name}'?" for name in difflib.get_close_matches(key, sorted(known), n=1))
     raise LanguageError(
         f'{who} a term to {key!r}, which no fragment defines, reads or uses. A term adds to a name another '
         f"file has: define it under 'expressions:', read it under 'given: expressions:', or fix the spelling.{near}"
     )
+
+
+def _summand(body: str) -> str:
+    """*body* as one operand of a sum: a term is a name and needs no brackets, and a definition may."""
+    return body if body.isidentifier() else f'({body})'
 
 
 def _as_mapping(block: object) -> dict[str, object]:

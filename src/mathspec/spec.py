@@ -334,16 +334,18 @@ class GivenExpressionBlock(_StrictBlock):
     body is the definer's, and the composed spec holds the body to the rules
     of every place this file reads it.
 
-    ``term:`` is what this file adds to the name. It is one expression, read
-    over at most the frame, and [`merge`][mathspec.composition.merge] sums it
-    with the definition another file writes and the terms other files add.
-    The file itself reads the name as the whole sum, alone and composed.
+    ``term:`` names the expression this file adds to the name, one this file
+    declares under ``expressions:`` and reads over at most the frame.
+    [`merge`][mathspec.composition.merge] adds it by name to the definition
+    another file writes and to the terms other files add, and keeps it as a
+    named expression. The file itself reads the name as the whole sum, alone
+    and composed.
     """
 
     _label: ClassVar[str] = 'a given expression declaration'
 
     dims: list[str]
-    #: The term this file adds to the name, or ``None`` where it only reads it.
+    #: The named expression this file adds to the name, or ``None`` where it only reads it.
     term: str | None = None
     description: str | None = None
 

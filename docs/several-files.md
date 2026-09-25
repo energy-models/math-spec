@@ -48,9 +48,10 @@ expression 'injection' is read here and declared elsewhere: the model this one i
 
 ## The generators
 
-Make a file `generators.yaml`. It reads the injection too, and it says what it
-puts in: a [`term:`](reference/language/declarations.md#a-term-a-file-adds)
-on the entry.
+Make a file `generators.yaml`. It says what the fleet puts into a bus as a
+named expression, `generation`. It reads the injection too, and a
+[`term:`](reference/language/declarations.md#a-term-a-file-adds) on the entry
+names `generation` as what this file adds to it.
 
 ```yaml title="generators.yaml"
 description: A generator fleet, each unit on one bus.
@@ -73,11 +74,16 @@ variables:
     dims: [snapshot, generator]
     bounds: { lower: 0, upper: capacity }
 
+expressions:
+  generation:
+    description: what the fleet puts into a bus
+    expression: sum(dispatch, by=gen_bus, over=generator, into=bus)
+
 given:
   expressions:
     injection:
       dims: [snapshot, bus]
-      term: sum(dispatch, by=gen_bus, over=generator, into=bus)
+      term: generation
 
 objective:
   sense: minimize
@@ -104,7 +110,8 @@ import mathspec as ms
 print(ms.to_markdown('generators.yaml', legend=False))
 ```
 
-The term prints after dots, which stand for what the other files put in:
+The term prints as its own definition, and then after dots, which stand for
+what the other files put in:
 
 !!! example "Rendered output"
 
@@ -118,10 +125,16 @@ The term prints after dots, which stand for what the other files put in:
 
     #### Definitions
 
+    **`generation`**
+
+    ```math
+    \mathit{generation}_{t,b} = \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathit{dispatch}_{t,g} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
+
     **`injection`**
 
     ```math
-    \mathit{injection}_{t,b} = \cdots + \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathit{dispatch}_{t,g} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    \mathit{injection}_{t,b} = \cdots + \mathit{generation}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
     ```
 
     #### Variable domains
@@ -134,7 +147,8 @@ The term prints after dots, which stand for what the other files put in:
 
 ## The loads
 
-Make a file `loads.yaml`. Its term takes the demand out of the bus:
+Make a file `loads.yaml`. Its term, `consumption`, takes the demand out of the
+bus:
 
 ```yaml title="loads.yaml"
 description: The demand at every bus.
@@ -146,11 +160,16 @@ dimensions:
 parameters:
   demand: { dims: [snapshot, bus], description: demand to be met }
 
+expressions:
+  consumption:
+    description: what the loads take out of a bus
+    expression: -demand
+
 given:
   expressions:
     injection:
       dims: [snapshot, bus]
-      term: -demand
+      term: consumption
 ```
 
 Check the file:
@@ -174,10 +193,11 @@ spec = ms.merge({'network': 'network.yaml', 'generators': 'generators.yaml', 'lo
 print(spec.expressions['injection'].expression)
 ```
 
-The injection is the sum of the two terms, in the order of the file names:
+The injection is the sum of the two terms by name, in the order of the file
+names. Each term stays a named expression of the merged spec:
 
 ```text
-(sum(dispatch, by=gen_bus, over=generator, into=bus)) + (-demand)
+generation + consumption
 ```
 
 Print the math of the merged spec:
@@ -204,10 +224,22 @@ print(ms.to_markdown(spec, legend=False))
 
     #### Definitions
 
+    **`generation`**
+
+    ```math
+    \mathit{generation}_{t,b} = \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathit{dispatch}_{t,g} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
+
+    **`consumption`**
+
+    ```math
+    \mathrm{consumption}_{t,b} = -\mathrm{demand}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
+
     **`injection`**
 
     ```math
-    \mathit{injection}_{t,b} = \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathit{dispatch}_{t,g} - \mathrm{demand}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    \mathit{injection}_{t,b} = \mathit{generation}_{t,b} + \mathrm{consumption}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
     ```
 
     #### Variable domains
@@ -220,8 +252,8 @@ print(ms.to_markdown(spec, legend=False))
 
 ## Add a component
 
-Make a file `imports.yaml`. It adds a term to the injection and a term to the
-objective:
+Make a file `imports.yaml`. It adds a term, `purchase`, to the injection and a
+term to the objective:
 
 ```yaml title="imports.yaml"
 description: Power bought from outside the network, at a price.
@@ -240,11 +272,16 @@ variables:
     dims: [snapshot, bus]
     bounds: { lower: 0, upper: import_limit }
 
+expressions:
+  purchase:
+    description: what the imports put into a bus
+    expression: imported
+
 given:
   expressions:
     injection:
       dims: [snapshot, bus]
-      term: imported
+      term: purchase
 
 objective:
   sense: minimize
@@ -265,7 +302,7 @@ The injection has a third term, and the objective sums the two objectives.
 `network.yaml` did not change:
 
 ```text
-(sum(dispatch, by=gen_bus, over=generator, into=bus)) + (imported) + (-demand)
+generation + purchase + consumption
 (sum(dispatch * cost)) + (sum(imported * import_price))
 ```
 

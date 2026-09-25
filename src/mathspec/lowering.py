@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from mathspec.dimensions import check_schema, dims_of
-from mathspec.errors import SchemaError, prefixed
+from mathspec.errors import SchemaError, did_you_mean, prefixed
 from mathspec.expansion import expand, parse_template
 from mathspec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, resolve_links
 from mathspec.program import (
@@ -130,13 +130,20 @@ def lower(schema: Spec) -> Program:
         if gdef.term is None:
             continue
         context = f"Given expression '{gname}'"
+        if gdef.term not in schema.expressions:
+            errors.append(
+                f'{context}: its term {gdef.term!r} is no expression this file declares. A term is a named '
+                f"expression: declare it under 'expressions:', and write its name here. "
+                f'{did_you_mean(gdef.term, schema.expressions)}'
+            )
+            continue
         term = resolve_expression_text(gdef.term, ns, context, errors, ceiling=2)
         if term is None:
             continue
         if any(isinstance(node, Variable) and node.name == gname for node in walk(term)):
             errors.append(
-                f"{context}: its term reads '{gname}', the sum the term adds to, so the sum would define itself. "
-                f'A term is what this file puts in: write it in what this file declares.'
+                f"{context}: its term {gdef.term!r} reads '{gname}', the sum the term adds to, so the sum would "
+                f'define itself. A term is what this file puts in: write it in what this file declares.'
             )
             continue
         terms[gname] = term
@@ -195,6 +202,7 @@ def lower(schema: Spec) -> Program:
     if objective is not None:
         roots.append(objective.expression)
     roots.extend(link for links in curves.values() for link in links)
+    roots.extend(terms.values())
     in_math = frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
 
     piecewise = {}

@@ -242,8 +242,10 @@ refused once folded.
 
 #### A term a file adds
 
-`term:` is what this file adds to the name. The file reads the name as the
-whole sum, alone and composed, and the term is its part of it. A file that
+`term:` names the expression this file adds to the name. The term is an
+ordinary named expression of this file, so it takes `cases:`, a description
+and every other field a named expression takes. The file reads the name as
+the whole sum, alone and composed, and the term is its part of it. A file that
 only reads the name writes no term.
 
 ```yaml
@@ -256,11 +258,15 @@ relations:
   gen_bus: { key: generator, values: bus }
 variables:
   gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+expressions:
+  generation:
+    description: what the fleet puts into a bus
+    expression: sum(gen_p, by=gen_bus, over=generator, into=bus)
 given:
   expressions:
     injection:
       dims: [snapshot, bus]
-      term: sum(gen_p, by=gen_bus, over=generator, into=bus)
+      term: generation
 ```
 
 ```yaml
@@ -279,24 +285,29 @@ constraints:
     expression: injection == 0
 ```
 
-Each file loads alone. A term is one expression, resolved in its own file: it
-reads what the file declares, and not the name it adds to. It carries no
-dimension the entry does not state, and it is held to degree two, as what
-reads the sum is. All three are checked at load. The typeset legend lists the
-entry under _Given_, and the math prints the term under _Definitions_ as
-`injection = ⋯ + term`, the dots standing for what the other files add.
+Each file loads alone. The term names an expression the file declares, and
+that expression does not read the name it adds to, directly or through
+another name. It carries no dimension the entry does not state, and it is
+held to degree two, as what reads the sum is. All of this is checked at load.
+The typeset legend lists the entry under _Given_, and the math prints the term
+under _Definitions_ as its own line and as `injection = ⋯ + generation`, the
+dots standing for what the other files add.
 
 [`merge`](../../howto/compose.md#a-library-of-components) defines the name as
 the definition one fragment writes under `expressions:`, if any, plus every
-term, each in parentheses, in fragment-name order. Nothing declares that the
-name is a sum: a term adds to whatever the other files define, as a
-fragment's objective adds to the objective, and a later merge adds to the
-composed definition the same way. A term has to land on a name another file
+term by its name, in fragment-name order, and keeps each term as a named
+expression of the composed spec. Nothing declares that the name is a sum: a
+term adds to whatever the other files define, as a fragment's objective adds
+to the objective, and a later merge adds to the composed definition the same
+way. The file that defines the name does not opt in. It reads the name as its
+own definition alone, and as the definition plus every term once composed;
+whoever composes the files answers for that sum. A term has to land on a name another file
 has: one that defines it, reads it with no term of its own, or uses it in its
 math. Terms alone are refused, with the near miss named, since `merge` fills
 a reading or extends a definition and never invents a name. A definition
-written as `cases:` is refused: name the cased body as its own expression,
-and define the name as that name. The definition keeps its own description,
+written as `cases:` is refused, since it is summed as written: name the cased
+body as its own expression, and define the name as that name. A cased term is
+added like any other, by its name. The definition keeps its own description,
 or takes the first a reader wrote. Two files that both define the name under
 `expressions:` are refused as a collision, and the message names `term:`.
 

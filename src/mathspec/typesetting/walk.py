@@ -713,24 +713,17 @@ class Walk:
     def term(self, name: str) -> Line:
         """The line for the term this program adds to a given expression: ``symbol = ⋯ + term`` over the entry's frame.
 
-        The dots stand for what the other files put in. A negated term prints
-        as a subtraction, and is bracketed where [`_binary`][] would bracket
-        the right operand of one.
+        The dots stand for what the other files put in.
         """
         given = self.program.given.expressions[name]
         assert given.term is not None, 'a line prints for a term, and not for a name this program only reads'
         frame = list(given.dims)
         ctx = self._context(frame)
-        operand: Expression = given.term
-        op: BinaryOperator = '+'
-        while (unsigned := _unsigned(operand)) is not None:
-            operand, op = unsigned, '-' if op == '+' else '+'
-        rendered = self._expression(operand, ctx, need=_PRECEDENCE[op] + (1 if op == '-' else 0))
-        sign = self._op('plus' if op == '+' else 'minus')
+        rendered = self._expression(given.term, ctx, need=_PRECEDENCE['+'])
         return Line(
             label=name,
             left=ctx.indexed(self.symbols.name[name], frame),
-            right=f'{self._op("equal")} {self._op("ellipsis")} {sign} {rendered}',
+            right=f'{self._op("equal")} {self._op("ellipsis")} {self._op("plus")} {rendered}',
             condition=self._quantifier(frame, ''),
         )
 

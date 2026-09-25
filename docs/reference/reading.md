@@ -171,8 +171,9 @@ other group is a build instruction. These four are names to look up in the
 model this one is layered onto. An expression reads a given expression as a
 `Variable` of that name, over the frame under `program.given.expressions`.
 A given expression with a `term` is one this file adds to:
-`program.given.expressions[name].term` is the term, resolved in this program,
-and the name is still one the program reads and does not build.
+`program.given.expressions[name].term` is the term: the `Named` node of the
+entry of `program.expressions` it names. The name is still one the program
+reads and does not build.
 
 ```python
 layer = to_spec(

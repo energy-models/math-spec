@@ -109,6 +109,7 @@ FAMILIES: dict[str, dict[str, str]] = {
         'capped': 'Named expression in a condition',
         'lcoe': 'Reported expression',
         'marginal_price': 'Dual of a constraint',
+        'leak': 'Term a given expression names',
     },
     'Shifts': {
         'ramp': 'Cyclic and acyclic shift',
