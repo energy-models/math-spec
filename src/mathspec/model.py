@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The YAML surface's types — every block a file may contain, rooted at :class:`Spec`.
+"""The YAML surface's types — every block a file may contain, rooted at [`Spec`][].
 
 Nothing here has seen data.
 """
@@ -82,7 +82,7 @@ class _StrictBlock(BaseModel):
         return data
 
 
-#: A block that states rows rather than being one, which :meth:`Spec.expand`
+#: A block that states rows rather than being one, which [`Spec.expand`][]
 #: writes out on request.
 Formulation = Literal['piecewise', 'sos']
 
@@ -97,7 +97,7 @@ Curvature = Literal['convex', 'concave', 'either']
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
 
-#: Every formulation, in the order :meth:`Spec.expand` writes them out: a curve
+#: Every formulation, in the order [`Spec.expand`][] writes them out: a curve
 #: emits a set, and no set emits a curve.
 FORMULATIONS: tuple[Formulation, ...] = ('piecewise', 'sos')
 
@@ -166,7 +166,7 @@ class RelationBlock(_StrictBlock):
     def pairs(self) -> tuple[tuple[str, str], ...]:
         """``(role, dimension)`` per column, the key's columns first.
 
-        The program calls the same thing :attr:`~mathspec.program.RelationDeclaration.columns`;
+        The program calls the same thing [`columns`][mathspec.program.RelationDeclaration.columns];
         here the table has no field of its own, being what the two sides make.
         """
         return (*side_columns(self.key), *side_columns(self.values))
@@ -197,7 +197,7 @@ class DimensionBlock(_StrictBlock):
     and what its coordinates are typed as, never which coordinates there are —
     those are data, and arrive when the data is attached. The maps its members carry — a
     generator's bus, a snapshot's period — are top-level ``relations:``
-    (:class:`RelationBlock`), keyed by their own name.
+    ([`RelationBlock`][]), keyed by their own name.
     """
 
     _label: ClassVar[str] = 'a dimension declaration'
@@ -364,7 +364,7 @@ class ExpressionBlock(_StrictBlock):
 
     Written in YAML as a bare string, or as a mapping once it carries a
     ``description:`` — and serialised back to whichever form it was written in,
-    so a round trip through :meth:`Spec.to_yaml` reproduces the file::
+    so a round trip through [`Spec.to_yaml`][] reproduces the file::
 
         expressions:
           total_generation: sum(p, over=generator)
@@ -508,7 +508,7 @@ class PiecewiseLink(_StrictBlock):
 
     Written in YAML as ``[expression, values]`` or ``[expression, values,
     sign]`` and serialised back to exactly that form, so a round trip through
-    :meth:`Spec.to_yaml` reproduces the file.
+    [`Spec.to_yaml`][] reproduces the file.
     """
 
     _label: ClassVar[str] = 'a piecewise link'
@@ -569,7 +569,7 @@ class PiecewiseBlock(_StrictBlock):
     #: The breakpoint dimension.
     over: str
     links: list[PiecewiseLink]
-    #: Which of :data:`PIECEWISE_METHODS` restricts the weights.
+    #: Which of [`PIECEWISE_METHODS`][] restricts the weights.
     method: PiecewiseMethod = 'adjacency'
     #: What the weights sum to — 1 where absent, or a binary that pins the formulation to 0 when it is 0.
     activity: str | None = None
@@ -650,7 +650,7 @@ class SosBlock(_StrictBlock):
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
     and those two consecutive. A consumer with the concept takes the set as
-    one; :meth:`Spec.expand` states it as binaries instead, and the rows it
+    one; [`Spec.expand`][] states it as binaries instead, and the rows it
     writes multiply by the member's own ``bounds``, which is why a member
     needs both.
     """
@@ -684,7 +684,7 @@ SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
 
 
 def _without_absence(value: object) -> object:
-    """*value* with every absent entry stripped, recursively — see :meth:`Spec._drop_absence`."""
+    """*value* with every absent entry stripped, recursively — see [`Spec._drop_absence`][]."""
     if not isinstance(value, dict):
         return value
     kept = {}
@@ -704,15 +704,15 @@ class Spec(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated. Nothing here has seen data.
 
     A ``Spec`` that exists has passed the whole language: constructing one by
-    any route — ``to_spec``, :meth:`model_validate`, the constructor — runs
+    any route — ``to_spec``, [`model_validate`][], the constructor — runs
     every load-time check, expression pass included, and raises
-    :class:`~mathspec.errors.LanguageError` on a model the language refuses.
+    [`LanguageError`][] on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
     The API is the eleven declaration sections plus ``version`` and
-    ``description``, three ways back out — :meth:`to_dict` for the model as
-    data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
-    model with its formulations written out as plain rows — and :attr:`program`, the
+    ``description``, three ways back out — [`to_dict`][] for the model as
+    data, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the
+    model with its formulations written out as plain rows — and [`program`][], the
     model typed, which every reader after load walks. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
@@ -747,7 +747,7 @@ class Spec(_StrictBlock):
         raises here; loading forces it, so every ask on a model in hand is the
         one object. It mirrors the model: a ``piecewise:`` block still in it is
         a curve under ``program.piecewise`` and a ``sos:`` block a set under
-        ``program.sos``, and :meth:`expand` is what writes either out as rows,
+        ``program.sos``, and [`expand`][] is what writes either out as rows,
         so a consumer building rows reads ``spec.expand(...).program`` and
         refuses a block it does not take.
         """
@@ -807,7 +807,7 @@ class Spec(_StrictBlock):
 
         An empty list stays, being a value rather than an absence (``dims:
         []`` is a scalar). On the serializer so that ``model_dump``,
-        :meth:`to_dict` and :meth:`to_yaml` agree.
+        [`to_dict`][] and [`to_yaml`][] agree.
         """
         return cast('dict[str, object]', _without_absence(handler(self)))
 
@@ -835,16 +835,15 @@ class Spec(_StrictBlock):
 
         Args:
             kinds: Which formulations to write out — ``'piecewise'``,
-                ``'sos'``, or none of them for every one. They go in
-                :data:`FORMULATIONS` order whatever order they are asked in,
-                because a ``method: sos2`` curve emits a set and no set emits a
-                curve.
+                ``'sos'``, or none of them for every one. They go in that
+                order whatever order they are asked in, because a
+                ``method: sos2`` curve emits a set and no set emits a curve.
 
         Returns:
             The model with those blocks written out, or this same object where
             it declares none of them, so an expansion asked for the same kinds
-            again returns itself. It is a model like any other: :meth:`to_yaml`
-            writes it, and :attr:`program` holds its rows.
+            again returns itself. It is a model like any other: [`to_yaml`][]
+            writes it, and [`program`][] holds its rows.
 
         Raises:
             ValueError: *kinds* names something that is not a formulation.
@@ -885,7 +884,7 @@ class Spec(_StrictBlock):
         """Every rule that reads across declarations, then every expression and where string.
 
         A fault in a curve's link is named against the link the file wrote. The
-        rows a curve states are held to the language when :meth:`expand`
+        rows a curve states are held to the language when [`expand`][]
         writes them out, since an expansion is a model like any other.
         """
         _ = self.program
@@ -893,7 +892,7 @@ class Spec(_StrictBlock):
 
 
 def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:
-    """What *asked* names, in :data:`FORMULATIONS` order — all of them where it names none.
+    """What *asked* names, in [`FORMULATIONS`][] order — all of them where it names none.
 
     Raises:
         ValueError: A name that is not a formulation.

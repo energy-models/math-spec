@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
-r"""GitHub-flavoured Markdown. GitHub renders math with MathJax, so the math is :class:`LatexFormat`'s and only the document layer differs.
+r"""GitHub-flavoured Markdown. GitHub renders math with MathJax, so the math is [`LatexFormat`][]'s and only the document layer differs.
 
 Both delimiters are the verbatim pair — ``$`…`$`` inline and a ``math`` fence
 for a block — because GitHub runs Markdown's escape pass *inside* a ``$…$``
 span, stripping the backslash from every escape TeX needs: ``\mathrm{gen\_bus}``
 reached MathJax as ``\mathrm{gen_bus}``, a subscript, and ``\{0, 1\}`` as a
 group with no braces. The verbatim pair hands the span over untouched, so the
-math this prints is the math :mod:`~mathspec.typesetting.latex` prints, and
+math this prints is the math [`latex`][] prints, and
 stays what every other MathJax and KaTeX reads too.
 """
 
@@ -45,7 +45,7 @@ def _cell(text: str) -> str:
 
 
 class MarkdownFormat(LatexFormat):
-    """See :class:`mathspec.typesetting.format.Format`. Math is LaTeX's; prose is not."""
+    """See [`mathspec.typesetting.format.Format`][]. Math is LaTeX's; prose is not."""
 
     #: The character, not TeX's ligature: no Markdown renderer this output
     #: is aimed at substitutes one, so `---` reaches the reader as three

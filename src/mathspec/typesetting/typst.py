@@ -46,7 +46,7 @@ def _raw(text: str) -> str:
 
 
 class TypstFormat:
-    """See :class:`mathspec.typesetting.format.Format`.
+    """See [`mathspec.typesetting.format.Format`][].
 
     The cyclic operators spell with ``.o``, Typst's circled modifier;
     ``minus.circle`` does not compile.

@@ -4,15 +4,15 @@
 
 """The language: what a YAML file may say, and what it means.
 
-Two public states — a :class:`~mathspec.model.Spec` is what the file *says*,
-and its :attr:`~mathspec.model.Spec.program` is what it *means* — and
-:func:`to_spec`, the one door to both. Everything between them — both grammars
+Two public states — a [`Spec`][] is what the file *says*,
+and its [`program`][mathspec.model.Spec.program] is what it *means* — and
+[`to_spec`][], the one door to both. Everything between them — both grammars
 and the tree they build — is package-private, because a consumer reads a
 program instead.
 """
 
 from mathspec import program
-from mathspec.advice import advice
+from mathspec.advising import advice
 from mathspec.errors import Advice, AdviceKind, DimensionError, LanguageError, MathSpecError, SchemaError, did_you_mean
 from mathspec.model import Spec
 from mathspec.operators import BUILTIN_NAMES

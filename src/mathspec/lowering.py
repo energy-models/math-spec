@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Lower a model to a :class:`~mathspec.program.Program` — the pass that decides every expression.
+"""Lower a model to a [`Program`][] — the pass that decides every expression.
 
-One lowering, on the language side, run when a :class:`~mathspec.model.Spec`
+One lowering, on the language side, run when a [`Spec`][]
 loads: it reads every expression and where string into the program's own
 nodes, checks every rule decidable without data, and packages the
 declarations, section for section. The program mirrors the model it was
 lowered from: a ``piecewise:`` block the model still declares is a curve on
-the program, and :meth:`~mathspec.model.Spec.expand` is what writes it out
+the program, and [`expand`][mathspec.model.Spec.expand] is what writes it out
 as rows.
 """
 
@@ -63,7 +63,7 @@ def lower(schema: Spec) -> Program:
     What is checked:
 
     - every rule one declaration is held to against the others
-      (:func:`~mathspec.validation.reference_errors`), before any expression
+      ([`reference_errors`][]), before any expression
       is read, since resolution assumes each of them;
     - the expression parses, and constraints hold exactly one comparison where
       objectives hold none;
@@ -74,7 +74,7 @@ def lower(schema: Spec) -> Program:
     - macro formals may shadow model names but not a declared dimension, since
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - no name a set or curve writes out is one the file declares
-      (:func:`~mathspec.validation.emitted_name_errors`), read off the
+      ([`emitted_name_errors`][]), read off the
       curve as lowered;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 

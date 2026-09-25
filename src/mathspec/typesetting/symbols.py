@@ -4,7 +4,7 @@
 
 """Which symbol each declared name prints as, and the sidecar that overrides it.
 
-This module decides *which* symbol a name gets; a :class:`~mathspec.typesetting.format.Format` decides how it is written.
+This module decides *which* symbol a name gets; a [`Format`][] decides how it is written.
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ def chosen_expressions(program: Program) -> frozenset[str]:
 class Symbols:
     r"""How every declared name prints: overrides first, derivation for the rest.
 
-    Built by :func:`symbols_for`. Name symbols settle *before* dimension
+    Built by [`symbols_for`][]. Name symbols settle *before* dimension
     indices, so an index is kept off a single letter a variable owns — a
     dimension ``plant`` beside a variable ``p`` would otherwise render
     ``p_{t,p}``. A parameter is upright, so ``\mathrm{p}`` beside an index
@@ -108,7 +108,7 @@ class Symbols:
         constraint: Each constraint's symbol, the subscript ``dual(c)`` prints
             λ against. Off the flat namespace, like the constraints themselves
             — a model may name a constraint after a variable, so this is its
-            own map rather than an entry in :attr:`name`. Given structure, so
+            own map rather than an entry in [`name`][]. Given structure, so
             upright unless a table overrides it.
         index: Each dimension's index letter.
         set: Each dimension's set symbol.
@@ -122,7 +122,7 @@ class Symbols:
 
 
 def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
-    """The :class:`Symbols` *program* prints with in *fmt*, *table* overriding the derivation.
+    """The [`Symbols`][] *program* prints with in *fmt*, *table* overriding the derivation.
 
     Raises:
         SchemaError: If *table* is written in a notation *fmt* does not read.
@@ -199,7 +199,7 @@ class SymbolTable:
     An entry naming nothing in the model is an error naming the near miss.
 
     Attributes:
-        notation: The language the entries are written in; :meth:`load`
+        notation: The language the entries are written in; [`load`][]
             lower-cases it.
     """
 
@@ -257,7 +257,7 @@ class SymbolTable:
 
         A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
         one table spells both readings of a model: the blocks as the file states
-        them, and the rows :meth:`~mathspec.model.Spec.expand` writes out.
+        them, and the rows [`expand`][mathspec.model.Spec.expand] writes out.
         """
         dims = set(program.dimensions)
         everything = dims | _declared(program) | _emitted(program)

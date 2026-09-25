@@ -343,7 +343,7 @@ def _check_where_dims(
     """A predicate may only test dims the frame carries; reducing an outside dim to fit would fail open.
 
     The refusal names the leaf that left the frame, reading its dims as
-    :attr:`~mathspec.program.Mask.dims` does.
+    [`dims`][mathspec.program.Mask.dims] does.
     """
     if mask is None:
         return

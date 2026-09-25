@@ -144,7 +144,7 @@ _CODE_SPAN = re.compile(r'`([^`]+)`')
 def escaped(prose: str, text: Callable[[str], str], mono: Callable[[str], str]) -> str:
     """*prose* with every backtick span set by *mono* and everything between by *text*.
 
-    The split behind every format's :meth:`Format.escape`, so that a
+    The split behind every format's [`Format.escape`][], so that a
     ``description:`` means the same in all three. An unpaired backtick is a
     character, and *text* is asked to escape it.
     """
@@ -157,7 +157,7 @@ class Format(Protocol):
 
     #: The notation a symbol table must be written in.
     notation: ClassVar[Notation]
-    #: Spelling for each of :data:`OPERATOR_NAMES`.
+    #: Spelling for each of [`OPERATOR_NAMES`][].
     operators: ClassVar[Mapping[OperatorName, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
@@ -196,7 +196,7 @@ class Format(Protocol):
         """Author prose — a ``description:`` — made safe for this format's text mode.
 
         A backtick span is the one notation a description carries, and sets as
-        :meth:`mono`; every other character is text. :func:`escaped` is the
+        [`mono`][]; every other character is text. [`escaped`][] is the
         split every format shares.
         """
         ...
@@ -246,7 +246,7 @@ class Format(Protocol):
     def equations(self, lines: list[Line], *, numbered: bool) -> str: ...
 
     def glossary(self, entries: list[Entry]) -> str:
-        """A legend section's rows; :meth:`section` sets its title, as it does for the equations."""
+        """A legend section's rows; [`section`][] sets its title, as it does for the equations."""
         ...
 
     def section(self, title: str, body: str) -> str: ...

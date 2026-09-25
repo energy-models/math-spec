@@ -8,8 +8,8 @@ A where string is a boolean algebra over comparisons, and a comparison's
 sides are the expression grammar's own arithmetic. What a side *is* — a
 parameter, a dimension, a relation column, a ``position()`` — only the schema
 knows, so the grammar hands both sides over bare and
-:mod:`mathspec.resolution` reads them. The resolved vocabulary lives in
-:mod:`mathspec.program`.
+[`mathspec.resolution`][] reads them. The resolved vocabulary lives in
+[`mathspec.program`][].
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ class UnresolvedPredicateCallNode:
     arithmetic arguments, and a predicate is not arithmetic. So the where
     grammar reads it, and resolution decides which operator the name is and
     what the kwargs mean. ``kwargs`` is held and hashed as
-    :class:`~mathspec._expression_parser.FunctionCallNode` holds its own.
+    [`FunctionCallNode`][mathspec._expression_parser.FunctionCallNode] holds its own.
     """
 
     name: str
@@ -86,7 +86,7 @@ class UnresolvedPredicateCallNode:
 class UnresolvedCountNode:
     """``count(<predicate>, over=<dim>) <op> <number>`` — a count against a literal.
 
-    Its own node rather than an :class:`UnresolvedComparisonNode` with a call
+    Its own node rather than an [`UnresolvedComparisonNode`][] with a call
     on the left: every other comparison has arithmetic on both sides, and
     widening that one to carry a predicate would widen every reader of a side
     with it.
@@ -103,7 +103,7 @@ class UnresolvedComparisonNode:
 
     A side is the expression grammar's arithmetic, so a name, a number and a
     ``position(...)`` call all arrive as the nodes an expression would carry
-    them in, a quoted label as the :class:`KeywordNode` a quoted kwarg is, and a
+    them in, a quoted label as the [`KeywordNode`][] a quoted kwarg is, and a
     relation column in a node of its own.
     """
 
@@ -272,8 +272,8 @@ def parse_where(text: str) -> Predicate | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
 
     The connectives and literals are the resolved vocabulary's own; the leaves
-    naming declarations are a bare :class:`NameNode` or an ``Unresolved*``
-    node, which only :func:`~mathspec.resolution.resolve_where` takes.
+    naming declarations are a bare [`NameNode`][] or an ``Unresolved*``
+    node, which only [`resolve_where`][mathspec.resolution.resolve_where] takes.
 
     Raises:
         SchemaError: If *text* is not a where string of the language. A

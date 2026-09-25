@@ -73,7 +73,7 @@ class Builtin:
 
         A dimension, a relation, a column of it, an edge policy, or a plain value.
         *with_relation* says whether the call carries a ``by=``, which is what
-        decides the kind of a :attr:`dimension_or_role_kwargs` member.
+        decides the kind of a [`dimension_or_role_kwargs`][] member.
         """
         if kwarg in self.dimension_or_role_kwargs:
             return 'role' if with_relation else 'dimension'

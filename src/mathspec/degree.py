@@ -103,7 +103,7 @@ def _degree(node: Expression) -> int:
     """The polynomial degree *node* stands for, counted structurally.
 
     A product adds its factors' degrees and a division keeps the dividend's
-    (:func:`check_binary` has already refused a divisor carrying a variable);
+    ([`check_binary`][] has already refused a divisor carrying a variable);
     everything else — a sum, a reduction, a shape operator — is the highest
     degree beneath it. No data, so this answers at ``check`` time, which is
     what stops a cubic from reaching a consumer to be refused by whichever one
@@ -184,7 +184,7 @@ def _joins_terms(node: Expression) -> bool:
 
 
 def check_expression(node: Expression, context: str, *, ceiling: int = 1) -> None:
-    """What the math admits at one position: no dual anywhere under *node*, then :func:`check_binary` everywhere in it.
+    """What the math admits at one position: no dual anywhere under *node*, then [`check_binary`][] everywhere in it.
 
     Asked of the resolved tree, so a dual or a product reached through a
     macro or a named expression is caught alongside one written in place.
@@ -192,7 +192,7 @@ def check_expression(node: Expression, context: str, *, ceiling: int = 1) -> Non
 
     Raises:
         LanguageError: A dual, which exists only after a solve; or what
-            :func:`check_binary` refuses.
+            [`check_binary`][] refuses.
     """
     for found in walk(node):
         if isinstance(found, Dual):
@@ -205,5 +205,5 @@ def check_expression(node: Expression, context: str, *, ceiling: int = 1) -> Non
 
 
 def calls_dual(node: Expression) -> bool:
-    """Whether a :class:`~mathspec.program.Dual` stands anywhere under *node*."""
+    """Whether a [`Dual`][mathspec.program.Dual] stands anywhere under *node*."""
     return any(isinstance(found, Dual) for found in walk(node))

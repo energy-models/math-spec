@@ -6,7 +6,7 @@
 
 Symbols are **derived** by default, aiming at unambiguous rather than
 beautiful, so it prints with no setup; a
-:class:`~mathspec.typesetting.symbols.SymbolTable` (``--symbols``) makes it
+[`SymbolTable`][] (``--symbols``) makes it
 conventional. It does not line-break: a wide equation runs off the page.
 
 Usage::
@@ -67,7 +67,7 @@ FORMATS: dict[FormatName, Format] = {
 
 
 class _Options(TypedDict, total=False):
-    """The keyword arguments :func:`typeset` takes, which the three per-format doors forward whole."""
+    """The keyword arguments [`typeset`][] takes, which the three per-format doors forward whole."""
 
     symbols: str | Path | Mapping[str, object] | SymbolTable | None
     standalone: bool
@@ -113,14 +113,14 @@ def typeset(
     """Render *model*'s math in *fmt*.
 
     Args:
-        model: Anything :func:`mathspec.to_spec` accepts, or a
-            :class:`~mathspec.program.Program`. A ``Spec`` or a ``Program``
+        model: Anything [`mathspec.to_spec`][] accepts, or a
+            [`Program`][]. A ``Spec`` or a ``Program``
             is rendered as it stands, so printing one model in several formats
             reads and checks the file once rather than once per format, and a
             curve prints as the curve it states. Pass ``spec.expand()`` for the rows a solver holds
             instead.
-        fmt: What spells the math — a key of :data:`FORMATS`.
-        symbols: How names print, as a :class:`SymbolTable`, a path or a
+        fmt: What spells the math — a key of [`FORMATS`][].
+        symbols: How names print, as a [`SymbolTable`][], a path or a
             mapping. Names it does not carry are derived, and it must be
             written in *fmt*'s notation.
         standalone: Emit a compilable document rather than a fragment.
@@ -184,11 +184,11 @@ def typeset_declaration(
     one prints by symbol, and a second call with its name prints its block.
 
     Args:
-        model: Anything :func:`mathspec.to_spec` accepts, or a :class:`~mathspec.program.Program`.
+        model: Anything [`mathspec.to_spec`][] accepts, or a [`Program`][].
         name: A named expression, constraint, assumption, ``piecewise:``
             block or variable the model declares.
-        fmt: What spells the math — a key of :data:`FORMATS`.
-        symbols: How names print; see :func:`typeset`.
+        fmt: What spells the math — a key of [`FORMATS`][].
+        symbols: How names print; see [`typeset`][].
         inline_expressions: Substitute the plain named expressions the line uses, so it
             stands on its own; ``False`` prints their symbols, as the document
             does. A plain expression asked for by name prints its definition
@@ -209,15 +209,15 @@ def typeset_declaration(
 
 
 def to_latex(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
-    """Render *model* as LaTeX (amsmath ``align``). See :func:`typeset`."""
+    """Render *model* as LaTeX (amsmath ``align``). See [`typeset`][]."""
     return typeset(model, 'latex', **options)
 
 
 def to_typst(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
-    """Render *model* as Typst. See :func:`typeset`."""
+    """Render *model* as Typst. See [`typeset`][]."""
     return typeset(model, 'typst', **options)
 
 
 def to_markdown(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
-    """Render *model* as GitHub-flavoured Markdown. See :func:`typeset`."""
+    """Render *model* as GitHub-flavoured Markdown. See [`typeset`][]."""
     return typeset(model, 'markdown', **options)

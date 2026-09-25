@@ -4,7 +4,7 @@
 
 """Advice — what is decidable without data and is a note rather than a refusal.
 
-One door, :func:`advice`, over every pass of that kind.
+One door, [`advice`][], over every pass of that kind.
 """
 
 from __future__ import annotations
@@ -24,17 +24,23 @@ if TYPE_CHECKING:
 
 
 def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
-    """Everything the language advises about *model* — never an error, decidable without data.
+    """Everything the language advises about *model*, decided without data.
+
+    Advice is a note, not a refusal: a file with advice still loads.
 
     Args:
-        model: A YAML path, a mapping, a loaded :class:`Spec`, or a
-            :class:`Program`, read as it arrived. A ``piecewise:`` or ``sos:``
-            block is read as the rows it states, so the answer is the one its
-            expansion gets, with nothing expanded.
+        model: Anything [`to_spec`][] accepts, or a [`Program`][], read as
+            it arrived. A ``piecewise:`` or ``sos:`` block is read as the rows
+            it states, so the answer is the one its expansion gets, with
+            nothing expanded.
 
     Returns:
         The never-an-axis advice in declaration order, then the unboundedness
         advice; ``str()`` of each is its sentence.
+
+    Raises:
+        LanguageError: *model* does not load; [`to_spec`][] says why.
+        FileNotFoundError: A ``str`` with no newline that names no file.
     """
     program = model if isinstance(model, Program) else to_spec(model).program
     return tuple(_never_an_axis(program) + unbounded_notes(program))

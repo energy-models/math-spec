@@ -42,7 +42,7 @@ def _escape(text: str) -> str:
 
 
 class LatexFormat:
-    """See :class:`mathspec.typesetting.format.Format`."""
+    """See [`mathspec.typesetting.format.Format`][]."""
 
     notation: ClassVar[Notation] = 'latex'
     #: TeX's own em-dash ligature.
