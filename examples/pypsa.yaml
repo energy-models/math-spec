@@ -613,7 +613,9 @@ parameters:
     description: >-
       most capacity of a carrier that may be added in a period; no value means
       no limit. The least over the scenarios, as PyPSA takes it
-      (`global_constraints.py:226-230`), data prep
+      (`global_constraints.py:226-230`), data prep. PyPSA reads it only under
+      `multi_investment_periods` (`global_constraints.py:219-220`), so data
+      prep feeds no value otherwise
     dims: [carrier]
   Carrier_max_relative_growth:
     description: >-

@@ -1381,6 +1381,7 @@ own dimensions.
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | every extendable component of the carrier, counted in the first period a build stands in; `edge=0` at the first period |
 | [`Carrier-growth_limit`](#carrier-growth_limit) with a negative `max_relative_growth` | done | rung 39 |
+| [`Carrier-growth_limit`](#carrier-growth_limit) without `multi_investment_periods` | done | rung 49; not built, so data prep feeds no `max_growth` |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) per period, ramps at period starts | done | rung 29 |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance), [`Store-energy_balance`](#store-energy_balance) for storage built in a later period or retired early | done | rung 32 |
@@ -3913,6 +3914,55 @@ def build():
 </details>
 <!-- reference:rung_48_unweighted_start_up:end -->
 
+### Rung 49 — a growth limit in one period
+
+`n.optimize()` with a carrier that carries `max_growth`. PyPSA builds
+`Carrier-growth_limit` only under `multi_investment_periods`, and returns
+before it reads the carrier otherwise (`global_constraints.py:219-220`). A
+single-period run has no growth limit. The file states the row where
+`Carrier_max_growth` has a value, so data prep feeds no value on a
+single-period run, and no row is built.
+
+The rung adds a cheap extendable wind unit with `max_growth = 10` to the spine.
+PyPSA builds it to `67` and solves to `335.0`, the same as without the limit.
+The same network as one investment period under `multi_investment_periods`
+caps the build at `10` and solves to `2583.33` (#620).
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Carrier-growth_limit`](#carrier-growth_limit) without `multi_investment_periods` | done | not built; data prep feeds no `Carrier_max_growth` |
+
+<!-- reference:rung_49_single_period_growth:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `335.0`, 42 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_49_single_period_growth.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 49: a carrier's growth limit without `multi_investment_periods` — PyPSA builds no row, so the build passes the cap."""
+
+from __future__ import annotations
+
+import spine
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Carrier', 'wind', max_growth=10)
+    n.add('Generator', 'wind49', bus='south', carrier='wind', p_nom_extendable=True, p_nom_max=100, capital_cost=5)
+    return n
+```
+
+</details>
+<!-- reference:rung_49_single_period_growth:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -4102,7 +4152,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
 | $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
 | $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit. The least over the scenarios, as PyPSA takes it (`global_constraints.py:226-230`), data prep |
+| $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit. The least over the scenarios, as PyPSA takes it (`global_constraints.py:226-230`), data prep. PyPSA reads it only under `multi_investment_periods` (`global_constraints.py:219-220`), so data prep feeds no value otherwise |
 | $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top — the least over the scenarios, as PyPSA takes it, data prep |
 | $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
 | $`\mathrm{f}^{\mathrm{set}}`$ | `Link_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — a given flow schedule; a link without one has no row here |
