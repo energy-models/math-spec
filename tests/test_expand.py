@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""`Spec.expand`: what it takes, what comes back, and what still binds it.
+"""`Spec.expand`: what it takes, what comes back, and what data still attaches to it.
 
 The kinds are a closed pair and the result is a plain `Spec`, so the claims here
 are about the verb rather than about either formulation — those are in
@@ -124,7 +124,7 @@ def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
 
     assert {name: (p.dims, p.dtype) for name, p in expanded.parameters.items()} == {
         name: (p.dims, p.dtype) for name, p in schema.parameters.items()
-    }, 'a curve emits no parameter, so the same data binds both'
+    }, 'a curve emits no parameter, so the same data attaches to both'
     assert schema_of(expanded.to_yaml()).to_dict() == expanded.to_dict(), (
         'the expansion is a file like any other, and loading it back changes nothing'
     )
@@ -175,7 +175,7 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
 def test_the_expansion_says_how_much_of_a_curve_table_it_reads(points, coverage):
     """A curve's own parameters answer for no coverage, because the block owns their shape. The expansion keeps
     no block: its weights stand on `points:` and its assumptions ask for a value only where the mask holds, so
-    the rows read a curve table only there. Left unwritten, lowering would report `total` and a consumer binding
+    the rows read a curve table only there. Left unwritten, lowering would report `total` and a consumer attaching
     the rows would refuse the ragged curve the block admits; a curve with no `points:` reads every breakpoint."""
     curve = {
         'parameters.bx': {'dims': ['h']},
@@ -189,3 +189,18 @@ def test_the_expansion_says_how_much_of_a_curve_table_it_reads(points, coverage)
         'by': coverage,
         'c': 'total',
     }, "the expansion reads the curve's tables as the block did, and every other parameter as declared"
+
+
+def test_an_expansion_is_a_different_model_and_has_nothing_left_to_write_out():
+    """What `expand()` returns: a new model, which a second expansion hands back unchanged."""
+    spec = schema_of(CURVE)
+    expanded = spec.expand()
+
+    assert expanded != spec, 'the expansion declares more rows, so it is a different model'
+    assert expanded.expand() is expanded, 'an expansion has no formulation left, so it comes back as itself'
+
+
+def test_a_model_with_no_formulation_expands_to_itself():
+    spec = schema_of(DISPATCH_MODEL)
+
+    assert spec.expand() is spec, 'nothing to write out returns the same object, not a copy'

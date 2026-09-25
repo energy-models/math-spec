@@ -244,7 +244,9 @@ def _frame_of(name: str, entry: Named, schema: Spec) -> tuple[str, ...]:
     return tuple(d for d in schema.dimensions if d in carried)
 
 
-def _bound(value: float | str) -> Constant | Parameter:
+def _bound(value: float | str | None) -> Constant | Parameter | None:
+    if value is None:
+        return None
     if isinstance(value, str):
         return Parameter(value)
     return Constant(value)
