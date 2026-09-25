@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The adjoint of the membership reduction — `at(array, by=relation, over=a, into=b)` reads one
+  The same join with no group-by — `at(array, by=relation, over=a, into=b)` reads one
   coarse value once per fine label pointing at it.
 
 dimensions:

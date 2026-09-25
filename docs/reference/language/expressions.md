@@ -79,18 +79,18 @@ an assumption may share a variable's name.
 
 The dimension set of every expression is known before any data is attached:
 
-| Node                             | Dim set                           | Error                                                                            |
-| -------------------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
-| number                           | `{}`                              |                                                                                  |
-| parameter / variable             | its `dims`                        |                                                                                  |
-| `-x`, `+x`                       | `dims(x)`                         |                                                                                  |
-| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                                  |
-| `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                              |
-| `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                           |
-| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
-| `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                                         |
-| `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                           |
-| `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                           |
+| Node                             | Dim set                        | Error                                                                            |
+| -------------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| number                           | `{}`                           |                                                                                  |
+| parameter / variable             | its `dims`                     |                                                                                  |
+| `-x`, `+x`                       | `dims(x)`                      |                                                                                  |
+| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`            |                                                                                  |
+| `sum(x)`                         | `{}`                           | error if `dims(x)` is already empty                                              |
+| `sum(x, over=d)`                 | `dims(x) − {d}`                | error if `d ∉ dims(x)`                                                           |
+| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − joined) ∪ grouped` | the refusals under [how a relation is used](relations.md#how-a-relation-is-used) |
+| `at(x, by=l, over=a, into=b)`    | `(dims(x) − joined) ∪ grouped` | the same                                                                         |
+| `shift(x, along=d, offset=n)`    | `dims(x)`                      | error if `d ∉ dims(x)`                                                           |
+| `sum_back(x, along=d, window=n)` | `dims(x)`                      | error if `d ∉ dims(x)`                                                           |
 
 An outer product is allowed. The declaration's own dimensions are its
 **frame**, and a declaration may not disagree with its expression:
@@ -224,9 +224,11 @@ objective:
 
 $$0 \le \mathit{rate}_{f} \le \mathrm{cap}_{f} \qquad \forall\thinspace f \in \mathcal{F} \thinspace : \thinspace \mathrm{has\_curve}_{\mathrm{converter\_of}(f)}$$
 
-The mask above is over `flow` alone. The rules are those of `at` in an
-expression: `by=`, `over=` and `into=` are all written, the read lands on the
-relation's key, and the predicate carries every dimension the read consumes.
+The column joined on, `converter`, leaves, and the column grouped by, `flow`,
+arrives. So the mask above is over `flow` alone. The rules are those of `at` in
+an expression: `by=`, `over=` and `into=` are all written, the read groups by
+the relation's key, and the predicate carries every dimension the read joins
+on.
 
 ### The right-hand side of a comparison
 

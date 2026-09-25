@@ -4,8 +4,8 @@
 
 description: >-
   A call that names its ends — `sum(array, by=relation, over=a, into=b)`
-  consumes column `a` and lands on column `b`, and the other key column is
-  joined on, so each zone's total is taken per period.
+  joins on column `a` and groups by column `b`, and the other key column is
+  joined on and kept, so each zone's total is taken per period.
 
 dimensions:
   generator: { dtype: str }

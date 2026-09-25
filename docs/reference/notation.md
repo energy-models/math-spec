@@ -41,7 +41,7 @@ relations:
   zone_of: { key: bus, values: zone }
   area_of: { key: bus, values: zone } # a second map into the same set, to compare against
   season_of: { key: snapshot, values: season }
-  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call consumes one and joins on the other
+  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call sums one away and joins on the other
   rep_of: { key: snapshot, values: { rep: snapshot } } # a map into its own dimension: the representative snapshot
   connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, read only by sum with both ends named
   gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, read to both at once
@@ -402,7 +402,7 @@ at(), which re-indexes through a relation instead of an offset
 
 ```yaml
 constraints:
-  pullback:
+  lookup:
     dims: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of, over=zone, into=bus)
 ```
@@ -428,11 +428,11 @@ constraints:
 
 #### `at` through two value columns
 
-its adjoint, reading one slot through two columns of one table
+the same table joined the other way, reading one slot through two columns
 
 ```yaml
 constraints:
-  pulled_back_once:
+  looked_up_once:
     dims: [generator]
     expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology], into=generator)
 ```
@@ -505,7 +505,7 @@ constraints:
 
 #### Sum through a two-key map
 
-a grouping through a two-key map, consuming one key: the condition reads the other, and the row keeps it
+a grouping through a two-key map, summing one key away: the condition reads the other, and the row keeps it
 
 ```yaml
 constraints:
@@ -520,7 +520,7 @@ constraints:
 
 #### Sum over the other key of a two-key map
 
-the same table consuming its other key
+the same table summing its other key away
 
 ```yaml
 constraints:
@@ -550,11 +550,11 @@ constraints:
 
 #### `at` through a two-key map
 
-its adjoint, reading the slot the row's own snapshot puts the generator in
+the same table joined the other way, reading the slot the row's own snapshot puts the generator in
 
 ```yaml
 constraints:
-  zonal_pullback:
+  zonal_lookup:
     dims: [snapshot, generator]
     where: "gen_zone == 'north' AND position(generator, by=gen_zone, within=zone) == 0"
     expression: p <= at(spill * zone_cap, by=gen_zone, into=generator, over=zone)

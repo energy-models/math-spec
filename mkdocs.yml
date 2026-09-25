@@ -66,6 +66,7 @@ nav:
           - One construct per model: examples/operators.md
   - About:
       - The limits: about/limits.md
+      - Relations as linear maps: about/relations-as-linear-maps.md
       - Changelog: CHANGELOG.md
   # Everything a model writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a

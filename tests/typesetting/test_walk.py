@@ -196,7 +196,7 @@ def test_a_translation_by_nothing_takes_no_legend_note(name: FormatName):
 
 
 @EVERY_FORMAT
-def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Format):
+def test_a_translation_under_a_lookup_survives_it(name: FormatName, fmt: Format):
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
     Whoever wrote it last used to win: ``at(shift(cap, along=period, offset=1,
@@ -221,7 +221,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
     }
     text = typeset(model, name, legend=False)
     assert fmt.operators['edge_minus'] in text, 'the shift under the at was dropped from the subscript'
-    assert fmt.apply(fmt.upright('period_of'), 't') in text, 'the pullback itself was dropped'
+    assert fmt.apply(fmt.upright('period_of'), 't') in text, 'the lookup itself was dropped'
 
 
 @EVERY_FORMAT
