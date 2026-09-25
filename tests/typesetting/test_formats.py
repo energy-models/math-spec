@@ -242,7 +242,7 @@ def test_markdown_glossary_cells_survive_a_pipe_and_a_newline():
 
 
 def test_latex_glossary_item_guards_a_bracket_in_the_symbol():
-    tex = to_latex(DISPATCH_MODEL, symbols={'notation': 'latex', 'names': {'load': 'L^{[k]}'}})
+    tex = to_latex(DISPATCH_MODEL, symbols={'latex': {'names': {'load': 'L^{[k]}'}}})
     assert r'\item[{$L^{[k]}$}]' in tex, (
         r'the symbol is braced, so \item does not read its bracket as the optional argument'
     )

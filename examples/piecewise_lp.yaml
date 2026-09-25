@@ -69,3 +69,9 @@ objective:
   sense: minimize
   description: total operating cost, taken off the curves rather than from a marginal rate
   expression: sum(op_cost)
+
+symbols:
+  latex:
+    names:
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"

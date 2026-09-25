@@ -65,3 +65,15 @@ objective:
   sense: minimize
   description: total operating cost, taken off the curves rather than from a marginal rate
   expression: sum(op_cost)
+
+# Both readings of the model: the breakpoints the curve prints through, and the
+# weights the expansion writes out, which are named after the block that
+# declared them and unreadable in an equation that names one six times. Papers
+# write the convex-combination weight as lambda, so this says so out loud rather
+# than the typesetter renaming anything behind the reader's back.
+symbols:
+  latex:
+    names:
+      cost_curve_lam: "\\lambda"
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"

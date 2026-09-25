@@ -14,7 +14,8 @@ from mathspec.typesetting.format import OPERATOR_SPELLINGS, aligned_rows, escape
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from mathspec.typesetting.format import Entry, Line, Notation, OperatorName
+    from mathspec.program import Notation
+    from mathspec.typesetting.format import Entry, Line, OperatorName
 
 _PREAMBLE = """#set page(margin: 2.5cm)
 #set text(size: 11pt)

@@ -5,9 +5,9 @@
 """Typeset a validated model — a *reading* of the math.
 
 Symbols are **derived** by default, aiming at unambiguous rather than
-beautiful, so it prints with no setup; a
-:class:`~mathspec.typesetting.symbols.SymbolTable` (``--symbols``) makes it
-conventional. It does not line-break: a wide equation runs off the page.
+beautiful, so it prints with no setup; the model's ``symbols:`` block, or a
+file of the same shape (``--symbols``), makes it conventional. It does not
+line-break: a wide equation runs off the page.
 
 Usage::
 
@@ -16,11 +16,12 @@ Usage::
     print(mathspec.to_latex('model.yaml'))
     print(mathspec.to_typst('model.yaml', standalone=True))
     print(mathspec.to_markdown('model.yaml'))  # renders as-is on GitHub
-    print(mathspec.to_latex('model.yaml', symbols='model.symbols.yaml'))
+    print(mathspec.to_latex('model.yaml', symbols='other.symbols.yaml'))
+    print(mathspec.to_latex('model.yaml', symbols={}))  # every symbol derived
 
 or from a shell::
 
-    python -m mathspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
+    python -m mathspec latex model.yaml --symbols other.symbols.yaml --standalone -o model.tex
     python -m mathspec typst model.yaml --standalone -o model.typ
 """
 
@@ -32,7 +33,7 @@ from mathspec.program import Program
 from mathspec.typesetting.latex import LatexFormat
 from mathspec.typesetting.legend import Legend, notice
 from mathspec.typesetting.markdown import MarkdownFormat
-from mathspec.typesetting.symbols import SymbolTable, symbols_for
+from mathspec.typesetting.symbols import Symbols, load_symbols, resolve_symbols
 from mathspec.typesetting.typst import TypstFormat
 from mathspec.typesetting.walk import Walk
 from mathspec.validation import to_spec
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
 __all__ = [
     'FORMATS',
     'FormatName',
-    'SymbolTable',
+    'Symbols',
     'to_latex',
     'to_markdown',
     'to_typst',
@@ -69,7 +70,7 @@ FORMATS: dict[FormatName, Format] = {
 class _Options(TypedDict, total=False):
     """The keyword arguments :func:`typeset` takes, which the three per-format doors forward whole."""
 
-    symbols: str | Path | Mapping[str, object] | SymbolTable | None
+    symbols: str | Path | Mapping[str, object] | None
     standalone: bool
     legend: bool
     numbered: bool
@@ -79,7 +80,7 @@ class _Options(TypedDict, total=False):
 def _walk(
     model: str | Path | Mapping[str, object] | Spec | Program,
     fmt: FormatName,
-    symbols: str | Path | Mapping[str, object] | SymbolTable | None,
+    symbols: str | Path | Mapping[str, object] | None,
     *,
     inline_expressions: bool,
 ) -> Walk:
@@ -89,22 +90,16 @@ def _walk(
         raise ValueError(msg)
     program = model if isinstance(model, Program) else to_spec(model).program
     format_ = FORMATS[fmt]
-    if symbols is None:
-        symbols = SymbolTable(format_.notation)
-    table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    return Walk(
-        program,
-        symbols_for(program, format_, table.checked_against(program)),
-        format_,
-        inline_expressions=inline_expressions,
-    )
+    tables = program.symbols if symbols is None else load_symbols(symbols, program)
+    table = tables.get(format_.notation, Symbols(format_.notation))
+    return Walk(program, resolve_symbols(program, format_, table), format_, inline_expressions=inline_expressions)
 
 
 def typeset(
     model: str | Path | Mapping[str, object] | Spec | Program,
     fmt: FormatName,
     *,
-    symbols: str | Path | Mapping[str, object] | SymbolTable | None = None,
+    symbols: str | Path | Mapping[str, object] | None = None,
     standalone: bool = False,
     legend: bool = True,
     numbered: bool = True,
@@ -120,9 +115,11 @@ def typeset(
             curve prints as the curve it states. Pass ``spec.expand()`` for the rows a solver holds
             instead.
         fmt: What spells the math — a key of :data:`FORMATS`.
-        symbols: How names print, as a :class:`SymbolTable`, a path or a
-            mapping. Names it does not carry are derived, and it must be
-            written in *fmt*'s notation.
+        symbols: How names print, in place of the model's own ``symbols:``
+            block: a path to a YAML file, or a mapping, of the block's shape.
+            ``None`` reads the model's block, and ``{}`` derives every symbol.
+            Only the table for *fmt*'s notation is read, and a name it does
+            not carry is derived.
         standalone: Emit a compilable document rather than a fragment.
         legend: Prepend the sets/parameters/variables table. The model's own
             ``description:`` opens the document either way — it is what the
@@ -139,8 +136,8 @@ def typeset(
     Raises:
         ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
-        SchemaError: A symbol table entry naming nothing in the model, or a
-            table written in a notation *fmt* does not read.
+        SchemaError: A *symbols* entry naming nothing in the model, or a
+            notation other than ``latex`` or ``typst``.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     program, format_ = walk.program, walk.format
@@ -169,7 +166,7 @@ def typeset_declaration(
     name: str,
     fmt: FormatName,
     *,
-    symbols: str | Path | Mapping[str, object] | SymbolTable | None = None,
+    symbols: str | Path | Mapping[str, object] | None = None,
     inline_expressions: bool = True,
 ) -> str:
     """Render one declaration as the bare line the document prints for it.
@@ -201,7 +198,7 @@ def typeset_declaration(
         ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
         SchemaError: *name* is declared as none of the five, or as two — a
-            constraint may share a variable's name; or a symbol table entry
+            constraint may share a variable's name; or a *symbols* entry
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)

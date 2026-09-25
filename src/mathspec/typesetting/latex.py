@@ -13,7 +13,8 @@ from mathspec.typesetting.format import OPERATOR_SPELLINGS, aligned_rows, escape
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from mathspec.typesetting.format import Entry, Line, Notation, OperatorName
+    from mathspec.program import Notation
+    from mathspec.typesetting.format import Entry, Line, OperatorName
 
 _ESCAPES = {
     '\\': r'\textbackslash{}',

@@ -15,7 +15,8 @@ LATEX = FORMATS['latex']
 EVERY_FORMAT = pytest.mark.parametrize(('name', 'fmt'), list(FORMATS.items()), ids=list(FORMATS))
 
 TYPST_SYMBOLS = {
-    'notation': 'typst',
-    'dimensions': {'generator': {'index': 'u', 'set': 'cal(U)'}},
-    'names': {'p': 'pi', 'p_max': 'bar(p)'},
+    'typst': {
+        'dimensions': {'generator': {'index': 'u', 'set': 'cal(U)'}},
+        'names': {'p': 'pi', 'p_max': 'bar(p)'},
+    }
 }

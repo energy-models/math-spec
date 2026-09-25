@@ -10,8 +10,8 @@ at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
 `pypsa/optimization/`) and links each to its block in the file.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
-their duals are row duals. Regimes are data columns and `where:` masks. Names are PyPSA's, `Component_attribute`, with a symbol table
-(`examples/symbols/pypsa.yaml`) making the math read as math.
+their duals are row duals. Regimes are data columns and `where:` masks. Names are PyPSA's, `Component_attribute`, with the file's
+`symbols:` block making the math read as math.
 
 ## Index
 

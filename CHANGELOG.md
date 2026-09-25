@@ -12,6 +12,8 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+- feat(language): a model file declares how its names print, one symbol table per notation ([#716](https://github.com/energy-models/mathspec/pull/716))
+
 ## 0.1.0 (2026-09-25)
 
 🎉 mathspec is officially on PyPI!

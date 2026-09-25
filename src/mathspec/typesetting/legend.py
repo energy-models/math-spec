@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
     from mathspec.program import Expression, Mask, Program, RelationDeclaration
     from mathspec.typesetting.format import Format, OperatorName
-    from mathspec.typesetting.symbols import Symbols
+    from mathspec.typesetting.symbols import ResolvedSymbols
 
 #: What a translation does with the row the shift vacates. Three policies get
 #: three spellings because they are three different equations at the boundary.
@@ -126,7 +126,7 @@ class Legend:
     """The glossary and the notes, spelled with one program's symbols in one format."""
 
     program: Program
-    symbols: Symbols
+    symbols: ResolvedSymbols
     format: Format
 
     def _op(self, name: OperatorName) -> str:

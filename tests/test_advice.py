@@ -137,9 +137,9 @@ def test_every_shipped_formulation_gets_the_answer_its_expansion_gets(example):
     all that holds ``op_cost``.
     """
     raw = override(raw_of(EXAMPLES / f'{example}.yaml'), constraints={}, **{'objective.sense': 'maximize'})
-    assert [(n.kind, n.subject) for n in advice(override(raw, piecewise={}))] == [('unbounded', 'op_cost')], (
-        'without its curve nothing holds op_cost, so the answer below turns on reading the curve'
-    )
+    assert [(n.kind, n.subject) for n in advice(override(raw, piecewise={}, symbols={}))] == [
+        ('unbounded', 'op_cost')
+    ], 'without its curve nothing holds op_cost, so the answer below turns on reading the curve'
     spec = to_spec(raw)
     as_written = [(n.kind, n.subject) for n in advice(spec)]
     assert as_written == [(n.kind, n.subject) for n in advice(spec.expand())] == [], (

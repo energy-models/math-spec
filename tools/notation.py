@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from mathspec.model import PIECEWISE_METHODS
 from mathspec.typesetting import to_markdown
 from mathspec.validation import to_spec
-from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import ROOT, splice
 from tools._page import main as page_main
 
 if TYPE_CHECKING:
@@ -351,10 +351,9 @@ def _curves() -> list[str]:
     """
     rows = []
     for method, (heading, source) in PIECEWISE.items():
-        table = sidecar_for(source)
         spec = to_spec(source)
-        stated = equations(to_markdown(spec, symbols=table, numbered=False))
-        written = equations(to_markdown(spec.expand('piecewise'), symbols=table, numbered=False))
+        stated = equations(to_markdown(spec, numbered=False))
+        written = equations(to_markdown(spec.expand('piecewise'), numbered=False))
         found = [
             block
             for block in declarations(source.read_text())['piecewise']
@@ -369,7 +368,7 @@ def _curves() -> list[str]:
                 '\n\n'.join(['What the method assumes of the numbers attached to it:', *derived]) if derived else ''
             )
             rows.append(
-                row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1)
+                row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(source)}', 1)
                 + f'\n\n{_written_out(block.name, written)}'
             )
             if assumed:
@@ -390,22 +389,22 @@ def _written_out(name: str, printed: dict[str, str]) -> str:
     return f'Written out by `spec.expand()`:\n\n{body}'
 
 
-def _table_shown(table: Path | None) -> str:
-    """The symbol table, printed beside the math it renamed.
+def _table_shown(source: Path) -> str:
+    """The model's ``symbols:`` block, printed beside the math it renamed.
 
     A curve prints through its breakpoint parameters, whose names are the data
     preparation's rather than the literature's. Renaming them in the typesetter
     would be a symbol a reader could not trace back to the file, so the rename
-    is a **declaration** — the same ``--symbols`` sidecar any reader may write —
-    and the page shows it rather than performing it.
+    is a **declaration** in the file, and the page shows it rather than
+    performing it.
     """
-    if table is None:
+    lines = source.read_text().splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith('symbols:')), None)
+    if start is None:
         return ''
-    body = without_header(table)
-    return (
-        f'Rendered with the sidecar symbol table `{table.relative_to(ROOT)}`, '
-        f'which is what the breakpoints print as:\n\n```yaml\n{body}\n```\n\n'
-    )
+    end = next((i for i in range(start + 1, len(lines)) if re.match(r'^\w', lines[i])), len(lines))
+    body = '\n'.join(lines[start:end]).strip()
+    return f'Rendered with the symbols the model declares, which is what the breakpoints print as:\n\n```yaml\n{body}\n```\n\n'
 
 
 def _row(declaration: Declaration, heading: str, printed: dict[str, str]) -> str:

@@ -18,7 +18,7 @@ from mathspec.model import Spec
 from mathspec.operators import BUILTIN_NAMES
 from mathspec.typesetting import (
     FORMATS,
-    SymbolTable,
+    Symbols,
     to_latex,
     to_markdown,
     to_typst,
@@ -37,7 +37,7 @@ __all__ = [
     'MathSpecError',
     'SchemaError',
     'Spec',
-    'SymbolTable',
+    'Symbols',
     'advice',
     'did_you_mean',
     'program',

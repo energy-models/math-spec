@@ -81,6 +81,29 @@ constraints:
 objective:
   sense: minimize
   expression: sum(dispatch * cost)
+
+# How the names print, one table per notation. It is optional: a name it does
+# not carry prints as the name itself. An entry prints as written, so `\bar p`
+# is italic although a parameter the typesetter spells is upright.
+symbols:
+  latex:
+    dimensions:
+      snapshot: { index: s, set: "\\mathcal{S}" }
+      generator: { index: g, set: "\\mathcal{G}" }
+
+    names:
+      cost: c
+      load: "\\ell"
+      capacity: "\\bar p"
+  typst:
+    dimensions:
+      snapshot: { index: s, set: "cal(S)" }
+      generator: { index: g, set: "cal(G)" }
+
+    names:
+      cost: c
+      load: ell
+      capacity: bar(p)
 ```
 
 <!--- --8<-- [end:model] -->
@@ -121,7 +144,7 @@ Least-cost dispatch of a generator fleet against an hourly load.
 ```
 
 <details>
-<summary>The whole document: a symbol table, and the legend it prints</summary>
+<summary>The whole document: the symbol table, and the legend it prints</summary>
 
 Least-cost dispatch of a generator fleet against an hourly load.
 

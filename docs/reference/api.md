@@ -65,7 +65,7 @@ The module `mathspec.program` holds the classes a `Program` is made of. The
       show_root_toc_entry: true
       heading_level: 3
 
-::: mathspec.SymbolTable
+::: mathspec.Symbols
     options:
       show_root_heading: true
       show_root_toc_entry: true

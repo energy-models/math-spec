@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from mathspec.errors import LanguageError
-from mathspec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
+from mathspec.typesetting import FORMATS, Symbols, to_latex, to_markdown, typeset, typeset_declaration
 from mathspec.typesetting.format import OPERATOR_NAMES
-from mathspec.typesetting.symbols import _derive_name_symbol, chosen_expressions, symbols_for
+from mathspec.typesetting.symbols import _derive_name_symbol, chosen_expressions, resolve_symbols
 from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -540,7 +540,7 @@ def test_nothing_the_model_is_given_prints_italic():
         f'solution — upright is what the model is given, italic what it computes'
     )
 
-    symbols = symbols_for(schema.program, LATEX, SymbolTable('latex'))
+    symbols = resolve_symbols(schema.program, LATEX, Symbols('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
     assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
         f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'
@@ -552,12 +552,12 @@ def test_the_convention_note_quotes_only_what_the_derivation_chose(name: FormatN
     """A table is printed verbatim and is the author's to write, so a symbol it
     supplies is not one the note governs.
 
-    `examples/symbols/dispatch.yaml` maps three parameters to italic symbols,
+    `examples/dispatch.yaml` maps three parameters to italic symbols,
     and the homepage renders through it — so the note quoting one of those said
     "a parameter such as $\\bar p$" under a sentence claiming a parameter is
     upright, contradicting itself on the page a reader arrives at first.
     """
-    table = {'notation': fmt.notation, 'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}
+    table = {fmt.notation: {'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}}
     assert 'Upright is what the model is given' not in typeset(DISPATCH_MODEL, name, symbols=table), (
         'a symbol the table supplies is not one the note governs'
     )

@@ -32,14 +32,14 @@ what each operator prints.
 The three functions take the same keywords, and the command line spells each as
 a flag. The [Python API](api.md#typesetting) gives each signature.
 
-|                      |                        |                                                                                                                                 |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `symbols`            | `--symbols FILE`       | How the names print. See [symbol tables](#symbol-tables). Default: derived from the names in the file                           |
-| `standalone`         | `--standalone`         | Emit a document that compiles. Default: a fragment to include                                                                   |
-| `legend`             | `--no-legend`          | Print the table of sets, parameters, variables and definitions above the math. Default: on                                      |
-| `numbered`           | `--no-numbers`         | Number the equations. Default: on                                                                                               |
-| `inline_expressions` | `--inline-expressions` | Substitute each named expression that the math reads into the equations that read it, instead of defining it once. Default: off |
-| —                    | `--expand`             | Print the variables and constraints the `piecewise:` and `sos:` blocks state, rather than the blocks. Default: off              |
+|                      |                                  |                                                                                                                                 |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `symbols`            | `--symbols FILE`, `--no-symbols` | How the names print, in place of the model's `symbols:` block. See [symbol tables](#symbol-tables). Default: the model's block  |
+| `standalone`         | `--standalone`                   | Emit a document that compiles. Default: a fragment to include                                                                   |
+| `legend`             | `--no-legend`                    | Print the table of sets, parameters, variables and definitions above the math. Default: on                                      |
+| `numbered`           | `--no-numbers`                   | Number the equations. Default: on                                                                                               |
+| `inline_expressions` | `--inline-expressions`           | Substitute each named expression that the math reads into the equations that read it, instead of defining it once. Default: off |
+| —                    | `--expand`                       | Print the variables and constraints the `piecewise:` and `sos:` blocks state, rather than the blocks. Default: off              |
 
 `-o FILE` writes to a file instead of stdout.
 
@@ -109,33 +109,57 @@ declared as two of them, such as a constraint and a variable, is refused too.
 
 With no table, the symbols are **derived** from the names in the file, such as
 $\mathrm{load}_t$ and $\mathrm{capacity}_g$. A symbol table makes the output
-conventional. Pass a path to a YAML file, the same keys as a dict, or a
-`ms.SymbolTable`:
+conventional. The model carries its tables under `symbols:`, one per notation:
 
 ```yaml
-# dispatch.symbols.yaml
-notation: latex
-dimensions:
-  snapshot: { index: s, set: "\\mathcal{S}" }
-  generator: { index: g, set: "\\mathcal{G}" }
-names:
-  cost: c
-  load: "\\ell"
-  capacity: "\\bar p"
+symbols:
+  latex:
+    dimensions:
+      snapshot: { index: s, set: "\\mathcal{S}" }
+      generator: { index: g, set: "\\mathcal{G}" }
+    names:
+      cost: c
+      load: "\\ell"
+      capacity: "\\bar p"
+  typst:
+    names:
+      load: ell
 ```
+
+| Key                     |                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `latex`, `typst`        | The notation the entries under it are written in. Either may be omitted         |
+| `<notation>.dimensions` | For each dimension, an `index` letter and a `set` symbol. Either may be omitted |
+| `<notation>.names`      | For each parameter, variable, named expression or constraint, its symbol        |
+
+- **A render reads only the table for its notation.** `to_latex` and
+  `to_markdown` read `latex`, and `to_typst` reads `typst`. A name the table
+  does not carry is derived, and so is every name where the model has no table
+  for that notation.
+- **Every spelling is printed as you wrote it.** Nothing translates between
+  notations.
+- **An entry that names nothing is a load error.** The loader checks each entry
+  against the model and against what its formulations emit, and names the near
+  miss:
+
+  ```text
+  symbols: latex: 'capacityy' under names: is not declared by the model. Did you mean 'capacity'?
+  ```
+
+`symbols=` replaces the model's `symbols:` block. It takes a path to a YAML
+file or a mapping, with the same keys as the block. `symbols={}` derives every
+symbol, which is what a reader whose LaTeX lacks a package the table needs
+passes:
 
 ```python
-ms.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')
+ms.to_latex('dispatch.yaml', symbols='other.symbols.yaml')
+ms.to_latex('dispatch.yaml', symbols={})
 ```
 
-| Section      |                                                                                 |
-| ------------ | ------------------------------------------------------------------------------- |
-| `notation`   | **Required.** `latex` or `typst`: the language the entries are written in       |
-| `dimensions` | For each dimension, an `index` letter and a `set` symbol. Either may be omitted |
-| `names`      | For each parameter, variable or named expression, its symbol                    |
+From a shell, `--symbols FILE` replaces the block, and `--no-symbols` derives
+every symbol.
 
-Every spelling is printed as you wrote it, and nothing translates notation, so
-rendering a LaTeX table as Typst is refused. A key that names nothing in the
-model, and nothing a formulation of it emits, is an error with the near miss.
+To change a few entries and keep the rest, edit a copy of the file's block
+([change the symbols for one render](../howto/change-the-symbols.md)).
 
 Nothing in a symbol table changes what the file means.

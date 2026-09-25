@@ -20,7 +20,7 @@ import textwrap
 
 from mathspec import to_spec
 from mathspec.typesetting import to_latex, to_markdown
-from tools._page import ROOT, inlined, sidecar_for, splice, without_header
+from tools._page import ROOT, inlined, splice, without_header
 from tools._page import main as page_main
 
 PAGE = ROOT / 'docs' / 'index.md'
@@ -33,41 +33,27 @@ README_BEGIN, README_END = '<!-- readme-math:begin -->', '<!-- readme-math:end -
 MODEL_BEGIN, MODEL_END = '<!--- --8<-- [start:model] -->', '<!--- --8<-- [end:model] -->'
 
 #: The tab that is written rather than rendered: how the two beside it were
-#: produced. It carries the symbol table as a dict because that is the shortest
-#: spelling of it, and the sidecar file the repository actually uses is one
-#: line further down.
+#: produced.
 HOW = """```python
 import mathspec as ms
 
-symbols = {
-    'notation': 'latex',
-    'dimensions': {
-        'snapshot': {'index': 's', 'set': '\\\\mathcal{S}'},
-        'generator': {'index': 'g', 'set': '\\\\mathcal{G}'},
-    },
-    'names': {
-        'cost': 'c',
-        'load': '\\\\ell',
-        'capacity': '\\\\bar p',
-    },
-}
-
 spec = ms.to_spec('dispatch.yaml')
 
-ms.to_latex(spec, symbols=symbols)
+ms.to_latex(spec)
 ms.to_typst(spec)
 ms.to_markdown(spec)
 ```
 
-`symbols` gives every name its conventional spelling. Pass a dict, a YAML path
-or a `SymbolTable`. It is optional: drop it and the same model prints from the
-names in the file, as $\\mathrm{load}_t$ and $\\mathrm{capacity}_g$.
+The file's `symbols:` block gives every name its conventional spelling, one
+table per notation; Markdown math reads the `latex` one. It is optional: pass
+`symbols={}` and the same model prints from the names in the file, as
+$\\mathrm{load}_t$ and $\\mathrm{capacity}_g$.
 
-Or from a shell, where the table is that same YAML on disk. `--standalone` emits
-a document that compiles, rather than a fragment to `\\input`:
+Or from a shell. `--standalone` emits a document that compiles, rather than a
+fragment to `\\input`:
 
 ```bash
-python -m mathspec latex dispatch.yaml --symbols dispatch.symbols.yaml
+python -m mathspec latex dispatch.yaml
 python -m mathspec typst dispatch.yaml --standalone -o dispatch.typ
 ```
 
@@ -84,9 +70,8 @@ def tab(title: str, body: str) -> str:
 def block() -> str:
     """The three tabs, in the order a reader meets them."""
     spec = to_spec(MODEL)
-    symbols = sidecar_for(MODEL)
-    printed = to_markdown(spec, symbols=symbols, numbered=False)
-    latex = to_latex(spec, symbols=symbols, numbered=False)
+    printed = to_markdown(spec, numbered=False)
+    latex = to_latex(spec, numbered=False)
     return '\n\n'.join(
         (
             tab('The math', printed.strip()),
@@ -110,13 +95,12 @@ def readme_block() -> str:
     The fold is what the legend and a table add.
     """
     spec = to_spec(MODEL)
-    symbols = sidecar_for(MODEL)
     return '\n\n'.join(
         (
-            to_markdown(spec, numbered=False, legend=False).strip(),
+            to_markdown(spec, symbols={}, numbered=False, legend=False).strip(),
             details(
-                'The whole document: a symbol table, and the legend it prints',
-                inlined(to_markdown(spec, symbols=symbols, numbered=False).strip()),
+                'The whole document: the symbol table, and the legend it prints',
+                inlined(to_markdown(spec, numbered=False).strip()),
             ),
         )
     )

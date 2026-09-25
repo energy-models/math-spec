@@ -65,6 +65,7 @@ __all__ = [
     'Named',
     'Negate',
     'Not',
+    'Notation',
     'ObjectiveDeclaration',
     'ObjectiveSense',
     'Or',
@@ -93,6 +94,7 @@ __all__ = [
     'SosDeclaration',
     'SosType',
     'Sum',
+    'Symbols',
     'Translate',
     'TranslatedPredicate',
     'TypedPredicate',
@@ -120,6 +122,11 @@ ConstraintSense = ComparisonOperator
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
 #: link are read affinely (``mathspec.degree``), so those are the two.
 QuadraticPosition = Literal['objective', 'constraint']
+
+#: The language a symbol table's entries are written in, and the one a format
+#: reads them as. Markdown is absent because its math is MathJax's, so it reads
+#: ``latex``; nothing translates between the two.
+Notation = Literal['latex', 'typst']
 
 #: The dtype a dimension index may declare (the declaration rules), and what
 #: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
@@ -549,6 +556,31 @@ class DimensionDeclaration:
 
 
 @dataclass(frozen=True)
+class Symbols:
+    r"""How the model prints in one notation — spellings only, which change nothing it means.
+
+    Every entry is printed verbatim, and nothing parses or translates it. A
+    name or a dimension the table does not carry prints with a derived symbol.
+
+    Attributes:
+        notation: The language the entries are written in.
+        indices: Each dimension's index letter, such as ``t``.
+        sets: Each dimension's set symbol, such as ``\mathcal{T}``.
+        names: Each parameter's, variable's, expression's or constraint's symbol.
+    """
+
+    notation: Notation
+    indices: Mapping[str, str] = Sealed({})
+    sets: Mapping[str, str] = Sealed({})
+    names: Mapping[str, str] = Sealed({})
+
+    def __post_init__(self) -> None:
+        """Seal every mapping, so a table handed out cannot be written to."""
+        for name in ('indices', 'sets', 'names'):
+            object.__setattr__(self, name, Sealed(getattr(self, name)))
+
+
+@dataclass(frozen=True)
 class Assumption:
     """A predicate the file states of its data, under the name it wrote in ``assumptions:``.
 
@@ -899,6 +931,9 @@ class Program:
     expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
     #: What the file as a whole is, as its ``description:`` says.
     description: str | None = None
+    #: How the model prints, by notation, as its ``symbols:`` block says; a
+    #: notation the file does not spell is absent, and prints derived.
+    symbols: Mapping[Notation, Symbols] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""

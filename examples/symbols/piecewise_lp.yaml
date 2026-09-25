@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: mathspec Contributors
-#
-# SPDX-License-Identifier: MIT
-
-notation: latex
-
-names:
-  bp_x: "\\mathrm{x}"
-  bp_y: "\\mathrm{y}"
