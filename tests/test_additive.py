@@ -73,7 +73,7 @@ def test_a_reader_marks_the_sum_and_loads_on_its_own():
 
 def test_a_term_is_an_ordinary_named_expression():
     program = to_spec(FLEET).program
-    assert not program.expressions['injection'].additive, 'nothing in a plain contributor says it is a term'
+    assert 'injection' in program.expressions and not program.given, 'nothing in a plain contributor says it is a term'
 
 
 #: A file that adds a term of its own and reads the sum: it carries both.
@@ -87,34 +87,47 @@ HUB = {
 def test_a_file_may_add_a_term_and_read_the_sum_when_it_marks_it():
     """The marked entry says the file reads the sum so far, which alone is its own term."""
     program = to_spec(HUB).program
-    assert program.expressions['injection'].additive, 'the entry folds into the definition'
+    assert 'injection' in program.expressions, 'the term is an ordinary definition'
     assert not program.given, 'a name this file defines is not one it reads from elsewhere'
 
 
-def test_a_term_over_a_dimension_the_sum_does_not_state_is_refused_at_load():
-    narrow = {**HUB, 'given': {'expressions': {'injection': {'dims': ['bus'], 'additive': True}}}}
-    narrow = {
-        **narrow,
-        'constraints': {'capped': {'dims': ['bus'], 'expression': 'sum(injection, over=snapshot) <= 10'}},
-    }
-    with pytest.raises(LanguageError, match=r"Named expression 'injection' carries \['snapshot'\]"):
-        to_spec(narrow)
+#: The hub with its entry over `bus` alone, so its own term is wider than the sum it marks.
+WIDE_HUB = {
+    **HUB,
+    'given': {'expressions': {'injection': {'dims': ['bus'], 'additive': True}}},
+    'constraints': {'capped': {'dims': ['bus'], 'expression': 'sum(injection, over=snapshot) <= 10'}},
+}
+
+#: The demand with its term written as `cases:`, beside the marked entry.
+CASED_HUB = {
+    **DEMAND,
+    'given': {'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'additive': True}}},
+    'expressions': {
+        'injection': {
+            'dims': ['snapshot', 'bus'],
+            'cases': {'peak': {'when': 'load > 5', 'expression': '-load'}},
+            'otherwise': '0',
+        }
+    },
+}
 
 
-def test_a_cased_term_beside_the_marked_entry_is_refused_at_load():
-    cased = {
-        **DEMAND,
-        'given': {'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'additive': True}}},
-        'expressions': {
-            'injection': {
-                'dims': ['snapshot', 'bus'],
-                'cases': {'peak': {'when': 'load > 5', 'expression': '-load'}},
-                'otherwise': '0',
-            }
-        },
-    }
-    with pytest.raises(LanguageError, match=r'a term of a sum is one `expression:`'):
-        to_spec(cased)
+@pytest.mark.parametrize('hub', [pytest.param(WIDE_HUB, id='wide-term'), pytest.param(CASED_HUB, id='cased-term')])
+def test_a_marked_file_s_own_term_is_held_to_no_rule_of_the_sum_at_load(hub):
+    """Alone the file reads its own term, which any named expression may be; only `merge` sums."""
+    assert 'injection' in to_spec(hub).program.expressions
+
+
+@pytest.mark.parametrize(
+    ('hub', 'message'),
+    [
+        pytest.param(WIDE_HUB, r"'hub' adds a term to 'injection' over \['bus', 'snapshot'\]", id='wide-term'),
+        pytest.param(CASED_HUB, r"'hub' adds a term to 'injection' written as `cases:`", id='cased-term'),
+    ],
+)
+def test_a_marked_file_s_own_term_is_held_to_the_rules_of_the_sum_by_merge(hub, message):
+    with pytest.raises(LanguageError, match=message):
+        merge({'hub': hub, 'other': {'dimensions': DIMS}})
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +142,6 @@ def test_merging_sums_every_term_of_a_marked_name_in_fragment_name_order():
     )
     assert composed.given.expressions['injection'].additive, 'the marked entry is kept'
     assert not composed.program.given, 'and it folds into the definition, so the composed spec reads nothing'
-    assert composed.program.expressions['injection'].additive
 
 
 def test_the_order_the_fragments_are_given_in_does_not_reach_the_sum():
@@ -146,9 +158,16 @@ def test_a_composed_model_takes_more_terms_in_a_second_merge():
     assert 'gen_p' in extended.expressions['injection'].expression
 
 
-def test_the_sum_takes_the_readers_description():
+def test_the_kept_entry_keeps_the_readers_description():
     composed = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
-    assert composed.program.expressions['injection'].description == INJECTION
+    assert composed.given.expressions['injection'].description == INJECTION
+    assert composed.program.expressions['injection'].description is None, 'no term said what it is'
+
+
+def test_the_sum_takes_the_first_term_s_description():
+    said = {**DEMAND, 'expressions': {'injection': {'expression': '-load', 'description': 'less the demand'}}}
+    composed = merge({'fleet': FLEET, 'demand': said, 'balance': BALANCE})
+    assert composed.program.expressions['injection'].description == 'less the demand'
 
 
 def test_two_terms_and_no_marked_reader_collide_and_the_message_names_the_fix():
@@ -162,7 +181,6 @@ def test_two_terms_and_no_marked_reader_collide_and_the_message_names_the_fix():
 def test_one_term_and_an_unmarked_reader_is_an_ordinary_fold():
     composed = merge({'fleet': FLEET, 'capped': CAPPED})
     assert not composed.given
-    assert not composed.program.expressions['injection'].additive
 
 
 def test_one_reader_marks_the_sum_and_another_states_the_frame():
@@ -241,11 +259,12 @@ def test_the_reader_s_legend_says_other_files_add_to_it():
     assert 'a sum other files add terms to' in given
 
 
-def test_the_composed_legend_says_other_files_add_to_it():
+def test_the_composed_legend_lists_the_sum_as_any_definition():
     definitions = to_markdown(merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})).split('#### Definitions')[
         1
     ]
-    assert 'a sum other files add terms to' in definitions
+    assert '`injection`' in definitions
+    assert 'add terms to' not in definitions, 'the kept entry is what says the name is a sum, not the definition'
 
 
 @pytest.mark.parametrize('fmt', sorted(FORMATS))

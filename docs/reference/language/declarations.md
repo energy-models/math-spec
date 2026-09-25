@@ -283,19 +283,19 @@ Each file loads alone: the reader over a sum it does not build, and the
 contributor over its own term. Other readers state the frame and nothing more.
 
 A file may carry the marked entry and declare a term too. Then it reads the
-sum so far, which alone is its own term. The term is one `expression:`, and
-carries no dimension the entry does not state; both are checked at load. The
-entry then folds into the definition, and the typeset legend lists it under
-_Definitions_, as a sum other files add terms to.
+sum so far, which alone is its own term. The file loads as any other: the
+term is an ordinary named expression, and the typeset legend lists it under
+_Definitions_ with no note. Only `merge` holds a term to the rules of a sum.
 
 [`merge`](../../howto/compose.md#a-library-of-components) sums every term of a
 marked name, each in parentheses, in fragment-name order, and keeps the marked
-entry, so a later merge adds more. The entry's description is the sum's. It
-refuses a term written as `cases:`, a term over a dimension the entry does not
-state, and a file that declares a term and reads the name without carrying the
-marked entry: on its own that file reads its term, and composed it would read
-the sum. Two terms of a name no entry marks are refused as a collision. A
-marked name no file adds to stays under `given:`.
+entry, so a later merge adds more. The entry keeps its description, and the
+sum takes the first term's. It refuses a term written as `cases:`, a term over
+a dimension the entry does not state, and a file that declares a term and
+reads the name without carrying the marked entry: on its own that file reads
+its term, and composed it would read the sum. Two terms of a name no entry
+marks are refused as a collision. A marked name no file adds to stays under
+`given:`.
 
 ## `constraints`
 

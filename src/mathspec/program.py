@@ -715,9 +715,6 @@ class ExpressionDeclaration:
     dims: tuple[str, ...]
     in_math: bool
     description: str | None = None
-    #: A sum other files add terms to: the file marks the name so under
-    #: ``given: expressions:``, and this body is the sum so far.
-    additive: bool = False
 
 
 @dataclass(frozen=True)
