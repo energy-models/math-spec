@@ -5,11 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Assumptions
 
-`assumptions:` states what the model expects of the data it is bound to. The
-language reads no data, so it checks nothing here. It types the predicate,
-carries it on the program, and prints it in the
-[typeset document](../typeset.md). The consumer that binds the numbers runs
-each one, and refuses the data that fails it.
+`assumptions:` states what the model expects of the data attached to it. The
+language types each predicate and prints it in the
+[typeset document](../typeset.md). The consumer that attaches the numbers runs it.
 
 ```yaml
 dimensions:
@@ -47,9 +45,6 @@ predicate.
 
 `bounds_do_not_cross: "p_min <= p_max"` above is the short form of
 `bounds_do_not_cross: { holds: "p_min <= p_max" }`.
-
-A `description:` says why the rule is there. The sentence a consumer refuses
-with quotes it, so a failure names the columns and the reason.
 
 There is no `dims:`. The predicate holds at every coordinate of the product of
 the dimensions its two masks name. A predicate narrower than that broadcasts,
@@ -90,14 +85,12 @@ assumptions:
     description: the first snapshot has no predecessor to ramp from
 ```
 
-A `where:` narrows which coordinates are checked. A parameter supplied only
-where it applies takes one, so the rows it has no value at are not held to the
-predicate.
+A parameter supplied only where it applies takes a `where:`, so the rows it has
+no value at are not checked.
 
 ## What the loader refuses
 
-**A predicate the connectives already decide.** It reads no data, so it is
-either a claim about nothing or a claim no data can meet:
+**A predicate the connectives already decide:**
 
 > `Assumption 'sound'`: the predicate `'c > 0 OR true'` folds to true, so it
 > assumes nothing of the data. Delete it, or name a parameter it constrains.
@@ -105,27 +98,28 @@ either a claim about nothing or a claim no data can meet:
 A `where:` the connectives decide is refused the same way: one that folds to
 true narrows nothing, and one that folds to false checks the entry on no row.
 
-**A variable.** An assumption is about the numbers the caller binds, and a
-variable is what the solver decides from them:
+**A variable:**
 
 > `Assumption 'sound'`: variable `'p'` stands in what the assumption assumes,
 > and an assumption is about the data — a variable is what the solver decides
 > from it. Name a parameter, or state the rule as a constraint.
 
-A rule that binds a decision is a [constraint](declarations.md#constraints).
 A constraint whose sides carry no variable is refused, and its message names
 this section.
 
 ## What a curve assumes
 
-A [`piecewise:`](piecewise.md) block puts its own conditions on the numbers.
-Its breakpoints increase along the curve, and the shape is the one its
-`method:` is exact for. The language derives both from the method and the sign
-on its links, not from anything else the file writes, and carries them beside
-the written ones under the name a refusal quotes. A `method: convex` block
-called `curve` adds `curve_increasing` and `curve_curvature`.
+A [`piecewise:`](piecewise.md) block `curve` adds its own assumptions, derived
+from its `method:`, its `points:` and the sign on its links. They print under
+the same _Assumptions_ heading as the written ones.
 
-Both kinds print under one _Assumptions_ heading, because a reader checking
-the data against the document checks all of them.
-[Reading a loaded model](../reading.md#what-the-data-has-to-satisfy) says how
+| Entry               | Added for         | Holds                                                                                                 |
+| ------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
+| `curve_complete`    | every block       | every values parameter has a row at every breakpoint the curve runs through                           |
+| `curve_increasing`  | `convex`, `lp`    | the pinned link's breakpoints (the first link's, when both are pinned) strictly increase along `over` |
+| `curve_curvature`   | `convex`, `lp`    | with a `>=` link the curve is convex, with `<=` concave; with both links pinned it bends one way only |
+| `curve_breakpoints` | `lp`              | each curve has at least two breakpoints                                                               |
+| `curve_contiguous`  | a block `points:` | the marked breakpoints are one consecutive run of at least one                                        |
+
+[Reading a spec and its program](../reading.md#what-the-data-has-to-satisfy) says how
 a consumer runs them.

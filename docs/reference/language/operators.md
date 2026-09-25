@@ -27,23 +27,14 @@ in a reported expression, are all of them. A composition of them goes in
 | `sum_back(array, along=dim, window=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                                        |
 | `sum_back(array, along=dim, window=n, by=relation, within=c)` | The window stays inside each group that the relation's column `c` makes                                                                                     |
 
-`array` is any expression with the right dimension set, so each operator reads a
-parameter as readily as a variable. Dimension arguments are name-checked at
-load. [Every operator as math](#every-operator-as-math) shows how each row prints.
+`array` is any expression with the right dimension set, a parameter or a
+variable. [Every operator as math](#every-operator-as-math) shows how each row
+prints.
 
 ## `sum`
 
-`sum(x, over=d)` adds up `x` along `d`, and `d` is gone from the result.
-
-`sum(x)` names no dimension and reduces every dimension `x` carries, so its
-result is a scalar.
-
-An operand that is already scalar, and an `over=` naming a dimension the
-operand does not carry, are both errors.
-
-`sum(x, by=l, over=a, into=b)` sums through a [relation](relations.md): it
-joins on column `a` and groups by column `b`. A nodal balance is
-one `sum(by=)` per kind of component:
+`sum(x)` on a scalar is an error. A nodal balance is one `sum(by=)` per kind of
+component:
 
 ```yaml
 dimensions:
@@ -69,33 +60,20 @@ constraints:
       == load
 ```
 
-The same `f` is summed twice through two relations, once as inflow and once as
-outflow. What the call reads and what its result carries are on
+What a call through a relation reads and carries is on
 [how a relation is used](relations.md#how-a-relation-is-used).
-
-A group with no members contributes nothing, and a member whose relation value
-is null belongs to no group.
 
 ## `at`
 
-`at(x, by=l, over=a, into=b)` joins the relation the other way, with no
-group-by. It joins on a value column and groups by the key, so every group is
-one row, and it reads one coarse value once for each fine label that points at
-it ([joins](relations.md#joins-and-group-bys)).
-
-`at` reads a variable as readily as a parameter. One decision taken per bus, read
-once by every line that touches the bus, is `at(decision, by=line_bus, over=bus, into=line)`.
-
-A fine label whose relation value is null reads nothing, and its row is absent.
+`at` joins the relation with no group-by, so it reads one coarse value once for
+each fine label that points at it ([joins](relations.md#joins-and-group-bys)).
+One decision per bus, read by every line that touches the bus, is
+`at(decision, by=line_bus, over=bus, into=line)`.
 
 ## `sum_back`
 
-`sum_back(x, along=d, window=n)` is the sum of the last `n` positions along `d`,
-ending at the position being written. It states a minimum up time, a rolling
-budget or a delivery horizon. A width of `1` is `x` itself.
-
-The dimension **survives**: `sum_back` leaves one value per position, and each
-value reads a window of its own.
+`sum_back` states a minimum up time, a rolling budget or a delivery horizon.
+The dimension **survives**, and a width of `1` is `x` itself.
 
 ```yaml
 dimensions:
@@ -117,22 +95,18 @@ constraints:
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-`window=` takes a number or the name of an integer parameter. A named width is `dtype: int`, and does not vary along the
-dimension being summed.
+A named width is `dtype: int`, and does not vary along the dimension being
+summed.
 
-`edge=` takes `'wrap'` or nothing. A window that reaches past the start of the
-axis is **short**, so no row is lost. `edge='wrap'` makes the window
-reach around the axis. A number here is a load error.
+`edge=` takes `'wrap'` or nothing, and a number is a load error. Without it, a
+window that reaches past the start of the axis is **short**, and no row is lost.
 
-`by=` keeps the window inside each group that a relation makes. The relation
-obeys the rules given for [`shift(by=)`](#translation-within-groups).
+`by=` takes a [partition](relations.md#partitions).
 
 ## `shift`
 
-`shift(x, along=d, offset=n)` moves values along one dimension by `n` positions,
-counted in the dimension's **declared order**. The value at each coordinate
-becomes the value that stood `n` places before it. `edge=` says what stands
-where nothing moved in.
+`shift` counts positions in the dimension's **declared order**. `edge=` says
+what stands where nothing moved in.
 
 ```yaml
 dimensions:
@@ -150,32 +124,21 @@ constraints:
     expression: soc == shift(soc, along=snapshot, offset=1, edge='wrap') + charge * eta - discharge
 ```
 
-`edge='wrap'` makes the store cyclic: the first snapshot reads the last.
+`edge='wrap'` makes the store cyclic: the first snapshot reads the last. Bare,
+the row the vacated coordinate would have fed is not built; state the initial
+condition in a block of its own ([a rule that differs by regime](../../howto/regimes.md)).
 
-`edge=` has three settings:
-
-- **Bare.** The vacated coordinate is [absent](absence.md), so the row it
-  would have fed is not built. State the initial condition in a block of its
-  own ([a rule that differs by regime](../../howto/regimes.md)).
-- **`'wrap'`.** The translation is cyclic, so nothing is vacated.
-- **A number.** That number stands where the slot was vacated, and the row
-  survives: `0` in a sum, and `1` in a product.
-
-Two rules hold across all three:
+Two rules hold for `edge=`:
 
 - **Over a variable, the only numeric edge is `0`.**
 - **A bare `shift` over an expression with no variable is a load error.** The
   error names the rewrites: `edge='wrap'`, `edge=0`, or `edge=0` together with
   a `where` that excludes the vacated coordinate.
 
-`shift` reads parameters too. `shift(dt, along=t, offset=1, edge=0)` is the
-previous snapshot's duration.
-
 ### Translation within groups
 
-`by=` partitions the axis the operator steps along, so the neighbour of a coordinate
-is the coordinate before it in its own group. A group can be a season, an
-investment period or a representative day:
+`by=` takes a [partition](relations.md#partitions), and the neighbour of a
+coordinate is the one before it in its own group, such as a season:
 
 ```yaml
 dimensions:
@@ -194,19 +157,12 @@ constraints:
 objective: { sense: minimize, expression: sum(soc) }
 ```
 
-Every `edge=` setting then applies one group at a time. Bare, the first
-coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
-group onto its own last coordinate. `edge=v` puts `v` at the edge of each group.
-
-`by=` takes a relation with a key column over the dimension being stepped
-along, and `within=` names the value columns the group is made of
-([partitions](relations.md#partitions)). A coordinate the relation sends
-nowhere is in no group, so its row drops under every `edge=`.
+Every `edge=` setting then applies one group at a time. A coordinate in no
+group drops under every `edge=`.
 
 ### A parameter as offset
 
-`offset=` may name an integer parameter instead of a number. Then each entity is
-reached by its own offset: a construction lead time, a transit time, or any delay
+An offset per entity is a construction lead time, a transit time, or any delay
 the data carries as a column:
 
 ```yaml
@@ -227,14 +183,13 @@ constraints:
 objective: { sense: minimize, expression: sum(order) }
 ```
 
-Three rules hold, and breaking any of them is a load error that names its
-rewrite:
+Each of these is a load error:
 
-- **The parameter is `dtype: int`.**
-- **The parameter does not vary along the dimension being translated.**
-- **The parameter varies only over dimensions the shift can read.** Those are
-  the dimensions of the shifted expression, and the dimension a
-  [`by=`](#translation-within-groups) relation groups into, so `offset=lead`
+- **The parameter is not `dtype: int`.**
+- **The parameter varies along the dimension being translated.**
+- **The parameter varies over a dimension the shift cannot read.** The shift
+  reads the dimensions of the shifted expression, and the dimension a
+  [`by=`](#translation-within-groups) relation groups into: `offset=lead`
   with `lead: {dims: [period]}` under `by=period_of` gives one lag per period.
 
 The sign travels in the values: `offset=-lead` is refused.
@@ -244,8 +199,7 @@ The sign travels in the values: `offset=-lead` is refused.
 Each row is generated from one model in
 [`examples/operators/`](https://github.com/energy-models/math-spec/tree/main/examples/operators),
 printed by the [typesetter](../typeset.md). The models themselves are on
-[One construct per model](../../examples/operators.md), and the rest of the
-language prints on [Every construct, as math](../notation.md).
+[One construct per model](../../examples/operators.md).
 
 <!-- operator-math:begin -->
 | Operator | Renders as |

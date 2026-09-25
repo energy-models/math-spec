@@ -74,7 +74,7 @@ def check_binary(node: Multiply | Divide | Power, context: str, *, ceiling: int)
             raise LanguageError(
                 f'{where}a base and an exponent must each be a single Constant/Parameter factor, '
                 f'not a sum — addition does not distribute over `**`, so `(1 + rate) ** period` is '
-                f'refused where `growth ** period` is not. Bind the factor itself.'
+                f'refused where `growth ** period` is not. Declare the factor itself as a parameter.'
             )
         return
     if isinstance(node, Divide):

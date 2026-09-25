@@ -15,14 +15,24 @@ with no data and no solver.**
 
 --8<-- "README.md:badges"
 
-[Read the language](reference/language/index.md){ .md-button .md-button--primary }
-[See the examples](examples/index.md){ .md-button }
+[See the examples](examples/index.md){ .md-button .md-button--primary }
+[Read the language](reference/language/index.md){ .md-button }
 
 </div>
 
 ---
 
 <div class="landing" markdown>
+
+## What it is for
+
+<div class="grid cards" markdown>
+
+--8<-- "README.md:benefits"
+
+</div>
+
+--8<-- "README.md:engines"
 
 ## A model is one file
 
@@ -31,11 +41,6 @@ expects, the decisions the solver makes, and the rules those decisions obey.
 The file below is a complete model.
 
 --8<-- "README.md:model"
-
-Everything that can be checked without data is checked when the file loads. A
-misspelled name, a `where:` on an undeclared parameter, or a constraint whose
-dimensions do not match its `dims:` is refused with a message that names the
-fix.
 
 ## The math it prints
 
@@ -148,11 +153,11 @@ call.
         },
     }
 
-    spec = ms.to_spec('dispatch.yaml')  # read and checked once, then printed three ways
+    spec = ms.to_spec('dispatch.yaml')
 
-    ms.to_latex(spec, symbols=symbols)  # amsmath align
-    ms.to_typst(spec)  # compiles without a TeX toolchain
-    ms.to_markdown(spec)  # renders as-is on GitHub
+    ms.to_latex(spec, symbols=symbols)
+    ms.to_typst(spec)
+    ms.to_markdown(spec)
     ```
 
     `symbols` gives every name its conventional spelling. Pass a dict, a YAML path
@@ -175,21 +180,20 @@ call.
 
 ## Where to next
 
+- [Your first model](first-model.md): write the file above one block at a
+  time, check it and print it.
 - [The language](reference/language/index.md): what a file may contain, and
   what it means.
 - [Examples](examples/index.md): whole models, each beside the math it prints.
 - [Print a model as math](howto/print.md): LaTeX, Typst or Markdown, from the
   file alone.
 - [Check a model without data](howto/check.md): on your machine and in CI.
-- [Reading a loaded model](reference/reading.md): for whoever writes an engine
+- [Reading a spec and its program](reference/reading.md): for whoever writes an engine
   or a renderer.
 
 ## Install it
 
---8<-- "README.md:docs-install-dev"
-
-Or as a dependency, once the project leaves the alpha stream. See
-[installation](howto/installation.md) for every package manager.
+See [installation](howto/installation.md).
 
 !!! warning "Alpha, pre-1.0"
 

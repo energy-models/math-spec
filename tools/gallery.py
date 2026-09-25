@@ -158,7 +158,7 @@ def spine_block() -> str:
     """The shared spine, shown once."""
     return (
         "> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not"
-        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to"
+        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine attaches the network to"
         " the file, and what it makes of it, is that engine's own record.\n"
         '\n'
         '<details markdown="1">\n'

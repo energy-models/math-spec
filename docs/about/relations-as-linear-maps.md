@@ -51,7 +51,7 @@ The function is partial where a key tuple has no row. A bare relation is a
 subset and nothing more. Above, `gen_zone` is the graph of
 $`f: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$. The
 [data contract](../reference/language/relations.md#the-data-contract) makes it
-one: the loader checks one row per key tuple when the data binds.
+one: the loader checks one row per key tuple when the data is attached.
 
 ## A join and group-by is a contraction
 

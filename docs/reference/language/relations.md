@@ -39,17 +39,15 @@ mapping form names them: `{bus0: bus, bus1: bus}`.
 
 ### Cardinalities
 
-| intention                                              | written                                               | cardinality                                 |
-| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------- |
-| each generator has one bus                             | `{key: generator, values: bus}`                       | many-to-one                                 |
-| a bus has several generators                           | the same table, read the other way                    | one-to-many                                 |
-| a generator may connect to several buses               | `{key: [generator, bus]}`, no `values:`               | many-to-many                                |
-| a generator has one zone in each period                | `{key: [generator, period], values: zone}`            | many-to-one, keyed by a pair                |
-| a snapshot has a month, a week and a weekday           | `{key: snapshot, values: [month, week, weekday]}`     | many-to-one, several values                 |
-| a line has two ends, both buses                        | `{key: line, values: {bus0: bus, bus1: bus}}`         | many-to-one, two columns over one dimension |
-| a snapshot has a representative snapshot               | `{key: snapshot, values: {rep: snapshot}}`            | many-to-one, onto itself                    |
-| a snapshot has neighbours                              | `{key: {from: snapshot, to: snapshot}}`, no `values:` | many-to-many, onto itself                   |
-| each generator has one bus, and each bus one generator | not a claim the language has                          | one-to-one                                  |
+| intention                                    | written                                               | cardinality                                 |
+| -------------------------------------------- | ----------------------------------------------------- | ------------------------------------------- |
+| each generator has one bus                   | `{key: generator, values: bus}`                       | many-to-one                                 |
+| a generator may connect to several buses     | `{key: [generator, bus]}`, no `values:`               | many-to-many                                |
+| a generator has one zone in each period      | `{key: [generator, period], values: zone}`            | many-to-one, keyed by a pair                |
+| a snapshot has a month, a week and a weekday | `{key: snapshot, values: [month, week, weekday]}`     | many-to-one, several values                 |
+| a line has two ends, both buses              | `{key: line, values: {bus0: bus, bus1: bus}}`         | many-to-one, two columns over one dimension |
+| a snapshot has a representative snapshot     | `{key: snapshot, values: {rep: snapshot}}`            | many-to-one, onto itself                    |
+| a snapshot has neighbours                    | `{key: {from: snapshot, to: snapshot}}`, no `values:` | many-to-many, onto itself                   |
 
 A key that determines a value holds one column per dimension, so
 `{key: {bus0: bus, bus1: bus}, values: line}` is refused. A bare relation may
@@ -61,7 +59,7 @@ The data for `gen_bus` arrives under the key `gen_bus`, as a table with one
 column per declared column, named after it.
 
 - **One row per key tuple.** A generator on two buses is refused when the data
-  binds.
+  is attached.
 - **Every value is a label of its dimension.** A value that matches none is
   refused.
 - **A partial map is the rows it has.** A generator in no row sits on no bus,
@@ -86,8 +84,7 @@ call names the columns that decide both.
 Four rules hold for every use:
 
 1. **A call names every column it reads.** `sum(p, by=gen_bus)` is refused.
-2. **A value column the call does not name is not read.** So adding one to the
-   relation changes no call.
+2. **A value column the call does not name is not read.**
 3. **The key is fixed.** To change it, declare a new relation.
 4. **A dimension the relation does not name passes through** to the result.
 
@@ -133,11 +130,7 @@ With `zone_of: { key: [generator, period], values: zone }`, the bare
 
 - **A sum joins on at least one key column, and groups by any column it does
   not join on.** Either end may name a value column beside a key one.
-  `connection` has only key columns, and the sum above joins on one and groups
-  by the other.
-- **A read joins on value columns, and groups by the key.** Its result carries
-  every key column, named in `into=` or left unnamed, and whatever else the
-  operand carries that the read does not join on.
+- **A read joins on value columns, and groups by the key.**
 - **`over=` and `into=` name different columns**, and neither names two
   columns over one dimension.
 
@@ -149,7 +142,7 @@ the other key columns, and partition the rows by the value columns `within=`
 names. The
 frame does not change. `within=` is written whenever `by=` is. It may name two
 columns over one dimension, may not name a key column, and a bare relation
-partitions nothing.
+partitions nothing. A coordinate the relation sends nowhere is in no group.
 
 ### Tests
 

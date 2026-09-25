@@ -416,7 +416,7 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     assert mask is not None and isinstance(mask.root, ExpressionComparison)
     assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Join)
     assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
-        'the relation a pullback and a partition read through is data the consumer binds too'
+        'the relation a pullback and a partition read through is data the consumer attaches too'
     )
 
 
@@ -433,7 +433,7 @@ def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
     assert mask.root.predicate.root == ExpressionComparison(
         Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
     ), 'the counted predicate is rebuilt, not handed through with the resolved comparison still in it'
-    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer binds'
+    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer attaches'
 
 
 def test_a_translated_predicate_keeps_what_it_reads_in_reach():
@@ -457,7 +457,7 @@ def test_a_translated_predicate_keeps_what_it_reads_in_reach():
 
 
 def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_in_reach():
-    """The comparison under the read is rebuilt, and the relation is data the consumer binds as well as the operand."""
+    """The comparison under the read is rebuilt, and the relation is data the consumer attaches as well as the operand."""
     program = to_spec(
         override(
             SHAPES_MODEL,
@@ -481,7 +481,7 @@ def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_i
 
 
 def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
-    """One mapping holds every fact about the data, so a consumer binding it has one loop and one refusal.
+    """One mapping holds every fact about the data, so a consumer attaching it has one loop and one refusal.
 
     The file's entries come first, in the order it wrote them; each
     ``piecewise:`` block's conditions follow under the name a refusal quotes.
@@ -510,7 +510,7 @@ def test_an_assumption_lowers_both_of_its_masks():
         Mask(ParameterDefined('flag', ('g',))),
     ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
     assert assumption_message('sound', assumption) == (
-        "assumption 'sound' does not hold for the data bound to 'c', 'k'"
+        "assumption 'sound' does not hold for the data attached to 'c', 'k'"
     ), 'the refusal names what the consumer bound, so it can say which column is wrong'
 
 
@@ -527,7 +527,7 @@ def test_an_assumption_refuses_in_the_words_the_file_wrote():
 
     assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
     assert assumption_message('sound', assumption) == (
-        f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
+        f"assumption 'sound' does not hold for the data attached to 'c', 'k' \N{EM DASH} {reason}"
     ), 'the sentence trails what the author wrote'
 
 
@@ -550,7 +550,7 @@ def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
     where = program.variables['p'].where
     assert where is not None
     assert where.names_read == frozenset({'c', 'k', 'flag', 'lk2'}), (
-        'the flag and the relation decide which region applies, so the consumer binds them too'
+        'the flag and the relation decide which region applies, so the consumer attaches them too'
     )
 
 

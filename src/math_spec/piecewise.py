@@ -118,9 +118,9 @@ def assumptions_of(block: str, pw: PiecewiseDeclaration) -> dict[str, Assumption
         f'{_quoted(link.values for link in pw.links)} — a missing row is read as a zero rather than as a '
         f'shorter curve, so it sits the curve on the origin. '
         + (
-            f"Bind the rows, or narrow points: '{mask}' to where the curve runs."
+            f"Attach the rows, or narrow points: '{mask}' to where the curve runs."
             if mask is not None
-            else 'Bind the rows, or declare points: to say how far the curve runs.'
+            else 'Attach the rows, or declare points: to say how far the curve runs.'
         ),
     )
     curvature = _curvature_required(pw)

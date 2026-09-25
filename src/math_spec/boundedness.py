@@ -13,7 +13,6 @@ parameter coefficient, or occurrences of both signs — nothing is claimed.
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec.errors import Advice
@@ -48,10 +47,6 @@ Sign = Literal['+', '-'] | None
 
 #: Which of a variable's two bounds a term drives it toward.
 BoundSide = Literal['lower', 'upper']
-
-#: The bound value that leaves each side open. A ``lower`` of ``+inf`` is not
-#: this — that model is empty, not unbounded — so the match is by value.
-_OPEN: dict[BoundSide, float] = {'lower': -math.inf, 'upper': math.inf}
 
 
 def unbounded_notes(program: Program) -> list[Advice]:
@@ -89,7 +84,7 @@ def unbounded_notes(program: Program) -> list[Advice]:
                     'unbounded',
                     vname,
                     f"Variable '{vname}' makes this model unbounded: no constraint names it, and "
-                    f'bounds.{side} is {_OPEN[side]}, which is the direction a {sign}{vname} term '
+                    f'bounds.{side} is open, which is the direction a {sign}{vname} term '
                     f'improves a {program.objective.sense} objective in. No data can change that, so '
                     f'the solve would answer `unbounded` and name nothing.\n'
                     f'Give it a finite bounds.{side}, or the constraint that was meant to define it.',
@@ -99,12 +94,11 @@ def unbounded_notes(program: Program) -> list[Advice]:
 
 
 def _is_open(vdef: VariableDeclaration, side: BoundSide) -> bool:
-    """Whether *vdef*'s bound on *side* is the open value itself.
+    """Whether *vdef* states no bound on *side*.
 
     A bound naming a parameter is finite or not by data, so it does not count.
     """
-    bound = vdef.lower if side == 'lower' else vdef.upper
-    return bound == Constant(_OPEN[side])
+    return (vdef.lower if side == 'lower' else vdef.upper) is None
 
 
 def _flip(sign: Sign) -> Sign:

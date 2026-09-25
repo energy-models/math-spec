@@ -5,13 +5,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Piecewise curves and SOS
 
-Two blocks state shapes that no `expression:` can, because an expression is
-affine. `piecewise:` states a curve through breakpoints. `sos:` states a family
-of variables of which only one, or only two neighbours, may be non-zero.
-
-Both are **formulations**: each states plain variables and constraints rather
-than being one, and [`spec.expand()`](#writing-a-formulation-out) writes them
-out.
+`piecewise:` states a curve through breakpoints. `sos:` states a family of
+variables of which only one, or only two neighbours, may be non-zero. Both are
+**formulations**: each states plain variables and constraints, and
+[`spec.expand()`](#writing-a-formulation-out) writes them out.
 
 ## `piecewise`
 
@@ -52,30 +49,10 @@ piecewise:
 | `activity` | a binary variable that gates the curve ([below](#activity))                              | default `null`      |
 | `points`   | how far each curve runs, where the curves are not all the same length ([below](#points)) | default `null`      |
 
-A block states plain variables and constraints: one weight per breakpoint in
-`[0, 1]`, one row making the weights sum to 1, and one row per link tying its
-expression to the weighted breakpoints. A `Program` holds the block as one
-curve, and the [typeset output](../typeset.md) prints the curve itself.
-[`spec.expand()`](#writing-a-formulation-out) writes the rows into a model of
-their own, which is the model a consumer that builds rows reads.
-
-The breakpoint order is the declared order of `over`. A curve whose breakpoints
-decrease in that order is refused when the data binds.
-
-Every condition this page says is checked "when the data binds" is an
-[assumption](assumptions.md), written in the same grammar as one the file
-states. The `method:` implies it rather than the file writing it, so
-[`expand()`](#writing-a-formulation-out) writes it into `assumptions:` under
-the block's own name, and a model that still declares the block derives the
-same text when it loads. Both print under one heading, and the consumer that
-binds the numbers runs them.
-
-!!! warning "A values parameter short of a row does not build a shorter curve"
-
-    The missing row reads as a breakpoint at the origin. Every block states
-    `<block>_complete` for this, whatever its `method:`, so the table is
-    refused when the data binds and the refusal names `points:` as the way to
-    say how far a curve runs.
+A block states one weight per breakpoint in `[0, 1]`, a row making the weights
+sum to 1, and a row per link tying its expression to the weighted breakpoints.
+The breakpoint order is the declared order of `over`. What a block assumes of
+its numbers is on [what a curve assumes](assumptions.md#what-a-curve-assumes).
 
 ### `activity`
 
@@ -97,9 +74,10 @@ instead, put `absence: zero` on the gate.
 
 ### `points`
 
-A curve with fewer breakpoints than the dimension holds says so with `points:`.
-Name one of the block's own values parameters, and the curve is as long as that
-parameter has rows:
+A values parameter short of a row does not build a shorter curve: the missing
+row reads as a breakpoint at the origin. A curve with fewer breakpoints than the
+dimension holds says so with `points:`. Name one of the block's own values
+parameters, and the curve is as long as that parameter has rows:
 
 ```yaml
 piecewise:
@@ -111,12 +89,9 @@ piecewise:
       - [op_cost, bp_y]
 ```
 
-The other links are still read against the parameter you named, so a row missing
-from `bp_y` is refused. Where the length is its own data, name a boolean
-parameter instead.
-
-The marked breakpoints must be consecutive. They need not start at the head of
-the axis. A gap, or a curve with no points, is refused when the data binds.
+A row missing from `bp_y` is still refused. Where the length is its own data,
+name a boolean parameter instead. The marked breakpoints are one consecutive
+run, anywhere on the axis.
 
 ### `method`
 
@@ -129,20 +104,8 @@ the axis. A gap, or a curve with no points, is refused when the data binds.
 | `convex`                | nothing                                                                       | the hull, which is a pure linear program                       |
 | `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain | the curve as its own lines                                     |
 
-`adjacency` and `sos2` state the same restriction and reach the same optimum.
-They differ in what the solver is handed: `adjacency` **is** `sos2` with the set
-written out, so the two emit the same rows under the same names.
-
-`convex` is a different model: the weights range over the hull the breakpoints
-span rather than over the curve itself. It takes exactly two links and no
-`activity:`.
-
-A bounded link binds from one side, and that side is the part of the hull the
-weights are driven onto. `>=` requires a convex curve and `<=` a concave one.
-With both links pinned the weights reach the whole hull. What drives them
-within it is the rest of the model rather than the block, so the curve must
-bend one way only. Each of the three conditions is checked against the
-breakpoint values when the data binds.
+`convex` takes exactly two links and no `activity:`. The shape it needs is an
+[assumption](assumptions.md#what-a-curve-assumes).
 
 `lp` states the curve as its segment lines. It needs **exactly two links**, one
 of them bounded with `<=` or `>=`, and no `activity:`:
@@ -157,14 +120,7 @@ piecewise:
       - [op_cost, bp_y, ">="] # cost bounded below by the curve
 ```
 
-The bounded link decides the shape, as it does under `convex` above. The two
-domain rows hold the pinned link inside the breakpoint range: under `points:`,
-each sits where the mask holds and does not one breakpoint outward, which is
-the first and the last breakpoint of each curve.
-
-`links:` is a list, so the number of expressions a block ties is written in the
-file. Where that number is data, write the formulation out
-([a curve by hand](../../howto/curve-by-hand.md)).
+Where the number of links is data, write the formulation out ([a curve by hand](../../howto/curve-by-hand.md)).
 
 ## `sos`
 
@@ -179,22 +135,18 @@ sos:
     type: 1 # 1: at most one non-zero; 2: at most two, and consecutive
 ```
 
-`type: 1` is a choice: at most one member is non-zero. `type: 2` is an
-interpolation: at most two members are non-zero, and they are **consecutive**.
-
 A set is over **one** variable, and a variable holds **one** set. A second block
 naming the same variable is a load error.
 
-Membership belongs to the variable. Its `where` decides which coordinates exist,
-so a masked-out member is not in the set. The order is the declared order of
-the `along` dimension.
+A member the variable's `where` masks out is not in the set. The order is the
+declared order of the `along` dimension.
 
 ### What a set is written out as
 
 `spec.expand('sos')` states the set as binaries: one per member for `type: 1`,
 one per segment for `type: 2`. A member the binaries do not admit is held at
-zero, from above and from below. The names are the block's own, and the rows are
-these, for a set `s` over variable `x` along `d`, writing `admitted` for
+zero, from above and from below. For a set `s` over variable `x` along `d`,
+writing `admitted` for
 `(s_seg)` at `type: 1` and `(s_seg + shift(s_seg, along=d, offset=1, edge=0))`
 at `type: 2`:
 
@@ -205,63 +157,21 @@ at `type: 2`:
 | `s_nonzero` (`type: 1`), `s_adjacency` (`type: 2`) | `x <= upper * admitted`                           |
 | the same name plus `_below`                        | `x >= lower * admitted`, where `lower` is not `0` |
 
-Each coefficient is read off the member's own `bounds:`. A binary member's are
-`0` and `1`, from its domain. A row multiplies by its coefficient rather than
-reading it, so a bound the data carries is a coefficient like any other:
-`bounds: {lower: floor, upper: cap}` states `x >= floor * admitted` and
-`x <= cap * admitted`.
-
-Two coefficients are left out rather than printed, because the row would state
-what another row already does: a `1` above, and a `lower` of `0`, which the
-variable's own bound states.
-
-So each side needs a coefficient, and a model is refused at load without one:
-
-- `bounds.lower`, a number or a parameter. An omitted lower bound leaves the
-  member free below zero, which no row can pull back.
-- `bounds.upper`, a number or a parameter, or `domain: binary`.
-
-The set carries no coefficient of its own. A number below the member's bound
-would cap a picked member the set does not cap, and one above it is a looser
-row than the bound already states, so there is no value of such a key that
-states the set and nothing else.
-
-A positive `bounds.lower` loads and is infeasible, as it is on a solver that
-takes the set: an unpicked member has to be `0`, and its own bound says it is
-above that.
-
-A name the expansion writes that the file already declares is refused at load
-too.
+`upper` and `lower` are the member's own `bounds:`, a number or a parameter;
+a binary member's are `0` and `1`. A model is refused at load where a member
+has no `bounds.lower`, or no `bounds.upper` and no `domain: binary`. A name the
+expansion writes that the file already declares is refused at load too.
 
 ## Writing a formulation out
 
-`Spec.expand()` returns the same math with its formulations stated as plain
-variables and constraints:
+Writing a formulation out replaces the block with the variables and constraints
+it states. [`Spec.expand()`](../api.md#math_spec.Spec.expand) is the
+call, and [see what a curve or a set expands to](../../howto/see-an-expansion.md)
+shows a model before and after.
 
-```python
-from math_spec import to_spec
-
-spec = to_spec('curve.yaml')
-spec.expand()  # every formulation
-spec.expand('sos')  # only the sets
-spec.expand('piecewise')  # only the curves
-```
-
-[See what a curve or a set expands to](../../howto/see-an-expansion.md) shows
-a model before and after, as whole files.
-
-- **The kinds are `'piecewise'` and `'sos'`, and no argument means both.** Any
-  other string is refused, naming the two. Curves go first whatever order they
-  are asked in, because a `method: sos2` curve states a set and no set states a
-  curve.
-- **A model with nothing to write out is the model that comes back.** So is a
-  second call with the same kinds.
-- **The same data binds a model and its expansion.** Neither a set nor a curve
-  emits a parameter. A curve under `points:` sits its rows on `where:`
-  predicates over the mask the file named, and the expansion is a file like any
-  other: `to_yaml()` writes it, and loading it back changes nothing.
-- **`spec.program` writes nothing out.** The program mirrors the model: a
-  curve the model still declares is under `program.piecewise`, typed, and
-  `spec.expand('piecewise').program` carries its rows instead. A consumer
-  building rows reads the expansion's program, and refuses a curve it finds on
-  a program; one that cannot take a set reads `spec.expand().program`.
+- **Every name written out starts with the name of the block.** The weights of
+  the curve `curve` are `curve_lam`.
+- **No formulation emits a parameter.** The same data attaches to a model and its
+  expansion.
+- **The assumptions a `method:` implies become `assumptions:` entries** with
+  the same names.
