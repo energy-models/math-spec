@@ -20,14 +20,14 @@ from pydantic import TypeAdapter, ValidationError
 from mathspec._yaml import read_yaml
 from mathspec.errors import SchemaError, schema_error
 from mathspec.model import NotationSymbols
-from mathspec.program import Dual, Notation, SymbolTable, Variable, walk
+from mathspec.program import Dual, Notation, Symbols, Variable, walk
 from mathspec.validation import symbol_errors
 
 if TYPE_CHECKING:
     from mathspec.program import Program
     from mathspec.typesetting.format import Format
 
-__all__ = ['SymbolTable', 'Symbols', 'symbols_for']
+__all__ = ['ResolvedSymbols', 'Symbols', 'resolve_symbols']
 
 #: Dimensions whose conventional index letter is not their own initial, which
 #: is what anything unlisted falls back to.
@@ -93,10 +93,10 @@ def chosen_expressions(program: Program) -> frozenset[str]:
 
 
 @dataclass(frozen=True)
-class Symbols:
+class ResolvedSymbols:
     r"""How every declared name prints: overrides first, derivation for the rest.
 
-    Built by :func:`symbols_for`. Name symbols settle *before* dimension
+    Built by :func:`resolve_symbols`. Name symbols settle *before* dimension
     indices, so an index is kept off a single letter a variable owns — a
     dimension ``plant`` beside a variable ``p`` would otherwise render
     ``p_{t,p}``. A parameter is upright, so ``\mathrm{p}`` beside an index
@@ -122,8 +122,8 @@ class Symbols:
     set: Mapping[str, str]
 
 
-def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
-    """The :class:`Symbols` *program* prints with in *fmt*, *table* overriding the derivation."""
+def resolve_symbols(program: Program, fmt: Format, table: Symbols) -> ResolvedSymbols:
+    """The :class:`ResolvedSymbols` *program* prints with in *fmt*, *table* overriding the derivation."""
     chosen = frozenset(program.variables) | chosen_expressions(program)
     names = (*program.parameters, *program.variables, *program.expressions)
     declared = frozenset(names)
@@ -149,7 +149,7 @@ def symbols_for(program: Program, fmt: Format, table: SymbolTable) -> Symbols:
         upper = _first_free(_set_candidates(dim, letter), taken_set)
         taken_set.add(upper)
         sets[dim] = table.sets[dim] if dim in table.sets else fmt.script(upper)
-    return Symbols(frozenset(table.names) & declared, name, constraint, index, sets)
+    return ResolvedSymbols(frozenset(table.names) & declared, name, constraint, index, sets)
 
 
 def _index_candidates(dim: str) -> list[str]:
@@ -168,7 +168,7 @@ def _first_free(candidates: list[str], taken: set[str]) -> str:
     return next((c for c in candidates if c not in taken), candidates[-1])
 
 
-def load_symbols(source: str | Path | Mapping[str, object], program: Program) -> Mapping[Notation, SymbolTable]:
+def load_symbols(source: str | Path | Mapping[str, object], program: Program) -> Mapping[Notation, Symbols]:
     """The tables a ``symbols:`` block holds, by notation, from a YAML path or the mapping it parses to.
 
     The file holds what a model's own ``symbols:`` key holds, so a table

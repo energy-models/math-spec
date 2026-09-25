@@ -37,7 +37,7 @@ from mathspec.program import (
     PiecewiseMethod,
     Program,
     SosType,
-    SymbolTable,
+    Symbols,
     VariableAbsence,
     VariableDomain,
 )
@@ -708,9 +708,9 @@ class NotationSymbols(_StrictBlock):
     dimensions: dict[str, DimensionSymbols] = {}
     names: dict[str, str] = {}
 
-    def table(self, notation: Notation) -> SymbolTable:
-        """These spellings as the :class:`~mathspec.program.SymbolTable` a render in *notation* reads."""
-        return SymbolTable(
+    def table(self, notation: Notation) -> Symbols:
+        """These spellings as the :class:`~mathspec.program.Symbols` a render in *notation* reads."""
+        return Symbols(
             notation,
             indices={d: s.index for d, s in self.dimensions.items() if s.index is not None},
             sets={d: s.set for d, s in self.dimensions.items() if s.set is not None},

@@ -33,7 +33,7 @@ from mathspec.program import Program
 from mathspec.typesetting.latex import LatexFormat
 from mathspec.typesetting.legend import Legend, notice
 from mathspec.typesetting.markdown import MarkdownFormat
-from mathspec.typesetting.symbols import SymbolTable, load_symbols, symbols_for
+from mathspec.typesetting.symbols import Symbols, load_symbols, resolve_symbols
 from mathspec.typesetting.typst import TypstFormat
 from mathspec.typesetting.walk import Walk
 from mathspec.validation import to_spec
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 __all__ = [
     'FORMATS',
     'FormatName',
-    'SymbolTable',
+    'Symbols',
     'to_latex',
     'to_markdown',
     'to_typst',
@@ -91,8 +91,8 @@ def _walk(
     program = model if isinstance(model, Program) else to_spec(model).program
     format_ = FORMATS[fmt]
     tables = program.symbols if symbols is None else load_symbols(symbols, program)
-    table = tables.get(format_.notation, SymbolTable(format_.notation))
-    return Walk(program, symbols_for(program, format_, table), format_, inline_expressions=inline_expressions)
+    table = tables.get(format_.notation, Symbols(format_.notation))
+    return Walk(program, resolve_symbols(program, format_, table), format_, inline_expressions=inline_expressions)
 
 
 def typeset(

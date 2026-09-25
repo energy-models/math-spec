@@ -94,7 +94,7 @@ __all__ = [
     'SosDeclaration',
     'SosType',
     'Sum',
-    'SymbolTable',
+    'Symbols',
     'Translate',
     'TranslatedPredicate',
     'TypedPredicate',
@@ -556,7 +556,7 @@ class DimensionDeclaration:
 
 
 @dataclass(frozen=True)
-class SymbolTable:
+class Symbols:
     r"""How the model prints in one notation — spellings only, which change nothing it means.
 
     Every entry is printed verbatim, and nothing parses or translates it. A
@@ -933,7 +933,7 @@ class Program:
     description: str | None = None
     #: How the model prints, by notation, as its ``symbols:`` block says; a
     #: notation the file does not spell is absent, and prints derived.
-    symbols: Mapping[Notation, SymbolTable] = Sealed({})
+    symbols: Mapping[Notation, Symbols] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""

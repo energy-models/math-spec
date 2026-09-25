@@ -49,7 +49,7 @@ Two rules keep the split honest:
 Symbols are derived by default, so a model prints with no setup at all.
 
 A model's `symbols:` block overrides the derived symbols, one table per
-notation. The loader types each table as a `SymbolTable` on
+notation. The loader types each table as `Symbols` on
 `Program.symbols`, and a render reads the one for its format's notation.
 `symbols=` replaces the whole block, in the same shape. The `--symbols` flag on
 the command line is the path case:

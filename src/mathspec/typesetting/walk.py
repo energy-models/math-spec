@@ -66,7 +66,7 @@ if TYPE_CHECKING:
     from mathspec._expression_parser import BinaryOperator
     from mathspec.program import PiecewiseDeclaration, Program, SosDeclaration
     from mathspec.typesetting.format import Format
-    from mathspec.typesetting.symbols import Symbols
+    from mathspec.typesetting.symbols import ResolvedSymbols
 
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
@@ -223,7 +223,7 @@ class Walk:
     def __init__(
         self,
         program: Program,
-        symbols: Symbols,
+        symbols: ResolvedSymbols,
         fmt: Format,
         *,
         inline_expressions: bool = False,

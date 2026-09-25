@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from pathlib import Path
 
-    from mathspec.program import Notation, Program, SymbolTable
+    from mathspec.program import Notation, Program, Symbols
 
 
 def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
@@ -79,7 +79,7 @@ def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
     return [error for context, by_kind in by_block for error in _collisions(schema, context, by_kind)]
 
 
-def symbol_errors(tables: Mapping[Notation, SymbolTable], program: Program) -> list[str]:
+def symbol_errors(tables: Mapping[Notation, Symbols], program: Program) -> list[str]:
     """Every entry of *tables* that names nothing in *program*, each with the near miss.
 
     A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so one

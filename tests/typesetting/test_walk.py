@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from mathspec.errors import LanguageError
-from mathspec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
+from mathspec.typesetting import FORMATS, Symbols, to_latex, to_markdown, typeset, typeset_declaration
 from mathspec.typesetting.format import OPERATOR_NAMES
-from mathspec.typesetting.symbols import _derive_name_symbol, chosen_expressions, symbols_for
+from mathspec.typesetting.symbols import _derive_name_symbol, chosen_expressions, resolve_symbols
 from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -540,7 +540,7 @@ def test_nothing_the_model_is_given_prints_italic():
         f'solution — upright is what the model is given, italic what it computes'
     )
 
-    symbols = symbols_for(schema.program, LATEX, SymbolTable('latex'))
+    symbols = resolve_symbols(schema.program, LATEX, Symbols('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
     assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
         f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'
