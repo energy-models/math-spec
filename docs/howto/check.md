@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -11,7 +11,7 @@ machine and in CI.
 1. **Run the check on one file.**
 
    ```bash
-   python -m math_spec check model.yaml
+   python -m mathspec check model.yaml
    ```
 
    A refusal prints its message on stderr and exits with status 1:
@@ -32,7 +32,7 @@ machine and in CI.
    loop is the whole job:
 
    ```bash
-   for model in models/*.yaml; do python -m math_spec check "$model" || exit 1; done
+   for model in models/*.yaml; do python -m mathspec check "$model" || exit 1; done
    ```
 
 3. **Ask from Python** where the check is one step of a longer script.
@@ -41,7 +41,7 @@ machine and in CI.
    returns what it would print:
 
    ```python
-   import math_spec as ms
+   import mathspec as ms
 
    for note in ms.advice('model.yaml'):
        print(note)

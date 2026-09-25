@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -165,7 +165,7 @@ expansion writes that the file already declares is refused at load too.
 ## Writing a formulation out
 
 Writing a formulation out replaces the block with the variables and constraints
-it states. [`Spec.expand()`](../api.md#math_spec.Spec.expand) is the
+it states. [`Spec.expand()`](../api.md#mathspec.Spec.expand) is the
 call, and [see what a curve or a set expands to](../../howto/see-an-expansion.md)
 shows a model before and after.
 

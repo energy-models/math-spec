@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: math-spec contributors
+// SPDX-FileCopyrightText: mathspec contributors
 //
 // SPDX-License-Identifier: MIT
 

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -821,7 +821,7 @@ composed; the first rung with an objective constant.
 `rung_11_ac_dc_meshed.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1123,7 +1123,7 @@ shift that varies along the snapshot axis, above what `shift` states (#299).
 `rung_16_link_delay.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 

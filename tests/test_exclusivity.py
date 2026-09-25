@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,15 +17,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec._where_parser import parse_where
-from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Grid, overlapping
-from math_spec.program import And, Mask, Not, Or
-from math_spec.resolution import Namespace, resolve_where
-from math_spec.validation import to_spec
+from mathspec._where_parser import parse_where
+from mathspec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Grid, overlapping
+from mathspec.program import And, Mask, Not, Or
+from mathspec.resolution import Namespace, resolve_where
+from mathspec.validation import to_spec
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
-    from math_spec.program import Predicate
+    from mathspec.model import Spec
+    from mathspec.program import Predicate
 
 #: A storage model carrying one atom of every kind a `when` can be built from.
 #: Every axis takes its coordinates from data, so nothing here sizes one.

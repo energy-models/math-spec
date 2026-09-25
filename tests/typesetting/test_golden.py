@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,18 +15,18 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec.operators import BUILTIN_NAMES
-from math_spec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
-from math_spec.typesetting import FORMATS, legend, to_latex, typeset, walk
-from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.validation import to_spec
+from mathspec.operators import BUILTIN_NAMES
+from mathspec.program import Dual, Expression, GroupSum, Named, Predicate, Pullback, Sum, Translate, WindowSum
+from mathspec.typesetting import FORMATS, legend, to_latex, typeset, walk
+from mathspec.typesetting.format import OPERATOR_NAMES
+from mathspec.validation import to_spec
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
 
 if TYPE_CHECKING:
     from types import ModuleType
 
-    from math_spec.typesetting.format import Format
+    from mathspec.typesetting.format import Format
 
 
 @pytest.mark.parametrize('name', list(FORMATS), ids=list(FORMATS))
@@ -230,7 +230,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path, module:
     data = tmp_path / f'{module.__name__}.coverage'
     render = tmp_path / 'render.py'
     render.write_text(
-        'from math_spec import to_latex, to_spec, typeset_declaration\n'
+        'from mathspec import to_latex, to_spec, typeset_declaration\n'
         f'model = {str(golden.MODEL)!r}\n'
         'to_latex(model)\n'
         'to_latex(model, inline_expressions=True)\n'

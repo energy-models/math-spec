@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,7 +17,7 @@ from typing import get_args
 
 import pytest
 
-from math_spec import AdviceKind, advice, to_spec
+from mathspec import AdviceKind, advice, to_spec
 from tests.fixtures import SMALL_MODEL, override, raw_of
 
 EXAMPLES = Path(__file__).resolve().parents[1] / 'examples'

@@ -1,24 +1,24 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# math-spec
+# mathspec
 
 <!--- --8<-- [start:badges] -->
 
-[![CI](https://img.shields.io/github/actions/workflow/status/energy-models/math-spec/ci.yml?style=flat-square&branch=main)](https://github.com/energy-models/math-spec/actions/workflows/ci.yml)
-[![conda-forge](https://img.shields.io/conda/vn/conda-forge/math-spec?logoColor=white&logo=conda-forge&style=flat-square)](https://prefix.dev/channels/conda-forge/packages/math-spec)
-[![pypi-version](https://img.shields.io/pypi/v/math-spec.svg?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/math-spec)
-[![python-version](https://img.shields.io/pypi/pyversions/math-spec?logoColor=white&logo=python&style=flat-square)](https://pypi.org/project/math-spec)
-[![Documentation build status](https://readthedocs.org/projects/math-spec/badge/?version=latest&style=flat-square)](https://math-spec.readthedocs.io)
+[![CI](https://img.shields.io/github/actions/workflow/status/energy-models/mathspec/ci.yml?style=flat-square&branch=main)](https://github.com/energy-models/mathspec/actions/workflows/ci.yml)
+[![conda-forge](https://img.shields.io/conda/vn/conda-forge/mathspec?logoColor=white&logo=conda-forge&style=flat-square)](https://prefix.dev/channels/conda-forge/packages/mathspec)
+[![pypi-version](https://img.shields.io/pypi/v/mathspec.svg?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/mathspec)
+[![python-version](https://img.shields.io/pypi/pyversions/mathspec?logoColor=white&logo=python&style=flat-square)](https://pypi.org/project/mathspec)
+[![Documentation build status](https://readthedocs.org/projects/mathspec/badge/?version=latest&style=flat-square)](https://math-spec.readthedocs.io)
 
 <!--- --8<-- [end:badges] -->
 
 **Write an optimisation model as a YAML file. Check it and print it as math,
 with no data and no solver.**
 
-A math-spec file declares four things: the axes the model runs over, such as
+A mathspec file declares four things: the axes the model runs over, such as
 `snapshot` and `generator`; the data it expects, such as `load` and `cost`; the
 decisions the solver makes, such as `dispatch`; and the rules those decisions
 obey, such as `sum(dispatch, over=generator) == load`. The file
@@ -26,9 +26,9 @@ obey, such as `sum(dispatch, over=generator) == load`. The file
 
 <!--- --8<-- [start:engines] -->
 
-math-spec builds nothing and solves nothing itself.
+mathspec builds nothing and solves nothing itself.
 [specsolve](https://github.com/fluxopt/specsolve) and
-[linopy](https://github.com/PyPSA/linopy) build and solve a math-spec model.
+[linopy](https://github.com/PyPSA/linopy) build and solve a mathspec model.
 Support in both is work in progress.
 
 <!--- --8<-- [end:engines] -->
@@ -170,7 +170,7 @@ $`0 \le \mathit{dispatch}_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S
 Each format is one call:
 
 ```python
-import math_spec as ms
+import mathspec as ms
 
 spec = ms.to_spec('dispatch.yaml')
 
@@ -189,7 +189,7 @@ The documentation is at <https://math-spec.readthedocs.io>.
 
 ## Installation
 
-See [installation](docs/howto/installation.md). To work on math-spec, see
+See [installation](docs/howto/installation.md). To work on mathspec, see
 [contributing](docs/contributing.md#setting-up-a-development-environment).
 
 ## Prior art
@@ -209,7 +209,7 @@ Alpha, pre-1.0.
 
 **Breaking changes land without a deprecation cycle.** Pin an exact version if
 you depend on this, and read the
-[changelog](https://github.com/energy-models/math-spec/blob/main/CHANGELOG.md)
+[changelog](https://github.com/energy-models/mathspec/blob/main/CHANGELOG.md)
 before upgrading. Every construct round-trips through the schema, the parsers
 and all three typeset formats, and the LaTeX is compiled. The accepted YAML is
 not yet frozen.

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -51,7 +51,7 @@ To learn what the project _is_, read [docs/](docs/index.md), and
   and `docs/index.md`. A new generator lands with a row in that table.
 
   ```bash
-  pixi run python -m tools.schema              # schema/math-spec.schema.json
+  pixi run python -m tools.schema              # schema/mathspec.schema.json
   pixi run python -m tests.typesetting.golden  # tests/typesetting/golden/*.out
   ```
 

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -11,7 +11,7 @@ prints, or which construct printed a symbol.
 
 Each section shows the YAML of one construct, then its equation. Most fragments
 come from one test model,
-[`tests/typesetting/golden/model.yaml`](https://github.com/energy-models/math-spec/blob/main/tests/typesetting/golden/model.yaml),
+[`tests/typesetting/golden/model.yaml`](https://github.com/energy-models/mathspec/blob/main/tests/typesetting/golden/model.yaml),
 which holds every construct and is not a sensible model. The curves come from
 the example models that their section names. What each operator does is on
 [Operators](language/operators.md).

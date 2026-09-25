@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -192,7 +192,7 @@ finish() {
 
 TOTAL_STAGES=5
 
-REPO="energy-models/math-spec"
+REPO="energy-models/mathspec"
 ORG="energy-models"
 
 # Preflight: everything below needs an authenticated gh with admin on the repo.
@@ -225,7 +225,7 @@ fi
 # The wizard has to run from inside the clone: the repository checks below
 # resolve it from the working directory.
 if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" == "" ]]; then
-  printf 'Run this from inside the math-spec clone.\n'
+  printf 'Run this from inside the mathspec clone.\n'
   exit 1
 fi
 
@@ -238,7 +238,7 @@ say "to GITHUB_TOKEN, whose PRs run no CI and whose tags start no workflow —"
 say "so releases would get no wheel."
 printf '\n'
 open_url "https://github.com/organizations/$ORG/settings/apps/new"
-step "Name it something like 'math-spec release-please'. Names are global, so"
+step "Name it something like 'mathspec release-please'. Names are global, so"
 step "  add a suffix if it is taken."
 step "Homepage URL: https://github.com/$REPO  (any URL, it is only a label)"
 step "Under Webhook, UNTICK 'Active'. Leaving it on demands a webhook URL."

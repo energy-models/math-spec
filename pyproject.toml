@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -20,7 +20,7 @@ fallback-version = "0.0.0"
 only-include = ["src", "README.md", "LICENSE", "LICENSES"]
 
 [project]
-name = "math-spec"
+name = "mathspec"
 description = "YAML math specification and AST parsing for multi-dimensional linear programming problems"
 authors = [
   { name = "Felix Bumann", email = "117816358+FBumann@users.noreply.github.com" },
@@ -39,7 +39,7 @@ classifiers = [
 requires-python = ">=3.12"
 readme = "README.md"
 dependencies = [
-  # The schema: `Model` is a pydantic model and `schema/math-spec.schema.json`
+  # The schema: `Model` is a pydantic model and `schema/mathspec.schema.json`
   # is its `model_json_schema()`. 2.1 is where a validator's own exception
   # reaches `ctx['error']` as the object rather than its str, which
   # `errors.schema_error` unwraps to keep the documented class; 2.0 flattens
@@ -52,7 +52,7 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/energy-models/math-spec"
+repository = "https://github.com/energy-models/mathspec"
 
 [project.scripts]
 
@@ -64,7 +64,7 @@ repository = "https://github.com/energy-models/math-spec"
 # Carried from specsolve, which is where every file under src/ was written and
 # formatted. Adopting it wholesale means the extraction reformats nothing; the
 # alternative was a 43-file diff over quote style, on a tree nobody has reviewed
-# in this repo yet. `target-version` is the one change: math-spec's floor.
+# in this repo yet. `target-version` is the one change: mathspec's floor.
 target-version = "py312"
 line-length = 120
 
@@ -115,7 +115,7 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
   "T20",
   "D",
 ] # likewise a generator, and only reachable as a command
-"src/math_spec/_where_parser.py" = [
+"src/mathspec/_where_parser.py" = [
   "N806",
 ] # grammar tokens (NOT/AND/OR) are named after keywords
 "docs/static/hooks.py" = ["PERF401", "RUF015", "D"]
@@ -140,7 +140,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # Check against the *lowest* supported interpreter, so syntax and stdlib
 # additions newer than the floor are caught here rather than by a CI leg.
 python-version = "3.12"
-project-includes = ["src/math_spec"]
+project-includes = ["src/mathspec"]
 preset = "strict"
 # A callable taking `*args: Any, **kwargs: Any` otherwise matches every
 # signature, which is how a parse action or a validator with the wrong shape

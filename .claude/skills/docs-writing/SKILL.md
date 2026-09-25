@@ -62,9 +62,9 @@ says a model.
 The Development section, last in the nav, holds every page a model writer does
 not need, in three groups:
 
-- **Building on math-spec** is for someone who writes a tool against `Spec`
+- **Building on mathspec** is for someone who writes a tool against `Spec`
   and `Program`: an engine such as specsolve, a renderer, a checker.
-- **Contributing** is for someone who changes math-spec itself.
+- **Contributing** is for someone who changes mathspec itself.
 - **Proofs of concept** holds the notation page, which renders the typesetting
   test model, and the PyPSA pages. The PyPSA pages stay in `docs/examples/`,
   where `tools/gallery.py` writes them.
@@ -100,8 +100,8 @@ and `tests/test_docs.py` holds each block to its generator byte for byte. The ca
 section, saying why a reader would open it.
 
 **The Python API is rendered from the docstrings.**
-`docs/reference/api.md` holds one `:::` entry per name in `math_spec.__all__`,
-for a model writer. `docs/reference/program.md` renders `math_spec.program`,
+`docs/reference/api.md` holds one `:::` entry per name in `mathspec.__all__`,
+for a model writer. `docs/reference/program.md` renders `mathspec.program`,
 for whoever builds on the program. mkdocstrings renders both from the
 docstrings, so their prose is the docstring rules in `AGENTS.md`. No other
 module gets a page: an internal module is read in the source.
@@ -147,7 +147,7 @@ The obvious rule gets one sentence.
   `expression  # value` line. The `NAME` production on the expressions page
   is compared to the parser's. A YAML fence anywhere else is read by nothing,
   so load it before committing: write it to a file and run
-  `pixi run python -m math_spec check model.yaml`. Write the fragment as a
+  `pixi run python -m mathspec check model.yaml`. Write the fragment as a
   whole model where the page allows it; a fragment that cannot stand alone is
   one the reader cannot run either.
 - **Quote error messages whole.** This language's messages name the rewrite,
@@ -341,7 +341,7 @@ PY
   nav entry does not fail the build — zensical validates links and leaves
   navigation alone — so `pixi run test` is what reports it, in
   `tests/test_docs.py`.
-- **A new page carries the SPDX header** — `math-spec contributors`,
+- **A new page carries the SPDX header** — `mathspec contributors`,
   `CC-BY-4.0` — in an HTML comment at the top, or as YAML comments inside the
   front matter where the page has one, as `docs/index.md` does. `reuse lint`
   is part of `pixi run lint`.

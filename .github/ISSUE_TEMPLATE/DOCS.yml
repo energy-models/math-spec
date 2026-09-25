@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -24,7 +24,7 @@ body:
       description: >-
         Please list all links to the sections of [our documentation](https://math-spec.readthedocs.io) that are impacted by the issue you described above.
         If applicable, add screenshots.
-        Additionally, list links to possibly related open and closed [issues](https://github.com/energy-models/math-spec/issues) and [discussions](https://github.com/energy-models/math-spec/discussions) you encountered when searching our issue tracker.
+        Additionally, list links to possibly related open and closed [issues](https://github.com/energy-models/mathspec/issues) and [discussions](https://github.com/energy-models/mathspec/discussions) you encountered when searching our issue tracker.
     validations:
       required: true
 

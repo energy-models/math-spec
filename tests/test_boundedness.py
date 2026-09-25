@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec.boundedness import unbounded_notes
-from math_spec.operators import BUILTIN_NAMES
+from mathspec.boundedness import unbounded_notes
+from mathspec.operators import BUILTIN_NAMES
 from tests.fixtures import SMALL_MODEL, override, schema_of
 
 BASE = override(

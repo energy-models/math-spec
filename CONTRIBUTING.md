@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -9,31 +9,31 @@ We're glad you're reading this; we welcome all contributors!
 
 Some of the resources to look at if you're interested in contributing:
 
-- Look at open issues tagged with ["help wanted"](https://github.com/energy-models/math-spec/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) and ["good first issue"](https://github.com/energy-models/math-spec/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-- Look at the [contributing guide in our documentation](https://energy-models.github.io/math-spec/contributing)
+- Look at open issues tagged with ["help wanted"](https://github.com/energy-models/mathspec/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) and ["good first issue"](https://github.com/energy-models/mathspec/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- Look at the [contributing guide in our documentation](https://math-spec.readthedocs.io/en/latest/contributing/)
 
 ## Licensing
 
-Copyright (c) 2026 math-spec contributors.
-By contributing to math-spec, i.e. through opening a pull request, you represent that your contributions are your own original work and that you have the right to license them, and you agree that your contributions are licensed under the .
+Copyright (c) 2026 mathspec contributors.
+By contributing to mathspec, i.e. through opening a pull request, you represent that your contributions are your own original work and that you have the right to license them, and you agree that your contributions are licensed under the .
 
 ## Reporting bugs and requesting features
 
-You can open an issue on GitHub to report bugs or request new math-spec features.
+You can open an issue on GitHub to report bugs or request new mathspec features.
 Follow these links to submit your issue:
 
-- [Report bugs or other problems while running math-spec](https://github.com/energy-models/math-spec/issues/new?template=BUG-REPORT.yml).
+- [Report bugs or other problems while running mathspec](https://github.com/energy-models/mathspec/issues/new?template=BUG-REPORT.yml).
   If reporting an error, please include a full traceback in your issue.
 
-- [Request features that math-spec does not already include](https://github.com/energy-models/math-spec/issues/new?template=FEATURE-REQUEST.yml).
+- [Request features that mathspec does not already include](https://github.com/energy-models/mathspec/issues/new?template=FEATURE-REQUEST.yml).
 
-- [Report missing or inconsistent information in our documentation](https://github.com/energy-models/math-spec/issues/new?template=DOCS.yml).
+- [Report missing or inconsistent information in our documentation](https://github.com/energy-models/mathspec/issues/new?template=DOCS.yml).
 
-- [Any other issue](https://github.com/energy-models/math-spec/issues/new).
+- [Any other issue](https://github.com/energy-models/mathspec/issues/new).
 
 ## Submitting changes
 
-Look at the [development guide in our documentation](https://energy-models.github.io/math-spec/contributing) for information on how to get set up for development.
+Look at the [development guide in our documentation](https://math-spec.readthedocs.io/en/latest/contributing/) for information on how to get set up for development.
 
 <!--- the "--8<--" html comments define what part of this file to add to the index page of the documentation -->
 <!--- --8<-- [start:docs] -->
@@ -45,7 +45,7 @@ To contribute changes:
 1. Test your changes using `pixi run test`, or `pixi run ci` for everything CI will check.
 1. Commit your changes to the feature branch (you should have `pre-commit` installed to ensure your code is correctly formatted when you commit changes).
 1. Push the branch to GitHub (`git push origin new-fix-or-feature`).
-1. On GitHub, create a new [pull request](https://github.com/energy-models/math-spec/pull/new/main) from the feature branch.
+1. On GitHub, create a new [pull request](https://github.com/energy-models/mathspec/pull/new/main) from the feature branch.
 
 When you contribute for the first time, ensure your reviewer [adds you as a contributor](https://allcontributors.org/en/bot/)!
 
@@ -67,9 +67,9 @@ how-to guide (`docs/howto/`), reference (`docs/reference/`, and the model pages
 in `docs/examples/`) or explanation (`docs/about/`) — the four kinds of
 [Diátaxis](https://diataxis.fr) — and one page is one kind. A page a model
 writer does not need goes under Development in the nav: building on
-math-spec, contributing, or a proof of concept. The rules each kind has to meet, and the sentence-level
+mathspec, contributing, or a proof of concept. The rules each kind has to meet, and the sentence-level
 bar, are in
-[the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
+[the docs-writing skill](https://github.com/energy-models/mathspec/blob/main/.claude/skills/docs-writing/SKILL.md).
 Every page needs a `nav:` entry in `mkdocs.yml`, links inside `docs/` are
 relative, and a link outside it is the full GitHub URL. `pixi run docs-build`
 is `--strict` and refuses a dead link or a stale anchor; `pixi run test` is
@@ -99,7 +99,7 @@ format on every pull request.
 While the version is pinned to the alpha stream, a breaking marker (`!`, or a
 `BREAKING CHANGE:` footer) is refused, because it moves the base version rather
 than the alpha counter. Describe the break in the PR body instead. See
-[RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
+[RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph
 or bullet list covering what changed and its impact.
@@ -128,10 +128,10 @@ stream that release PR is merged automatically, so every merge to `main` cuts a
 version.
 
 The version is never written down in the source tree — it comes from the git
-tag at build time, and `math_spec.__version__` reads it back from the installed
+tag at build time, and `mathspec.__version__` reads it back from the installed
 package metadata.
 
-See [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md) for the full pipeline, the alpha-stream rules,
+See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md) for the full pipeline, the alpha-stream rules,
 and the one-time repository setup it still needs.
 
 <!--- --8<-- [end:docs] -->

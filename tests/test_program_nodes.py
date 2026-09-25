@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -20,8 +20,8 @@ from typing import get_args
 
 import pytest
 
-from math_spec import to_spec
-from math_spec.program import Expression, Program, walk
+from mathspec import to_spec
+from mathspec.program import Expression, Program, walk
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
 

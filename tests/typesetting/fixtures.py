@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec.typesetting import FORMATS
+from mathspec.typesetting import FORMATS
 
 LATEX = FORMATS['latex']
 #: Each format by the name a renderer takes and the object that spells it.
