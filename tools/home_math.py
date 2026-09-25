@@ -52,11 +52,11 @@ symbols = {
     },
 }
 
-spec = ms.to_spec('dispatch.yaml')  # read and checked once, then printed three ways
+spec = ms.to_spec('dispatch.yaml')
 
-ms.to_latex(spec, symbols=symbols)  # amsmath align
-ms.to_typst(spec)  # compiles without a TeX toolchain
-ms.to_markdown(spec)  # renders as-is on GitHub
+ms.to_latex(spec, symbols=symbols)
+ms.to_typst(spec)
+ms.to_markdown(spec)
 ```
 
 `symbols` gives every name its conventional spelling. Pass a dict, a YAML path

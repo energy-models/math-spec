@@ -176,9 +176,9 @@ import math_spec as ms
 
 spec = ms.to_spec('dispatch.yaml')
 
-ms.to_markdown(spec)  # renders as-is on GitHub, as above
-ms.to_latex(spec)  # amsmath align
-ms.to_typst(spec)  # compiles without a TeX toolchain
+ms.to_markdown(spec)
+ms.to_latex(spec)
+ms.to_typst(spec)
 ```
 
 A [symbol table](docs/reference/typeset.md#symbol-tables) gives the names their
