@@ -187,10 +187,11 @@ sorted(layer.given.variables)  # ['p']
 layer.given.constraints['balance'].dims  # ('snapshot', 'bus')
 ```
 
-A consumer that builds the program binds each name to a column or a row family
-the host model holds. It checks that the frame matches, and refuses what it
-cannot bind. A consumer with no host refuses a program whose two groups are not
-both empty. `advice` returns one note of kind `given` per name
+The host model provides each name: it holds a column or a row family of that
+name. A consumer that builds the program checks that the host provides each
+name on the same frame, and refuses the program where it does not. A consumer
+with no host refuses a program whose two groups are not both empty. `advice`
+returns one note of kind `given` per name
 ([what `advice` warns about](language/errors.md#what-advice-warns-about)).
 
 ## Asking what a program uses

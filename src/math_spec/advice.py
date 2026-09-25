@@ -45,15 +45,16 @@ def _given(program: Program) -> list[Advice]:
     """One note per declaration the program reads and does not build.
 
     A note rather than a refusal: the file is a model somebody meant, and only
-    the consumer can tell whether it holds a host to bind the name to.
+    the consumer can tell whether a host model provides the name.
     """
     return [
         Advice(
             'given',
             name,
-            f"{kind} '{name}' is read here and built elsewhere: a consumer binds it to the model this "
-            f'one is layered onto, checks the frame, and refuses where it cannot bind it. A fragment is '
-            f'composed instead: merge() folds this declaration into the one a sibling introduces.',
+            f"{kind} '{name}' is read here and built elsewhere: the model this one is layered onto "
+            f'provides it. A consumer checks that it does, on the same frame, and refuses the program where '
+            f'it does not. A fragment is composed instead: merge() folds this declaration into the one a '
+            f'sibling introduces.',
         )
         for kind, group in (('variable', program.given.variables), ('row family', program.given.constraints))
         for name in group

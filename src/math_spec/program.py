@@ -617,7 +617,7 @@ class GivenDeclaration:
 
     The frame is the whole declaration. A consumer looks the name up in the
     model this one is layered onto, checks the frame against what it finds,
-    and refuses what it cannot bind.
+    and refuses a name the host does not provide.
     """
 
     dims: tuple[str, ...]
@@ -632,9 +632,9 @@ class GivenTargets:
     sealed at construction, like every group of :class:`Program`.
     """
 
-    #: Columns to bind, by name.
+    #: Columns the host model provides, by name.
     variables: Mapping[str, GivenDeclaration] = Sealed({})
-    #: Row families to bind, by name, read back after the solve.
+    #: Row families the host model provides, by name, read back after the solve.
     constraints: Mapping[str, GivenDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
@@ -935,8 +935,8 @@ class Program:
     #: reads the file rather than only by the one that reads the expression.
     expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
     #: What this program reads and does not build (:class:`GivenTargets`). A
-    #: consumer binds each name to what the model it is layered onto holds;
-    #: nothing here emits a column or a row.
+    #: model it is layered onto provides each name; nothing here emits a
+    #: column or a row.
     given: GivenTargets = GivenTargets()
     #: What the file as a whole is, as its ``description:`` says.
     description: str | None = None
