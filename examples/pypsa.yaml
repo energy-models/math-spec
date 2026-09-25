@@ -3989,7 +3989,8 @@ assumptions:
       start-up ramp where another unit of the component is committable with a
       fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
       the attribute as read only for a committable unit and does not check
-      it. The spec does not state that row, so it refuses the data
+      it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+      spec does not state that row, so it refuses the data
   Link_came_in_running_unless_committable:
     holds: "Link_status_initial == 1"
     where: "NOT Link_committable AND (Link_ramp_limit_up OR Link_ramp_limit_down)"
@@ -4000,7 +4001,8 @@ assumptions:
       start-up ramp where another link of the component is committable with a
       fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
       the attribute as read only for a committable link and does not check
-      it. The spec does not state that row, so it refuses the data
+      it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+      spec does not state that row, so it refuses the data
   Process_came_in_running_unless_committable:
     holds: "Process_status_initial == 1"
     where: "NOT Process_committable AND (Process_ramp_limit_up OR Process_ramp_limit_down)"
@@ -4011,7 +4013,8 @@ assumptions:
       start-up ramp where another process of the component is committable with a
       fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
       the attribute as read only for a committable process and does not check
-      it. The spec does not state that row, so it refuses the data
+      it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+      spec does not state that row, so it refuses the data
 
 objective:
   sense: minimize

@@ -11068,7 +11068,8 @@ Generator_came_in_running_unless_committable:
     start-up ramp where another unit of the component is committable with a
     fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
     the attribute as read only for a committable unit and does not check
-    it. The spec does not state that row, so it refuses the data
+    it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+    spec does not state that row, so it refuses the data
 ```
 
 ```math
@@ -11088,7 +11089,8 @@ Link_came_in_running_unless_committable:
     start-up ramp where another link of the component is committable with a
     fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
     the attribute as read only for a committable link and does not check
-    it. The spec does not state that row, so it refuses the data
+    it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+    spec does not state that row, so it refuses the data
 ```
 
 ```math
@@ -11108,7 +11110,8 @@ Process_came_in_running_unless_committable:
     start-up ramp where another process of the component is committable with a
     fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
     the attribute as read only for a committable process and does not check
-    it. The spec does not state that row, so it refuses the data
+    it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+    spec does not state that row, so it refuses the data
 ```
 
 ```math
