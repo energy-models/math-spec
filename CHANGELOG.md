@@ -12,7 +12,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
-- feat!: the functions that read a spec take it as spec, and Spec is defined in mathspec.spec ([#721](https://github.com/energy-models/mathspec/pull/721)). This breaks a call that passes `model=` by keyword, and `import mathspec.model`.
+- feat!: what a file states is called a spec, the functions that read one take it as spec, and model means a spec with data ([#721](https://github.com/energy-models/mathspec/pull/721)). This breaks a call that passes `model=` by keyword, `import mathspec.model`, and any test that matches the old wording of an error or advice message.
 - fix(docs): the Python API pages link every name a docstring cites, and show advice as the function it is ([#720](https://github.com/energy-models/mathspec/pull/720))
 
 ## 0.1.0 (2026-09-25)
