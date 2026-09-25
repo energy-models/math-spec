@@ -20,7 +20,8 @@ What that means for each section:
 
 * **A dimension or a relation every fragment may declare**, and the ones that
   do have to say the same thing about it. Prose is not a claim, so two
-  descriptions of one dimension agree, and the first fragment's is carried.
+  descriptions of one dimension agree, and the first in the fragments' name
+  order is carried: the order they are passed in reaches no description.
 * **Every other declaration is owned.** A name two fragments declare is refused,
   both named.
 * **The objectives are summed**, each term in parentheses, in the fragments'
@@ -37,7 +38,8 @@ What that means for each section:
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
   A given expression's body may carry no dimension its reader does not state,
-  and a name read as one kind and introduced as another is refused.
+  and a name read as one kind and introduced as another is refused. A
+  reader's description fills a declaration its owner left undescribed.
   Two fragments that both read a name have to read it over one frame. What no
   fragment introduces stays under ``given:`` until a host model provides it.
 
@@ -209,7 +211,8 @@ def _agreed(read: Mapping[str, dict[str, object]], section: str, label: str) -> 
 
     Equality of the claims rather than "the same or less": between peers
     neither declaration is the one being restated, so a field only one of them
-    writes is a difference nothing settles.
+    writes is a difference nothing settles. Prose is no claim: the first
+    description in the fragments' name order is carried.
     """
     merged: dict[str, object] = {}
     for name, sections in read.items():
@@ -222,7 +225,22 @@ def _agreed(read: Mapping[str, dict[str, object]], section: str, label: str) -> 
                     f'them a name of its own.'
                 )
             merged.setdefault(key, block)
+    for key, block in merged.items():
+        if said := _said(read, section, key):
+            merged[key] = {**_mapping(block), 'description': said}
     return merged
+
+
+def _said(read: Mapping[str, dict[str, object]], section: str, key: str) -> object:
+    """The first description of *key* under *section* in the fragments' name order, which no argument order changes."""
+    return next(
+        (
+            said
+            for name in sorted(read)
+            if (said := _mapping(_mapping(read[name].get(section)).get(key)).get('description'))
+        ),
+        None,
+    )
 
 
 def _claims(block: object) -> object:
@@ -270,7 +288,8 @@ def _agreed_readings(asked: Mapping[str, dict[str, object]]) -> dict[str, dict[s
 
     Two readings of one name agree on the frame, compared as a set. A term is
     the fragment's own and is summed by [`_summed`][], so it is no claim about
-    the name; prose is not one either, so the first description is carried.
+    the name; prose is not one either, so the first description in the
+    fragments' name order is carried.
     """
     agreed: dict[str, dict[str, object]] = {}
     for name, given in asked.items():
@@ -286,7 +305,8 @@ def _agreed_readings(asked: Mapping[str, dict[str, object]]) -> dict[str, dict[s
                     f'about the given expression {key!r}: over {held["dims"]} against over {entry["dims"]}. Two '
                     f'files read one name over one frame: make the two identical.'
                 )
-            held['description'] = held.get('description') or entry.get('description')
+    for key, entry in agreed.items():
+        entry['description'] = _said(asked, 'expressions', key)
     return agreed
 
 
@@ -411,7 +431,9 @@ def _folded(
     Where the sibling is in the composition the expectation is checked and
     then dropped, so the composed spec declares the name once. A given
     expression is checked against the frame of the composed body: the body
-    carries no dimension the reader does not state.
+    carries no dimension the reader does not state. A reader's description
+    fills a declaration its owner left undescribed, and yields to one the
+    owner wrote.
     """
     asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
     left: dict[str, object] = {}
@@ -429,6 +451,10 @@ def _folded(
                     f'says the same as the declaration it is folded into, or less: restate the frame as the '
                     f'introducer declares it, or leave the field out.'
                 )
+            if key in introduced and (said := _mapping(block).get('description')):
+                owned = _as_mapping(introduced[key])
+                if not owned.get('description'):
+                    introduced[key] = {**owned, 'description': said}
         kept = {key: block for key, block in agreed.items() if key not in introduced}
         if kept:
             left[kind] = kept
