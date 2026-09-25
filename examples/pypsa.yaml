@@ -236,17 +236,19 @@ parameters:
       snapshots a port's delivery lags its link's flow — PyPSA's `delay`,
       `delay2`, … read long, in `snapshot_weightings.generators` units, which
       the file states as whole snapshots; zero for a port that delivers at once.
-      One for every scenario: PyPSA groups the ports by delay over all scenarios
-      and shifts each group in every one (`constraints.py:1269`)
-    dims: [link_output]
+      Each scenario takes its own. PyPSA `1.3.0` groups the ports by delay over
+      all scenarios and shifts each group in every one, so a delay that differs
+      by scenario delivers the flow twice (`constraints.py:1269-1276`,
+      PyPSA/PyPSA#1941)
+    dims: [scenario, link_output]
     dtype: int
   Link_output_cyclic_delay:
     description: >-
       whether a delayed port's flow wraps from the end of its investment
       period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not,
-      the flow still in transit at each period's first snapshots is lost. One
-      for every scenario, as the delay
-    dims: [link_output]
+      the flow still in transit at each period's first snapshots is lost. Each
+      scenario takes its own, as the delay
+    dims: [scenario, link_output]
     dtype: bool
   Link_marginal_cost:
     description: cost of one unit of flow
@@ -378,16 +380,16 @@ parameters:
       snapshots a port's transfer lags its process's internal power — PyPSA's
       `delay0`, `delay1`, … read long, in `snapshot_weightings.generators`
       units, which the file states as whole snapshots; zero for a port that
-      transfers at once. One for every scenario, as a link's
-    dims: [process_output]
+      transfers at once. Each scenario takes its own, as a link's
+    dims: [scenario, process_output]
     dtype: int
   Process_output_cyclic_delay:
     description: >-
       whether a delayed port's transfer wraps from the end of its investment
       period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not,
       the energy still in transit at each period's first snapshots is lost.
-      One for every scenario, as the delay
-    dims: [process_output]
+      Each scenario takes its own, as the delay
+    dims: [scenario, process_output]
     dtype: bool
   Process_marginal_cost:
     description: cost of one unit of internal power

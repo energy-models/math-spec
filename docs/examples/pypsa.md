@@ -3479,7 +3479,7 @@ calm efficiency in both, to `16992.0`; with both calm values in both, to
 | PyPSA | status | note |
 | --- | --- | --- |
 | [objective](#objective), [`Bus-nodal_balance`](#bus-nodal_balance) with a cost and an efficiency per scenario | done | `Generator_marginal_cost` and `Link_efficiency` over `scenario` |
-| a link `delay` or `cyclic_delay` that differs by scenario | out | PyPSA `1.3.0` groups the ports by delay over all scenarios and shifts each group in every scenario, so a delay of `0` in one future and `1` in the other solves below both uniform networks (`constraints.py:1269`). The file holds one delay for every scenario |
+| a link `delay` or `cyclic_delay` that differs by scenario | diverges | rung 54, [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941) |
 | a transformer in a cycle on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the transformers of a cycle by name from a table indexed by scenario and name (`constraints.py:1654`). The file holds one phase shift for every scenario |
 | a committable component on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the status by snapshot and name where the first dimension is the scenario (`constraints.py:1872`, `:1942`). The file builds the rows per scenario |
 | [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | out | PyPSA `1.3.0` fails: it reindexes the build by a table indexed by scenario and name (`constraints.py:1708`). The file builds the row per scenario |
@@ -4318,6 +4318,109 @@ def oracle():
 </details>
 <!-- reference:rung_53_scenario_period_volume_limit:end -->
 
+### Rung 54 — a delay per scenario
+
+`n.set_scenarios(...)` with a link `delay` and a process `delay1` that differ
+by scenario. The file states `Link_output_delay`, `Link_output_cyclic_delay`,
+`Process_output_delay` and `Process_output_cyclic_delay` over `scenario`, so
+each future shifts a port's flow by its own delay. The shifted flow already
+spans `scenario`, so the offset may too. PyPSA `1.3.0` groups the ports by
+delay over all scenarios and shifts each group in every scenario, so a port
+whose delay differs by scenario delivers its flow once per group
+(`constraints.py:1269-1276`,
+[PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941)). A plain run
+feeds one scenario, and the rows collapse to the standard ones.
+
+The rung is a capped source feeding two sinks, one through a link and one
+through a process. The calm future delivers at once. The stormy one delivers a
+snapshot late, cyclically on the link and with the first snapshot lost on the
+process. Nothing is extendable, so the futures do not interact. The oracle is
+each future solved alone, `7650.0` calm and `11500.0` stormy, weighted `0.6`
+and `0.4`: `9190.0`. PyPSA solves to `9300.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Link_output_arrival`](#link_output_arrival), [`Process_output_arrival`](#process_output_arrival) with a `delay` or `cyclic_delay` that differs by scenario | diverges | [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941); the delays span `scenario` |
+
+<!-- reference:rung_54_scenario_delay:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `9300.0`, 104 rows, [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941). The intended objective is `9190.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_54_scenario_delay.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 54: each scenario delays a link's and a process's flow by its own `delay`.
+
+PyPSA 1.3.0 groups the ports by delay over all scenarios and shifts every group
+in every scenario, so a port whose delay differs by scenario delivers twice
+(PyPSA/PyPSA#1941). Nothing is extendable, so the scenarios do not interact: the
+oracle is each future solved alone, weighted by its probability.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+ISSUE = 1941
+
+#: The `generators` weighting is uniform, as on rung 16, so a delay of `n` is a
+#: shift of exactly `n` positions. The `objective` column stays non-uniform.
+WEIGHTINGS = {'objective': [2.0, 1.5, 2.5, 3.0], 'generators': [1.0] * 4}
+DEMAND = [20.0, 35.0, 5.0, 30.0]
+SCENARIOS = {'calm': 0.6, 'stormy': 0.4}
+
+#: each future's own delay, per port: the calm one delivers at once, the stormy one a snapshot late
+DELAYS = {
+    'calm': {'pipe54': {'delay': 0, 'cyclic_delay': True}, 'conv54': {'delay1': 0, 'cyclic_delay1': True}},
+    'stormy': {'pipe54': {'delay': 1, 'cyclic_delay': True}, 'conv54': {'delay1': 1, 'cyclic_delay1': False}},
+}
+
+
+def network(delays: dict[str, dict[str, object]]):
+    """A capped source feeding two sinks, one through a link and one through a process, with the given delays."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.set_snapshots([datetime(2015, 1, 1, hour) for hour in range(4)])
+    for column, values in WEIGHTINGS.items():
+        n.snapshot_weightings[column] = values
+    n.add('Bus', ['source', 'sink_link', 'sink_process'])
+    n.add('Generator', 'spring54', bus='source', p_nom=50, marginal_cost=5)
+    n.add('Generator', 'backup_link54', bus='sink_link', p_nom=200, marginal_cost=100)
+    n.add('Generator', 'backup_process54', bus='sink_process', p_nom=200, marginal_cost=100)
+    n.add('Link', 'pipe54', bus0='source', bus1='sink_link', p_nom=30, **delays['pipe54'])
+    n.add('Process', 'conv54', bus0='source', bus1='sink_process', p_nom=30, **delays['conv54'])
+    n.add('Load', 'load_link54', bus='sink_link', p_set=DEMAND)
+    n.add('Load', 'load_process54', bus='sink_process', p_set=DEMAND)
+    return n
+
+
+def build():
+    """The network over two futures, each with its own delays."""
+    n = network(DELAYS['calm'])
+    n.set_scenarios(SCENARIOS)
+    for scenario, ports in DELAYS.items():
+        for name, values in ports.items():
+            component = n.c.links if name == 'pipe54' else n.c.processes
+            for column, value in values.items():
+                component.static.loc[(scenario, name), column] = value
+    return n
+
+
+def oracle():
+    """Each future alone, with its own delays, weighted by its probability."""
+    return [(weight, network(DELAYS[scenario])) for scenario, weight in SCENARIOS.items()]
+```
+
+</details>
+<!-- reference:rung_54_scenario_delay:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -4418,8 +4521,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\underline{\mathrm{f}}`$ | `Link_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — most flow, per unit of nominal power |
 | $`\eta`$ | `Link_efficiency` over $`\Xi \times \mathcal{O}`$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
-| $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once. One for every scenario: PyPSA groups the ports by delay over all scenarios and shifts each group in every one (`constraints.py:1269`) |
-| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost. One for every scenario, as the delay |
+| $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\Xi \times \mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once. Each scenario takes its own. PyPSA `1.3.0` groups the ports by delay over all scenarios and shifts each group in every one, so a delay that differs by scenario delivers the flow twice (`constraints.py:1269-1276`, PyPSA/PyPSA\#1941) |
+| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\Xi \times \mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost. Each scenario takes its own, as the delay |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
 | $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
 | $`\mathrm{com}^{f}`$ | `Link_committable` over $`\mathcal{L}`$ — whether flow is gated by an on/off status decision |
@@ -4448,8 +4551,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
 | $`\overline{\mathrm{z}}`$ | `Process_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — most internal power, per unit of nominal power |
 | $`\alpha`$ | `Process_rate` over $`\Xi \times \mathcal{R}`$ — the energy a port draws or delivers per unit of internal power, PyPSA's `rate0`, `rate1`, … read long — negative where the port withdraws, positive where it injects; a link is a process whose `bus0` rate is minus one and whose output rates are its efficiencies |
-| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once. One for every scenario, as a link's |
-| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost. One for every scenario, as the delay |
+| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\Xi \times \mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once. Each scenario takes its own, as a link's |
+| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\Xi \times \mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost. Each scenario takes its own, as the delay |
 | $`\mathrm{c}^{z}`$ | `Process_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of one unit of internal power |
 | $`\mathrm{c}^{z,(2)}`$ | `Process_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of the square of one unit of internal power |
 | $`\mathrm{ru}^{z}`$ | `Process_ramp_limit_up` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time |
@@ -9447,7 +9550,7 @@ Link_output_arrival:
 ```
 
 ```math
-\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
+\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,o} & \text{if } \mathrm{cyc}^{f}_{\xi,o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
 ```
 
 ### `Process_output_arrival`
@@ -9470,7 +9573,7 @@ Process_output_arrival:
 ```
 
 ```math
-\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
+\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,r} & \text{if } \mathrm{cyc}^{z}_{\xi,r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
 ```
 
 ### `GlobalConstraint_energy_weight`
