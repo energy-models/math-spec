@@ -32,6 +32,9 @@ parameters:
   snapshot_weightings_objective:
     description: PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost
     dims: [snapshot]
+  snapshot_weightings_generators:
+    description: PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total
+    dims: [snapshot]
   Generator_p_nom:
     description: nominal power
     dims: [generator]
@@ -100,6 +103,13 @@ parameters:
       parameter
     dims: [snapshot, generator]
     dtype: bool
+  Generator_must_stay_down:
+    description: >-
+      true while the down time a unit brought into the horizon still binds —
+      PyPSA's `min_down_time - down_time_before` snapshots, where
+      `down_time_before > 0`, data prep for the same reason
+    dims: [snapshot, generator]
+    dtype: bool
   Generator_start_up_cost:
     description: cost of one start
     dims: [generator]
@@ -115,6 +125,33 @@ parameters:
       a unit's start-up and shut-down costs are equal; two parameters cannot be
       compared in a `where`, so the equality is data prep
     dims: [generator]
+    dtype: bool
+  Generator_maintainable:
+    description: whether a generator must be taken off for maintenance within the horizon
+    dims: [generator]
+    dtype: bool
+  Generator_maintenance_pu:
+    description: the share of the build a maintenance event takes off
+    dims: [generator]
+  Generator_maintenance_events:
+    description: how many maintenance events the horizon holds
+    dims: [generator]
+    dtype: int
+  Generator_maintenance_duration:
+    description: >-
+      the hours of generator weightings one maintenance event covers —
+      PyPSA's `maintenance_duration`; no value where the generator is not
+      maintainable. No row reads it: data prep turns it into
+      `Generator_maintenance_cover` and `Generator_maintenance_start_blocked`, and the
+      assumptions hold it to the horizon
+    dims: [generator]
+  Generator_maintenance_start_blocked:
+    description: >-
+      true where no maintenance event may start, because the snapshots it
+      would cover run past the end of the horizon or into one the generator does
+      not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
+      and the generator weightings, data prep
+    dims: [snapshot, generator]
     dtype: bool
 
 relations:
@@ -141,6 +178,13 @@ relations:
     description: the bus a load sits on
     key: load
     values: bus
+  Generator_maintenance_cover:
+    description: >-
+      the snapshots a maintenance event covers, by the snapshot it starts in —
+      the start and the snapshots after it, until their generator weightings
+      reach `maintenance_duration`, data prep; no rows for a generator that is
+      not maintainable
+    key: { generator: generator, start: snapshot, covered: snapshot }
 
 variables:
   Generator_p:
@@ -173,6 +217,34 @@ variables:
     where: Generator_committable
     bounds:
       lower: 0
+  Generator_maintenance:
+    description: >-
+      `Generator-maintenance` — whether a maintainable generator is in maintenance:
+      continuous, and one exactly where an event covers the snapshot
+    dims: [snapshot, generator]
+    where: Generator_maintainable
+    absence: zero
+    bounds:
+      lower: 0
+      upper: 1
+  Generator_maintenance_start:
+    description: >-
+      `Generator-maintenance_start` — whether a maintenance event starts in
+      this snapshot — a binary, which the keyword does not relax
+    dims: [snapshot, generator]
+    where: Generator_maintainable
+    absence: zero
+    domain: binary
+  Generator_maintenance_status:
+    description: >-
+      `Generator-maintenance_status` — the status while in maintenance, zero
+      otherwise: the product the `maint-status` rows linearize, so a unit in
+      maintenance may also be off
+    dims: [snapshot, generator]
+    where: Generator_maintainable AND Generator_committable
+    absence: zero
+    bounds:
+      lower: 0
 
 expressions:
   Generator_previous_status:
@@ -192,18 +264,50 @@ expressions:
     cases:
       opening: { when: "position(snapshot) == 0", expression: 0 }
     otherwise: shift(Generator_p, along=snapshot, offset=1)
+  Generator_ramp_up_rate:
+    description: >-
+      the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
+      full build where it has none, since a start-up ramp alone builds the row
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
+    otherwise: 1
+  Generator_ramp_down_rate:
+    description: >-
+      the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
+      the full build where it has none, since a shut-down ramp alone builds the row
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
+    otherwise: 1
+  Generator_start_up_rate:
+    description: >-
+      the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`,
+      or the full build where it has none
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_start_up, expression: Generator_ramp_limit_start_up }
+    otherwise: 1
+  Generator_shut_down_rate:
+    description: >-
+      the shut-down ramp a unit's down row reads — PyPSA's
+      `ramp_limit_shut_down`, or the full build where it has none
+    dims: [generator]
+    cases:
+      given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
+    otherwise: 1
 
 constraints:
   Generator_fix_p_lower:
     description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
     dims: [snapshot, generator]
     where: not Generator_committable
-    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * (1 - Generator_maintenance_pu * Generator_maintenance)
   Generator_fix_p_upper:
     description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
     dims: [snapshot, generator]
     where: not Generator_committable
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * (1 - Generator_maintenance_pu * Generator_maintenance)
   Link_fix_p_lower:
     description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
     dims: [snapshot, link]
@@ -227,12 +331,12 @@ constraints:
     description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
     dims: [snapshot, generator]
     where: Generator_committable
-    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
   Generator_com_p_upper:
     description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
     dims: [snapshot, generator]
     where: Generator_committable
-    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
   Generator_com_transition_start_up:
     description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
     dims: [snapshot, generator]
@@ -252,7 +356,10 @@ constraints:
     where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
     expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
   Generator_com_down_time:
-    description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+    description: >-
+      `Generator-com-down-time` — a unit stopped within its own minimum down
+      time is still off. The first snapshot's share of the window is the
+      brought-in down time's, which the must-stay-down mask carries
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
     expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
@@ -261,6 +368,13 @@ constraints:
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_must_stay_up
     expression: Generator_status == 1
+  Generator_com_status_must_stay_down:
+    description: >-
+      `Generator-com-status-min_down_time_must_stay_up` — a unit still serving
+      the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+    dims: [snapshot, generator]
+    where: Generator_committable AND Generator_must_stay_down
+    expression: Generator_status == 0
   Generator_p_ramp_limit_up:
     description: >-
       `Generator-p-ramp_limit_up` — a committed unit raises output no faster
@@ -270,12 +384,12 @@ constraints:
       first snapshot
     dims: [snapshot, generator]
     where: >-
-      Generator_committable AND Generator_ramp_limit_up
+      Generator_committable AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
       AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
       Generator_p - Generator_previous_p <=
-      Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
-      + Generator_ramp_limit_start_up * Generator_p_nom
+      Generator_ramp_up_rate * Generator_p_nom * Generator_previous_status
+      + Generator_start_up_rate * Generator_p_nom
       * (Generator_status - Generator_previous_status)
   Generator_p_ramp_limit_down:
     description: >-
@@ -286,12 +400,12 @@ constraints:
       first snapshot
     dims: [snapshot, generator]
     where: >-
-      Generator_committable AND Generator_ramp_limit_down
+      Generator_committable AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
       AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
       Generator_previous_p - Generator_p <=
-      Generator_ramp_limit_down * Generator_p_nom * Generator_status
-      + Generator_ramp_limit_shut_down * Generator_p_nom
+      Generator_ramp_down_rate * Generator_p_nom * Generator_status
+      + Generator_shut_down_rate * Generator_p_nom
       * (Generator_previous_status - Generator_status)
   Generator_status_p_fixed_upper:
     description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
@@ -308,6 +422,39 @@ constraints:
     dims: [snapshot, generator]
     where: Generator_committable
     expression: Generator_shut_down <= 1
+  Generator_maint_event_count:
+    description: "`Generator-maint-event-count` — a maintainable generator holds its number of maintenance events over the horizon"
+    dims: [generator]
+    where: Generator_maintainable
+    expression: sum(Generator_maintenance_start, over=snapshot) == Generator_maintenance_events
+  Generator_maint_window:
+    description: >-
+      `Generator-maint-window` — a generator is in maintenance exactly where an event it
+      started covers the snapshot; two events do not overlap, since the
+      maintenance status is at most one
+    dims: [snapshot, generator]
+    where: Generator_maintainable
+    expression: Generator_maintenance == sum(Generator_maintenance_start, by=Generator_maintenance_cover, over=start, into=covered)
+  Generator_maint_start_horizon:
+    description: "`Generator-maint-start-horizon` — no event starts where it could not run its whole duration"
+    dims: [snapshot, generator]
+    where: Generator_maintainable AND Generator_maintenance_start_blocked
+    expression: Generator_maintenance_start == 0
+  Generator_maint_status_le_status:
+    description: "`Generator-maint-status-le-status` — the status in maintenance is at most the status"
+    dims: [snapshot, generator]
+    where: Generator_maintainable AND Generator_committable
+    expression: Generator_maintenance_status <= Generator_status
+  Generator_maint_status_le_maint:
+    description: "`Generator-maint-status-le-maint` — out of maintenance, the status in maintenance is zero"
+    dims: [snapshot, generator]
+    where: Generator_maintainable AND Generator_committable
+    expression: Generator_maintenance_status <= Generator_maintenance
+  Generator_maint_status_lb:
+    description: "`Generator-maint-status-lb` — on and in maintenance, the status in maintenance is one"
+    dims: [snapshot, generator]
+    where: Generator_maintainable AND Generator_committable
+    expression: Generator_maintenance_status >= Generator_status + Generator_maintenance - 1
   Generator_com_p_before:
     description: >-
       `Generator-com-p-before` — the output a unit had entering this snapshot
@@ -358,3 +505,31 @@ objective:
     + sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective)
     + sum(Generator_start_up * Generator_start_up_cost)
     + sum(Generator_shut_down * Generator_shut_down_cost)
+
+assumptions:
+  Generator_maintenance_events_positive:
+    holds: "Generator_maintenance_events > 0"
+    where: "Generator_maintainable"
+    description: >-
+      a maintainable generator with no event schedules no maintenance —
+      PyPSA refuses it (`consistency.py:1516`)
+  Generator_maintenance_duration_positive:
+    holds: "Generator_maintenance_duration > 0"
+    where: "Generator_maintainable"
+    description: >-
+      an event that covers no hours is no maintenance window — PyPSA
+      refuses it (`consistency.py:1506`)
+  Generator_maintenance_duration_fits_the_horizon:
+    holds: "Generator_maintenance_duration <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Generator_maintainable"
+    description: >-
+      one event longer than the horizon, in generator weightings, blocks
+      every start and makes the event count infeasible — PyPSA refuses it
+      (`consistency.py:1527`)
+  Generator_maintenance_events_fit_the_horizon:
+    holds: "Generator_maintenance_duration * Generator_maintenance_events <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Generator_maintainable"
+    description: >-
+      the events together longer than the horizon, in generator
+      weightings, cannot all be scheduled — PyPSA refuses it
+      (`consistency.py:1539`)

@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the relaxed commitment
 
-Rung 12 of [PyPSA in one file](pypsa.md): `n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7 in a
-file of its own. Its network is the spine plus the script's own additions.
+Rungs 12 and 44 of [PyPSA in one file](pypsa.md): `n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7
+in a file of its own. Each network is the spine plus the script's own additions.
 
 ## Rung 12 — linearized unit commitment
 
@@ -88,6 +88,112 @@ def build():
 </details>
 <!-- reference:rung_12_linearized_uc:end -->
 
+## Rung 44 — the integer file's commitment rows, relaxed
+
+`n.optimize(linearized_unit_commitment=True)` builds the same commitment rows as
+the integer run, except the four tightening rows: the keyword only relaxes the
+status, start and stop to shares in [0, 1] (`variables.py:81-88`) and adds the
+tightening rows (`constraints.py:650`). So this file states each row that
+[PyPSA in one file](pypsa.md) states for a fixed committable generator:
+
+- A unit still serving the down time it brought in stays off
+  (`constraints.py:622-628`).
+- A ramp row stands where a unit has a ramp limit or only a start-up or
+  shut-down ramp, and a missing limit reads as the full build
+  (`constraints.py:1046-1055`). The earlier file built no row for a start-up
+  ramp alone, and read a missing start-up or shut-down ramp as `0`, which kept
+  a unit that came in off from starting.
+- A maintainable unit is taken off for its events. The maintenance start stays
+  a binary under the keyword (`variables.py:234-259`), and the product of
+  status and maintenance enters the commitment rows through the `maint-status`
+  rows (`constraints.py:425-458`). A maintainable unit that is not committable
+  loses the same share of its fixed rows (`constraints.py:135-145`).
+
+The rung adds five cheap units under a swinging load. A start costs more than a
+stop, so PyPSA does not tighten them and the rung isolates these rows. Each
+binds: PyPSA solves to `7400.0`. Without the brought-in down time it solves to
+`6540.0`; without the start-up ramp, to `7164.0`; with the missing start-up and
+shut-down ramps read as `0`, to `8060.0`; with the committable unit not
+maintainable, to `7310.0`; with the fixed unit not maintainable, to `7100.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Generator-com-status-min_down_time_must_stay_up`](#generator-com-status-min_down_time_must_stay_up) | done | |
+| [`Generator-p-ramp_limit_up`](#generator-p-ramp_limit_up), [`-down`](#generator-p-ramp_limit_down) for a start-up or shut-down ramp alone, and a missing limit | done | `Generator_ramp_up_rate` and the other three rates read a missing limit as `1` |
+| [`Generator-maint-*`](#generator-maint-event-count), [`Generator-maint-status-*`](#generator-maint-status-le-status) | done | fixed units only, as the file states no extendable build |
+| [`Generator-com-p-lower`](#generator-com-p-lower), [`-upper`](#generator-com-p-upper), [`Generator-fix-p-lower`](#generator-fix-p-lower), [`-upper`](#generator-fix-p-upper) in maintenance | done | |
+| [`Generator-com-p-before`](#generator-com-p-before), [`-current`](#generator-com-p-current), [`-partly-start-up`](#generator-com-partly-start-up), [`-partly-shut-down`](#generator-com-partly-shut-down) with a missing ramp limit | out | PyPSA reads a missing limit as the full build (`constraints.py:311-316`); the file reads it as `0` |
+| a ramp row for a unit that is not committable | out | PyPSA builds it with the status fixed at `1` (`constraints.py:1073-1079`); the file states ramp rows for committable units only |
+
+<!-- reference:rung_44_linearized_commitment:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7400.0`, 191 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_44_linearized_commitment.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 44: linearized commitment with the rows the integer file has — a unit that must stay down, ramps read at the full build where a limit is missing, and maintenance."""
+
+from __future__ import annotations
+
+import spine
+
+MODEL = 'pypsa_linearized_uc.yaml'
+OPTIMIZE = {'linearized_unit_commitment': True}
+
+#: a start costs more than a stop, so PyPSA does not tighten these units and the rung isolates the rows it adds
+UNTIGHTENED = {'committable': True, 'up_time_before': 0, 'start_up_cost': 1}
+
+
+def build():
+    """The spine plus five cheap units on a north bus with a swinging load: each carries one of the rows under review."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'down44',
+        bus='north',
+        p_nom=40,
+        marginal_cost=2,
+        min_down_time=3,
+        down_time_before=1,
+        **UNTIGHTENED,
+    )
+    n.add('Generator', 'pulse44', bus='north', p_nom=40, marginal_cost=3, ramp_limit_start_up=0.4, **UNTIGHTENED)
+    n.add(
+        'Generator',
+        'ramp44',
+        bus='north',
+        p_nom=40,
+        marginal_cost=4,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+        **UNTIGHTENED,
+    )
+    n.add(
+        'Generator',
+        'maint44',
+        bus='north',
+        p_nom=40,
+        p_min_pu=0.3,
+        marginal_cost=5,
+        maintainable=True,
+        maintenance_duration=2,
+        **UNTIGHTENED,
+    )
+    n.add('Generator', 'fixed44', bus='north', p_nom=20, marginal_cost=1, maintainable=True, maintenance_duration=1)
+    n.add('Load', 'swing44', bus='north', p_set=[40, 120, 160, 60])
+    return n
+```
+
+</details>
+<!-- reference:rung_44_linearized_commitment:end -->
+
 ## The file
 
 <!-- gallery:begin -->
@@ -97,9 +203,9 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{Generator\_maintenance\_cover} \subseteq \mathcal{G} \times \mathcal{T} \times \mathcal{T}`$ — dispatch periods |
 | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — network nodes |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Generator\_maintenance\_cover} \subseteq \mathcal{G} \times \mathcal{T} \times \mathcal{T}`$ — generating units, each on one bus |
 | $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
@@ -109,6 +215,7 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 | Symbol | Meaning |
 |---|---|
 | $`\mathrm{w}`$ | `snapshot_weightings_objective` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
+| $`\mathrm{w}^{\mathrm{gen}}`$ | `snapshot_weightings_generators` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total |
 | $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\mathcal{G}`$ — nominal power |
 | $`\underline{\mathrm{p}}`$ | `Generator_p_min_pu` over $`\mathcal{T} \times \mathcal{G}`$ — least output, per unit of nominal power |
 | $`\overline{\mathrm{p}}`$ | `Generator_p_max_pu` over $`\mathcal{T} \times \mathcal{G}`$ — most output, per unit of nominal power — an availability profile |
@@ -128,10 +235,16 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 | $`\mathrm{DT}`$ | `Generator_min_down_time` over $`\mathcal{G}`$ — least snapshots a unit stays off once stopped |
 | $`\mathrm{u}^{0}`$ | `Generator_status_initial` over $`\mathcal{G}`$ — one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
 | $`\mathrm{hold}`$ | `Generator_must_stay_up` over $`\mathcal{T} \times \mathcal{G}`$ — true while the up time a unit brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}`$ | `Generator_must_stay_down` over $`\mathcal{T} \times \mathcal{G}`$ — true while the down time a unit brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
 | $`\mathrm{c}^{\mathrm{up}}`$ | `Generator_start_up_cost` over $`\mathcal{G}`$ — cost of one start |
 | $`\mathrm{c}^{\mathrm{dn}}`$ | `Generator_shut_down_cost` over $`\mathcal{G}`$ — cost of one stop |
 | $`\mathrm{c}^{\mathrm{on}}`$ | `Generator_stand_by_cost` over $`\mathcal{T} \times \mathcal{G}`$ — cost of one snapshot spent on |
 | $`\mathrm{tight}`$ | `Generator_partly_tightened` over $`\mathcal{G}`$ — whether the four tightening rows below apply — PyPSA adds them only where a unit's start-up and shut-down costs are equal; two parameters cannot be compared in a `where`, so the equality is data prep |
+| $`\mathrm{mnt}`$ | `Generator_maintainable` over $`\mathcal{G}`$ — whether a generator must be taken off for maintenance within the horizon |
+| $`\gamma`$ | `Generator_maintenance_pu` over $`\mathcal{G}`$ — the share of the build a maintenance event takes off |
+| $`\mathrm{n}^{\mathrm{mnt}}`$ | `Generator_maintenance_events` over $`\mathcal{G}`$ — how many maintenance events the horizon holds |
+| $`\tau^{\mathrm{mnt}}`$ | `Generator_maintenance_duration` over $`\mathcal{G}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the generator is not maintainable. No row reads it: data prep turns it into `Generator_maintenance_cover` and `Generator_maintenance_start_blocked`, and the assumptions hold it to the horizon |
+| $`\mathrm{blk}`$ | `Generator_maintenance_start_blocked` over $`\mathcal{T} \times \mathcal{G}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the generator does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
 
 #### Variables
 
@@ -142,6 +255,9 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 | $`u`$ | `Generator_status` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-status` — how much of a committable unit is on, a share in \[0, 1\] rather than a binary: the relaxation `linearized_unit_commitment` solves |
 | $`\mathit{up}`$ | `Generator_start_up` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-start_up` — how much of a committable unit turns on this snapshot |
 | $`\mathit{dn}`$ | `Generator_shut_down` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot |
+| $`\mu`$ | `Generator_maintenance` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-maintenance` — whether a maintainable generator is in maintenance: continuous, and one exactly where an event covers the snapshot |
+| $`\mu^{\mathrm{up}}`$ | `Generator_maintenance_start` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-maintenance_start` — whether a maintenance event starts in this snapshot — a binary, which the keyword does not relax |
+| $`\mu^{u}`$ | `Generator_maintenance_status` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-maintenance_status` — the status while in maintenance, zero otherwise: the product the `maint-status` rows linearize, so a unit in maintenance may also be off |
 
 #### Definitions
 
@@ -149,6 +265,10 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 |---|---|
 | $`\overleftarrow{u}`$ | `Generator_previous_status` over $`\mathcal{T} \times \mathcal{G}`$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
 | $`\overleftarrow{p}`$ | `Generator_previous_p` over $`\mathcal{T} \times \mathcal{G}`$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
+| $`\widetilde{\mathrm{ru}}`$ | `Generator_ramp_up_rate` over $`\mathcal{G}`$ — the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the full build where it has none, since a start-up ramp alone builds the row |
+| $`\widetilde{\mathrm{rd}}`$ | `Generator_ramp_down_rate` over $`\mathcal{G}`$ — the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or the full build where it has none, since a shut-down ramp alone builds the row |
+| $`\widetilde{\mathrm{ru}}^{\mathrm{up}}`$ | `Generator_start_up_rate` over $`\mathcal{G}`$ — the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`, or the full build where it has none |
+| $`\widetilde{\mathrm{rd}}^{\mathrm{dn}}`$ | `Generator_shut_down_rate` over $`\mathcal{G}`$ — the shut-down ramp a unit's down row reads — PyPSA's `ramp_limit_shut_down`, or the full build where it has none |
 
 $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` steps along, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
@@ -179,11 +299,11 @@ Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
   dims: [snapshot, generator]
   where: not Generator_committable
-  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * (1 - Generator_maintenance_pu * Generator_maintenance)
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{com}_{g}
+p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( 1 - \gamma_{g} \cdot \mu_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{com}_{g}
 ```
 
 ### `Generator-fix-p-upper`
@@ -195,11 +315,11 @@ Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
   dims: [snapshot, generator]
   where: not Generator_committable
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * (1 - Generator_maintenance_pu * Generator_maintenance)
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{com}_{g}
+p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( 1 - \gamma_{g} \cdot \mu_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{com}_{g}
 ```
 
 ### `Link-fix-p-lower`
@@ -263,11 +383,11 @@ Generator_com_p_lower:
   description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
   dims: [snapshot, generator]
   where: Generator_committable
-  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
 ```
 
 ```math
-p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \gamma_{g} \cdot \mu^{u}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
 ```
 
 ### `Generator-com-p-upper`
@@ -279,11 +399,11 @@ Generator_com_p_upper:
   description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
   dims: [snapshot, generator]
   where: Generator_committable
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * (Generator_status - Generator_maintenance_pu * Generator_maintenance_status)
 ```
 
 ```math
-p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \gamma_{g} \cdot \mu^{u}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
 ```
 
 ### `Generator-com-transition-start-up`
@@ -343,7 +463,10 @@ Generator_com_up_time:
 
 ```yaml
 Generator_com_down_time:
-  description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+  description: >-
+    `Generator-com-down-time` — a unit stopped within its own minimum down
+    time is still off. The first snapshot's share of the window is the
+    brought-in down time's, which the must-stay-down mask carries
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
   expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
@@ -369,6 +492,24 @@ Generator_com_status_must_stay_up:
 u_{t,g} = 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g}
 ```
 
+### `Generator-com-status-min_down_time_must_stay_up`
+
+`Generator_com_status_must_stay_down`
+
+```yaml
+Generator_com_status_must_stay_down:
+  description: >-
+    `Generator-com-status-min_down_time_must_stay_up` — a unit still serving
+    the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+  dims: [snapshot, generator]
+  where: Generator_committable AND Generator_must_stay_down
+  expression: Generator_status == 0
+```
+
+```math
+u_{t,g} = 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{rest}_{t,g}
+```
+
 ### `Generator-p-ramp_limit_up`
 
 `Generator_p_ramp_limit_up`
@@ -383,17 +524,17 @@ Generator_p_ramp_limit_up:
     first snapshot
   dims: [snapshot, generator]
   where: >-
-    Generator_committable AND Generator_ramp_limit_up
+    Generator_committable AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
     AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
     Generator_p - Generator_previous_p <=
-    Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
-    + Generator_ramp_limit_start_up * Generator_p_nom
+    Generator_ramp_up_rate * Generator_p_nom * Generator_previous_status
+    + Generator_start_up_rate * Generator_p_nom
     * (Generator_status - Generator_previous_status)
 ```
 
 ```math
-p_{t,g} - \overleftarrow{p}_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{t,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \overleftarrow{u}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
+p_{t,g} - \overleftarrow{p}_{t,g} \le \widetilde{\mathrm{ru}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{t,g} + \widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \overleftarrow{u}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \left( \mathrm{ru}_{g} \text{ is defined} \vee \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
 ```
 
 ### `Generator-p-ramp_limit_down`
@@ -410,17 +551,17 @@ Generator_p_ramp_limit_down:
     first snapshot
   dims: [snapshot, generator]
   where: >-
-    Generator_committable AND Generator_ramp_limit_down
+    Generator_committable AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
     AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
     Generator_previous_p - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom
+    Generator_ramp_down_rate * Generator_p_nom * Generator_status
+    + Generator_shut_down_rate * Generator_p_nom
     * (Generator_previous_status - Generator_status)
 ```
 
 ```math
-\overleftarrow{p}_{t,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{t,g} - u_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
+\overleftarrow{p}_{t,g} - p_{t,g} \le \widetilde{\mathrm{rd}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{t,g} - u_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g} \wedge \left( \mathrm{rd}_{g} \text{ is defined} \vee \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)
 ```
 
 ### `Generator-status-p-fixed-upper`
@@ -469,6 +610,105 @@ Generator_shut_down_p_fixed_upper:
 
 ```math
 \mathit{dn}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+```
+
+### `Generator-maint-event-count`
+
+`Generator_maint_event_count`
+
+```yaml
+Generator_maint_event_count:
+  description: "`Generator-maint-event-count` — a maintainable generator holds its number of maintenance events over the horizon"
+  dims: [generator]
+  where: Generator_maintainable
+  expression: sum(Generator_maintenance_start, over=snapshot) == Generator_maintenance_events
+```
+
+```math
+\sum_{t \in \mathcal{T}} \mu^{\mathrm{up}}_{t,g} = \mathrm{n}^{\mathrm{mnt}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+### `Generator-maint-window`
+
+`Generator_maint_window`
+
+```yaml
+Generator_maint_window:
+  description: >-
+    `Generator-maint-window` — a generator is in maintenance exactly where an event it
+    started covers the snapshot; two events do not overlap, since the
+    maintenance status is at most one
+  dims: [snapshot, generator]
+  where: Generator_maintainable
+  expression: Generator_maintenance == sum(Generator_maintenance_start, by=Generator_maintenance_cover, over=start, into=covered)
+```
+
+```math
+\mu_{t,g} = \sum_{t' \in \mathcal{T} \,:\, \left( g,\ t',\ t \right) \in \mathrm{Generator\_maintenance\_cover}} \mu^{\mathrm{up}}_{t',g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+### `Generator-maint-start-horizon`
+
+`Generator_maint_start_horizon`
+
+```yaml
+Generator_maint_start_horizon:
+  description: "`Generator-maint-start-horizon` — no event starts where it could not run its whole duration"
+  dims: [snapshot, generator]
+  where: Generator_maintainable AND Generator_maintenance_start_blocked
+  expression: Generator_maintenance_start == 0
+```
+
+```math
+\mu^{\mathrm{up}}_{t,g} = 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{blk}_{t,g}
+```
+
+### `Generator-maint-status-le-status`
+
+`Generator_maint_status_le_status`
+
+```yaml
+Generator_maint_status_le_status:
+  description: "`Generator-maint-status-le-status` — the status in maintenance is at most the status"
+  dims: [snapshot, generator]
+  where: Generator_maintainable AND Generator_committable
+  expression: Generator_maintenance_status <= Generator_status
+```
+
+```math
+\mu^{u}_{t,g} \le u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g}
+```
+
+### `Generator-maint-status-le-maint`
+
+`Generator_maint_status_le_maint`
+
+```yaml
+Generator_maint_status_le_maint:
+  description: "`Generator-maint-status-le-maint` — out of maintenance, the status in maintenance is zero"
+  dims: [snapshot, generator]
+  where: Generator_maintainable AND Generator_committable
+  expression: Generator_maintenance_status <= Generator_maintenance
+```
+
+```math
+\mu^{u}_{t,g} \le \mu_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g}
+```
+
+### `Generator-maint-status-lb`
+
+`Generator_maint_status_lb`
+
+```yaml
+Generator_maint_status_lb:
+  description: "`Generator-maint-status-lb` — on and in maintenance, the status in maintenance is one"
+  dims: [snapshot, generator]
+  where: Generator_maintainable AND Generator_committable
+  expression: Generator_maintenance_status >= Generator_status + Generator_maintenance - 1
+```
+
+```math
+\mu^{u}_{t,g} \ge u_{t,g} + \mu_{t,g} - 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g}
 ```
 
 ### `Generator-com-p-before`
@@ -590,6 +830,74 @@ Generator_previous_p:
 \overleftarrow{p}_{t,g} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \\ p_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+### `Generator_ramp_up_rate`
+
+```yaml
+Generator_ramp_up_rate:
+  description: >-
+    the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
+    full build where it has none, since a start-up ramp alone builds the row
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}_{g} = \begin{cases} \mathrm{ru}_{g} & \text{if } \mathrm{ru}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_ramp_down_rate`
+
+```yaml
+Generator_ramp_down_rate:
+  description: >-
+    the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
+    the full build where it has none, since a shut-down ramp alone builds the row
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}_{g} = \begin{cases} \mathrm{rd}_{g} & \text{if } \mathrm{rd}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_start_up_rate`
+
+```yaml
+Generator_start_up_rate:
+  description: >-
+    the start-up ramp a unit's up row reads — PyPSA's `ramp_limit_start_up`,
+    or the full build where it has none
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_start_up, expression: Generator_ramp_limit_start_up }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{ru}}^{\mathrm{up}}_{g} = \begin{cases} \mathrm{ru}^{\mathrm{up}}_{g} & \text{if } \mathrm{ru}^{\mathrm{up}}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
+### `Generator_shut_down_rate`
+
+```yaml
+Generator_shut_down_rate:
+  description: >-
+    the shut-down ramp a unit's down row reads — PyPSA's
+    `ramp_limit_shut_down`, or the full build where it has none
+  dims: [generator]
+  cases:
+    given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
+  otherwise: 1
+```
+
+```math
+\widetilde{\mathrm{rd}}^{\mathrm{dn}}_{g} = \begin{cases} \mathrm{rd}^{\mathrm{dn}}_{g} & \text{if } \mathrm{rd}^{\mathrm{dn}}_{g} \text{ is defined} \\ 1 & \text{otherwise} \end{cases} \qquad \forall\, g \in \mathcal{G}
+```
+
 #### Variable domains
 
 **`Generator_p`**
@@ -620,6 +928,86 @@ u_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \math
 
 ```math
 \mathit{dn}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{com}_{g}
+```
+
+**`Generator_maintenance`**
+
+```math
+0 \le \mu_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+**`Generator_maintenance_start`**
+
+```math
+\mu^{\mathrm{up}}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+**`Generator_maintenance_status`**
+
+```math
+\mu^{u}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{mnt}_{g} \wedge \mathrm{com}_{g}
+```
+
+### `Generator_maintenance_events_positive`
+
+```yaml
+Generator_maintenance_events_positive:
+  holds: "Generator_maintenance_events > 0"
+  where: "Generator_maintainable"
+  description: >-
+    a maintainable generator with no event schedules no maintenance —
+    PyPSA refuses it (`consistency.py:1516`)
+```
+
+```math
+\mathrm{n}^{\mathrm{mnt}}_{g} > 0 \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+### `Generator_maintenance_duration_positive`
+
+```yaml
+Generator_maintenance_duration_positive:
+  holds: "Generator_maintenance_duration > 0"
+  where: "Generator_maintainable"
+  description: >-
+    an event that covers no hours is no maintenance window — PyPSA
+    refuses it (`consistency.py:1506`)
+```
+
+```math
+\tau^{\mathrm{mnt}}_{g} > 0 \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+### `Generator_maintenance_duration_fits_the_horizon`
+
+```yaml
+Generator_maintenance_duration_fits_the_horizon:
+  holds: "Generator_maintenance_duration <= sum(snapshot_weightings_generators, over=snapshot)"
+  where: "Generator_maintainable"
+  description: >-
+    one event longer than the horizon, in generator weightings, blocks
+    every start and makes the event count infeasible — PyPSA refuses it
+    (`consistency.py:1527`)
+```
+
+```math
+\tau^{\mathrm{mnt}}_{g} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
+```
+
+### `Generator_maintenance_events_fit_the_horizon`
+
+```yaml
+Generator_maintenance_events_fit_the_horizon:
+  holds: "Generator_maintenance_duration * Generator_maintenance_events <= sum(snapshot_weightings_generators, over=snapshot)"
+  where: "Generator_maintainable"
+  description: >-
+    the events together longer than the horizon, in generator
+    weightings, cannot all be scheduled — PyPSA refuses it
+    (`consistency.py:1539`)
+```
+
+```math
+\tau^{\mathrm{mnt}}_{g} \cdot \mathrm{n}^{\mathrm{mnt}}_{g} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{mnt}_{g}
 ```
 <!-- gallery:end -->
 
