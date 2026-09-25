@@ -334,6 +334,37 @@
   inset: 0;
 }
 
+/* A card's icon is chosen by where its link points, so reordering the README
+ * list cannot move an icon onto another card. */
+.md-typeset .landing .grid.cards > ul > li::before {
+  display: block;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-bottom: 0.6rem;
+  background-color: var(--md-accent-fg-color);
+  mask: center / contain no-repeat;
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/reference/language/errors/"])::before {
+  content: "";
+  mask-image: url("icons/checklist.svg");
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/reference/typeset/"])::before {
+  content: "";
+  mask-image: url("icons/sigma.svg");
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/reference/program/"])::before {
+  content: "";
+  mask-image: url("icons/puzzle.svg");
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/examples/pypsa/"])::before {
+  content: "";
+  mask-image: url("icons/transmission-tower.svg");
+}
+
 /* Grid card hover lift — small polish */
 .md-typeset .grid.cards > ul > li,
 .md-typeset .grid > .card {
