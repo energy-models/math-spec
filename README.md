@@ -31,19 +31,34 @@ solves nothing itself. Every tool reads the file through the same checked syntax
 tree, so an engine and a renderer cannot disagree about what the file means
 ([what counts as language](docs/about/what-counts-as-language.md)).
 
-- **Nothing is guessed.** A misspelled name, a `where` string on an undeclared
-  parameter, a constraint whose dimensions do not match its `dims`: each fails
-  when the file loads, with a message that names the fix. A repository of models
-  checks in CI with no data ([errors](docs/reference/language/errors.md)).
-- **The operators are a fixed set.** `sum`, `sum_back`, `at` and `shift`. A file
-  cannot add one, so a model never depends on what one engine registered. A
-  composition of them goes in `macros:` ([the limits](docs/about/limits.md)).
-- **The file is the document.** `to_latex(spec)` prints the model as equations
-  from the file alone, so the math you publish is the math you solve
-  ([typeset](docs/reference/typeset.md)). The file diffs in review, and no
-  Python state changes what it means.
+<!--- --8<-- [start:engines] -->
 
-<!--- --8<-- [start:flow] -->
+[specsolve](https://github.com/fluxopt/specsolve) and
+[linopy](https://github.com/PyPSA/linopy) build and solve a math-spec model.
+Support in both is work in progress.
+
+<!--- --8<-- [end:engines] -->
+
+<!--- --8<-- [start:benefits] -->
+
+- **Check a model repository in CI with no data.** A misspelled name, a `where`
+  string on an undeclared parameter, or a constraint whose dimensions do not
+  match its `dims` fails when the file loads. The message names the fix
+  ([errors](https://math-spec.readthedocs.io/en/latest/reference/language/errors/)).
+- **Publish the math you solve.** `to_latex(spec)` prints the model as equations
+  from the file alone, so the paper and the solver read one source
+  ([typeset](https://math-spec.readthedocs.io/en/latest/reference/typeset/)).
+- **Change the engine and keep the model.** The operators are a fixed set:
+  `sum`, `sum_back`, `at` and `shift`. A file cannot add one, so a model does not
+  depend on what one engine registered ([limits](https://math-spec.readthedocs.io/en/latest/about/limits/)).
+- **Review a model as a diff.** The file is plain YAML, and no Python state
+  changes what it means.
+- **Write full-size models.** [PyPSA in one file](https://math-spec.readthedocs.io/en/latest/examples/pypsa/) states
+  the model that PyPSA's `n.optimize()` builds, with an index of each PyPSA row.
+  Five more pages add quadratic costs, relaxed unit commitment, line losses,
+  two-stage stochastic scenarios and investment periods.
+
+<!--- --8<-- [end:benefits] -->
 
 ```mermaid
 flowchart LR
@@ -63,8 +78,6 @@ flowchart LR
     class ENG,T consumer
     class ERR err
 ```
-
-<!--- --8<-- [end:flow] -->
 
 ## Example
 

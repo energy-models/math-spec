@@ -15,14 +15,20 @@ with no data and no solver.**
 
 --8<-- "README.md:badges"
 
-[Read the language](reference/language/index.md){ .md-button .md-button--primary }
-[See the examples](examples/index.md){ .md-button }
+[See the examples](examples/index.md){ .md-button .md-button--primary }
+[Read the language](reference/language/index.md){ .md-button }
 
 </div>
 
 ---
 
 <div class="landing" markdown>
+
+## What it is for
+
+--8<-- "README.md:benefits"
+
+--8<-- "README.md:engines"
 
 ## A model is one file
 
@@ -31,11 +37,6 @@ expects, the decisions the solver makes, and the rules those decisions obey.
 The file below is a complete model.
 
 --8<-- "README.md:model"
-
-Everything that can be checked without data is checked when the file loads. A
-misspelled name, a `where:` on an undeclared parameter, or a constraint whose
-dimensions do not match its `dims:` is refused with a message that names the
-fix.
 
 ## The math it prints
 
