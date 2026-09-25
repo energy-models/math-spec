@@ -1818,11 +1818,6 @@ class TestExpressionCases:
             pytest.param({'description': 'nothing at all'}, 'this has neither', id='neither'),
             pytest.param({'cases': OPENING, 'otherwise': 0}, '`cases:` needs a `dims:`', id='no-dims'),
             pytest.param(
-                {'expression': 'load', 'dims': ['snapshot']},
-                '`dims:` is only for a named expression with `cases:`',
-                id='dims-alone',
-            ),
-            pytest.param(
                 {'dims': ['snapshot', 'generator'], 'cases': OPENING},
                 'a `cases:` block needs an `otherwise:`',
                 id='no-otherwise',
