@@ -69,15 +69,15 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$
 
-### `sum(array, by=relation, over=a, into=b)`
+### `sum(array, over=dim, by=relation[c])`
 
 `examples/operators/sum_by.yaml`
 
 ```yaml
 description: >-
-  The membership reduction — `sum(array, by=relation, over=a, into=b)` groups the result by the
-  column the relation is read to, which is what makes topology data rather than
-  structure.
+  The membership reduction — `sum(array, over=dim, by=relation[c])` groups the
+  result by the relation's column `c`, which is what makes topology data rather
+  than structure.
 
 dimensions:
   snapshot: { dtype: int }
@@ -98,22 +98,22 @@ variables:
 constraints:
   bus_total:
     dims: [snapshot, bus]
-    expression: sum(p, by=gen_bus, over=generator, into=bus) <= limit
+    expression: sum(p, over=generator, by=gen_bus[bus]) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$
 
-### `sum(array, by=relation, over=a, into=b), joining on the rest of the key`
+### `sum(array, over=dim, by=relation[c]), joining on the rest of the key`
 
 `examples/operators/sum_by_columns.yaml`
 
 ```yaml
 description: >-
-  A call that names its ends — `sum(array, by=relation, over=a, into=b)`
-  joins on column `a` and groups by column `b`, and the other key column is
-  joined on and kept, so each zone's total is taken per period.
+  A sum that keeps a key column — `sum(array, over=dim, by=relation[c])` joins
+  on the column over `dim` and groups by column `c`, and the key column it does
+  not name is joined on and kept, so each zone's total is taken per period.
 
 dimensions:
   generator: { dtype: str }
@@ -134,20 +134,20 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+    expression: sum(p, over=generator, by=zone_of[zone]) >= demand
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=[a, …], into=[b, …])`
+### `sum(array, over=[dim, …], by=relation[c, …])`
 
 `examples/operators/sum_by_column_lists.yaml`
 
 ```yaml
 description: >-
-  A call with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  Several columns at each end — `sum(array, over=[dim, …], by=relation[c, …])`
   joins on both key columns at once and groups by both value columns in one
   join.
 
@@ -171,20 +171,20 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+    expression: sum(p, over=[generator, period], by=slot_of[bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$
 
-### `at(array, by=relation, over=a, into=b)`
+### `at(array, by=relation[c])`
 
 `examples/operators/at.yaml`
 
 ```yaml
 description: >-
-  The same join with no group-by — `at(array, by=relation, over=a, into=b)` reads one
+  The same join with no group-by — `at(array, by=relation[c])` reads one
   coarse value once per fine label pointing at it.
 
 dimensions:
@@ -205,22 +205,22 @@ variables:
 constraints:
   within_cap:
     dims: [snapshot]
-    expression: p <= at(cap, by=period_of, over=period, into=snapshot)
+    expression: p <= at(cap, by=period_of[period])
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
-### `at(array, by=relation, over=a, into=b), two columns over one dimension`
+### `at(array, by=relation[c]), two columns over one dimension`
 
 `examples/operators/at_columns.yaml`
 
 ```yaml
 description: >-
-  A read that names its ends — `at(array, by=relation, over=a, into=b)`
-  reads column `a` where a table has two columns over one dimension, here the
-  sending end of a line.
+  A read of one of two columns — `at(array, by=relation[c])` reads column `c`
+  where a table has two columns over one dimension, here the sending end of a
+  line.
 
 dimensions:
   line: { dtype: str }
@@ -240,7 +240,7 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0, into=line)
+    expression: f <= at(cap, by=ends[bus0])
 
 objective: { sense: minimize, expression: sum(f) }
 ```
@@ -361,7 +361,7 @@ objective: { sense: minimize, expression: sum(order) }
 
 $`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$
 
-### `shift(array, along=dim, offset=n, by=relation, within=c)`
+### `shift(array, along=dim, offset=n, within=relation[c])`
 
 `examples/operators/shift_partitioned.yaml`
 
@@ -385,7 +385,7 @@ variables:
 constraints:
   no_faster_than_before_in_season:
     dims: [snapshot]
-    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of, within=season)
+    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', within=season_of[season])
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -494,7 +494,7 @@ objective: { sense: minimize, expression: sum(on) }
 
 $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
-### `sum_back(array, along=dim, window=n, by=relation, within=c)`
+### `sum_back(array, along=dim, window=n, within=relation[c])`
 
 `examples/operators/sum_back_partitioned.yaml`
 
@@ -523,7 +523,7 @@ variables:
 constraints:
   stays_up_inside_its_day:
     dims: [unit, hour]
-    expression: sum_back(started, along=hour, window=3, by=day_of, within=day) <= on
+    expression: sum_back(started, along=hour, window=3, within=day_of[day]) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```

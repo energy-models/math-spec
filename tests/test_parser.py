@@ -19,6 +19,7 @@ import pytest
 import math_spec.program as program_module
 from math_spec._expression_parser import (
     BinaryOperatorNode,
+    ColumnsNode,
     ComparisonNode,
     FunctionCallNode,
     KeywordNode,
@@ -318,13 +319,28 @@ def test_a_quoted_right_hand_side_is_a_label(text, right):
     assert node.right == right
 
 
-def test_a_relation_column_is_named_with_a_dot():
-    """`ends.bus0` is the one place the language names a column, and only a where side admits it."""
-    assert parse_where('ends.bus0 != ends.bus1') == UnresolvedComparisonNode(
+def test_a_relation_column_is_named_in_brackets():
+    """`ends[bus0]` names a column on a where side, and a side reads one column, so a list of them is refused."""
+    assert parse_where('ends[bus0] != ends[bus1]') == UnresolvedComparisonNode(
         ColumnNode('ends', 'bus0'), '!=', ColumnNode('ends', 'bus1')
     )
     with pytest.raises(SchemaError, match='Failed to parse where string'):
-        parse_where('ends.bus0 + 1 > 0')
+        parse_where('ends[bus0] + 1 > 0')
+    with pytest.raises(SchemaError, match=r'Compare each column on its own: ends\[bus0\] == … AND ends\[bus1\] == …'):
+        parse_where("ends[bus0, bus1] == 'x'")
+
+
+@pytest.mark.parametrize(
+    ('text', 'columns'),
+    [
+        pytest.param('at(x, by=gen_bus[bus])', ColumnsNode('gen_bus', ('bus',)), id='one-column'),
+        pytest.param('at(x, by=slot_of[bus, tech])', ColumnsNode('slot_of', ('bus', 'tech')), id='several-columns'),
+        pytest.param('at(x, by = slot_of [ bus , tech ])', ColumnsNode('slot_of', ('bus', 'tech')), id='spaced'),
+    ],
+)
+def test_a_column_selection_names_one_relation_and_its_columns(text, columns):
+    """The relation is written once, before its columns, so a kwarg cannot name columns of two tables."""
+    assert parse_expression(text).kwargs['by'] == columns, 'one relation, its columns in the order written'
 
 
 @pytest.mark.parametrize(
@@ -335,12 +351,17 @@ def test_a_relation_column_is_named_with_a_dot():
         ('position(snapshot) > 0', '>', NumberNode(0), {}),
         ('position(snapshot) <= -2', '<=', UnaryOperatorNode('-', NumberNode(2)), {}),
         ('position(snapshot) == -1', '==', UnaryOperatorNode('-', NumberNode(1)), {}),
-        ('position(snapshot, by=period_of) == 0', '==', NumberNode(0), {'by': NameNode('period_of')}),
         (
-            'position(snapshot, by=period_of, within=[a, b]) == 0',
+            'position(snapshot, within=period_of[a]) == 0',
             '==',
             NumberNode(0),
-            {'by': NameNode('period_of'), 'within': NameListNode(('a', 'b'))},
+            {'within': ColumnsNode('period_of', ('a',))},
+        ),
+        (
+            'position(snapshot, within=period_of[a, b]) == 0',
+            '==',
+            NumberNode(0),
+            {'within': ColumnsNode('period_of', ('a', 'b'))},
         ),
     ],
     ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped', 'grouped within columns'],

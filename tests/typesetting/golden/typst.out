@@ -59,7 +59,7 @@ $t minus.o k$ denotes cyclic translation: index $t-k$ taken modulo the size of t
 
 $t minus.square_(v) k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 
-$t minus.o^(upright("relation")(t)) k$ denotes a translation counted inside the group a relation puts $t$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t minus.square_(v)^(upright("relation")(t)) k$ is both at once.
+$t minus.o^(upright("relation")(t)) k$ denotes a translation counted inside the group a relation puts $t$ in (`shift(within=relation[c])`), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t minus.square_(v)^(upright("relation")(t)) k$ is both at once.
 
 $upright("pos")(t)$ denotes where index $t$ sits along its dimension's own order --- the order `shift` steps along, not the order labels sort in --- counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $upright("pos")(t)$ against positions.
 

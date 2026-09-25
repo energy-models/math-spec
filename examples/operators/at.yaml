@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The same join with no group-by — `at(array, by=relation, over=a, into=b)` reads one
+  The same join with no group-by — `at(array, by=relation[c])` reads one
   coarse value once per fine label pointing at it.
 
 dimensions:
@@ -24,6 +24,6 @@ variables:
 constraints:
   within_cap:
     dims: [snapshot]
-    expression: p <= at(cap, by=period_of, over=period, into=snapshot)
+    expression: p <= at(cap, by=period_of[period])
 
 objective: { sense: minimize, expression: sum(p) }

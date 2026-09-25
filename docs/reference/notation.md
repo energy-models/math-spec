@@ -133,7 +133,7 @@ $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size 
 
 $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
-$`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
+$`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(within=relation[c])`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
 
 $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` steps along, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
@@ -374,7 +374,7 @@ objective:
 constraints:
   balance:
     dims: [snapshot, bus]
-    expression: sum(p, by=gen_bus, over=generator, into=bus) + spill - slack == load
+    expression: sum(p, over=generator, by=gen_bus[bus]) + spill - slack == load
 ```
 
 ```math
@@ -404,7 +404,7 @@ at(), which re-indexes through a relation instead of an offset
 constraints:
   lookup:
     dims: [snapshot, bus]
-    expression: spill <= at(zone_cap, by=zone_of, over=zone, into=bus)
+    expression: spill <= at(zone_cap, by=zone_of[zone])
 ```
 
 ```math
@@ -419,7 +419,7 @@ one table read to two value columns: the domain carries a condition per column
 constraints:
   grouped_once:
     dims: [snapshot, bus, technology]
-    expression: sum(p, by=gen_bt, into=[bus, technology], over=generator) <= tech_cap
+    expression: sum(p, over=generator, by=gen_bt[bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -434,7 +434,7 @@ the same table joined the other way, reading one slot through two columns
 constraints:
   looked_up_once:
     dims: [generator]
-    expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology], into=generator)
+    expression: units <= at(tech_cap, by=gen_bt[bus, technology])
 ```
 
 ```math
@@ -449,8 +449,8 @@ a partition grouped by one named value column of a two-value table, and a positi
 constraints:
   within_bus:
     dims: [generator]
-    where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
-    expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
+    where: "position(generator, within=gen_bt[bus, technology]) == 0"
+    expression: units <= shift(units, along=generator, offset=1, edge=0, within=gen_bt[bus])
 ```
 
 ```math
@@ -465,7 +465,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 constraints:
   relational:
     dims: [snapshot, bus]
-    expression: sum(p, by=connection, over=generator, into=bus) <= load
+    expression: sum(p, over=generator, by=connection[bus]) <= load
 ```
 
 ```math
@@ -496,7 +496,7 @@ a map into its own dimension, read both ways: the frame is unchanged and the ind
 constraints:
   representative:
     dims: [snapshot]
-    expression: sum(spill, by=rep_of, over=snapshot, into=rep) <= at(spill, by=rep_of, over=rep, into=snapshot)
+    expression: sum(spill, over=snapshot, by=rep_of[rep]) <= at(spill, by=rep_of[rep])
 ```
 
 ```math
@@ -511,7 +511,7 @@ a grouping through a two-key map, summing one key away: the condition reads the 
 constraints:
   zonal:
     dims: [snapshot, zone]
-    expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
+    expression: sum(p, over=generator, by=gen_zone[zone]) <= zone_cap
 ```
 
 ```math
@@ -526,7 +526,7 @@ the same table summing its other key away
 constraints:
   zonal_history:
     dims: [generator, zone]
-    expression: sum(p, by=gen_zone, over=snapshot, into=zone) <= zone_cap
+    expression: sum(p, over=snapshot, by=gen_zone[zone]) <= zone_cap
 ```
 
 ```math
@@ -541,7 +541,7 @@ the same table read between its two key columns: no value column is read, so the
 constraints:
   zonal_membership:
     dims: [snapshot]
-    expression: sum(units, by=gen_zone, over=generator, into=snapshot) <= budget
+    expression: sum(units, over=generator, by=gen_zone[snapshot]) <= budget
 ```
 
 ```math
@@ -556,8 +556,8 @@ the same table joined the other way, reading the slot the row's own snapshot put
 constraints:
   zonal_lookup:
     dims: [snapshot, generator]
-    where: "gen_zone == 'north' AND position(generator, by=gen_zone, within=zone) == 0"
-    expression: p <= at(spill * zone_cap, by=gen_zone, into=generator, over=zone)
+    where: "gen_zone == 'north' AND position(generator, within=gen_zone[zone]) == 0"
+    expression: p <= at(spill * zone_cap, by=gen_zone[zone])
 ```
 
 ```math
@@ -849,7 +849,7 @@ a translation partitioned by a relation: the group rides on the operator
 constraints:
   in_season:
     dims: [snapshot, generator]
-    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of, within=season)
+    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', within=season_of[season])
 ```
 
 ```math
@@ -864,7 +864,7 @@ the same group, with a fill: each season's opening row is kept and given a zero
 constraints:
   held_in_season:
     dims: [snapshot, generator]
-    expression: p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of, within=season)
+    expression: p <= shift(p, along=snapshot, offset=1, edge=0, within=season_of[season])
 ```
 
 ```math
@@ -911,7 +911,7 @@ a window partitioned by a relation: the group rides on the operator
 constraints:
   seasonal_window:
     dims: [snapshot, generator]
-    expression: sum_back(on, along=snapshot, window=3, by=season_of, within=season) <= units
+    expression: sum_back(on, along=snapshot, window=3, within=season_of[season]) <= units
 ```
 
 ```math
@@ -1345,7 +1345,7 @@ a position in a dimension, and the same position within a group
 constraints:
   first:
     dims: [snapshot, generator]
-    where: "position(snapshot) == 0 OR position(snapshot, by=season_of, within=season) == 0"
+    where: "position(snapshot) == 0 OR position(snapshot, within=season_of[season]) == 0"
     expression: on == 1
 ```
 
@@ -1361,7 +1361,7 @@ the same two counted from the end, which print against a size rather than as the
 constraints:
   last:
     dims: [snapshot, generator]
-    where: "position(snapshot) == -1 OR position(snapshot, by=season_of, within=season) == -1"
+    where: "position(snapshot) == -1 OR position(snapshot, within=season_of[season]) == -1"
     expression: on == 0
 ```
 
@@ -1457,7 +1457,7 @@ a translation under a comparison names its edge, a pullback reads through a rela
 constraints:
   ramped:
     dims: [snapshot, bus]
-    where: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of, over=zone, into=bus) AND position(snapshot) > 0"
+    where: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of[zone]) AND position(snapshot) > 0"
     expression: slack <= load
 ```
 
@@ -1537,7 +1537,7 @@ a predicate read through a relation: a bus is held only where its zone has a cap
 constraints:
   zoned:
     dims: [bus]
-    where: "at(zone_cap, by=zone_of, over=zone, into=bus)"
+    where: "at(zone_cap, by=zone_of[zone])"
     expression: theta <= budget
 ```
 

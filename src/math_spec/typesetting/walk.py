@@ -170,7 +170,7 @@ class _Context:
         """A dummy index for a reduction over *dim*, and the context its body reads under.
 
         The plain index where nothing outside the reduction uses it; primed
-        once per enclosing use of the same dimension, so ``sum(q, by=bus_of)``
+        once per enclosing use of the same dimension, so ``sum(q, over=generator, by=bus_of[bus])``
         under ``∀ g`` sums over ``g'`` and its condition can still name ``g``.
         """
         primes = "'" * self.bound.count(dim)
@@ -476,7 +476,7 @@ class Walk:
         return [f'{self._relation_read(join.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
     def _group(self, partition: Partition | None) -> str:
-        """A ``by=`` as the superscript its translation operator carries.
+        """A ``within=`` as the superscript its translation operator carries.
 
         The bare index, not the subscript in force: the group is a property of
         the row being written, and a window whose operand is itself translated

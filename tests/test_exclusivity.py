@@ -185,10 +185,10 @@ class TestWillNotDecide:
         assert 'count from one end only' in refusal
 
     def test_a_group_is_named_as_the_group_it_is(self, schema: Spec):
-        """`by=` counts within each group, and the refusal says which."""
+        """`within=` counts within each group, and the refusal says which."""
         cases = {
-            'first': 'position(snapshot, by=period_of, within=period) == 0',
-            'last': 'position(snapshot, by=period_of, within=period) == -1',
+            'first': 'position(snapshot, within=period_of[period]) == 0',
+            'last': 'position(snapshot, within=period_of[period]) == -1',
         }
         [refusal] = refusals(schema, cases)
         assert 'within each period_of group' in refusal

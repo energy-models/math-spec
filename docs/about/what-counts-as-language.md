@@ -29,7 +29,7 @@ Four rules follow from the test:
   in the renderer.
 - The set of operators is fixed. A tool cannot add a `roll` that the others
   do not know.
-- Each operator has one rule for the dimensions of its result. `sum(p, by=gen_bus, over=generator, into=bus)`
+- Each operator has one rule for the dimensions of its result. `sum(p, over=generator, by=gen_bus[bus])`
   groups by `bus` for every program.
 - Degree is decided when the file loads. Whether `x * y` is allowed does not
   depend on which engine builds the model.
