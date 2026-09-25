@@ -216,6 +216,17 @@ def test_the_sum_takes_the_readers_description():
     assert composed.program.expressions['injection'].description == INJECTION
 
 
+def test_two_readers_that_word_the_sum_apart_give_it_the_first_wording_in_name_order():
+    """The sum once took the wording of whichever reader was passed first."""
+    capped = {**BALANCE, 'given': {'expressions': {'injection': {'dims': FRAME, 'description': 'a cap'}}}}
+    capped = {**capped, 'constraints': {'capped': {'dims': FRAME, 'expression': 'injection <= 10'}}}
+    for fragments in (
+        {'capped': capped, 'balance': BALANCE, 'fleet': FLEET},
+        {'balance': BALANCE, 'capped': capped, 'fleet': FLEET},
+    ):
+        assert merge(fragments).expressions['injection'].description == INJECTION, "the wording of 'balance'"
+
+
 def test_a_composed_spec_takes_more_terms_in_a_second_merge():
     """A composed definition is one a fragment wrote, so a later term adds to it like any other."""
     shipped = merge({'balance': BALANCE, 'demand': DEMAND, 'fleet': FLEET})
