@@ -45,6 +45,7 @@ To learn what the project _is_, read [docs/](docs/index.md), and
   say in the PR where its coverage moved.
 - **Every `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its
   title under `## Upcoming version` in `CHANGELOG.md`**, with a link to the PR.
+  The label `no changelog` opts one out; only the user sets it.
   A version heading on top of that file releases on merge
   ([RELEASING.md](RELEASING.md)), so write one only when told to cut a release.
 - **Never edit a generated file by hand.** Regenerate it and read the diff.

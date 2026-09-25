@@ -7,6 +7,7 @@
     python -m tools.changelog check           # fail if the headings are not a release this repo can cut
     python -m tools.changelog pending         # print the version to release, or nothing
     python -m tools.changelog notes 0.1.0     # print that version's section
+    python -m tools.changelog entry "<PR title>" base.md   # fail if the PR adds no line it owes
 
 ``CHANGELOG.md`` is edited by hand. Above the first release sits at most one
 ``## Upcoming version``. A release PR renames it to ``## 0.1.0 (2026-10-01)``,
@@ -36,6 +37,10 @@ LEGACY = re.compile(r'\[(?P<version>[^\]]+)\]\(\S+\) \(\d{4}-\d{2}-\d{2}\)')
 #: A tag this repository has cut, in either spelling.
 TAG = re.compile(r'v(?P<release>\d+\.\d+\.\d+)(?:(?:-(?P<legacy>alpha)\.|(?P<pre>a|b|rc))(?P<number>\d+))?')
 PRE_RANK = {'alpha': 0, 'a': 0, 'b': 1, 'rc': 2}
+#: The PR types a changelog reader wants to hear about, each of which adds a line.
+NEEDS_LINE = frozenset({'feat', 'fix', 'perf', 'refactor', 'docs', 'revert'})
+#: The label that lets a PR of one of those types add no line.
+OPT_OUT = 'no changelog'
 
 
 class ChangelogError(ValueError):
@@ -142,6 +147,32 @@ def notes(text: str, version: str) -> str:
     raise ChangelogError(f'no "## {version} (date)" heading in the changelog.')
 
 
+def upcoming(text: str) -> list[str]:
+    """The non-empty lines under ``## Upcoming version``, or none when it is absent."""
+    for section in sections(text):
+        if section.heading == UPCOMING:
+            return [line for line in section.body.splitlines() if line.strip()]
+    return []
+
+
+def missing_entry(title: str, text: str, base: str) -> str | None:
+    """Why a pull request titled *title* owes the changelog a line, or None when it does not.
+
+    *text* is the changelog on the pull request and *base* the one on its base
+    branch. A line counts when it is under ``## Upcoming version`` and was not
+    there on the base.
+    """
+    kind = re.match(r'[a-z]+', title)
+    if kind is None or kind[0] not in NEEDS_LINE:
+        return None
+    if set(upcoming(text)) - set(upcoming(base)):
+        return None
+    return (
+        f'a {kind[0]} PR adds its title, with a link to the PR, under "## {UPCOMING}". '
+        f'If readers of the changelog do not need to hear about it, add the label "{OPT_OUT}".'
+    )
+
+
 def _tags() -> set[str]:
     """The tags of the repository this runs in."""
     return set(subprocess.run(['git', 'tag', '--list'], capture_output=True, text=True, check=True).stdout.split())
@@ -159,6 +190,10 @@ def main(argv: list[str]) -> int:
                 print(pending(text, _tags()) or '')
             case ['notes', version]:
                 sys.stdout.write(notes(text, version))
+            case ['entry', title, base]:
+                if (reason := missing_entry(title, text, Path(base).read_text())) is not None:
+                    raise ChangelogError(reason)
+                print('the changelog line is there, or this PR owes none')
             case _:
                 print(__doc__, file=sys.stderr)
                 return 2

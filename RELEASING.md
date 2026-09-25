@@ -13,7 +13,9 @@ commit, opens the GitHub release and publishes the package to PyPI.
 Each pull request adds one line under `## Upcoming version` at the top of
 `CHANGELOG.md`: its title and a link to it. A `feat`, `fix`, `perf`,
 `refactor`, `docs` or `revert` pull request adds a line. A `chore`, `test`,
-`ci`, `build` or `style` pull request adds none.
+`ci`, `build` or `style` pull request adds none. The `Changelog line` check
+fails a pull request that owes a line and adds none. The label `no changelog`
+opts it out, for a change no reader of the changelog needs to hear about.
 
 ```markdown
 ## Upcoming version
@@ -76,8 +78,9 @@ published.
 - **The `pypi` environment.** Create it under the repository's
   Settings → Environments, and add the people who may approve a release as
   required reviewers.
-- **Branch protection on `main`.** Require the `CI` and
-  `Conventional commit subject` checks.
+- **Branch protection on `main`.** Require the `CI`,
+  `Conventional commit subject` and `Changelog line` checks.
+- **The label `no changelog`.** Create it under Issues → Labels.
 
 ## What CI proves, and what it does not
 

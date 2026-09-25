@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from tools.changelog import LEGACY, PATH, ChangelogError, notes, order, pending, sections
+from tools.changelog import LEGACY, PATH, ChangelogError, missing_entry, notes, order, pending, sections
 
 PREAMBLE = '# Changelog\n\nProse the tool never reads.\n\n'
 HISTORY = '## [0.0.0-alpha.126](https://example.org/compare) (2026-09-25)\n\n* an old line\n'
@@ -116,3 +116,43 @@ def test_the_repository_changelog_releases_nothing_while_its_history_is_tagged()
     history = {f'v{m["version"]}' for s in sections(text) if (m := LEGACY.fullmatch(s.heading))}
     assert history, 'the release-please history is still in the file'
     assert pending(text, history) is None, 'a changelog with nothing new above its tagged history releases nothing'
+
+
+BASE = changelog('## Upcoming version\n\n- an earlier line\n\n')
+ADDED = changelog('## Upcoming version\n\n- an earlier line\n- this PR\n\n')
+
+
+@pytest.mark.parametrize(
+    ('title', 'text', 'owes'),
+    [
+        pytest.param('feat(language): a new thing', ADDED, False, id='a-feat-that-adds-its-line'),
+        pytest.param('feat(language): a new thing', BASE, True, id='a-feat-that-adds-none'),
+        pytest.param('fix: a bug', BASE, True, id='a-fix-that-adds-none'),
+        pytest.param('docs: a page', BASE, True, id='a-docs-pr-that-adds-none'),
+        pytest.param('revert: a change', BASE, True, id='a-revert-that-adds-none'),
+        pytest.param('chore: a tidy', BASE, False, id='a-chore-owes-none'),
+        pytest.param('ci: a workflow', BASE, False, id='a-ci-pr-owes-none'),
+        pytest.param('test: a case', BASE, False, id='a-test-pr-owes-none'),
+        pytest.param(
+            'feat: a new thing',
+            changelog('## Upcoming version\n\n- an earlier line, reworded\n\n'),
+            False,
+            id='a-reworded-line-counts',
+        ),
+        pytest.param(
+            'feat: a new thing',
+            changelog('## 0.1.0 (2026-10-01)\n\n- an earlier line\n- this PR\n\n'),
+            True,
+            id='a-line-outside-upcoming-does-not-count',
+        ),
+    ],
+)
+def test_a_pr_a_changelog_reader_wants_to_hear_about_adds_a_line(title, text, owes):
+    assert (missing_entry(title, text, BASE) is not None) == owes
+
+
+def test_a_pr_that_owes_a_line_is_told_the_way_out():
+    reason = missing_entry('feat: a new thing', BASE, BASE)
+    assert reason is not None
+    assert 'under "## Upcoming version"' in reason, 'the message says where the line goes'
+    assert 'the label "no changelog"' in reason, 'and how a PR that owes none says so'

@@ -92,7 +92,9 @@ docs: describe the two expression tiers
 A `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its title,
 with a link to the PR, under `## Upcoming version` in `CHANGELOG.md`. A
 `chore`, `test`, `ci`, `build` or `style` PR adds no line. The
-`Conventional commit subject` check enforces the format on every pull request.
+`Conventional commit subject` check enforces the format on every pull request,
+and the `Changelog line` check enforces the line. The label `no changelog`
+opts a PR out of the second.
 See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph
