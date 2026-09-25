@@ -14,7 +14,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 - docs: the site follows the reader's light or dark setting, and a page shows where it sits in the navigation ([#727](https://github.com/energy-models/mathspec/pull/727))
 - feat(language): a spec is composed from files that each state part of it, and patched with files that each change part of it ([#732](https://github.com/energy-models/mathspec/pull/732))
-- refactor(language): a term prints as the definition it is, and merge takes the fragments in name order once ([#738](https://github.com/energy-models/mathspec/pull/738))
+- refactor(language): a term prints as the definition it is, and one rule folds every reading ([#738](https://github.com/energy-models/mathspec/pull/738))
 - feat(language): two files that state the same spec write one text, and `canonical --check` fails a file that is not in it ([#731](https://github.com/energy-models/mathspec/pull/731))
 - fix(language): a merged spec's descriptions do not depend on the order the fragments are passed in, and a reader's fills one its owner left out ([#739](https://github.com/energy-models/mathspec/pull/739))
 
