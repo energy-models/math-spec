@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Power flow
 
-One of the [24 fragments](index.md) of `examples/pypsa.yaml`: Kirchhoff's voltage law around each cycle, which reads `Cycle_angle_sum`. It reads `Cycle_angle_sum` under [`given`](../../reference/language/declarations.md#given).
+One of the [24 fragments](index.md) of `examples/pypsa.yaml`: Kirchhoff's voltage law around each cycle. It declares `Cycle_angle_sum` as a sum with a frame and no body, which the lines and transformers add to.
 
 <!-- gallery:begin -->
 ```yaml
@@ -18,13 +18,12 @@ dimensions:
   cycle:
     description: independent cycles of the passive network graph — the cycle basis, data prep
 
-given:
-  expressions:
-    Cycle_angle_sum:
-      dims: [scenario, snapshot, cycle]
-      description: >-
-        the voltage angle differences around a cycle: every branch flow times
-        its cycle weight, and every transformer phase shift
+expressions:
+  Cycle_angle_sum:
+    dims: [scenario, snapshot, cycle]
+    description: >-
+      the voltage angle differences around a cycle: every branch flow times
+      its cycle weight, and every transformer phase shift
 
 constraints:
   Kirchhoff_Voltage_Law:
@@ -51,7 +50,7 @@ constraints:
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathit{Cycle\_angle\_sum}`$ | `Cycle_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$, an expression another file defines — the voltage angle differences around a cycle: every branch flow times its cycle weight, and every transformer phase shift |
+| $`\mathit{Cycle\_angle\_sum}`$ | `Cycle_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$, a sum other files add terms to — the voltage angle differences around a cycle: every branch flow times its cycle weight, and every transformer phase shift |
 
 #### Subject to
 

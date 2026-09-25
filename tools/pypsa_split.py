@@ -14,8 +14,9 @@ adds its share to, as the sum of named terms: `Bus_injection` is
 `Generator_injection + … + Transformer_injection`, and `Bus_nodal_balance`
 reads `Bus_injection == 0`. A fragment owns the declarations of its topic, its
 terms among them, and reads what another topic declares under `given:`; the
-entry for a hub names the fragment's term. One fragment reads each hub with its
-description, so a term always lands, and a new component is one new fragment.
+entry for a hub names the fragment's term. One fragment declares each hub,
+with its frame and its description and no body, so a term always lands, and a
+new component is one new fragment.
 
 `merge` then writes each hub as the file does, so `check` is one comparison:
 the merged fragments and the one file have one canonical form.
@@ -100,9 +101,9 @@ HUBS = (
     'transmission_expansion_cost',
 )
 
-#: The fragment that reads a hub with its description: the reader where a
-#: model without it is never wanted, so the terms land nowhere without it, and
-#: `settings` where the reader may go.
+#: The fragment that declares a hub, with its frame and description and no
+#: body: the reader where a model without it is never wanted, so the terms
+#: land nowhere without it, and `settings` where the reader may go.
 SUM_HOME = {'Bus_injection': 'network', 'Cycle_angle_sum': 'power_flow'}
 
 #: The component each topic that adds a term is named after.
@@ -237,7 +238,7 @@ class Model:
         return {name: e.dims for name, e in to_spec(self.data).program.expressions.items()}
 
     def home(self, name: str) -> str:
-        """The fragment that reads the hub *name* with its description."""
+        """The fragment that declares the hub *name*, with its frame and description and no body."""
         return SUM_HOME.get(name, 'settings')
 
 
@@ -267,12 +268,13 @@ def fragments(model: Model) -> dict[str, str]:
         read = set().union(
             *(model.names_in(model.data[s][n]) for s, n in mine), *map(model.names_in, terms[name]), homes_here, adds
         )
-        given = {model.key(n) for n in read if model.key(n)[0] not in FRAME and model.key(n) not in mine}
+        given = {model.key(n) for n in read - homes_here if model.key(n)[0] not in FRAME and model.key(n) not in mine}
         stated = {
             **{n: model.data[s][n]['dims'] for s, n in given if s in ('parameters', 'variables')},
             **{n: list(frames[n]) for s, n in given if s == 'expressions'},
         }
-        frame_reads = read | set().union(*(model.names_in(dims) for dims in stated.values()))
+        declared_frames = [*stated.values(), *(model.sums[hub]['dims'] for hub in homes_here)]
+        frame_reads = read | set().union(*(model.names_in(dims) for dims in declared_frames))
         frame = {model.key(n) for n in frame_reads if model.key(n)[0] in FRAME}
         frame |= {model.key(n) for key in list(frame) for n in model.names_in(model.data[key[0]][key[1]])}
         written[name] = _fragment(model, mine | frame, given, stated, terms[name], adds, homes_here)
@@ -320,14 +322,20 @@ def _fragment(
     adds: Mapping[str, str],
     homes: set[str],
 ) -> str:
-    """One fragment as YAML text, its sections and declarations in the order of the source file."""
+    """One fragment as YAML text, its sections and declarations in the order of the source file.
+
+    A hub the fragment is home to is written under ``expressions:`` with its
+    frame and description and no body: the sum the other fragments fill.
+    """
     parts = [HEADER]
     for section in SECTIONS:
         blocks = [model.blocks[key] for key in model.keys if key[0] == section and key in included]
+        if section == 'expressions':
+            blocks += [_dumped(hub, model.sums[hub]) for hub in HUBS if hub in homes]
         if blocks:
             parts.append(f'{section}:\n' + '\n'.join(blocks) + '\n')
         if section == 'variables' and given:
-            parts.append('given:\n' + ''.join(_given(model, kind, given, stated, adds, homes) for kind in GIVEN_KINDS))
+            parts.append('given:\n' + ''.join(_given(model, kind, given, stated, adds) for kind in GIVEN_KINDS))
     if terms:
         objective = model.data['objective']
         said = f'  description: >-\n    {objective["description"]}\n' if 'CVaR_omega' in ''.join(terms) else ''
@@ -341,23 +349,13 @@ def _fragment(
 GIVEN_KINDS = {'parameters': ('dtype',), 'variables': ('domain',), 'expressions': ()}
 
 
-def _given(
-    model: Model, kind: str, given: set[Key], stated: Mapping[str, list[str]], adds: Mapping[str, str], homes: set[str]
-) -> str:
-    """One kind of a fragment's `given:` block, an entry per line in source order: a term it adds, a hub's prose."""
+def _given(model: Model, kind: str, given: set[Key], stated: Mapping[str, list[str]], adds: Mapping[str, str]) -> str:
+    """One kind of a fragment's `given:` block, an entry per line in source order, a term it adds named on its entry."""
     names = [n for s, n in model.keys if s == kind and (s, n) in given]
     if not names:
         return ''
     lines = [f'  {kind}:']
     for n in names:
-        if kind == 'expressions' and n in homes:
-            entry = {
-                'dims': stated[n],
-                **({'term': adds[n]} if n in adds else {}),
-                'description': model.sums[n]['description'],
-            }
-            lines.append(_dumped(n, entry).replace('\n', '\n  ').replace(f'  {n}:', f'    {n}:', 1))
-            continue
         extra = {f: _entry(model.data[kind][n])[f] for f in GIVEN_KINDS[kind] if f in _entry(model.data[kind][n])}
         if kind == 'expressions' and n in adds:
             extra['term'] = adds[n]

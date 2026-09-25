@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Settings
 
-One of the [24 fragments](index.md) of `examples/pypsa.yaml`: the weightings, the risk preference and the flags every topic reads, and the readings of the totals whose readers may be left out. It reads `Carrier_additions`, `operational_limit`, `primary_energy`, `scenario_opex`, `tech_capacity_expansion`, `transmission_expansion_cost` and 1 more under [`given`](../../reference/language/declarations.md#given).
+One of the [24 fragments](index.md) of `examples/pypsa.yaml`: the weightings, the risk preference and the flags every topic reads. It declares the seven totals whose readers may be left out, `scenario_opex`, `Carrier_additions` and the five global-constraint sums, each with a frame and no body, for the components to add to.
 
 <!-- gallery:begin -->
 ```yaml
@@ -76,52 +76,6 @@ parameters:
     dims: [scenario, global_constraint, snapshot]
     dtype: bool
 
-given:
-  expressions:
-    primary_energy:
-      dims: [scenario, global_constraint]
-      description: >-
-        what a `primary_energy` row totals — weighted generator energy over the
-        snapshots it counts, less the charge left in weighted storage at the
-        close; the initial charge it is compared against is folded into the
-        row's constant
-    operational_limit:
-      dims: [scenario, global_constraint]
-      description: >-
-        what an `operational_limit` row totals — the weighted energy its
-        generators deliver over the snapshots it counts, plus what its
-        non-cyclic storage draws down; the initial charge it draws from is
-        folded into the row's constant
-    transmission_volume_expansion:
-      dims: [scenario, global_constraint]
-      description: >-
-        what a `transmission_volume_expansion_limit` row totals — length times
-        the chosen build of the row's branches
-    transmission_expansion_cost:
-      dims: [scenario, global_constraint]
-      description: >-
-        what a `transmission_expansion_cost_limit` row totals — capital cost
-        times the chosen build of the row's branches
-    tech_capacity_expansion:
-      dims: [global_constraint]
-      description: >-
-        what a `tech_capacity_expansion_limit` row totals — the chosen build of
-        the row's carrier-and-bus set
-    scenario_opex:
-      dims: [scenario]
-      description: >-
-        what a future costs to run — every operating term, weighted by the
-        snapshot's hours and its period, before the scenario's own weight; a
-        start and a stop cost what they cost, unweighted, as PyPSA adds them
-        (`optimize.py:414-429`)
-    Carrier_additions:
-      dims: [period, carrier]
-      description: >-
-        what a carrier adds in a period — every extendable component of that
-        carrier, counting each build in the first period it stands in. Like
-        PyPSA, it sums only the components that carry a carrier attribute, so a
-        transformer, which has none, counts in no carrier
-
 expressions:
   GlobalConstraint_energy_weight:
     description: >-
@@ -142,6 +96,49 @@ expressions:
         when: GlobalConstraint_counts_snapshot AND NOT shift(GlobalConstraint_counts_snapshot, along=snapshot, offset=-1)
         expression: 1
     otherwise: 0
+  scenario_opex:
+    dims: [scenario]
+    description: >-
+      what a future costs to run — every operating term, weighted by the
+      snapshot's hours and its period, before the scenario's own weight; a
+      start and a stop cost what they cost, unweighted, as PyPSA adds them
+      (`optimize.py:414-429`)
+  Carrier_additions:
+    dims: [period, carrier]
+    description: >-
+      what a carrier adds in a period — every extendable component of that
+      carrier, counting each build in the first period it stands in. Like
+      PyPSA, it sums only the components that carry a carrier attribute, so a
+      transformer, which has none, counts in no carrier
+  primary_energy:
+    dims: [scenario, global_constraint]
+    description: >-
+      what a `primary_energy` row totals — weighted generator energy over the
+      snapshots it counts, less the charge left in weighted storage at the
+      close; the initial charge it is compared against is folded into the
+      row's constant
+  operational_limit:
+    dims: [scenario, global_constraint]
+    description: >-
+      what an `operational_limit` row totals — the weighted energy its
+      generators deliver over the snapshots it counts, plus what its
+      non-cyclic storage draws down; the initial charge it draws from is
+      folded into the row's constant
+  tech_capacity_expansion:
+    dims: [global_constraint]
+    description: >-
+      what a `tech_capacity_expansion_limit` row totals — the chosen build of
+      the row's carrier-and-bus set
+  transmission_volume_expansion:
+    dims: [scenario, global_constraint]
+    description: >-
+      what a `transmission_volume_expansion_limit` row totals — length times
+      the chosen build of the row's branches
+  transmission_expansion_cost:
+    dims: [scenario, global_constraint]
+    description: >-
+      what a `transmission_expansion_cost_limit` row totals — capital cost
+      times the chosen build of the row's branches
 ```
 
 #### Sets
@@ -172,13 +169,13 @@ expressions:
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{G}`$, an expression another file defines — what a `primary_energy` row totals — weighted generator energy over the snapshots it counts, less the charge left in weighted storage at the close; the initial charge it is compared against is folded into the row's constant |
-| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{G}`$, an expression another file defines — what an `operational_limit` row totals — the weighted energy its generators deliver over the snapshots it counts, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
-| $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\Xi \times \mathcal{G}`$, an expression another file defines — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
-| $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\Xi \times \mathcal{G}`$, an expression another file defines — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
-| $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{G}`$, an expression another file defines — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
-| $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$, an expression another file defines — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight; a start and a stop cost what they cost, unweighted, as PyPSA adds them (`optimize.py:414-429`) |
-| $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$, an expression another file defines — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. Like PyPSA, it sums only the components that carry a carrier attribute, so a transformer, which has none, counts in no carrier |
+| $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$, a sum other files add terms to — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight; a start and a stop cost what they cost, unweighted, as PyPSA adds them (`optimize.py:414-429`) |
+| $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$, a sum other files add terms to — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. Like PyPSA, it sums only the components that carry a carrier attribute, so a transformer, which has none, counts in no carrier |
+| $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{G}`$, a sum other files add terms to — what a `primary_energy` row totals — weighted generator energy over the snapshots it counts, less the charge left in weighted storage at the close; the initial charge it is compared against is folded into the row's constant |
+| $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{G}`$, a sum other files add terms to — what an `operational_limit` row totals — the weighted energy its generators deliver over the snapshots it counts, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{G}`$, a sum other files add terms to — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
+| $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\Xi \times \mathcal{G}`$, a sum other files add terms to — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
+| $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\Xi \times \mathcal{G}`$, a sum other files add terms to — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
 
 #### Definitions
 

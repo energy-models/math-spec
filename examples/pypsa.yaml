@@ -2071,6 +2071,7 @@ expressions:
     expression: >-
       -sum(sum((Store_e * Store_closing_weight) * Store_primary_energy_weight, over=snapshot), over=store)
   primary_energy:
+    dims: [scenario, global_constraint]
     expression: Generator_primary_energy + StorageUnit_primary_energy + Store_primary_energy
     description: >-
       what a `primary_energy` row totals — weighted generator energy over the
@@ -2087,6 +2088,7 @@ expressions:
     expression: >-
       -sum(sum((Store_e * Store_closing_weight) * Store_operational_limit_weight, over=snapshot), over=store)
   operational_limit:
+    dims: [scenario, global_constraint]
     expression: >-
       Generator_operational_limit
       + StorageUnit_operational_limit
@@ -2101,6 +2103,7 @@ expressions:
   Link_transmission_volume_expansion:
     expression: sum(Link_p_nom_ext * Link_volume_weight, over=link)
   transmission_volume_expansion:
+    dims: [scenario, global_constraint]
     expression: Line_transmission_volume_expansion + Link_transmission_volume_expansion
     description: >-
       what a `transmission_volume_expansion_limit` row totals — length times
@@ -2110,6 +2113,7 @@ expressions:
   Link_transmission_expansion_cost:
     expression: sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
   transmission_expansion_cost:
+    dims: [scenario, global_constraint]
     expression: Line_transmission_expansion_cost + Link_transmission_expansion_cost
     description: >-
       what a `transmission_expansion_cost_limit` row totals — capital cost
@@ -2127,6 +2131,7 @@ expressions:
   Store_tech_capacity_expansion:
     expression: sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
   tech_capacity_expansion:
+    dims: [global_constraint]
     expression: >-
       Generator_tech_capacity_expansion
       + Line_tech_capacity_expansion
@@ -2176,6 +2181,7 @@ expressions:
       + sum(sum((((Store_p * Store_p) * Store_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
       + sum(sum(((Store_e * Store_marginal_cost_storage) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
   scenario_opex:
+    dims: [scenario]
     expression: >-
       Generator_opex
       + Generator_commitment_opex
@@ -2209,6 +2215,7 @@ expressions:
     expression: >-
       sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
   Carrier_additions:
+    dims: [period, carrier]
     expression: >-
       Generator_additions
       + Line_additions
@@ -2290,6 +2297,7 @@ expressions:
       - (0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus))
       - (0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus))
   Bus_injection:
+    dims: [scenario, snapshot, bus]
     expression: >-
       Generator_injection
       + Line_injection
@@ -2310,6 +2318,7 @@ expressions:
       + sum(Transformer_phase_shift_weight, over=transformer)
       + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer)
   Cycle_angle_sum:
+    dims: [scenario, snapshot, cycle]
     expression: Line_angle_sum + Transformer_angle_sum
     description: >-
       the voltage angle differences around a cycle: every branch flow times

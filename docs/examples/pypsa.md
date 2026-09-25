@@ -10024,6 +10024,7 @@ Store_primary_energy:
 
 ```yaml
 primary_energy:
+  dims: [scenario, global_constraint]
   expression: Generator_primary_energy + StorageUnit_primary_energy + Store_primary_energy
   description: >-
     what a `primary_energy` row totals — weighted generator energy over the
@@ -10076,6 +10077,7 @@ Store_operational_limit:
 
 ```yaml
 operational_limit:
+  dims: [scenario, global_constraint]
   expression: >-
     Generator_operational_limit
     + StorageUnit_operational_limit
@@ -10117,6 +10119,7 @@ Link_transmission_volume_expansion:
 
 ```yaml
 transmission_volume_expansion:
+  dims: [scenario, global_constraint]
   expression: Line_transmission_volume_expansion + Link_transmission_volume_expansion
   description: >-
     what a `transmission_volume_expansion_limit` row totals — length times
@@ -10153,6 +10156,7 @@ Link_transmission_expansion_cost:
 
 ```yaml
 transmission_expansion_cost:
+  dims: [scenario, global_constraint]
   expression: Line_transmission_expansion_cost + Link_transmission_expansion_cost
   description: >-
     what a `transmission_expansion_cost_limit` row totals — capital cost
@@ -10233,6 +10237,7 @@ Store_tech_capacity_expansion:
 
 ```yaml
 tech_capacity_expansion:
+  dims: [global_constraint]
   expression: >-
     Generator_tech_capacity_expansion
     + Line_tech_capacity_expansion
@@ -10363,6 +10368,7 @@ Store_opex:
 
 ```yaml
 scenario_opex:
+  dims: [scenario]
   expression: >-
     Generator_opex
     + Generator_commitment_opex
@@ -10459,6 +10465,7 @@ Store_additions:
 
 ```yaml
 Carrier_additions:
+  dims: [period, carrier]
   expression: >-
     Generator_additions
     + Line_additions
@@ -10665,6 +10672,7 @@ Transformer_injection:
 
 ```yaml
 Bus_injection:
+  dims: [scenario, snapshot, bus]
   expression: >-
     Generator_injection
     + Line_injection
@@ -10712,6 +10720,7 @@ Transformer_angle_sum:
 
 ```yaml
 Cycle_angle_sum:
+  dims: [scenario, snapshot, cycle]
   expression: Line_angle_sum + Transformer_angle_sum
   description: >-
     the voltage angle differences around a cycle: every branch flow times

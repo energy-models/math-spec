@@ -11,14 +11,13 @@ dimensions:
   bus:
     description: network nodes
 
-given:
-  expressions:
-    Bus_injection:
-      dims: [scenario, snapshot, bus]
-      description: >-
-        what every component puts into a bus, less what it takes out of it;
-        PyPSA writes each term into the balance, and a load on its right-hand
-        side
+expressions:
+  Bus_injection:
+    dims: [scenario, snapshot, bus]
+    description: >-
+      what every component puts into a bus, less what it takes out of it;
+      PyPSA writes each term into the balance, and a load on its right-hand
+      side
 
 constraints:
   Bus_nodal_balance:

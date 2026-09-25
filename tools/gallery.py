@@ -119,23 +119,24 @@ def fragment_block(path: Path, table_path: Path) -> str:
 
 
 def split_index_block() -> str:
-    """The PyPSA split's two tables: each sum with the fragment that reads it and the terms, and each fragment.
+    """The PyPSA split's two tables: each sum with the fragment that declares it and the terms, and each fragment.
 
-    Both are read off the fragments, so the index cannot name a term or a
-    reader the files no longer have.
+    Both are read off the fragments, so the index cannot name a term or an
+    owner the files no longer have.
     """
     specs = {path.stem: to_spec(path) for path in sorted(PYPSA.glob('*.yaml'))}
-    readers: dict[str, tuple[str, tuple[str, ...]]] = {}
+    owners: dict[str, tuple[str, tuple[str, ...]]] = {}
     terms: dict[str, dict[str, str]] = {}
     for name, spec in specs.items():
         for hub, entry in spec.given.expressions.items():
             if entry.term is not None:
                 terms.setdefault(hub, {})[name] = entry.term
-            elif entry.description:
-                readers[hub] = (name, tuple(entry.dims))
-    sums = ['| Sum | Over | Read in | The terms, by the fragment that adds each |', '| --- | --- | --- | --- |']
+        for hub, block in spec.expressions.items():
+            if block.expression is None and not block.cases:
+                owners[hub] = (name, tuple(block.dims or ()))
+    sums = ['| Sum | Over | Declared in | The terms, by the fragment that adds each |', '| --- | --- | --- | --- |']
     for hub, by_fragment in sorted(terms.items(), key=lambda item: -len(item[1])):
-        reader, dims = readers[hub]
+        reader, dims = owners[hub]
         cells = ', '.join(f'[`{term}`]({fragment}.md)' for fragment, term in sorted(by_fragment.items()))
         sums.append(f'| `{hub}` | `{", ".join(dims)}` | [{reader}]({reader}.md) | {cells} |')
     files = [
