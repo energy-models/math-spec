@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 """GitHub's verbatim inline math, as a Markdown extension the site enables.
 
-`math_spec.to_markdown` prints GitHub-flavoured Markdown, where inline math is
+`mathspec.to_markdown` prints GitHub-flavoured Markdown, where inline math is
 delimited ``$`…`$`` so that GitHub hands the span to MathJax untouched.
 Arithmatex has no syntax for it: python-markdown's own inline code processor
 claims the backtick span first. So the site rewrites the pair into the `$…$`

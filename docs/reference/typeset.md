@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 stands for, from the file alone. No data is attached, and no solver runs.
 
 ```python
-import math_spec as ms
+import mathspec as ms
 
 spec = ms.to_spec('model.yaml')  # read and checked once, then printed three ways
 
@@ -20,7 +20,7 @@ print(ms.to_markdown(spec))  # renders as-is on GitHub
 
 Each function takes a path, the YAML, a mapping, a `Spec` or a `Program`, and
 prints the program: the one a spec holds, or the one it was handed.
-From a shell, `python -m math_spec latex model.yaml` prints the same, and
+From a shell, `python -m mathspec latex model.yaml` prints the same, and
 `typst` or `markdown` in place of `latex` picks the format.
 
 [Print a model as math](../howto/print.md) is the recipe, and
@@ -46,7 +46,7 @@ a flag. The [Python API](api.md#typesetting) gives each signature.
 - The model's `description:` opens the document.
 - A `piecewise:` block prints as one line: the curve it states, over the frame
   it states one curve per coordinate of. To print its rows, print
-  [`spec.expand()`](api.md#math_spec.Spec.expand) or pass `--expand`
+  [`spec.expand()`](api.md#mathspec.Spec.expand) or pass `--expand`
   ([see an expansion](../howto/see-an-expansion.md)).
 - An [`assumptions:`](language/assumptions.md) entry prints under an
   **Assumptions** heading, last, beside what each curve assumes of its

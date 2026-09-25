@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,15 +10,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import LanguageError, SchemaError, typeset_declaration
+from mathspec import LanguageError, SchemaError, typeset_declaration
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
 from tests.typesetting.fixtures import EVERY_FORMAT
 from tests.typesetting.test_cases import CASED
 
 if TYPE_CHECKING:
-    from math_spec.typesetting import FormatName
-    from math_spec.typesetting.format import Format
+    from mathspec.typesetting import FormatName
+    from mathspec.typesetting.format import Format
 
 #: A variable-carrying reduction, a scalar reduction, a data-only body, and a
 #: constraint reading the first — the shapes a line has to read.

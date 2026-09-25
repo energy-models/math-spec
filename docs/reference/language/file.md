@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -46,8 +46,8 @@ version: 0
 A version this release does not know is a load error:
 
 ```text
-model declares version 1, and math_spec 0.0.1a75 understands [0].
-Upgrade math_spec, or write the version this file actually targets.
+model declares version 1, and mathspec 0.0.1a75 understands [0].
+Upgrade mathspec, or write the version this file actually targets.
 ```
 
 ## Unknown keys

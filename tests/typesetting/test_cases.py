@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import to_latex, to_spec, typeset
-from math_spec.typesetting.symbols import chosen_expressions
+from mathspec import to_latex, to_spec, typeset
+from mathspec.typesetting.symbols import chosen_expressions
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
 from tests.typesetting.fixtures import EVERY_FORMAT
 
 if TYPE_CHECKING:
-    from math_spec.typesetting import FormatName
-    from math_spec.typesetting.format import Format
+    from mathspec.typesetting import FormatName
+    from mathspec.typesetting.format import Format
 
 #: One region and the fallback. `opening` is a column and `otherwise` a scalar,
 #: so the cases alone would not give a quantity its shape — the `dims` does.

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec.model import PIECEWISE_METHODS
+from mathspec.model import PIECEWISE_METHODS
 from tools import expansion_math, gallery, home_math, notation, spec_math
 
 if TYPE_CHECKING:
@@ -126,7 +126,7 @@ def test_the_published_grammar_spells_a_name_the_way_the_code_reads_one():
     what the language accepts is the drift this asks about; it went unnoticed
     because nothing compared the two.
     """
-    from math_spec._expression_parser import NAME
+    from mathspec._expression_parser import NAME
 
     page = (ROOT / 'docs' / 'reference' / 'language' / 'expressions.md').read_text()
     published = re.search(r'^NAME\s*::=\s*(.+)$', page, re.MULTILINE)
@@ -261,11 +261,11 @@ def test_every_page_under_docs_has_a_nav_entry():
     )
 
 
-#: The API pages, by the module each renders. `math_spec.typesetting` has no
-#: page of its own: `math_spec` re-exports what a consumer calls from it.
+#: The API pages, by the module each renders. `mathspec.typesetting` has no
+#: page of its own: `mathspec` re-exports what a consumer calls from it.
 API_PAGES = {
-    'math_spec': Path('docs') / 'reference' / 'api.md',
-    'math_spec.program': Path('docs') / 'reference' / 'program.md',
+    'mathspec': Path('docs') / 'reference' / 'api.md',
+    'mathspec.program': Path('docs') / 'reference' / 'program.md',
 }
 
 
@@ -291,9 +291,9 @@ def test_the_api_pages_render_the_public_surface_and_nothing_else():
 
 
 def test_every_name_the_package_exports_has_an_entry_on_an_api_page():
-    """A name joins `math_spec.__all__` and the Python API page together."""
-    import math_spec
+    """A name joins `mathspec.__all__` and the Python API page together."""
+    import mathspec
 
     rendered = {target for page in API_PAGES.values() for target in _targets(ROOT / page)}
-    missing = sorted(name for name in math_spec.__all__ if f'math_spec.{name}' not in rendered)
-    assert missing == [], f'names in math_spec.__all__ with no ::: entry on an API page: {missing}'
+    missing = sorted(name for name in mathspec.__all__ if f'mathspec.{name}' not in rendered)
+    assert missing == [], f'names in mathspec.__all__ with no ::: entry on an API page: {missing}'

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -54,7 +54,7 @@ jobs:
 
   release:
     name: Publish package
-    # Off, and not by a variable. `math-spec` is not registered on PyPI and
+    # Off, and not by a variable. `mathspec` is not registered on PyPI and
     # nothing here should reach it yet; the previous condition was the tag alone,
     # so any tag would have attempted an upload and failed on a missing trusted
     # publisher. A repository variable would have been the wrong switch — anyone

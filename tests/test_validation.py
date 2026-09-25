@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -12,16 +12,16 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from math_spec._yaml import parse_yaml
-from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.program import DimensionPosition
-from math_spec.resolution import Namespace
-from math_spec.typesetting import to_markdown
-from math_spec.validation import to_spec
+from mathspec._yaml import parse_yaml
+from mathspec.errors import DimensionError, LanguageError, SchemaError
+from mathspec.program import DimensionPosition
+from mathspec.resolution import Namespace
+from mathspec.typesetting import to_markdown
+from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
+    from mathspec.model import Spec
 
 
 def _schema(**patch) -> Spec:
@@ -529,7 +529,7 @@ class TestVersion:
         message = _refusal(version=1)
         assert 'declares version 1' in message
         assert 'understands [0]' in message, 'the error has to say what this reader can read'
-        assert 'Upgrade math_spec' in message, 'and what to do about it'
+        assert 'Upgrade mathspec' in message, 'and what to do about it'
 
     def test_the_version_gates_no_behaviour(self):
         """Two files differing only in a declared supported version build the same model."""
@@ -2122,7 +2122,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     program lowering built now. A curve's links were resolved again for its
     rules at load and again when printed.
     """
-    from math_spec import lowering, resolution
+    from mathspec import lowering, resolution
 
     seen: list[tuple[str, str]] = []
 

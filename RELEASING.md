@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -144,7 +144,7 @@ key.
 That convenience has two costs. The first is blast radius: one key can write
 contents and pull requests anywhere in the organisation. The second is that a
 _repository_ secret of the same name silently wins over the organisation one. So
-do not set these secrets on `math-spec` as well. You would then have two copies
+do not set these secrets on `mathspec` as well. You would then have two copies
 to rotate, and only one of them would be in use.
 
 **"Allow auto-merge" on the repository.** The temporary alpha step requires
@@ -159,8 +159,8 @@ the ordering note above. The `main` ruleset already exists with everything
 except the checks, so this command adds them to it:
 
 ```bash
-ID=$(gh api repos/energy-models/math-spec/rulesets --jq '.[]|select(.name=="main")|.id')
-gh api "repos/energy-models/math-spec/rulesets/$ID" --jq '.rules' | python3 -c '
+ID=$(gh api repos/energy-models/mathspec/rulesets --jq '.[]|select(.name=="main")|.id')
+gh api "repos/energy-models/mathspec/rulesets/$ID" --jq '.rules' | python3 -c '
 import json, sys
 rules = json.load(sys.stdin)
 rules.append({"type": "required_status_checks", "parameters": {
@@ -171,7 +171,7 @@ rules.append({"type": "required_status_checks", "parameters": {
     "strict_required_status_checks_policy": False,
     "do_not_enforce_on_create": False}})
 json.dump({"rules": rules}, sys.stdout)' > /tmp/ruleset.json
-gh api -X PATCH "repos/energy-models/math-spec/rulesets/$ID" --input /tmp/ruleset.json
+gh api -X PATCH "repos/energy-models/mathspec/rulesets/$ID" --input /tmp/ruleset.json
 ```
 
 Note that `15368` is the app id of GitHub Actions. It makes each context
@@ -179,7 +179,7 @@ resolve to a workflow in this repository, rather than to any check that happens
 to share the name.
 
 **PyPI.** The publish job in `build.yml` is `if: false`. To enable publishing,
-register `math-spec` on PyPI, configure a trusted publisher that points at
+register `mathspec` on PyPI, configure a trusted publisher that points at
 `build.yml` and the `pypi` environment, then restore the tag condition,
 `startsWith(github.ref, 'refs/tags/')`, in the same pull request that explains
 why.

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -9,8 +9,8 @@ pixi run python -m tests.typesetting.golden
 
 from __future__ import annotations
 
-from math_spec import to_spec
-from math_spec.typesetting import FORMATS, typeset
+from mathspec import to_spec
+from mathspec.typesetting import FORMATS, typeset
 from tests.typesetting.golden import MODEL, path_for
 
 

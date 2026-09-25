@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -83,7 +83,7 @@ the recipe needs no second model file.
 
    `otherwise:` takes every coordinate the cases leave.
 
-4. **Check it** with `python -m math_spec check model.yaml`. A pair of masks
+4. **Check it** with `python -m mathspec check model.yaml`. A pair of masks
    that can both hold, or a case with no `otherwise:`, is refused there with
    the rewrite named.
 

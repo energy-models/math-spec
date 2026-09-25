@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 name: Feature Request
-description: Suggest an idea for math-spec.
+description: Suggest an idea for mathspec.
 labels: [enhancement]
 body:
   - type: markdown
@@ -15,14 +15,14 @@ body:
     attributes:
       label: What can be improved?
       placeholder: Tell us what you would like to see!
-      value: "math-spec should be more memory efficient!"
+      value: "mathspec should be more memory efficient!"
     validations:
       required: true
   - type: textarea
     id: version
     attributes:
       label: Version
-      description: What version of math_spec are you using?
+      description: What version of mathspec are you using?
       placeholder: v0.0.1
     validations:
       required: true

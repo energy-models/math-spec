@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-import math_spec.program as program_module
-from math_spec._expression_parser import (
+import mathspec.program as program_module
+from mathspec._expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
     FunctionCallNode,
@@ -28,13 +28,13 @@ from math_spec._expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from math_spec._where_parser import (
+from mathspec._where_parser import (
     ColumnNode,
     UnresolvedComparisonNode,
     parse_where,
 )
-from math_spec.errors import SchemaError
-from math_spec.program import (
+from mathspec.errors import SchemaError
+from mathspec.program import (
     And,
     BooleanLiteral,
     Not,
@@ -44,7 +44,7 @@ from math_spec.program import (
 
 
 def test_the_grammar_builds_the_program_s_own_node_classes():
-    """The connectives and literals in a parse are `math_spec.program`'s classes.
+    """The connectives and literals in a parse are `mathspec.program`'s classes.
 
     The parser constructs the resolved vocabulary's connectives directly, so a
     consumer's `isinstance` against the program's classes holds on any tree —
@@ -464,7 +464,7 @@ def test_a_tree_too_deep_to_walk_is_refused_with_its_rewrite(text, parse, rewrit
 
 def test_the_depth_the_repository_writes_is_nowhere_near_the_limit():
     """The cap is only a cap if it is far above what a model says; 100 is chosen against a deepest-in-tree of 18."""
-    from math_spec._expression_parser import MAX_DEPTH, children, depth
+    from mathspec._expression_parser import MAX_DEPTH, children, depth
 
     written = parse_expression('sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)')
     assert depth(written, children) < MAX_DEPTH // 4, 'a real expression sits well inside the limit'

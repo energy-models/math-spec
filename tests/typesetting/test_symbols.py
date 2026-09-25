@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,16 +10,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec.errors import SchemaError
-from math_spec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
-from math_spec.validation import to_spec
+from mathspec.errors import SchemaError
+from mathspec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
+from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
-    from math_spec.typesetting import FormatName
-    from math_spec.typesetting.format import Format
+    from mathspec.model import Spec
+    from mathspec.typesetting import FormatName
+    from mathspec.typesetting.format import Format
 
 
 WITH_MARGINAL_COST = override(

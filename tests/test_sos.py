@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec.errors import SchemaError
+from mathspec.errors import SchemaError
 from tests.fixtures import SMALL_MODEL, expanded, override, schema_of
 
 #: A set over a bounded member, which is the smallest model `expand('sos')` acts on.

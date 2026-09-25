@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,18 +11,18 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from math_spec.errors import LanguageError
-from math_spec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
-from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import _derive_name_symbol, chosen_expressions, symbols_for
-from math_spec.validation import to_spec
+from mathspec.errors import LanguageError
+from mathspec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, typeset, typeset_declaration
+from mathspec.typesetting.format import OPERATOR_NAMES
+from mathspec.typesetting.symbols import _derive_name_symbol, chosen_expressions, symbols_for
+from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, override
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
 
 if TYPE_CHECKING:
-    from math_spec.typesetting import FormatName
-    from math_spec.typesetting.format import Format
+    from mathspec.typesetting import FormatName
+    from mathspec.typesetting.format import Format
 
 
 @EVERY_FORMAT

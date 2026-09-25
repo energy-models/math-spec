@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import piecewise, to_spec
+from mathspec import piecewise, to_spec
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, schema_of
 from tests.test_sos import CURVE
 from tools.render_tex import models
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
+    from mathspec.model import Spec
 
 #: The curve masked by one of its own values parameters, the one block whose
 #: rows sit on more than the file's own names.

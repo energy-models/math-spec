@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,15 +10,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
-from math_spec.errors import SchemaError
-from math_spec.program import Mask, RelationPairComparison
-from math_spec.resolution import Namespace
-from math_spec.validation import to_spec
+from mathspec.dimensions import DimensionError, _check_where_dims, dims_of
+from mathspec.errors import SchemaError
+from mathspec.program import Mask, RelationPairComparison
+from mathspec.resolution import Namespace
+from mathspec.validation import to_spec
 from tests.fixtures import expression_of, override, schema_of, where_of
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
+    from mathspec.model import Spec
 
 #: `fixtures.DISPATCH_MODEL` plus buses: a dim rule is mostly about an
 #: expression carrying a dim its frame does not, which needs three dims to

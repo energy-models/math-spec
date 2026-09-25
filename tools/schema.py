@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 """The checked-in JSON Schema for the YAML surface.
 
-    pixi run python -m tools.schema   # rewrite schema/math-spec.schema.json
+    pixi run python -m tools.schema   # rewrite schema/mathspec.schema.json
 
 The document is ``Spec.model_json_schema()`` — the shape pydantic validates,
 nothing more: ``expression:`` and ``where:`` are strings to it, so their
@@ -21,9 +21,9 @@ import math
 from pathlib import Path
 from typing import Any
 
-from math_spec import Spec
+from mathspec import Spec
 
-PATH = Path(__file__).resolve().parent.parent / 'schema' / 'math-spec.schema.json'
+PATH = Path(__file__).resolve().parent.parent / 'schema' / 'mathspec.schema.json'
 DIALECT = 'https://json-schema.org/draft/2020-12/schema'
 
 

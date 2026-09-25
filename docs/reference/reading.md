@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -68,7 +68,7 @@ objective:
 ```
 
 ```python
-from math_spec import to_spec
+from mathspec import to_spec
 
 spec = to_spec('curve.yaml')
 program = spec.program
@@ -89,7 +89,7 @@ is one the file declared.
 ## Formulations written out
 
 A program holds each curve and each set as one declaration until
-[`Spec.expand()`](api.md#math_spec.Spec.expand) writes it out. An engine that
+[`Spec.expand()`](api.md#mathspec.Spec.expand) writes it out. An engine that
 builds rows reads the program of `spec.expand('piecewise')` if it takes a set,
 and the program of `spec.expand()` if it does not. The program of an expansion
 holds no curve:
@@ -108,7 +108,7 @@ masks, and the `description` a refusal ends with. `assumption_message` returns
 the message for an assumption the data does not meet:
 
 ```python
-from math_spec.program import Assumption, assumption_message
+from mathspec.program import Assumption, assumption_message
 
 sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_complete', 'curve_curvature', 'curve_increasing']
 isinstance(program.assumptions['curve_increasing'], Assumption)  # True
@@ -120,7 +120,7 @@ written  # "assumption 'cost_is_never_negative' does not hold for the data attac
 
 ## Nodes and masks
 
-The node classes live in `math_spec.program`, for `isinstance` tests and field
+The node classes live in `mathspec.program`, for `isinstance` tests and field
 reads. `children()` walks an expression
 node's operands, and `where_children()` walks a predicate's. `walk()` yields
 every node under an expression, parents first. `walk_regions()` yields each node

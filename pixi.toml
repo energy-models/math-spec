@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 [workspace]
-name = "math-spec"
+name = "mathspec"
 channels = ["conda-forge"]
 # No `exclude-newer`. A rolling supply-chain delay and `preview =
 # ["pixi-build"]` cannot both hold: the build backend this workspace needs is
@@ -17,7 +17,7 @@ platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 preview = ["pixi-build"]
 
 [package]
-name = "math-spec"
+name = "math-spec" # the name pixi.lock records; it changes with the next relock
 # The version of the *local development install* only. pyproject.toml has
 # `dynamic = ["version"]`, and pixi needs a literal here to name the package it
 # is about to build. Nothing ships from this: the wheel a tag publishes comes
@@ -71,7 +71,7 @@ types-pyyaml = ">=6.0"
 typst = ">=0.15.0"
 [feature.test.tasks]
 test = "pytest -q -n auto"
-test-coverage = "pytest --cov=math_spec --cov-report=xml --cov-report=term-missing"
+test-coverage = "pytest --cov=mathspec --cov-report=xml --cov-report=term-missing"
 typecheck = "pyrefly check"
 # Half the render gate: every model to standalone LaTeX. `compile-tex` in the
 # tex feature is the half that proves the LaTeX is real.

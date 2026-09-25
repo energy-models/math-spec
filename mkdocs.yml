@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
-site_name: "math-spec"
+site_name: "mathspec"
 site_description: The language an optimisation model is written in — YAML math, checked before any data is bound, and printable as the math it means
 site_url: https://math-spec.readthedocs.io/en/latest/
-repo_url: https://github.com/energy-models/math-spec
-repo_name: energy-models/math-spec
+repo_url: https://github.com/energy-models/mathspec
+repo_name: energy-models/mathspec
 edit_uri: edit/main/docs/
 strict: true
 
@@ -69,12 +69,12 @@ nav:
       - Changelog: changelog.md
   # Everything a model writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a
-  # renderer, a checker), whoever changes math-spec itself, and the proofs of
+  # renderer, a checker), whoever changes mathspec itself, and the proofs of
   # concept: the notation page, which renders the typesetting test model, and
   # the PyPSA pages. The PyPSA pages stay in `docs/examples/`, where
   # `tools/gallery.py` writes them.
   - Development:
-      - Building on math-spec:
+      - Building on mathspec:
           - Reading a spec and its program: reference/reading.md
           - Program API: reference/program.md
           - What counts as language: about/what-counts-as-language.md
@@ -138,9 +138,9 @@ theme:
 # visible to a reader of the site, not only to a reader of the repository.
 copyright: >
   The documentation is licensed
-  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSES/CC-BY-4.0.txt">CC-BY-4.0</a>;
+  <a href="https://github.com/energy-models/mathspec/blob/main/LICENSES/CC-BY-4.0.txt">CC-BY-4.0</a>;
   the code is
-  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSE">MIT</a>.
+  <a href="https://github.com/energy-models/mathspec/blob/main/LICENSE">MIT</a>.
 site_dir: .docs
 markdown_extensions:
   - admonition
@@ -219,7 +219,7 @@ plugins:
             show_signature_annotations: false
           paths: [src]
 watch:
-  - src/math_spec
+  - src/mathspec
   - README.md
   - CHANGELOG.md
 extra_css:
@@ -230,8 +230,8 @@ extra_javascript:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/energy-models/math-spec
-      name: math-spec on GitHub
+      link: https://github.com/energy-models/mathspec
+      name: mathspec on GitHub
     - icon: simple/pypi
-      link: https://pypi.org/project/math-spec/
-      name: math-spec on PyPI
+      link: https://pypi.org/project/mathspec/
+      name: mathspec on PyPI

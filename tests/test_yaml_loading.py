@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,10 +11,10 @@ import importlib
 import pytest
 import yaml
 
-import math_spec._yaml as _yaml_module
-from math_spec._yaml import read_yaml
-from math_spec.errors import SchemaError
-from math_spec.validation import to_spec
+import mathspec._yaml as _yaml_module
+from mathspec._yaml import read_yaml
+from mathspec.errors import SchemaError
+from mathspec.validation import to_spec
 from tests.fixtures import raw_of
 
 MODEL = """dimensions:

@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --script
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 

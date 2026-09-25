@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,10 +11,10 @@ from functools import partial
 
 import pytest
 
-from math_spec.errors import LanguageError
-from math_spec.expansion import parse_and_expand
-from math_spec.program import Multiply, Named, Parameter, Sum, Translate, Variable
-from math_spec.resolution import Namespace
+from mathspec.errors import LanguageError
+from mathspec.expansion import parse_and_expand
+from mathspec.program import Multiply, Named, Parameter, Sum, Translate, Variable
+from mathspec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
 
 WEIGHTED_SUM = {
@@ -371,7 +371,7 @@ def test_a_call_binding_the_dimension_a_partition_steps_along_builds_it():
 
 def test_a_named_expression_is_resolved_once_however_many_uses(monkeypatch):
     """Every use parsed, expanded and resolved the entry again, and a cased one's arms with it."""
-    from math_spec import resolution
+    from mathspec import resolution
 
     resolved: list[str] = []
     named = resolution._named

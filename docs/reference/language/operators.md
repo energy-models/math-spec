@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -197,7 +197,7 @@ The sign travels in the values: `offset=-lead` is refused.
 ## Every operator as math
 
 Each row is generated from one model in
-[`examples/operators/`](https://github.com/energy-models/math-spec/tree/main/examples/operators),
+[`examples/operators/`](https://github.com/energy-models/mathspec/tree/main/examples/operators),
 printed by the [typesetter](../typeset.md). The models themselves are on
 [One construct per model](../../examples/operators.md).
 
