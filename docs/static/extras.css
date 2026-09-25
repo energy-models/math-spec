@@ -308,6 +308,63 @@
   margin-left: 0.5rem;
 }
 
+/* Benefit cards: the README bullet's bold lead-in is the card's title, and its
+ * one link covers the whole card, since the README cannot carry card markup. */
+.md-typeset .landing .grid.cards > ul > li {
+  position: relative;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .landing .grid.cards > ul > li > strong:first-child {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--md-default-fg-color);
+  font-size: 0.9rem;
+}
+
+.md-typeset .landing .grid.cards > ul > li > a:last-child {
+  display: block;
+  margin-top: 0.6rem;
+  font-weight: 700;
+}
+
+.md-typeset .landing .grid.cards > ul > li > a:last-child::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* A card's icon is chosen by where its link points, so reordering the README
+ * list cannot move an icon onto another card. */
+.md-typeset .landing .grid.cards > ul > li::before {
+  display: block;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-bottom: 0.6rem;
+  background-color: var(--md-accent-fg-color);
+  mask: center / contain no-repeat;
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/reference/language/errors/"])::before {
+  content: "";
+  mask-image: url("icons/checklist.svg");
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/reference/typeset/"])::before {
+  content: "";
+  mask-image: url("icons/sigma.svg");
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/reference/program/"])::before {
+  content: "";
+  mask-image: url("icons/puzzle.svg");
+}
+
+.md-typeset .landing .grid.cards > ul > li:has(> a[href$="/examples/pypsa/"])::before {
+  content: "";
+  mask-image: url("icons/transmission-tower.svg");
+}
+
 /* Grid card hover lift — small polish */
 .md-typeset .grid.cards > ul > li,
 .md-typeset .grid > .card {
