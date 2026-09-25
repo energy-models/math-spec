@@ -179,9 +179,9 @@ ms.to_latex(spec)
 ms.to_typst(spec)
 ```
 
-A [symbol table](docs/reference/typeset.md#symbol-tables) gives the names their
+A [symbol table](https://mathspec.readthedocs.io/en/latest/reference/typeset/#symbol-tables) gives the names their
 conventional spelling, as in the folded block.
-[Print a model as math](docs/howto/print.md) does the same from a shell.
+[Print a model as math](https://mathspec.readthedocs.io/en/latest/howto/print/) does the same from a shell.
 
 ## Documentation
 
@@ -189,8 +189,8 @@ The documentation is at <https://mathspec.readthedocs.io>.
 
 ## Installation
 
-See [installation](docs/howto/installation.md). To work on mathspec, see
-[contributing](docs/contributing.md#setting-up-a-development-environment).
+See [installation](https://mathspec.readthedocs.io/en/latest/howto/installation/). To work on mathspec, see
+[contributing](https://mathspec.readthedocs.io/en/latest/contributing/#setting-up-a-development-environment).
 
 ## Prior art
 
@@ -218,5 +218,5 @@ not yet frozen.
 
 ## Licence
 
-The code is [MIT](LICENSE), and the prose is
-[CC-BY-4.0](LICENSES/CC-BY-4.0.txt).
+The code is [MIT](https://github.com/energy-models/mathspec/blob/main/LICENSE), and the prose is
+[CC-BY-4.0](https://github.com/energy-models/mathspec/blob/main/LICENSES/CC-BY-4.0.txt).
