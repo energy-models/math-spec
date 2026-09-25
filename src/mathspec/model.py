@@ -463,7 +463,7 @@ class ExpressionBlock(_StrictBlock):
     cases: Annotated[dict[str, ExpressionCase], Field(min_length=1)] = {}
     #: The value wherever no case's ``when`` holds, printed as the last row.
     otherwise: Expression | None = None
-    #: One share of a sum: :func:`~math_spec.composition.merge` adds the shares
+    #: One share of a sum: :func:`~mathspec.composition.merge` adds the shares
     #: every fragment defines under this name.
     additive: bool = False
     description: str | None = None
