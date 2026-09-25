@@ -59,7 +59,7 @@ The data for `gen_bus` arrives under the key `gen_bus`, as a table with one
 column per declared column, named after it.
 
 - **One row per key tuple.** A generator on two buses is refused when the data
-  binds.
+  is attached.
 - **Every value is a label of its dimension.** A value that matches none is
   refused.
 - **A partial map is the rows it has.** A generator in no row sits on no bus,

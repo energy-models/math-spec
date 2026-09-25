@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What `to_spec` refuses with no data bound, and how it says so."""
+"""What `to_spec` refuses with no data attached, and how it says so."""
 
 from __future__ import annotations
 
@@ -602,7 +602,7 @@ class TestAWhereSideIsReadInResolution:
     """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be.
 
     A ``position()`` call is held to its shape, a literal is the expression grammar's, and
-    everything else on a side is a comparison of expressions, decided with no data bound.
+    everything else on a side is a comparison of expressions, decided with no data attached.
     """
 
     @pytest.mark.parametrize(
@@ -997,22 +997,22 @@ class TestAPredicateIsAnOperand:
         assert 'translation' not in str(caught.value)
 
     def test_a_read_lands_on_the_dims_it_produces_and_reads_the_relation(self):
-        """The mask is over what the relation maps onto, and a consumer binds the relation as well as the operand."""
+        """The mask is over what the relation maps onto, and a consumer attaches the relation as well as the operand."""
         mask = where_of("at(h == 'north', by=lk, over=h, into=g)", Namespace(_schema()), 'probe')
         assert mask is not None
         assert sorted(mask.dims) == ['g'], "'h' is read at lk(g), so g is all the mask is over"
-        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer binds, the label is not'
+        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer attaches, the label is not'
 
     def test_a_count_reduces_the_dim_it_counts_along_away(self):
         """The count is one number per remaining coordinate, so a claim about each group needs no word for the group."""
         mask = where_of('count(q, over=h) >= 2', Namespace(_schema()), 'probe')
         assert mask is not None
         assert sorted(mask.dims) == ['g'], "'q' is read over g and h, and h is counted away"
-        assert mask.names_read == frozenset({'q'}), 'a consumer binds what the counted predicate reads'
+        assert mask.names_read == frozenset({'q'}), 'a consumer attaches what the counted predicate reads'
 
 
 class TestRulesDecidedWithoutData:
-    """Every refusal the schema or the resolver makes with no data bound, one row each."""
+    """Every refusal the schema or the resolver makes with no data attached, one row each."""
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -1602,7 +1602,7 @@ class TestAssumptions:
     Everything here is about the data, so nothing in it is decided at load but
     the shape of the predicate: the entry is refused where the connectives
     already settle it, and where it names a variable, which is what the solver
-    decides rather than what the caller binds.
+    decides rather than what the caller attaches.
     """
 
     @pytest.mark.parametrize(
@@ -1864,7 +1864,7 @@ class TestExpressionCases:
             to_spec(_cased(cases))
 
     def test_two_cases_may_not_claim_one_coordinate(self):
-        """Proved before any data binds, so the arms are read apart rather than in order."""
+        """Proved before any data is attached, so the arms are read apart rather than in order."""
         cases = {
             'gas': {'when': "generator == 'gas'", 'expression': 'p_max'},
             'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max * 2'},

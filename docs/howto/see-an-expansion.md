@@ -246,7 +246,7 @@ the set out too.
             description: >-
               piecewise 'curve': every breakpoint the curve runs through needs a row in
               'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
-              curve, so it sits the curve on the origin. Bind the rows, or declare
+              curve, so it sits the curve on the origin. Attach the rows, or declare
               points: to say how far the curve runs.
         ```
 
@@ -353,7 +353,7 @@ the set out too.
             description: >-
               piecewise 'curve': every breakpoint the curve runs through needs a row in
               'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
-              curve, so it sits the curve on the origin. Bind the rows, or declare
+              curve, so it sits the curve on the origin. Attach the rows, or declare
               points: to say how far the curve runs.
         ```
 

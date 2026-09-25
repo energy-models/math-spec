@@ -27,7 +27,7 @@ costs to add.
   a primitive to build, but composes as freely as a macro. It emits variables,
   constraints and assumptions, and no parameter, so
   [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
-  writes it out with the data the model already binds.
+  writes it out with the data the model already attaches.
 
 A request that is none of the three is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
@@ -79,14 +79,14 @@ same inside a model. One sentence tells them apart:
 
 A cycle basis is the first kind. It needs the network's topology, which only the
 data has, so `cycle_incidence` arrives as a parameter. A minimum up time is the
-second kind. `min_up_time` is a column the model already binds, so
+second kind. `min_up_time` is a column the model already attaches, so
 `sum_back(window=min_up_time)` reads the width off the column and you ship no
 window mask.
 
 Checking a column is neither. `p_min <= p_max` is a rule two consumers must not
 answer differently, so the rule is
 [language](../reference/language/assumptions.md) and the check is the
-consumer's. The file states the predicate, and whoever binds the numbers runs
+consumer's. The file states the predicate, and whoever attaches the numbers runs
 it.
 
 ## Deliberate non-primitives

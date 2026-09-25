@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""`Spec.expand`: what it takes, what comes back, and what still binds it.
+"""`Spec.expand`: what it takes, what comes back, and what data still attaches to it.
 
 The kinds are a closed pair and the result is a plain `Spec`, so the claims here
 are about the verb rather than about either formulation — those are in
@@ -122,7 +122,7 @@ def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
     schema = schema_of(MASKED)
     expanded = schema.expand()
 
-    assert expanded.parameters == schema.parameters, 'a curve emits no parameter, so the same data binds both'
+    assert expanded.parameters == schema.parameters, 'a curve emits no parameter, so the same data attaches to both'
     assert schema_of(expanded.to_yaml()).to_dict() == expanded.to_dict(), (
         'the expansion is a file like any other, and loading it back changes nothing'
     )

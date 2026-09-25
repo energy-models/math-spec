@@ -23,12 +23,14 @@ every operator a node.
 : What `to_spec` does. "Refused at load" means `to_spec` raises, before any
 data exists.
 
-**Bind**
+**Attach**
 : What a consumer does when it puts data on a program. A rule about numbers can
-be checked only then, and the language checks none itself.
+be checked only then, and the language checks none itself. The docs never say
+"bind" for it, so that **bound** means one thing: a lower or upper limit on a
+variable ([variables](language/declarations.md#variables)).
 
 **Consumer**
-: A tool that reads a spec: an **engine** that binds data and builds the rows a
+: A tool that reads a spec: an **engine** that attaches data and builds the rows a
 solver takes, a **renderer** such as the typesetter, or a **checker**
 ([what counts as language](../about/what-counts-as-language.md)).
 

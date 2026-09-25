@@ -113,7 +113,7 @@ survives into an explanation page is the part a user needs to make decisions.
 
 The language is documented here and only here. A page says what a file may
 contain, what it means, what the loader refuses, and what the typesetter
-prints from it. What a consumer does with a spec — the data it binds, how it
+prints from it. What a consumer does with a spec — the data it attaches, how it
 solves, what it reads back — is that consumer's page, not this tree's
 ([what counts as language](../../../docs/about/what-counts-as-language.md)).
 A rule about a consumer says only what the file guarantees it
@@ -219,7 +219,7 @@ The bar, and it is checkable:
 1. **One idea per sentence.** Median at or under 20 words; over 25 is where a
    newcomer re-reads.
 2. **Active voice, with a real subject.** "The loader refuses it before any
-   data binds", not "the refusal comes before any data binds". An abstract
+   data is attached", not "the refusal comes before any data is attached". An abstract
    noun as subject is the single biggest reason technical prose reads
    expert-only.
 3. **State the rule in things, then in abstractions.** "One generator at one
@@ -322,7 +322,7 @@ PY
 - **Anything that duplicates another page.** One fact, one home; link instead.
   A second copy drifts silently. The README is pulled into `docs/index.md` as
   snippets, so a sentence that appears on both is edited once, in the README.
-- **A rule of an engine.** How a spec is bound to data, solved, or read back
+- **A rule of an engine.** How data is attached to a spec, how it is solved, or read back
   is a consumer's page. Here a consumer is named only for what the file
   guarantees it.
 - **Generated content.** The model and its math on every example page and the

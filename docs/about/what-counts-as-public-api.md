@@ -34,6 +34,6 @@ diff, the typesetter prints it, and an engine in another language reads it.
   block until a caller calls
   [`spec.expand()`](../reference/reading.md#formulations-written-out).
 
-What a solver or file format can take, how the numbers bind to the names, and
+What a solver or file format can take, how the numbers attach to the names, and
 which solver runs are each engine's to decide
 ([what counts as language](what-counts-as-language.md#what-each-tool-decides-for-itself)).

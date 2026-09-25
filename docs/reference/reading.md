@@ -94,7 +94,7 @@ spec.expand('sos') is spec  # True
   written out too.
 - **The expansion is a different model.** It declares more variables and
   constraints, so it does not compare equal to the model it came from. It
-  declares the same dimensions and parameters, so the same data binds both.
+  declares the same dimensions and parameters, so the same data attaches to both.
 - **A model with nothing to write out comes back as itself.** So does an
   expansion asked for the same kinds again.
 - **The spec keeps no expansion.** A second call builds it again.
@@ -121,9 +121,9 @@ from math_spec.program import Assumption, assumption_message
 sorted(program.assumptions)  # ['cost_is_never_negative', 'curve_complete', 'curve_curvature', 'curve_increasing']
 isinstance(program.assumptions['curve_increasing'], Assumption)  # True
 message = assumption_message('curve_increasing', program.assumptions['curve_increasing'])
-message  # "assumption 'curve_increasing' does not hold for the data bound to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
+message  # "assumption 'curve_increasing' does not hold for the data attached to 'bp_x' — piecewise 'curve': method: convex requires strictly increasing breakpoints in 'bp_x' along 'bp'"
 written = assumption_message('cost_is_never_negative', program.assumptions['cost_is_never_negative'])
-written  # "assumption 'cost_is_never_negative' does not hold for the data bound to 'bp_y' — a negative cost is a gain the objective would chase"
+written  # "assumption 'cost_is_never_negative' does not hold for the data attached to 'bp_y' — a negative cost is a gain the objective would chase"
 ```
 
 ## Nodes and masks

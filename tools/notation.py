@@ -365,7 +365,9 @@ def _curves() -> list[str]:
             row = _row(block, heading, stated)
             caption = f'`method: {method}` \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
             derived = [math for label, math in stated.items() if label.startswith(f'{block.name} ')]
-            assumed = '\n\n'.join(['What the method assumes of the numbers bound to it:', *derived]) if derived else ''
+            assumed = (
+                '\n\n'.join(['What the method assumes of the numbers attached to it:', *derived]) if derived else ''
+            )
             rows.append(
                 row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1)
                 + f'\n\n{_written_out(block.name, written)}'

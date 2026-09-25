@@ -25,7 +25,7 @@ family PyPSA numbers per segment or scenario.
 Each rung's banner states what PyPSA solved its reference network to.
 
 <!-- reference:spine:begin -->
-> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.
+> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine attaches the network to the file, and what it makes of it, is that engine's own record.
 
 <details markdown="1">
 <summary>The shared spine, <code>spine.py</code></summary>

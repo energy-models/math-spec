@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Typeset the math
 
 `to_latex`, `to_typst` and `to_markdown` print a model as the equations it
-stands for, from the file alone. No data binds, and no solver runs.
+stands for, from the file alone. No data is attached, and no solver runs.
 
 ```python
 import math_spec as ms
