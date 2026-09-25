@@ -8,7 +8,7 @@
 per typeset format, read off [`mathspec.typesetting.FORMATS`][]. Every verb
 reads the file as written, and nothing here writes a formulation out unasked.
 The typeset verbs take ``--expand``, because a shell cannot compose
-[`expand`][mathspec.model.Spec.expand] the way a caller does and the rows are a
+[`expand`][mathspec.spec.Spec.expand] the way a caller does and the rows are a
 different document; ``check`` has no such flag, because advice reads a block
 as the rows it states.
 """
@@ -31,11 +31,11 @@ def parser() -> argparse.ArgumentParser:
     verbs = front.add_subparsers(dest='verb', required=True)
 
     check = verbs.add_parser('check', help='load a model, and print what the language advises')
-    check.add_argument('model', help='path to a mathspec YAML model')
+    check.add_argument('spec', help='path to a mathspec YAML file')
 
     for name in FORMATS:
         verb = verbs.add_parser(name, help=f'render a model as {name}')
-        verb.add_argument('model', help='path to a mathspec YAML model')
+        verb.add_argument('spec', help='path to a mathspec YAML file')
         verb.add_argument('-o', '--out', help='write here instead of stdout')
         verb.add_argument('--symbols', help='sidecar YAML saying how names should print')
         verb.add_argument('--standalone', action='store_true', help='emit a compilable document')
@@ -60,15 +60,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.verb == 'check':
         try:
-            notes = advice(args.model)
+            notes = advice(args.spec)
         except MathSpecError as e:
             sys.stderr.write(f'{e}\n')
             return 1
         sys.stdout.write(''.join(f'{note}\n' for note in notes))
         return 0
-    model = to_spec(args.model).expand() if args.expand else args.model
+    spec = to_spec(args.spec).expand() if args.expand else args.spec
     text = typeset(
-        model,
+        spec,
         args.verb,
         symbols=args.symbols,
         standalone=args.standalone,

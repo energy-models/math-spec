@@ -53,8 +53,8 @@ from mathspec.program import (
 )
 
 if TYPE_CHECKING:
-    from mathspec.model import Spec
     from mathspec.program import Program
+    from mathspec.spec import Spec
 
 
 def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:

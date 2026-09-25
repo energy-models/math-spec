@@ -5,7 +5,7 @@
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
 A block becomes ordinary affine declarations when a caller asks
-[`expand`][mathspec.model.Spec.expand] for them, under names prefixed with the
+[`expand`][mathspec.spec.Spec.expand] for them, under names prefixed with the
 block's own; what each method emits is tabled in
 ``docs/reference/language/piecewise.md``. Every rule a block is held to is
 decided at load, before this runs: the names it references in
@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Literal
 import mathspec.sos as sos
 from mathspec.dimensions import dims_of
 from mathspec.errors import DimensionError
-from mathspec.model import AssumptionBlock, Curvature, PiecewiseBlock, Spec, VariableBlock
 from mathspec.program import PiecewiseDeclaration, PiecewiseMethod, VariableDeclaration, carries_variable
 from mathspec.resolution import resolve_expression_text
+from mathspec.spec import AssumptionBlock, Curvature, PiecewiseBlock, Spec, VariableBlock
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -263,7 +263,7 @@ class Emitted:
         )
 
     def written(self, method: PiecewiseMethod, *, ungated: bool) -> tuple[str, ...]:
-        """The variables and constraints [`expand`][mathspec.model.Spec.expand] declares for a block of *method*.
+        """The variables and constraints [`expand`][mathspec.spec.Spec.expand] declares for a block of *method*.
 
         *ungated* is [`leaves_ungated`][] of the block's gate. The set a
         ``sos2`` or ``adjacency`` block states is written out too, since

@@ -21,7 +21,7 @@ from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
 
 if TYPE_CHECKING:
-    from mathspec.model import Spec
+    from mathspec.spec import Spec
 
 
 def _schema(**patch) -> Spec:

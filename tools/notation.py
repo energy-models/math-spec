@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from mathspec.model import PIECEWISE_METHODS
+from mathspec.spec import PIECEWISE_METHODS
 from mathspec.typesetting import to_markdown
 from mathspec.validation import to_spec
 from tools._page import ROOT, sidecar_for, splice, without_header
@@ -33,7 +33,7 @@ MODEL = ROOT / 'tests' / 'typesetting' / 'golden' / 'model.yaml'
 #: One model per ``method:``, because the four restrict the weights four
 #: different ways and a section showing one of them would be showing a quarter
 #: of the construct. ``tests/test_docs.py`` holds these keys to
-#: :data:`mathspec.model.PIECEWISE_METHODS`, so a method added to the
+#: :data:`mathspec.spec.PIECEWISE_METHODS`, so a method added to the
 #: language arrives here or the page stops claiming to be all of them.
 #:
 #: They come from real models rather than from the fixture because a caption

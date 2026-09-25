@@ -52,8 +52,8 @@ if TYPE_CHECKING:
 
     from mathspec._expression_parser import ComparisonOperator, ParsedNode
     from mathspec._where_parser import ParsedWhere
-    from mathspec.model import ExpressionBlock, Spec
     from mathspec.program import DeclaredDtype
+    from mathspec.spec import ExpressionBlock, Spec
 
 
 #: What a name a file may write turns out to be. Answered by

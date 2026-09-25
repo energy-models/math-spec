@@ -24,8 +24,8 @@ from mathspec._expression_parser import (
 from mathspec.errors import SchemaError
 
 if TYPE_CHECKING:
-    from mathspec.model import MacroBlock
     from mathspec.resolution import Namespace
+    from mathspec.spec import MacroBlock
 
 
 def parse_and_expand(text: str, ns: Namespace, context: str) -> ParsedNode:

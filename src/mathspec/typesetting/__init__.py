@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from mathspec.model import Spec
+    from mathspec.spec import Spec
     from mathspec.typesetting.format import Format
 
 __all__ = [
@@ -77,17 +77,17 @@ class _Options(TypedDict, total=False):
 
 
 def _walk(
-    model: str | Path | Mapping[str, object] | Spec | Program,
+    spec: str | Path | Mapping[str, object] | Spec | Program,
     fmt: FormatName,
     symbols: str | Path | Mapping[str, object] | SymbolTable | None,
     *,
     inline_expressions: bool,
 ) -> Walk:
-    """The loaded, symbol-resolved walk every renderer builds from model, format and table."""
+    """The loaded, symbol-resolved walk every renderer builds from spec, format and table."""
     if fmt not in FORMATS:
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
-    program = model if isinstance(model, Program) else to_spec(model).program
+    program = spec if isinstance(spec, Program) else to_spec(spec).program
     format_ = FORMATS[fmt]
     if symbols is None:
         symbols = SymbolTable(format_.notation)
@@ -101,7 +101,7 @@ def _walk(
 
 
 def typeset(
-    model: str | Path | Mapping[str, object] | Spec | Program,
+    spec: str | Path | Mapping[str, object] | Spec | Program,
     fmt: FormatName,
     *,
     symbols: str | Path | Mapping[str, object] | SymbolTable | None = None,
@@ -110,10 +110,10 @@ def typeset(
     numbered: bool = True,
     inline_expressions: bool = False,
 ) -> str:
-    """Render *model*'s math in *fmt*.
+    """Render *spec*'s math in *fmt*.
 
     Args:
-        model: Anything [`mathspec.to_spec`][] accepts, or a
+        spec: Anything [`mathspec.to_spec`][] accepts, or a
             [`Program`][]. A ``Spec`` or a ``Program``
             is rendered as it stands, so printing one model in several formats
             reads and checks the file once rather than once per format, and a
@@ -142,7 +142,7 @@ def typeset(
         SchemaError: A symbol table entry naming nothing in the model, or a
             table written in a notation *fmt* does not read.
     """
-    walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
+    walk = _walk(spec, fmt, symbols, inline_expressions=inline_expressions)
     program, format_ = walk.program, walk.format
 
     rendered = [
@@ -165,7 +165,7 @@ def typeset(
 
 
 def typeset_declaration(
-    model: str | Path | Mapping[str, object] | Spec | Program,
+    spec: str | Path | Mapping[str, object] | Spec | Program,
     name: str,
     fmt: FormatName,
     *,
@@ -184,7 +184,7 @@ def typeset_declaration(
     one prints by symbol, and a second call with its name prints its block.
 
     Args:
-        model: Anything [`mathspec.to_spec`][] accepts, or a [`Program`][].
+        spec: Anything [`mathspec.to_spec`][] accepts, or a [`Program`][].
         name: A named expression, constraint, assumption, ``piecewise:``
             block or variable the model declares.
         fmt: What spells the math — a key of [`FORMATS`][].
@@ -204,20 +204,20 @@ def typeset_declaration(
             constraint may share a variable's name; or a symbol table entry
             names nothing in the model.
     """
-    walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
+    walk = _walk(spec, fmt, symbols, inline_expressions=inline_expressions)
     return walk.format.equation(walk.line(name))
 
 
-def to_latex(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
-    """Render *model* as LaTeX (amsmath ``align``). See [`typeset`][]."""
-    return typeset(model, 'latex', **options)
+def to_latex(spec: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
+    """Render *spec* as LaTeX (amsmath ``align``). See [`typeset`][]."""
+    return typeset(spec, 'latex', **options)
 
 
-def to_typst(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
-    """Render *model* as Typst. See [`typeset`][]."""
-    return typeset(model, 'typst', **options)
+def to_typst(spec: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
+    """Render *spec* as Typst. See [`typeset`][]."""
+    return typeset(spec, 'typst', **options)
 
 
-def to_markdown(model: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
-    """Render *model* as GitHub-flavoured Markdown. See [`typeset`][]."""
-    return typeset(model, 'markdown', **options)
+def to_markdown(spec: str | Path | Mapping[str, object] | Spec | Program, **options: Unpack[_Options]) -> str:
+    """Render *spec* as GitHub-flavoured Markdown. See [`typeset`][]."""
+    return typeset(spec, 'markdown', **options)

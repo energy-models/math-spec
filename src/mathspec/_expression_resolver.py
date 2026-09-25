@@ -32,7 +32,6 @@ from mathspec._expression_parser import (
 )
 from mathspec.dimensions import dims_of
 from mathspec.errors import DimensionError, SchemaError, did_you_mean
-from mathspec.model import NUMERIC_DTYPES
 from mathspec.operators import (
     AMOUNTS,
     BUILTINS,
@@ -62,6 +61,7 @@ from mathspec.program import (
     carries_variable,
     children,
 )
+from mathspec.spec import NUMERIC_DTYPES
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

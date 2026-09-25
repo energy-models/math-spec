@@ -59,7 +59,7 @@ checks that the wheel it publishes has that number.
 
 The language version, the `version:` key of a model file, is a separate
 number ([versions](https://mathspec.readthedocs.io/en/latest/about/versions/)).
-`SUPPORTED_VERSIONS` in `src/mathspec/model.py` is the set a release reads. A
+`SUPPORTED_VERSIONS` in `src/mathspec/spec.py` is the set a release reads. A
 pull request that changes that set says so in its changelog line, so that the
 release notes name the language versions the release starts or stops reading.
 

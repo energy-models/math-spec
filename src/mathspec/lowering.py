@@ -9,7 +9,7 @@ loads: it reads every expression and where string into the program's own
 nodes, checks every rule decidable without data, and packages the
 declarations, section for section. The program mirrors the model it was
 lowered from: a ``piecewise:`` block the model still declares is a curve on
-the program, and [`expand`][mathspec.model.Spec.expand] is what writes it out
+the program, and [`expand`][mathspec.spec.Spec.expand] is what writes it out
 as rows.
 """
 
@@ -53,8 +53,8 @@ from mathspec.resolution import (
 from mathspec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
-    from mathspec.model import AssumptionBlock, Spec
     from mathspec.program import Expression
+    from mathspec.spec import AssumptionBlock, Spec
 
 
 def lower(schema: Spec) -> Program:

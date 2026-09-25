@@ -257,7 +257,7 @@ class SymbolTable:
 
         A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
         one table spells both readings of a model: the blocks as the file states
-        them, and the rows [`expand`][mathspec.model.Spec.expand] writes out.
+        them, and the rows [`expand`][mathspec.spec.Spec.expand] writes out.
         """
         dims = set(program.dimensions)
         everything = dims | _declared(program) | _emitted(program)

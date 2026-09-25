@@ -154,7 +154,7 @@ ObjectiveSense = Literal['minimize', 'maximize']
 SosType = Literal[1, 2]
 
 #: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
-#: with [`PIECEWISE_METHODS`][mathspec.model.PIECEWISE_METHODS], which says what each one
+#: with [`PIECEWISE_METHODS`][mathspec.spec.PIECEWISE_METHODS], which says what each one
 #: emits, by ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
@@ -687,7 +687,7 @@ class Link:
 
 @dataclass(frozen=True)
 class PiecewiseDeclaration:
-    """A ``piecewise:`` block as the curve it states, which [`expand`][mathspec.model.Spec.expand] writes out as rows.
+    """A ``piecewise:`` block as the curve it states, which [`expand`][mathspec.spec.Spec.expand] writes out as rows.
 
     A program of a model that still declares one carries it here, typed; a
     program of the expanded model carries the rows instead, under
@@ -922,7 +922,7 @@ class Program:
 
         An [`expressions`][] entry builds no row and is not among them. Nor is
         a curve still under [`piecewise`][]: it is not a row until
-        [`expand`][mathspec.model.Spec.expand] writes it out, and its rows are in
+        [`expand`][mathspec.spec.Spec.expand] writes it out, and its rows are in
         the program of the expansion.
         """
         return tuple(e for _, group in self._by_position() for e in group)

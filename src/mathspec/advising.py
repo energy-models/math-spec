@@ -20,16 +20,16 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from mathspec.model import Spec
+    from mathspec.spec import Spec
 
 
-def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
-    """Everything the language advises about *model*, decided without data.
+def advice(spec: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Advice, ...]:
+    """Everything the language advises about *spec*, decided without data.
 
     Advice is a note, not a refusal: a file with advice still loads.
 
     Args:
-        model: Anything [`to_spec`][] accepts, or a [`Program`][], read as
+        spec: Anything [`to_spec`][] accepts, or a [`Program`][], read as
             it arrived. A ``piecewise:`` or ``sos:`` block is read as the rows
             it states, so the answer is the one its expansion gets, with
             nothing expanded.
@@ -39,10 +39,10 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
         advice; ``str()`` of each is its sentence.
 
     Raises:
-        LanguageError: *model* does not load; [`to_spec`][] says why.
+        LanguageError: *spec* does not load; [`to_spec`][] says why.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    program = model if isinstance(model, Program) else to_spec(model).program
+    program = spec if isinstance(spec, Program) else to_spec(spec).program
     return tuple(_never_an_axis(program) + unbounded_notes(program))
 
 

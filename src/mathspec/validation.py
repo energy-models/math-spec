@@ -22,13 +22,13 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from mathspec._yaml import read_model
+from mathspec._yaml import read_spec
 from mathspec.errors import SchemaError
-from mathspec.model import NUMERIC_DTYPES, Spec, side_columns
 from mathspec.operators import BUILTIN_NAMES
 from mathspec.piecewise import Emitted as EmittedCurve
 from mathspec.sos import Emitted as EmittedSet
 from mathspec.sos import coefficients
+from mathspec.spec import NUMERIC_DTYPES, Spec, side_columns
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from mathspec.program import Program
 
 
-def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
+def to_spec(spec: str | Path | Mapping[str, object] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -45,7 +45,7 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     where string, and every macro template.
 
     Args:
-        model: A YAML path — a [`Path`][], or a ``str`` with no
+        spec: A YAML path — a [`Path`][], or a ``str`` with no
             newline in it — the YAML text itself as a ``str`` with one, a
             mapping, or a loaded [`Spec`][].
 
@@ -57,12 +57,12 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
             not a mapping of sections included.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    if isinstance(model, (list, tuple)):
+    if isinstance(spec, (list, tuple)):
         msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
         raise SchemaError(msg)
-    if isinstance(model, Spec):
-        return model
-    return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
+    if isinstance(spec, Spec):
+        return spec
+    return Spec.model_validate(spec if isinstance(spec, Mapping) else read_spec(spec))
 
 
 def emitted_name_errors(schema: Spec, program: Program) -> list[str]:

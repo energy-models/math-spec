@@ -10,7 +10,7 @@ tabled in ``docs/reference/language/piecewise.md``. An unpicked member is held
 at zero from both sides, so the rewrite states the same feasible set whatever
 sign the member takes — what it needs is a coefficient on each side, which a
 model declaring a set without is refused at load for
-([`mathspec.model.Spec`][] validates it) rather than here.
+([`mathspec.spec.Spec`][] validates it) rather than here.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from mathspec.model import Spec
+from mathspec.spec import Spec
 
 if TYPE_CHECKING:
     from mathspec.program import SosType

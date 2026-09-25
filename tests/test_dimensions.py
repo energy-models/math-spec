@@ -18,7 +18,7 @@ from mathspec.validation import to_spec
 from tests.fixtures import expression_of, override, schema_of, where_of
 
 if TYPE_CHECKING:
-    from mathspec.model import Spec
+    from mathspec.spec import Spec
 
 #: `fixtures.DISPATCH_MODEL` plus buses: a dim rule is mostly about an
 #: expression carrying a dim its frame does not, which needs three dims to

@@ -24,8 +24,8 @@ from mathspec.resolution import Namespace, resolve_where
 from mathspec.validation import to_spec
 
 if TYPE_CHECKING:
-    from mathspec.model import Spec
     from mathspec.program import Predicate
+    from mathspec.spec import Spec
 
 #: A storage model carrying one atom of every kind a `when` can be built from.
 #: Every axis takes its coordinates from data, so nothing here sizes one.
