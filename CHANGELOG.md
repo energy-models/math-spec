@@ -13,6 +13,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 ## Upcoming version
 
 - docs(pypsa): a single spec covers every pypsa model class and component ([#620](https://github.com/energy-models/mathspec/pull/620))
+- docs(pypsa): an efficiency, a rate or a phase shift may change from snapshot to snapshot ([#717](https://github.com/energy-models/mathspec/pull/717))
 
 ## 0.1.0rc1 (2026-09-25)
 

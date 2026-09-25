@@ -549,6 +549,7 @@ parameters:
     - generator
   Generator_primary_energy_weight:
     - global_constraint
+    - snapshot
     - generator
   Generator_ramp_limit_down:
     - snapshot
@@ -626,6 +627,7 @@ parameters:
   Link_committable:
     - link
   Link_efficiency:
+    - snapshot
     - link_output
   Link_expansion_cost_weight:
     - global_constraint
@@ -767,6 +769,7 @@ parameters:
     - snapshot
     - process
   Process_rate:
+    - snapshot
     - process_output
   Process_shut_down_cost:
     - process
@@ -785,8 +788,10 @@ parameters:
   StorageUnit_cyclic_state_of_charge:
     - storage_unit
   StorageUnit_efficiency_dispatch:
+    - snapshot
     - storage_unit
   StorageUnit_efficiency_store:
+    - snapshot
     - storage_unit
   StorageUnit_inflow:
     - snapshot
@@ -912,6 +917,7 @@ parameters:
   Transformer_phase_shift_varying:
     - transformer
   Transformer_phase_shift_weight:
+    - snapshot
     - transformer
     - cycle
   Transformer_s_max_pu:
