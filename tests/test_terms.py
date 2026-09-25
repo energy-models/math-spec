@@ -179,18 +179,6 @@ def test_the_order_the_fragments_are_given_in_does_not_reach_the_sum():
     assert one == other
 
 
-def test_the_first_description_in_fragment_name_order_is_carried():
-    """Prose is not a claim, so two readers may describe the name apart; which wording is carried never depends on the call."""
-    capped = {
-        'dimensions': BUS_DIMS,
-        'given': {'expressions': {'injection': {'dims': BUS_FRAME, 'description': 'what a cap reads'}}},
-        'constraints': {'capped': {'dims': BUS_FRAME, 'expression': 'injection <= 10'}},
-    }
-    one = merge({'zulu': BALANCE, 'alpha': capped, 'fleet': FLEET})
-    other = merge({'fleet': FLEET, 'alpha': capped, 'zulu': BALANCE})
-    assert one.expressions['injection'].description == other.expressions['injection'].description == 'what a cap reads'
-
-
 def test_a_term_is_added_to_the_definition_one_fragment_writes():
     composed = merge({'network': NETWORK, 'fleet': FLEET, 'demand': DEMAND})
     assert composed.expressions['injection'].expression == 'slack + demand_injection + generator_injection'
@@ -216,6 +204,17 @@ def test_a_definition_that_is_more_than_a_name_is_bracketed():
 def test_the_sum_takes_the_readers_description():
     composed = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
     assert composed.program.expressions['injection'].description == INJECTION
+
+
+def test_two_readers_that_word_the_sum_apart_give_it_the_first_wording_in_name_order():
+    """The sum once took the wording of whichever reader was passed first."""
+    capped = {**BALANCE, 'given': {'expressions': {'injection': {'dims': BUS_FRAME, 'description': 'a cap'}}}}
+    capped = {**capped, 'constraints': {'capped': {'dims': BUS_FRAME, 'expression': 'injection <= 10'}}}
+    for fragments in (
+        {'capped': capped, 'balance': BALANCE, 'fleet': FLEET},
+        {'balance': BALANCE, 'capped': capped, 'fleet': FLEET},
+    ):
+        assert merge(fragments).expressions['injection'].description == INJECTION, "the wording of 'balance'"
 
 
 def test_a_composed_spec_takes_more_terms_in_a_second_merge():

@@ -159,14 +159,56 @@ def test_a_disagreement_between_fragments_is_refused(fragments, says):
     assert all(f"'{name}'" in message for name in fragments), 'a disagreement names both fragments'
 
 
-def test_two_descriptions_of_one_dimension_agree_and_the_first_is_carried():
-    """Prose is not a claim, so two fragments describing one dimension in their own words agree about it."""
-    first = {**SUPPLY, 'dimensions': {**SUPPLY['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'an hour'}}}
-    second = {**DEMAND, 'dimensions': {**DEMAND['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'a step'}}}
-    composed = merge({'supply': first, 'demand': second})
-    assert composed.dimensions['snapshot'].description == 'a step', (
-        'the claim is carried whole, under the first wording in fragment-name order, whatever order the call used'
+def _said(fragment: dict[str, object], section: str, name: str, words: str) -> dict[str, object]:
+    """*fragment* with the declaration *name* under *section* described as *words*."""
+    block = copy.deepcopy(fragment)
+    entries = block[section] if section != 'given' else block['given']['variables']
+    entries[name] = {**entries[name], 'description': words}
+    return block
+
+
+#: Two fragments that word one declaration differently, and the wording the
+#: first fragment in name order gives: `demand` sorts before `supply`.
+WORDED = [
+    pytest.param('dimensions', 'snapshot', id='a-shared-dimension'),
+    pytest.param('given', 'flow', id='a-reading-nothing-introduces'),
+]
+
+
+@pytest.mark.parametrize(('section', 'name'), WORDED)
+def test_prose_two_fragments_word_apart_is_the_first_in_name_order(section, name):
+    """Prose is not a claim, so two wordings agree; which one is carried is decided by name, not by argument order.
+
+    Merging once passed the wording of whichever fragment came first in the call.
+    """
+    supply, demand = _said(SUPPLY, section, name, 'an hour'), _said(DEMAND, section, name, 'a step')
+    one = merge({'supply': supply, 'demand': demand})
+    other = merge({'demand': demand, 'supply': supply})
+    assert one == other, 'the order the fragments are passed in reaches no field, prose included'
+    carried = one.dimensions[name] if section == 'dimensions' else one.given.variables[name]
+    assert carried.description == 'a step', "the claim is carried whole, under the wording of 'demand'"
+
+
+def test_a_peer_s_description_is_carried_where_the_first_in_name_order_has_none():
+    supply = _said(SUPPLY, 'dimensions', 'snapshot', 'an hour')
+    assert merge({'demand': DEMAND, 'supply': supply}).dimensions['snapshot'].description == 'an hour', (
+        "'demand' sorts first and says nothing, so the wording of 'supply' is carried"
     )
+
+
+@pytest.mark.parametrize(
+    ('owner', 'carried'),
+    [
+        pytest.param(None, 'what a port puts into its bus', id='the-owner-says-nothing'),
+        pytest.param('a flow', 'a flow', id='the-owner-s-own-wins'),
+    ],
+)
+def test_a_reader_s_description_fills_a_declaration_that_has_none(owner, carried):
+    """A reader's words about a name were dropped when the name was folded, even where the owner wrote none."""
+    surface = _said(SURFACE, 'variables', 'flow', owner) if owner else SURFACE
+    supply = _said(SUPPLY, 'given', 'flow', 'what a port puts into its bus')
+    composed = merge({'surface': surface, 'supply': supply, 'demand': DEMAND})
+    assert composed.variables['flow'].description == carried
 
 
 def test_the_objectives_are_summed_each_term_parenthesised():

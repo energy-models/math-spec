@@ -21,7 +21,7 @@ What that means for each section:
 * **A dimension or a relation every fragment may declare**, and the ones that
   do have to say the same thing about it. Prose is not a claim, so two
   descriptions of one dimension agree, and the first in the fragments' name
-  order is carried.
+  order is carried: the order they are passed in reaches no description.
 * **Every other declaration is owned.** A name two fragments declare is refused,
   both named.
 * **The objectives are summed**, each term in parentheses, in the fragments'
@@ -38,14 +38,11 @@ What that means for each section:
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
   A given expression's body may carry no dimension its reader does not state,
-  and a name read as one kind and introduced as another is refused.
+  and a name read as one kind and introduced as another is refused. A
+  reader's description fills a declaration its owner left undescribed.
   Two fragments that both read a name have to read it over one frame, as a
   set. What no fragment introduces stays under ``given:`` until a host model
   provides it.
-
-The fragments are taken in name order once, so nothing below depends on the
-order they were passed in: not the sums, not the composed spec's key order,
-and not the fragment a refusal names first.
 
 A patch says only what it changes, because declarations are laid over a field
 at a time::
@@ -159,7 +156,7 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
             opposite ways; or the composed spec does not load.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    loaded = {name: _fragment(name, fragment) for name, fragment in sorted(fragments.items())}
+    loaded = {name: _fragment(name, fragment) for name, fragment in fragments.items()}
     read = {name: spec.to_dict() for name, spec in loaded.items()}
     merged: dict[str, object] = {'version': _one_version(read)}
     if description is not None:
@@ -209,8 +206,20 @@ def _one_version(read: Mapping[str, dict[str, object]]) -> int:
 
 
 def _author_of(read: Mapping[str, dict[str, object]], section: str, key: str) -> str:
-    """The first fragment in name order declaring *key* under *section*, for a message that names both sides."""
+    """The first fragment declaring *key* under *section*, for a message that names both sides."""
     return next(name for name, sections in read.items() if key in _mapping(sections.get(section)))
+
+
+def _said(read: Mapping[str, dict[str, object]], section: str, key: str) -> object:
+    """The first description of *key* under *section* in the fragments' name order, which no argument order changes."""
+    return next(
+        (
+            said
+            for name in sorted(read)
+            if (said := _mapping(_mapping(read[name].get(section)).get(key)).get('description'))
+        ),
+        None,
+    )
 
 
 def _claims(block: object) -> object:
@@ -246,23 +255,21 @@ def _agreed(
     neither declaration is the one being restated, so a field only one of them
     writes is a difference nothing settles. *claims* says what a block claims;
     a reading's frame is a set. Prose is not a claim, so the first description
-    in the fragments' name order is carried.
+    in the fragments' name order is carried, whatever order they are passed in.
     """
     merged: dict[str, object] = {}
     for name, sections in read.items():
         for key, block in _mapping(sections.get(section)).items():
-            if key not in merged:
-                merged[key] = dict(block) if isinstance(block, dict) else block
-                continue
-            if claims(merged[key]) != claims(block):
+            if key in merged and claims(merged[key]) != claims(block):
                 raise LanguageError(
                     f"fragments '{_author_of(read, section, key)}' and '{name}' say different things about "
                     f'the {label} {key!r}: {merged[key]!r} against {block!r}. A declaration two fragments '
                     f'share is one both say the same thing about: make the two identical, or {repair}.'
                 )
-            held, said = _mapping(merged[key]), _mapping(block).get('description')
-            if said and not held.get('description'):
-                held['description'] = said
+            merged.setdefault(key, block)
+    for key, block in merged.items():
+        if said := _said(read, section, key):
+            merged[key] = {**_mapping(block), 'description': said}
     return merged
 
 
@@ -304,7 +311,7 @@ def _adds(sections: Mapping[str, object], key: str) -> str | None:
 def _terms(read: Mapping[str, dict[str, object]], key: str) -> list[tuple[str, str]]:
     """Every term the fragments add to *key*, with the fragment that adds it, in the fragments' name order."""
     found = []
-    for name, sections in read.items():
+    for name, sections in sorted(read.items()):
         entry = _mapping(_mapping(_mapping(sections.get('given')).get('expressions')).get(key))
         if entry.get('term') is not None:
             found.append((name, cast('str', entry['term'])))
@@ -421,7 +428,9 @@ def _folded(
 
     A given declaration is what a fragment expects of a name a sibling owns.
     Where the sibling is in the composition the expectation is checked and
-    then dropped, so the composed spec declares the name once.
+    then dropped, so the composed spec declares the name once. A reader's
+    description fills a declaration its owner left undescribed, and yields to
+    one the owner wrote.
     """
     left: dict[str, object] = {}
     for kind, agreed in readings.items():
@@ -430,6 +439,10 @@ def _folded(
             _same_kind(read, merged, kind, key)
             if key in introduced:
                 _fits(read, loaded, kind, key, block, introduced[key])
+            if key in introduced and (said := _mapping(block).get('description')):
+                owned = _as_mapping(introduced[key])
+                if not owned.get('description'):
+                    introduced[key] = {**owned, 'description': said}
         kept = {key: block for key, block in agreed.items() if key not in introduced}
         if kept:
             left[kind] = kept
@@ -437,7 +450,7 @@ def _folded(
 
 
 def _reader_of(read: Mapping[str, dict[str, object]], kind: str, key: str) -> str:
-    """The first fragment in name order reading *key* under ``given: {kind}:``."""
+    """The first fragment reading *key* under ``given: {kind}:``."""
     return next(name for name, sections in read.items() if key in _mapping(_readings(sections).get(kind)))
 
 
@@ -508,8 +521,9 @@ def _same_kind(read: Mapping[str, dict[str, object]], merged: Mapping[str, objec
 def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object] | None:
     """Every fragment's objective summed, each term in parentheses, or ``None`` where none declares one.
 
-    The terms are summed in the fragments' name order, and the first
-    description in that order is carried, as a shared dimension's is. The senses have to agree: a sum has
+    The terms are summed in the fragments' name order, so the order they were
+    passed in does not reach the expression. The first description in that
+    order is carried, as a shared dimension's is. The senses have to agree: a sum has
     one sense, and negating the odd one out would be this function deciding what
     a spec means.
     """
@@ -524,7 +538,7 @@ def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object
             f'one objective and one sense, so write every fragment against the same one: negate the terms '
             f'of the odd one out rather than its sense.'
         )
-    ordered = list(declared.values())
+    ordered = [objective for _, objective in sorted(declared.items())]
     terms = [objective['expression'] for objective in ordered]
     joined = terms[0] if len(terms) == 1 else ' + '.join(f'({term})' for term in terms)
     summed: dict[str, object] = {'sense': next(iter(senses.values())), 'expression': joined}
