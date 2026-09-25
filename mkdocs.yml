@@ -37,6 +37,7 @@ nav:
       - Installation: howto/installation.md
       - Check a model without data: howto/check.md
       - Print a model as math: howto/print.md
+      - Change the symbols for one render: howto/change-the-symbols.md
       - State a rule that differs by regime: howto/regimes.md
       - Declare a column of data: howto/declare-a-column.md
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md

@@ -47,7 +47,8 @@ keep the document current as the file changes.
    Then `tectonic model.tex` or `typst compile model.typ`. Without
    `--standalone` the output is a fragment to `\input` or `#include` into a
    paper. If your preamble lacks a package the table needs, `--no-symbols`
-   derives every symbol instead.
+   derives every symbol instead, or
+   [change the symbols for one render](change-the-symbols.md).
 
 4. **Print the rows a curve or a set states** with `--expand`:
 

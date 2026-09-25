@@ -159,4 +159,7 @@ ms.to_latex('dispatch.yaml', symbols={})
 From a shell, `--symbols FILE` replaces the block, and `--no-symbols` derives
 every symbol.
 
+To change a few entries and keep the rest, edit a copy of the file's block
+([change the symbols for one render](../howto/change-the-symbols.md)).
+
 Nothing in a symbol table changes what the file means.
