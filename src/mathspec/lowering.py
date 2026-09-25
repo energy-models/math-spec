@@ -225,11 +225,18 @@ def lower(schema: Spec) -> Program:
             for name, entry in entries.items()
         },
         given=GivenTargets(
+            parameters={
+                name: ParameterDeclaration(tuple(g.dims), g.dtype, g.description)
+                for name, g in schema.given.parameters.items()
+            },
             variables={
                 name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.variables.items()
             },
             constraints={
                 name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
+            },
+            expressions={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.expressions.items()
             },
         ),
         description=schema.description,

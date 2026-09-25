@@ -283,6 +283,21 @@ class VariableBlock(_StrictBlock):
         return self
 
 
+class GivenParameterBlock(_StrictBlock):
+    """Data this file reads and another file declares.
+
+    It says what a :class:`ParameterBlock` says, because the frame and the
+    dtype are all a parameter declaration holds: a where compares against the
+    dtype, and the dim rules read the frame.
+    """
+
+    _label: ClassVar[str] = 'a given parameter declaration'
+
+    dims: list[str]
+    dtype: ParameterDtype = 'float'
+    description: str | None = None
+
+
 class GivenVariableBlock(_StrictBlock):
     """A column this file reads and another file introduces.
 
@@ -311,19 +326,38 @@ class GivenConstraintBlock(_StrictBlock):
     description: str | None = None
 
 
+class GivenExpressionBlock(_StrictBlock):
+    """A named expression this file reads and another file defines.
+
+    The frame is all this file states. This file reads the name as a quantity
+    over that frame, affine in the columns, as it reads a given variable: the
+    body is the definer's, and the composed model holds the body to the rules
+    of every place this file reads it.
+    """
+
+    _label: ClassVar[str] = 'a given expression declaration'
+
+    dims: list[str]
+    description: str | None = None
+
+
 class GivenBlock(_StrictBlock):
-    """What this file reads and does not build, by kind. Closed at the two kinds."""
+    """What this file reads and does not build, by kind. Closed at the four kinds."""
 
     _label: ClassVar[str] = 'a given block'
 
+    #: Data another file declares (:class:`GivenParameterBlock`).
+    parameters: dict[str, GivenParameterBlock] = {}
     #: Columns another file introduces (:class:`GivenVariableBlock`).
     variables: dict[str, GivenVariableBlock] = {}
     #: Row families another model builds (:class:`GivenConstraintBlock`).
     constraints: dict[str, GivenConstraintBlock] = {}
+    #: Named expressions another file defines (:class:`GivenExpressionBlock`).
+    expressions: dict[str, GivenExpressionBlock] = {}
 
     def __bool__(self) -> bool:
         """Whether the file reads anything it does not build."""
-        return bool(self.variables or self.constraints)
+        return bool(self.parameters or self.variables or self.constraints or self.expressions)
 
 
 class ConstraintBlock(_StrictBlock):
@@ -774,9 +808,10 @@ class Spec(_StrictBlock):
     relations: dict[str, RelationBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
-    #: What this file reads and does not build (:class:`GivenBlock`): columns
-    #: under ``variables:``, row families under ``constraints:``. Empty in a
-    #: file that stands alone.
+    #: What this file reads and does not build (:class:`GivenBlock`): data
+    #: under ``parameters:``, columns under ``variables:``, row families under
+    #: ``constraints:`` and definitions under ``expressions:``. Empty in a file
+    #: that stands alone.
     given: GivenBlock = GivenBlock()
     constraints: dict[str, ConstraintBlock] = {}
     objective: ObjectiveBlock | None = None
@@ -924,7 +959,7 @@ class Spec(_StrictBlock):
 
         Read off the model's own mappings rather than a list of sections, so a
         section added later cannot be forgotten here — every mapping a Spec
-        carries is keyed by a declaration name. ``given:`` nests its two
+        carries is keyed by a declaration name. ``given:`` nests its four
         mappings one level down, so they are read off :class:`GivenBlock` the
         same way.
         """

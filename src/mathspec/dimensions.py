@@ -67,10 +67,10 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
         return frozenset()
 
     if isinstance(node, Parameter):
-        return frozenset(schema.parameters[node.name].dims)
+        return frozenset({**schema.parameters, **schema.given.parameters}[node.name].dims)
 
     if isinstance(node, Variable):
-        return frozenset({**schema.variables, **schema.given.variables}[node.name].dims)
+        return frozenset({**schema.variables, **schema.given.variables, **schema.given.expressions}[node.name].dims)
 
     if isinstance(node, Dual):
         return frozenset({**schema.constraints, **schema.given.constraints}[node.constraint].dims)
@@ -234,7 +234,7 @@ def _check_named_amount(
     if not isinstance(amount, str):
         return
     words = AMOUNTS[verb]
-    declared = schema.parameters[amount]
+    declared = {**schema.parameters, **schema.given.parameters}[amount]
     if node.along in declared.dims:
         raise DimensionError(
             f'{context}: {verb}({kwarg}={amount}) steps along '
@@ -273,7 +273,7 @@ def check_schema(schema: Spec, program: Program) -> None:
         for side in ('lower', 'upper'):
             bound = getattr(vdef.bounds, side)
             if isinstance(bound, str):
-                bdims = frozenset(schema.parameters[bound].dims)
+                bdims = frozenset({**schema.parameters, **schema.given.parameters}[bound].dims)
                 if not bdims <= frame:
                     raise DimensionError(
                         f"{context}: bounds.{side} parameter '{bound}' has dims "

@@ -84,9 +84,45 @@ A pinned variable is still a variable.
 
 ## `given`
 
-`given:` holds what this file reads and does not build: columns under
-`variables:`, row families under `constraints:`. It takes those two keys and no
-other. A file with a `given:` block loads and prints on its own.
+`given:` holds what this file reads and does not build: data under
+`parameters:`, columns under `variables:`, named expressions under
+`expressions:`, and row families under `constraints:`. It takes those four keys
+and no other. A file with a `given:` block loads and prints on its own.
+
+### `given: parameters`
+
+A given parameter is data this file reads and another file declares.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+given:
+  parameters:
+    gen_cost: { dims: [generator], description: what one unit of output costs }
+    gen_on: { dims: [generator], dtype: bool }
+  variables:
+    gen_p: { dims: [snapshot, generator] }
+constraints:
+  off_units_idle:
+    dims: [snapshot, generator]
+    where: not gen_on
+    expression: gen_p <= 0
+objective:
+  sense: minimize
+  expression: sum(gen_p * gen_cost)
+```
+
+| Field         |                                                      |                 |
+| ------------- | ---------------------------------------------------- | --------------- |
+| `dims`        | required. The dimensions the parameter is indexed by |                 |
+| `dtype`       | `float`, `int`, `bool` or `str`                      | default `float` |
+| `description` | free text                                            | default `null`  |
+
+A given parameter is read wherever a parameter is: in an expression, a `where`
+and a bound. A name declared under both `parameters:` and
+`given: parameters:` is refused. The typeset legend lists a given parameter
+under _Given_.
 
 ### `given: variables`
 
@@ -162,6 +198,43 @@ There is no `expression` and no `sense`.
 `dual(name)` is the only place a given row family may be named, and the frame
 gives the reported expression its dimensions. A name declared under both
 `constraints:` and `given: constraints:` is refused.
+
+### `given: expressions`
+
+A given expression is a named expression this file reads and another file
+defines.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      description: what the components put into a bus
+constraints:
+  balance:
+    dims: [snapshot, bus]
+    expression: injection == 0
+```
+
+| Field         |                                                   |                |
+| ------------- | ------------------------------------------------- | -------------- |
+| `dims`        | required. The dimensions the expression runs over |                |
+| `description` | free text                                         | default `null` |
+
+There is no body. This file reads the name as it reads a given variable: a
+quantity over the frame, of degree one. A `where` does not read it, because a
+mask is built before any variable exists. A name declared under both
+`expressions:` and `given: expressions:` is refused. The typeset legend lists a
+given expression under _Given_.
+
+[`merge`](../../howto/compose.md#a-library-of-components) folds a given
+expression into the definition of another fragment, and refuses one whose
+frame is not the frame the body carries. The composed model holds the body to
+the rules of every place this file reads it: a square of a given expression
+that is quadratic is refused once folded.
 
 ## `constraints`
 

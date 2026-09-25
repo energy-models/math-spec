@@ -157,8 +157,24 @@ class Legend:
         ]
         given = [
             *(
+                self._entry(
+                    self.symbols.name[g],
+                    f'{fmt.mono(g)}{self._over(list(block.dims))}, data another file declares',
+                    block.description,
+                )
+                for g, block in program.given.parameters.items()
+            ),
+            *(
                 self._entry(self.symbols.name[g], f'{fmt.mono(g)}{self._over(list(block.dims))}', block.description)
                 for g, block in program.given.variables.items()
+            ),
+            *(
+                self._entry(
+                    self.symbols.name[g],
+                    f'{fmt.mono(g)}{self._over(list(block.dims))}, an expression another file defines',
+                    block.description,
+                )
+                for g, block in program.given.expressions.items()
             ),
             *(
                 self._entry(

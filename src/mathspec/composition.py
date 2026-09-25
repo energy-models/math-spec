@@ -23,6 +23,8 @@ What :func:`merge` does with each section:
   name order, and the senses have to agree.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
+  A given expression is checked against the frame its definition's body
+  carries, and a name read as one kind and introduced as another is refused.
   Two fragments that both only read a name have to read it the same way, and a
   fragment that declares a name and reads it as well is refused. What no
   fragment introduces stays under ``given:`` until a host model provides it.
@@ -93,7 +95,12 @@ OWNED_SECTIONS = tuple(
 #: What ``given:`` holds, by the key each kind sits under and what one entry of
 #: it is called. The key is the introducing section's name too, which is what
 #: lets :func:`merge` fold a given declaration into the one that introduces it.
-GIVEN_KINDS = {'variables': 'given variable', 'constraints': 'given constraint'}
+GIVEN_KINDS = {
+    'parameters': 'given parameter',
+    'variables': 'given variable',
+    'constraints': 'given constraint',
+    'expressions': 'given expression',
+}
 
 #: Every section keyed by declaration name. ``objective`` is one declaration
 #: rather than a mapping of them, and is laid over field by field beside these.
@@ -126,12 +133,14 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
         LanguageError: A fragment does not load on its own; two fragments
             declare one name; two fragments say different things about one
             dimension, relation or given declaration; a fragment reads a name as
-            something other than what its sibling introduces; two fragments are
+            something other than what its sibling introduces, as another kind
+            of thing, or over another frame; two fragments are
             written against different language versions; their objectives run
             opposite ways; or the composed model does not load.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    read = {name: _fragment(name, fragment).to_dict() for name, fragment in fragments.items()}
+    loaded = {name: _fragment(name, fragment) for name, fragment in fragments.items()}
+    read = {name: spec.to_dict() for name, spec in loaded.items()}
     merged: dict[str, object] = {'version': _one_version(read)}
     if description is not None:
         merged['description'] = description
@@ -141,7 +150,7 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
     for section in OWNED_SECTIONS:
         if claimed := _claimed(read, section):
             merged[section] = claimed
-    if given := _folded(read, merged):
+    if given := _folded(read, merged, _frames(loaded)):
         merged['given'] = given
     if (objective := _summed_objective(read)) is not None:
         merged['objective'] = objective
@@ -219,12 +228,27 @@ def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, o
     return merged
 
 
-def _folded(read: Mapping[str, dict[str, object]], merged: Mapping[str, object]) -> dict[str, object]:
+def _frames(loaded: Mapping[str, Spec]) -> dict[str, tuple[str, ...]]:
+    """The frame of every named expression the fragments define, as each fragment's own program reads it.
+
+    A definition writes no frame: its body carries one. The body is the same
+    text in the composition, so the frame the fragment reads is the one a
+    given declaration is checked against.
+    """
+    return {
+        name: declaration.dims for spec in loaded.values() for name, declaration in spec.program.expressions.items()
+    }
+
+
+def _folded(
+    read: Mapping[str, dict[str, object]], merged: Mapping[str, object], frames: Mapping[str, tuple[str, ...]]
+) -> dict[str, object]:
     """The ``given:`` block the composition still carries, once every reading a sibling introduces is spent.
 
     A given declaration is what a fragment expects of a name a sibling owns.
     Where the sibling is in the composition the expectation is checked and
-    then dropped, so the composed model declares the name once.
+    then dropped, so the composed model declares the name once. A given
+    expression is checked against the frame of the definition's body.
     """
     asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
     left: dict[str, object] = {}
@@ -232,7 +256,10 @@ def _folded(read: Mapping[str, dict[str, object]], merged: Mapping[str, object])
         introduced = _mapping(merged.get(kind))
         agreed = _agreed(asked, kind, label)
         for key, block in agreed.items():
-            if key in introduced and not _says_less(block, introduced[key]):
+            _same_kind(asked, read, merged, kind, key)
+            if key in introduced and kind == 'expressions':
+                _same_frame(asked, read, key, block, frames[key])
+            elif key in introduced and not _says_less(block, introduced[key]):
                 raise LanguageError(
                     f"fragment '{_author_of(asked, kind, key)}' reads the {label} {key!r} as {block!r}, where "
                     f"'{_author_of(read, kind, key)}' introduces it as {introduced[key]!r}. A given declaration "
@@ -242,6 +269,52 @@ def _folded(read: Mapping[str, dict[str, object]], merged: Mapping[str, object])
         if remaining := {key: block for key, block in agreed.items() if key not in introduced}:
             left[kind] = remaining
     return left
+
+
+#: The given kinds whose names share the flat namespace an expression reads.
+#: A row family is named only in ``dual()``, apart from it.
+READ_KINDS = ('parameters', 'variables', 'expressions')
+
+
+def _same_kind(
+    asked: Mapping[str, dict[str, object]],
+    read: Mapping[str, dict[str, object]],
+    merged: Mapping[str, object],
+    kind: str,
+    key: str,
+) -> None:
+    """Refuse a given declaration whose name a sibling introduces as another kind of thing."""
+    if kind not in READ_KINDS:
+        return
+    for other in READ_KINDS:
+        if other != kind and key in _mapping(merged.get(other)):
+            raise LanguageError(
+                f"fragment '{_author_of(asked, kind, key)}' reads {key!r} as a {GIVEN_KINDS[kind]}, where "
+                f"'{_author_of(read, other, key)}' introduces it under '{other}:'. A given declaration reads a "
+                f"name as the kind of thing its introducer declares: move it under 'given: {other}:'."
+            )
+
+
+def _same_frame(
+    asked: Mapping[str, dict[str, object]],
+    read: Mapping[str, dict[str, object]],
+    key: str,
+    block: object,
+    frame: tuple[str, ...],
+) -> None:
+    """Refuse a given expression read over another frame than its definition carries.
+
+    Compared as sets, since a definition's frame is what its body carries and
+    has no written order.
+    """
+    stated = cast('list[str]', _mapping(block)['dims'])
+    if set(stated) != set(frame):
+        raise LanguageError(
+            f"fragment '{_author_of(asked, 'expressions', key)}' reads the given expression {key!r} over "
+            f"{sorted(stated)}, where '{_author_of(read, 'expressions', key)}' defines it over {sorted(frame)}. "
+            f'A given expression is read over the frame its definition carries: restate the frame as '
+            f'{sorted(frame)}.'
+        )
 
 
 def _says_less(reader: object, introducer: object) -> bool:

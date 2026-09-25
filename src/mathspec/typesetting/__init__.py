@@ -207,7 +207,13 @@ def typeset_declaration(
             names nothing in the model.
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
-    givens = {'variable': walk.program.given.variables, 'constraint': walk.program.given.constraints}
+    given = walk.program.given
+    givens = {
+        'parameter': given.parameters,
+        'variable': given.variables,
+        'expression': given.expressions,
+        'constraint': given.constraints,
+    }
     given_kind = next((kind for kind, group in givens.items() if name in group), None)
     if given_kind is not None:
         msg = (

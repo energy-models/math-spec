@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What a file reads and does not build: a column, and a row family.
+"""What a file reads and does not build: a parameter, a column, a named expression, and a row family.
 
 A fragment reads a column the file beside it introduces, and `merge` folds the
 two together, so the composed model carries no trace of the reading. A layer
@@ -47,11 +47,13 @@ SURFACE = {
 }
 
 
-def test_given_holds_two_kinds_and_refuses_a_third():
+def test_given_holds_four_kinds_and_refuses_a_fifth():
     """The section is closed, so a kind nobody has admitted yet is the schema's own refusal."""
     with pytest.raises(LanguageError) as raised:
-        to_spec({**SUPPLY, 'given': {'parameters': {'gen_cost': {'dims': ['generator']}}}})
-    assert 'Valid keys: constraints, variables' in str(raised.value), 'the refusal names what the block takes'
+        to_spec({**SUPPLY, 'given': {'macros': {'twice': {'params': ['x'], 'template': '2 * x'}}}})
+    assert 'Valid keys: constraints, expressions, parameters, variables' in str(raised.value), (
+        'the refusal names what the block takes'
+    )
 
 
 def test_a_fragment_that_says_what_it_reads_loads_on_its_own():
@@ -326,3 +328,224 @@ def test_a_dimension_only_a_given_declaration_indexes_is_in_use():
     """The never-an-axis pass reads the frames a build emits, and these two are in neither."""
     unreached = {note.subject for note in advice(REACHED_ONLY_BY_A_GIVEN_FRAME) if note.kind == 'never-an-axis'}
     assert not unreached, 'a dimension a given column or row family is indexed by is used'
+
+
+# ---------------------------------------------------------------------------
+# a parameter another file declares
+# ---------------------------------------------------------------------------
+
+#: A cost file: it reads the fleet's output and its price, and declares
+#: neither. The price is data the fleet file declares.
+PRICED = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
+    'given': {
+        'parameters': {
+            'gen_cost': {'dims': ['generator'], 'description': 'what one unit of output costs'},
+            'gen_on': {'dims': ['generator'], 'dtype': 'bool'},
+        },
+        'variables': {'gen_p': {'dims': ['snapshot', 'generator']}},
+    },
+    'parameters': {'weight': {'dims': ['snapshot']}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(gen_p * gen_cost * weight)'},
+    'constraints': {
+        'off_units_idle': {'dims': ['snapshot', 'generator'], 'where': 'not gen_on', 'expression': 'gen_p <= 0'}
+    },
+}
+
+
+def test_a_fragment_reads_a_parameter_it_does_not_declare():
+    spec = to_spec(PRICED)
+    assert sorted(spec.given.parameters) == ['gen_cost', 'gen_on']
+    assert sorted(spec.parameters) == ['weight'], 'the data it declares is its own, and the price is not'
+
+
+def test_a_program_carries_the_parameter_it_reads_apart_from_the_ones_it_declares():
+    program = to_spec(PRICED).program
+    assert sorted(program.parameters) == ['weight']
+    assert program.given.parameters['gen_on'].dims == ('generator',)
+    assert program.given.parameters['gen_on'].dtype == 'bool', 'a where compares against the dtype the reader states'
+
+
+def test_a_given_parameter_is_read_in_a_bound_as_any_parameter_is():
+    bounded = {
+        **PRICED,
+        'given': {**PRICED['given'], 'parameters': {'gen_p_max': {'dims': ['generator']}}},
+        'variables': {'spill': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'gen_p_max'}}},
+        'constraints': {},
+        'objective': {'sense': 'minimize', 'expression': 'sum(spill + gen_p)'},
+    }
+    assert to_spec(bounded).variables['spill'].bounds.upper == 'gen_p_max'
+
+
+def test_a_given_parameter_prints_under_the_given_heading():
+    given = to_markdown(PRICED).split('#### Given')[1]
+    assert '`gen_cost`' in given and '`gen_on`' in given
+
+
+@pytest.mark.parametrize(
+    ('block', 'says'),
+    [
+        pytest.param({'dims': ['nowhere']}, 'nowhere', id='a-frame-over-an-undeclared-dimension'),
+        pytest.param({'dims': ['generator'], 'default': 0}, 'default', id='a-field-a-parameter-does-not-have'),
+    ],
+)
+def test_a_given_parameter_is_refused_where_it_oversteps(block, says):
+    with pytest.raises(LanguageError) as raised:
+        to_spec({**PRICED, 'given': {**PRICED['given'], 'parameters': {'gen_cost': block}}})
+    assert says in str(raised.value)
+
+
+def test_a_parameter_both_declared_and_given_in_one_file_is_refused():
+    both = {**PRICED, 'parameters': {**PRICED['parameters'], 'gen_cost': {'dims': ['generator']}}}
+    with pytest.raises(LanguageError, match=r"Given parameter 'gen_cost' collides with the parameter"):
+        to_spec(both)
+
+
+#: The fleet file, which declares the data `PRICED` reads.
+FLEET = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
+    'parameters': {
+        'gen_cost': {'dims': ['generator']},
+        'gen_on': {'dims': ['generator'], 'dtype': 'bool'},
+        'gen_p_max': {'dims': ['generator']},
+    },
+    'variables': {'gen_p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'gen_p_max'}}},
+}
+
+
+def test_merging_folds_a_given_parameter_into_the_declaration():
+    composed = merge({'fleet': FLEET, 'cost': PRICED})
+    assert not composed.given, 'every reading is spent once the fleet is in the composition'
+    assert sorted(composed.parameters) == ['gen_cost', 'gen_on', 'gen_p_max', 'weight']
+
+
+@pytest.mark.parametrize(
+    'misread',
+    [
+        pytest.param({'dims': ['snapshot', 'generator']}, id='another-frame'),
+        pytest.param({'dims': ['generator'], 'dtype': 'int'}, id='another-dtype'),
+    ],
+)
+def test_a_given_parameter_that_disagrees_with_the_declaration_is_refused(misread):
+    cost = {**PRICED, 'given': {**PRICED['given'], 'parameters': {**PRICED['given']['parameters'], 'gen_on': misread}}}
+    with pytest.raises(LanguageError, match=r"reads the given parameter 'gen_on' as"):
+        merge({'fleet': FLEET, 'cost': cost})
+
+
+def test_a_given_parameter_nothing_declares_stays_for_the_data_to_bind():
+    composed = merge({'cost': PRICED, 'other': {'dimensions': {'snapshot': {'dtype': 'int'}}}})
+    assert sorted(composed.program.given.parameters) == ['gen_cost', 'gen_on']
+
+
+def test_the_advice_names_a_given_parameter_as_data_a_consumer_binds():
+    notes = {note.subject: note.text for note in advice(PRICED) if note.kind == 'given'}
+    assert 'gen_cost' in notes and 'parameter' in notes['gen_cost']
+
+
+# ---------------------------------------------------------------------------
+# a named expression another file defines
+# ---------------------------------------------------------------------------
+
+#: A balance file: it clears each bus of what every component injects, and
+#: defines none of the injections.
+BALANCE = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
+    'given': {
+        'expressions': {'injection': {'dims': ['snapshot', 'bus'], 'description': 'what the components put into a bus'}}
+    },
+    'constraints': {'balance': {'dims': ['snapshot', 'bus'], 'expression': 'injection == 0'}},
+}
+
+#: A component file that defines the injection.
+INJECTOR = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}, 'generator': {'dtype': 'str'}},
+    'relations': {'gen_bus': {'key': 'generator', 'values': 'bus'}},
+    'parameters': {'load': {'dims': ['snapshot', 'bus']}},
+    'variables': {'gen_p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}}},
+    'expressions': {'injection': {'expression': 'sum(gen_p, by=gen_bus, over=generator, into=bus) - load'}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(gen_p)'},
+}
+
+
+def test_a_fragment_reads_an_expression_it_does_not_define():
+    spec = to_spec(BALANCE)
+    assert sorted(spec.given.expressions) == ['injection']
+    assert spec.constraints['balance'].dims == ['snapshot', 'bus'], 'the frame the reader states is the one read'
+
+
+def test_a_program_carries_the_expression_it_reads_apart_from_the_ones_it_defines():
+    program = to_spec(BALANCE).program
+    assert not program.expressions
+    assert program.given.expressions['injection'].dims == ('snapshot', 'bus')
+
+
+def test_a_given_expression_prints_under_the_given_heading():
+    given = to_markdown(BALANCE).split('#### Given')[1]
+    assert '`injection`' in given
+    assert 'an expression another file defines' in given, 'the legend says what kind of thing the file reads'
+
+
+@pytest.mark.parametrize('fmt', sorted(FORMATS))
+def test_a_fragment_reading_an_expression_prints_in_every_format(fmt):
+    assert typeset(BALANCE, fmt), f'{fmt} rendered nothing'
+
+
+def test_a_given_expression_is_no_mask():
+    """A mask is built before any variable exists, and a given expression may read variables."""
+    masked = {**BALANCE, 'constraints': {'balance': {**BALANCE['constraints']['balance'], 'where': 'injection > 0'}}}
+    with pytest.raises(LanguageError, match='before variables exist'):
+        to_spec(masked)
+
+
+def test_an_expression_both_defined_and_given_in_one_file_is_refused():
+    both = {**BALANCE, 'expressions': {'injection': {'expression': '0'}}}
+    with pytest.raises(LanguageError, match=r"Given expression 'injection' collides with the named expression"):
+        to_spec(both)
+
+
+def test_merging_folds_a_given_expression_into_its_definition():
+    composed = merge({'balance': BALANCE, 'injector': INJECTOR})
+    assert not composed.given
+    assert composed.constraints['balance'].expression == 'injection == 0'
+    assert composed.program.expressions['injection'].in_math, 'the balance reads the definition once folded'
+
+
+def test_a_given_expression_over_another_frame_is_refused():
+    """The introducer's frame is what the body carries, so it is read off the composed program."""
+    narrow = {**BALANCE, 'given': {'expressions': {'injection': {'dims': ['bus']}}}}
+    narrow = {**narrow, 'constraints': {'balance': {'dims': ['bus'], 'expression': 'injection == 0'}}}
+    with pytest.raises(LanguageError, match=r"'balance' reads the given expression 'injection' over \['bus'\]"):
+        merge({'balance': narrow, 'injector': INJECTOR})
+
+
+def test_a_given_expression_a_sibling_introduces_as_a_variable_is_refused():
+    as_column = {
+        **INJECTOR,
+        'expressions': {},
+        'variables': {**INJECTOR['variables'], 'injection': {'dims': ['snapshot', 'bus']}},
+    }
+    with pytest.raises(
+        LanguageError,
+        match=r"reads 'injection' as a given expression, where 'injector' introduces it under 'variables:'",
+    ):
+        merge({'balance': BALANCE, 'injector': as_column})
+
+
+def test_the_composed_model_holds_a_definition_to_the_rules_of_where_it_is_read():
+    """A fragment reads a given expression as a column, so a square of it is quadratic there and quartic once folded."""
+    squares = {
+        **BALANCE,
+        'constraints': {'capped': {'dims': ['snapshot', 'bus'], 'expression': 'injection * injection <= 1'}},
+    }
+    squared = {
+        **INJECTOR,
+        'expressions': {'injection': {'expression': 'sum(gen_p * gen_p, by=gen_bus, over=generator, into=bus)'}},
+    }
+    assert to_spec(squares) and to_spec(squared), 'each file loads on its own'
+    with pytest.raises(LanguageError, match='degree'):
+        merge({'balance': squares, 'injector': squared})
+
+
+def test_the_advice_names_a_given_expression():
+    notes = {note.subject: note.text for note in advice(BALANCE) if note.kind == 'given'}
+    assert 'injection' in notes and 'expression' in notes['injection']
