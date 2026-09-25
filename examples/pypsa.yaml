@@ -524,6 +524,13 @@ parameters:
       `sign`, `-1` unless given, `1` for a load that feeds its bus. PyPSA
       refuses one that differs by scenario (`consistency.py:1187`)
     dims: [load]
+  Load_active:
+    description: >-
+      whether a load stands in the model — PyPSA's `active`. A load has no
+      build year and no lifetime, so the flag holds in every snapshot. PyPSA
+      refuses one that differs by scenario (`consistency.py:1195`)
+    dims: [load]
+    dtype: bool
   scenario_weight:
     description: PyPSA's `scenario_weightings.weight` — the probability of a future
     dims: [scenario]
@@ -2109,6 +2116,15 @@ expressions:
     cases:
       positive: { when: Carrier_max_relative_growth > 0, expression: Carrier_max_relative_growth }
     otherwise: 0
+  Load_demand:
+    description: >-
+      what a load draws from its bus's balance — its demand times its sign
+      where it is active, nothing where it is not, since PyPSA drops an
+      inactive load from the balance (`constraints.py:1537-1538`)
+    dims: [scenario, snapshot, load]
+    cases:
+      active: { when: Load_active, expression: Load_sign * Load_p_set }
+    otherwise: 0
   Line_s_monitored:
     description: >-
       the flow a line's post-contingency rows read — its flow where it stands,
@@ -3634,8 +3650,8 @@ constraints:
       carrying its flow, meets the load there, less half of every incident
       line's and transformer's loss — PyPSA dissipates a branch's loss half at
       either end. Each generator, storage unit, store and load term enters
-      with its component's `sign` (`constraints.py:1428-1429`, `:1538`).
-      A bus nothing is attached to has no row; PyPSA refuses one that
+      with its component's `sign` (`constraints.py:1428-1429`, `:1538`), and
+      an inactive load not at all. A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     dims: [scenario, snapshot, bus]
     expression: >-
@@ -3653,7 +3669,7 @@ constraints:
       + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
       - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
       - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
-      == -sum(Load_sign * Load_p_set, by=Load_bus, over=load, into=bus)
+      == -sum(Load_demand, by=Load_bus, over=load, into=bus)
   Carrier_growth_limit:
     description: >-
       `Carrier-growth_limit` — what a carrier adds across its extendable components in a period,
