@@ -41,18 +41,18 @@ Support in both is work in progress.
 
 <!--- --8<-- [start:benefits] -->
 
-- :white_check_mark: **Check models in CI, with no data.** A wrong name or
+- **Check models in CI, with no data.** A wrong name or
   dimension fails when the file loads, and the error names the fix.
   [Errors →](https://math-spec.readthedocs.io/en/latest/reference/language/errors/)
-- :page_facing_up: **Publish the math you solve.** The equations in the paper
+- **Publish the math you solve.** The equations in the paper
   print from the file the solver reads.
   [Typeset →](https://math-spec.readthedocs.io/en/latest/reference/typeset/)
-- :arrows_counterclockwise: **Switch engines, keep the model.** The operators
+- **Switch engines, keep the model.** The operators
   are a fixed set, so every engine reads the file the same way.
   [Limits →](https://math-spec.readthedocs.io/en/latest/about/limits/)
-- :mag: **Review a model as a diff.** The model is plain YAML, and no Python
+- **Review a model as a diff.** The model is plain YAML, and no Python
   state changes what it means.
-- :electric_plug: **Write full-size models.** PyPSA's `n.optimize()` model is
+- **Write full-size models.** PyPSA's `n.optimize()` model is
   one file, with stochastic, multi-period and quadratic variants.
   [PyPSA in one file →](https://math-spec.readthedocs.io/en/latest/examples/pypsa/)
 
