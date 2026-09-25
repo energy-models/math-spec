@@ -27,8 +27,8 @@ What :func:`merge` does with each section:
   its own it reads its share, and composed it would read the sum.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
-  A given expression is checked against the frame its definition's body
-  carries, and a name read as one kind and introduced as another is refused.
+  A given expression's body may carry no dimension its reader does not state,
+  and a name read as one kind and introduced as another is refused.
   Two fragments that both only read a name have to read it the same way, and a
   fragment that declares a name and reads it as well is refused. What no
   fragment introduces stays under ``given:`` until a host model provides it.
@@ -138,7 +138,7 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
             declare one name; two fragments say different things about one
             dimension, relation or given declaration; a fragment reads a name as
             something other than what its sibling introduces, as another kind
-            of thing, or over another frame; two fragments are
+            of thing, or over fewer dimensions than its body carries; two fragments are
             written against different language versions; their objectives run
             opposite ways; or the composed model does not load.
         FileNotFoundError: A ``str`` with no newline that names no file.
@@ -306,7 +306,8 @@ def _folded(
     A given declaration is what a fragment expects of a name a sibling owns.
     Where the sibling is in the composition the expectation is checked and
     then dropped, so the composed model declares the name once. A given
-    expression is checked against the frame of the definition's body.
+    expression is checked against the frame of the definition's body: the body
+    carries no dimension the reader does not state.
     """
     asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
     left: dict[str, object] = {}
@@ -316,7 +317,7 @@ def _folded(
         for key, block in agreed.items():
             _same_kind(asked, read, merged, kind, key)
             if key in introduced and kind == 'expressions':
-                _same_frame(asked, read, key, block, frames[key])
+                _within_frame(asked, read, key, block, frames[key])
             elif key in introduced and not _says_less(block, introduced[key]):
                 raise LanguageError(
                     f"fragment '{_author_of(asked, kind, key)}' reads the {label} {key!r} as {block!r}, where "
@@ -353,25 +354,26 @@ def _same_kind(
             )
 
 
-def _same_frame(
+def _within_frame(
     asked: Mapping[str, dict[str, object]],
     read: Mapping[str, dict[str, object]],
     key: str,
     block: object,
     frame: tuple[str, ...],
 ) -> None:
-    """Refuse a given expression read over another frame than its definition carries.
+    """Refuse a definition whose body carries a dimension the given expression's reader does not state.
 
-    Compared as sets, since a definition's frame is what its body carries and
-    has no written order.
+    The reader's ``dims`` bounds what it reads. A body over fewer dimensions is
+    left to the composed model's load, which refuses a row it would repeat and
+    accepts one another term carries the dimension through.
     """
     stated = cast('list[str]', _mapping(block)['dims'])
-    if set(stated) != set(frame):
+    if extra := sorted(set(frame) - set(stated)):
         raise LanguageError(
             f"fragment '{_author_of(asked, 'expressions', key)}' reads the given expression {key!r} over "
             f"{sorted(stated)}, where '{_author_of(read, 'expressions', key)}' defines it over {sorted(frame)}. "
-            f'A given expression is read over the frame its definition carries: restate the frame as '
-            f'{sorted(frame)}.'
+            f'A given expression is read over at most the frame its reader states, and this body carries '
+            f'{extra} beyond it: add {extra} to the dims of the given entry.'
         )
 
 
