@@ -61,7 +61,7 @@ repository = "https://github.com/energy-models/math-spec"
 # pixi.toml. Keeping a second list here is how the two drift apart.
 
 [tool.ruff]
-# Carried from lpspec, which is where every file under src/ was written and
+# Carried from specsolve, which is where every file under src/ was written and
 # formatted. Adopting it wholesale means the extraction reformats nothing; the
 # alternative was a 43-file diff over quote style, on a tree nobody has reviewed
 # in this repo yet. `target-version` is the one change: math-spec's floor.

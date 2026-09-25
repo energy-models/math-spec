@@ -67,7 +67,7 @@ def test_no_fold_in_the_readme_prints_its_math_as_a_code_block():
     `tools._page.inlined` is what rewrites a fold into it.
     """
     folds = re.findall(r'<details>.*?</details>', home_math.README.read_text(), re.DOTALL)
-    assert len(folds) == 3, 'the README folds the whole document, then the same document in the other two notations'
+    assert len(folds) == 1, 'the README folds one block, the whole document with its symbol table'
     hiding = [fold[:60] for fold in folds if '```math' in fold]
     assert not hiding, f'a `math` fence inside a fold prints its TeX rather than its math: {hiding}'
 
@@ -261,43 +261,39 @@ def test_every_page_under_docs_has_a_nav_entry():
     )
 
 
-#: Where the API pages live, one per module that declares an `__all__`.
-API = Path('docs') / 'reference' / 'api'
+#: The API pages, by the module each renders. `math_spec.typesetting` has no
+#: page of its own: `math_spec` re-exports what a consumer calls from it.
+API_PAGES = {
+    'math_spec': Path('docs') / 'reference' / 'api.md',
+    'math_spec.program': Path('docs') / 'reference' / 'program.md',
+}
 
 
-def _module_of(page: Path) -> str:
-    """The module an API page stands for, which is its file name."""
-    return 'math_spec' if page.stem == 'math_spec' else f'math_spec.{page.stem}'
+def _targets(page: Path) -> list[str]:
+    """What each `:::` block on the page asks mkdocstrings to render."""
+    return [line.removeprefix(':::').strip() for line in page.read_text().splitlines() if line.startswith(':::')]
 
 
-def _opening_target(page: Path) -> str | None:
-    """What the page's first `:::` block asks mkdocstrings to render.
-
-    A later block is a patch rather than a subject: `math_spec.advice.advice`
-    is on the facade page because the name collides with a module of the same
-    spelling, and mkdocstrings resolves the collision to the module.
-    """
-    lines = (line for line in page.read_text().splitlines() if line.startswith(':::'))
-    return next((line.removeprefix(':::').strip() for line in lines), None)
-
-
-def test_an_api_page_stands_for_every_module_the_public_surface_pins():
+def test_the_api_pages_render_the_public_surface_and_nothing_else():
     """The API reference is the export surface, and nothing else.
 
     `docs/static/hooks.py` used to write one page per source module, so
     `lowering`, `resolution` and `separability` were published beside
-    `to_spec` although no consumer may import them. The pages are written now,
-    one per module that declares an `__all__`, which is the list
-    `tests/test_public_surface.py` already pins.
+    `to_spec` although no consumer may import them. A page now renders only a
+    module `tests/test_public_surface.py` pins, or a name one of them exports.
     """
     from tests.test_public_surface import MODULES
 
-    pinned = {module.values[0].__name__ for module in MODULES}
-    pages = {_module_of(page): page for page in (ROOT / API).glob('*.md')}
-    assert set(pages) == pinned, (
-        f'modules the public surface pins with no page under {API.as_posix()}: {sorted(pinned - set(pages))}; '
-        f'pages for a module it does not pin: {sorted(set(pages) - pinned)}'
-    )
+    pinned = {module.values[0].__name__: module.values[0] for module in MODULES}
+    public = set(pinned) | {f'{name}.{member}' for name, module in pinned.items() for member in module.__all__}
+    rendered = {target for page in API_PAGES.values() for target in _targets(ROOT / page)}
+    assert rendered <= public, f'an API page renders a name no pinned module exports: {sorted(rendered - public)}'
 
-    named_wrong = {page.name: target for module, page in pages.items() if (target := _opening_target(page)) != module}
-    assert not named_wrong, f'an API page opens on a module its file name does not name: {named_wrong}'
+
+def test_every_name_the_package_exports_has_an_entry_on_an_api_page():
+    """A name joins `math_spec.__all__` and the Python API page together."""
+    import math_spec
+
+    rendered = {target for page in API_PAGES.values() for target in _targets(ROOT / page)}
+    missing = sorted(name for name in math_spec.__all__ if f'math_spec.{name}' not in rendered)
+    assert missing == [], f'names in math_spec.__all__ with no ::: entry on an API page: {missing}'

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What `to_spec` refuses with no data bound, and how it says so."""
+"""What `to_spec` refuses with no data attached, and how it says so."""
 
 from __future__ import annotations
 
@@ -602,7 +602,7 @@ class TestAWhereSideIsReadInResolution:
     """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be.
 
     A ``position()`` call is held to its shape, a literal is the expression grammar's, and
-    everything else on a side is a comparison of expressions, decided with no data bound.
+    everything else on a side is a comparison of expressions, decided with no data attached.
     """
 
     @pytest.mark.parametrize(
@@ -997,22 +997,22 @@ class TestAPredicateIsAnOperand:
         assert 'translation' not in str(caught.value)
 
     def test_a_read_lands_on_the_dims_it_produces_and_reads_the_relation(self):
-        """The mask is over what the relation maps onto, and a consumer binds the relation as well as the operand."""
+        """The mask is over what the relation maps onto, and a consumer attaches the relation as well as the operand."""
         mask = where_of("at(h == 'north', by=lk, over=h, into=g)", Namespace(_schema()), 'probe')
         assert mask is not None
         assert sorted(mask.dims) == ['g'], "'h' is read at lk(g), so g is all the mask is over"
-        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer binds, the label is not'
+        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer attaches, the label is not'
 
     def test_a_count_reduces_the_dim_it_counts_along_away(self):
         """The count is one number per remaining coordinate, so a claim about each group needs no word for the group."""
         mask = where_of('count(q, over=h) >= 2', Namespace(_schema()), 'probe')
         assert mask is not None
         assert sorted(mask.dims) == ['g'], "'q' is read over g and h, and h is counted away"
-        assert mask.names_read == frozenset({'q'}), 'a consumer binds what the counted predicate reads'
+        assert mask.names_read == frozenset({'q'}), 'a consumer attaches what the counted predicate reads'
 
 
 class TestRulesDecidedWithoutData:
-    """Every refusal the schema or the resolver makes with no data bound, one row each."""
+    """Every refusal the schema or the resolver makes with no data attached, one row each."""
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -1364,11 +1364,6 @@ class TestRulesDecidedWithoutData:
                 id='literal-bounds-that-cross',
             ),
             pytest.param(
-                {'variables.p.bounds': {'lower': float('inf'), 'upper': float('-inf')}},
-                ('bounds.lower inf is above bounds.upper -inf',),
-                id='infinite-bounds-that-cross',
-            ),
-            pytest.param(
                 {'variables.p.dims': ['g', 'g']},
                 ("Variable 'p' names dimension 'g' twice",),
                 id='dims-repeats-a-dim',
@@ -1602,7 +1597,7 @@ class TestAssumptions:
     Everything here is about the data, so nothing in it is decided at load but
     the shape of the predicate: the entry is refused where the connectives
     already settle it, and where it names a variable, which is what the solver
-    decides rather than what the caller binds.
+    decides rather than what the caller attaches.
     """
 
     @pytest.mark.parametrize(
@@ -1864,7 +1859,7 @@ class TestExpressionCases:
             to_spec(_cased(cases))
 
     def test_two_cases_may_not_claim_one_coordinate(self):
-        """Proved before any data binds, so the arms are read apart rather than in order."""
+        """Proved before any data is attached, so the arms are read apart rather than in order."""
         cases = {
             'gas': {'when': "generator == 'gas'", 'expression': 'p_max'},
             'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max * 2'},
@@ -2197,3 +2192,37 @@ def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_n
     model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
     with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
         to_spec(model)
+
+
+@pytest.mark.parametrize(
+    'upper',
+    [
+        pytest.param({}, id='omitted'),
+        pytest.param({'upper': None}, id='null'),
+    ],
+)
+def test_an_open_bound_is_null_in_the_file_and_in_the_program(upper):
+    """`upper: null` was refused, though every other field a file may leave open takes `null`."""
+    spec = to_spec(override(DISPATCH_MODEL, **{'variables.p.bounds': {'lower': 0, **upper}}))
+    assert spec.variables['p'].bounds.upper is None
+    assert spec.program.variables['p'].upper is None, 'the program says the side is open rather than infinite'
+    assert spec.to_dict()['variables']['p']['bounds'] == {'lower': 0}, 'an open bound is not written back out'
+
+
+@pytest.mark.parametrize(
+    ('side', 'value'),
+    [
+        pytest.param('upper', float('inf'), id='the-infinity-that-opens-the-upper-side'),
+        pytest.param('lower', float('-inf'), id='the-infinity-that-opens-the-lower-side'),
+        pytest.param('lower', float('inf'), id='a-lower-bound-no-value-meets'),
+        pytest.param('upper', float('-inf'), id='an-upper-bound-no-value-meets'),
+    ],
+)
+def test_an_infinite_bound_is_refused_with_the_null_that_opens_a_side(side, value):
+    """An infinity is either the open side, which is `null`, or a bound no value meets.
+
+    A lone `lower: .inf` loaded: only two literal bounds that cross were refused.
+    """
+    message = _refusal(DISPATCH_MODEL, **{f'variables.p.bounds.{side}': value})
+    assert f'bounds.{side} is {value}, and a bound is finite' in message
+    assert f'{side}: null' in message, 'the refusal names the spelling of an open side'

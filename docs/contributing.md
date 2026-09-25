@@ -55,7 +55,7 @@ changes.
 ??? question "I have updated the README.md"
 
     The home page includes named sections of the README rather than a copy: the
-    badges, the model, the development install and the status note. A section
+    badges, the model and the status note. A section
     is delimited in the README by `:::md <!--- --8<-- [start:name] -->` and
     `:::md <!--- --8<-- [end:name] -->`, and `docs/index.md` pulls it in with
     `:::md --8<-- "README.md:name"`. Edit inside the markers, and the site
@@ -91,8 +91,9 @@ changes.
       - My Page: my-page.md
     ```
 
-    The Python API pages are generated from the docstrings, so a new class or
-    module appears in the next build.
+    The module pages under Development are generated from the docstrings, so a
+    new module appears in the next build. A new public name also needs its own
+    `:::` entry on the [Python API](reference/api.md) page.
 
 ## Naming across the layers
 

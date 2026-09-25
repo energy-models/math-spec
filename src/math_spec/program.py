@@ -11,9 +11,8 @@ data at all. Lowering, as a :class:`~math_spec.model.Spec` loads, is the only
 thing that builds one, so nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
-node's structure does not show are :func:`children` and :func:`fan_in`; the
-questions over the walk are :func:`walk_regions`, :func:`walk` and the filters
-beside them. A
+node's structure does not show is :func:`children`; the questions over the walk
+are :func:`walk_regions`, :func:`walk` and the filters beside them. A
 resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
 one: ``docs/reference/reading.md``.
@@ -22,7 +21,7 @@ one: ``docs/reference/reading.md``.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import dataclass, fields, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, assert_never
 
@@ -58,7 +57,6 @@ __all__ = [
     'Expression',
     'ExpressionComparison',
     'ExpressionDeclaration',
-    'FanIn',
     'Footprint',
     'GroupSum',
     'Link',
@@ -107,11 +105,8 @@ __all__ = [
     'assumption_message',
     'carries_variable',
     'children',
-    'divisor_parameters',
-    'fan_in',
     'is_quadratic',
     'parameters_of',
-    'quotients',
     'variables_of',
     'walk',
     'walk_regions',
@@ -120,10 +115,6 @@ __all__ = [
 
 
 ConstraintSense = ComparisonOperator
-
-#: How a shape operator's output rows relate to its input slots, answered by
-#: :func:`fan_in` for every node.
-FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
@@ -200,9 +191,8 @@ class Dual:
 
     Stands only under an :class:`ExpressionDeclaration` the math never reads:
     the loader refuses ``dual()`` anywhere a solver ingests. One value per
-    coordinate of the named constraint's own ``dims`` frame, which is what
-    :func:`fan_in` answers ``one-to-one`` for — the leaf reshapes nothing,
-    like a parameter.
+    coordinate of the named constraint's own ``dims`` frame: the leaf reshapes
+    nothing, like a parameter.
     """
 
     constraint: str
@@ -411,27 +401,6 @@ Expression = (
 )
 
 
-def fan_in(expression: Expression) -> FanIn:
-    """How *expression*'s output rows relate to its input slots.
-
-    For the absence rules, both classes other than ``'one-to-one'`` sum
-    several input slots into an output row. A :class:`Named` answers as its
-    body does.
-    """
-    if isinstance(expression, Named):
-        return fan_in(expression.body)
-    if isinstance(expression, (Sum, GroupSum)):
-        return 'many-to-one'
-    if isinstance(expression, WindowSum):
-        return 'one-to-many'
-    if isinstance(
-        expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Pullback, Translate, Cases),
-    ):
-        return 'one-to-one'
-    assert_never(expression)
-
-
 def children(expression: Expression) -> tuple[Expression, ...]:
     """The sub-expressions of *expression* — what every walk recurses through."""
     if isinstance(expression, Named):
@@ -462,11 +431,11 @@ def children(expression: Expression) -> tuple[Expression, ...]:
 class RelationDeclaration:
     """One declared relation: a table over its ``columns``, single-valued per ``key``.
 
-    ``columns`` binds each role to its dimension in the order the table
+    ``columns`` maps each role to its dimension in the order the table
     carries them, the key's roles first; ``key`` is the roles a row is
     identified by, and :attr:`values` the rest — every role is a key role for
     a bare relation, which is one with no value columns. Every value is
-    checked at bind to be a label of its column's dimension, and the table to
+    checked when the data is attached to be a label of its column's dimension, and the table to
     have one row per key tuple — which keeps a mistyped label from silently
     dropping its terms in the join that places them, and is what lets ``at``
     read one value.
@@ -505,7 +474,7 @@ class Direction:
     The declaration fixes no direction; the call does, and this is the one it
     named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
-    ``relation``, which binds every role to its dimension and names the key.
+    ``relation``, which maps every role to its dimension and names the key.
     ``joined`` is the key roles the call did not name (every role, for a bare
     relation): the join keys on them, and a value role left unnamed is not
     read.
@@ -518,7 +487,7 @@ class Direction:
     joined: tuple[str, ...]
 
     def dim(self, role: str) -> str:
-        """The dimension *role* is bound to."""
+        """The dimension *role* ranges over."""
         return self.relation.dim(role)
 
     @property
@@ -540,7 +509,7 @@ class Partition:
 
     ``name`` is the relation's, as :attr:`Program.relations` keys it.
     ``along``, ``group`` and ``joined`` are *roles* — column names of
-    ``relation``, which binds every role to its dimension and names the key.
+    ``relation``, which maps every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
     the frame keeps it. ``group`` is the value columns ``within=`` named,
     read at the row's key. ``joined`` is the other key columns, whose
@@ -555,7 +524,7 @@ class Partition:
     joined: tuple[str, ...]
 
     def dim(self, role: str) -> str:
-        """The dimension *role* is bound to."""
+        """The dimension *role* ranges over."""
         return self.relation.dim(role)
 
     @property
@@ -586,7 +555,7 @@ class Assumption:
     ``predicate`` is true at every coordinate of its frame — the product of
     every dim the two masks name — that ``where`` admits, a missing row
     reading as false as it does in any mask. Nothing here is decidable at
-    load: both sides are the data's, which is why the consumer binding it
+    load: both sides are the data's, which is why the consumer attaching it
     checks.
     """
 
@@ -599,7 +568,7 @@ class Assumption:
 
 
 def assumption_message(name: str, assumption: Assumption) -> str:
-    """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
+    """The sentence a consumer raises when the data attached to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
     a consumer appends the coordinates it saw. Where the file wrote a
@@ -608,16 +577,16 @@ def assumption_message(name: str, assumption: Assumption) -> str:
     why the rule is there.
     """
     read = ', '.join(f"'{n}'" for n in sorted(assumption.predicate.names_read))
-    sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+    sentence = f"assumption '{name}' does not hold for the data attached to {read}"
     return f'{sentence} — {assumption.description}' if assumption.description else sentence
 
 
 @dataclass(frozen=True)
 class ParameterDeclaration:
-    """Shape declaration; data is bound at execution time by name.
+    """Shape declaration; data is attached at execution time by name.
 
     ``dtype`` is what the declaration claims the values are, and a consumer
-    binding data refuses a column that is not it — so the *declaration* is
+    attaching data refuses a column that is not it — so the *declaration* is
     what is read, rather than whatever the column happens to hold.
     """
 
@@ -630,8 +599,11 @@ class ParameterDeclaration:
 class VariableDeclaration:
     dims: tuple[str, ...]
     where: Mask | None = None
-    lower: Expression = field(default_factory=lambda: Constant(float('-inf')))
-    upper: Expression = field(default_factory=lambda: Constant(float('inf')))
+    #: A number or a parameter, or ``None`` where that side is open. What stands
+    #: for an open side in a solve is the consumer's to choose.
+    lower: Expression | None = None
+    #: As :attr:`lower`, for the other side.
+    upper: Expression | None = None
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
     description: str | None = None
@@ -916,7 +888,7 @@ class Program:
     #: What the data has to satisfy for the answer to mean anything, by the
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
-    #: language decides none of it, so the consumer binding the data checks
+    #: language decides none of it, so the consumer attaching the data checks
     #: each and refuses with :func:`assumption_message`.
     assumptions: Mapping[str, Assumption] = Sealed({})
     #: Declared ``expressions:``, each saying whether the math reads it. None
@@ -1087,22 +1059,6 @@ def parameters_of(*expressions: Expression) -> frozenset[str]:
 def variables_of(*expressions: Expression) -> frozenset[str]:
     """Every variable named anywhere under *expressions*."""
     return frozenset(node.name for node in walk(*expressions) if isinstance(node, Variable))
-
-
-def quotients(*expressions: Expression) -> tuple[Divide, ...]:
-    """Every division under *expressions*, each kept whole.
-
-    The divisor and the numerator answer different questions and one consumer
-    needs them paired: a divisor is judged against the rows the declaration
-    builds *narrowed by the variables in its own numerator*, which the flat
-    :func:`divisor_parameters` cannot say.
-    """
-    return tuple(node for node in walk(*expressions) if isinstance(node, Divide))
-
-
-def divisor_parameters(*expressions: Expression) -> frozenset[str]:
-    """Every parameter named anywhere in a divisor under *expressions*."""
-    return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
 
 # ---------------------------------------------------------------------------

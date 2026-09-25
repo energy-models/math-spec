@@ -33,7 +33,7 @@ assumptions:
     description: >-
       piecewise 'curve': every breakpoint the curve runs through needs a row in
       'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
-      curve, so it sits the curve on the origin. Bind the rows, or narrow
+      curve, so it sits the curve on the origin. Attach the rows, or narrow
       points: 'x_bp' to where the curve runs.
   curve_increasing:
     where: x_bp AND shift(x_bp, along=bp, offset=1)
