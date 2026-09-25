@@ -49,9 +49,9 @@ a flag.
 
 - The model's `description:` opens the document.
 - A `piecewise:` block prints as one line: the curve it states, over the frame
-  it states one curve per coordinate of. To print the variables and constraints
-  it stands for instead, print
-  [`spec.expand()`](language/piecewise.md#writing-a-formulation-out).
+  it states one curve per coordinate of.
+  [Printing what a formulation states](#printing-what-a-formulation-states)
+  prints its rows instead.
 - An [`assumptions:`](language/assumptions.md) entry prints under an
   **Assumptions** heading, last, beside what each curve assumes of its
   breakpoints. A model that assumes nothing of its data prints no such
@@ -112,11 +112,8 @@ because one line can print only one of them.
 
 ## Printing what a formulation states
 
-A `piecewise:` block and a `sos:` block each state variables and constraints
-([formulations](language/piecewise.md#writing-a-formulation-out)). Printing
-those rows is printing a different model, so it is
-[`expand()`](language/piecewise.md#writing-a-formulation-out) that produces it
-and not an option on the render:
+To print the variables and constraints that a `piecewise:` or `sos:` block
+states, print [`spec.expand()`](reading.md#formulations-written-out):
 
 ```python
 ms.to_latex(spec)  # the curve, and the set beside its variable
@@ -124,7 +121,7 @@ ms.to_latex(spec.expand())  # the weights, the convexity row, the binaries
 ms.to_latex(spec.expand('sos'))  # the curves as curves, the sets as binaries
 ```
 
-A shell cannot compose that, so the command line spells it as a flag:
+The command line spells it `--expand`:
 
 ```bash
 python -m math_spec latex model.yaml --expand --symbols model.symbols.yaml

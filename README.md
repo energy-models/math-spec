@@ -301,15 +301,16 @@ import math_spec as ms
 spec = ms.to_spec('dispatch.yaml')  # schema, names, dimensions, degree: all checked here
 sorted(spec.variables)  # ['dispatch']
 
-program = spec.expand().program  # curves expanded, names typed, operators resolved to nodes
+program = spec.program  # names typed, operators resolved to nodes
 sorted(program.constraints)  # ['power_balance']
 ```
 
 Neither needs data or a solver, so a repository of models compiles in CI with
 nothing bound to any of them. **A `Spec` holds the file as written, and a
 `Program` holds the model it builds**, with every macro expanded and every curve
-kept as the block it is. `spec.expand()` turns each curve into its variables and
-constraints; an engine that builds rows reads that model's `Program`.
+kept as the block it is.
+[`spec.expand()`](docs/reference/reading.md#formulations-written-out) writes the
+curves out as rows.
 
 <!--- --8<-- [end:load] -->
 
