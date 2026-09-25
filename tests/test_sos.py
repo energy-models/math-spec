@@ -4,7 +4,7 @@
 
 """`sos:` as a formulation: what a set is written out as, and what it may not lose.
 
-Every claim here is one `Spec.expand` reaches with no data bound — which
+Every claim here is one `Spec.expand` reaches with no data attached — which
 declarations a set emits, which coefficient links them, and that the adjacency
 method is the same rows under the same names.
 """

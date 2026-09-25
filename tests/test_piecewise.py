@@ -4,7 +4,7 @@
 
 """`piecewise:` expansion, judged at the door that decides it.
 
-Every claim here is one `to_spec` or `Spec.expand` reaches with no data bound:
+Every claim here is one `to_spec` or `Spec.expand` reaches with no data attached:
 which declarations a curve emits, which names it may not collide with, which
 methods exist, and which gates a block will accept.
 """
@@ -343,7 +343,7 @@ def test_any_affine_expression_is_a_legal_link(link):
     ],
 )
 def test_a_malformed_block_is_refused(model, patch, match):
-    """Schema-level arity rules and the expansion's own preconditions, before any data is bound.
+    """Schema-level arity rules and the expansion's own preconditions, before any data is attached.
 
     Refused rather than fallen back from: a method written down is a formulation chosen.
     """
@@ -671,7 +671,7 @@ def test_every_check_has_a_sentence(suffix):
     name = f'cost_curve_{suffix}'
     assert name in assumptions, 'the fixture is the block that assumes everything'
     message = assumption_message(name, assumptions[name])
-    assert message.startswith(f"assumption '{name}' does not hold for the data bound to "), (
+    assert message.startswith(f"assumption '{name}' does not hold for the data attached to "), (
         'the refusal names the columns a consumer has to look at before it says why'
     )
     assert "— piecewise 'cost_curve':" in message, 'and trails the sentence the method implies'

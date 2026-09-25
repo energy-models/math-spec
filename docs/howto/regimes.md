@@ -81,8 +81,7 @@ the recipe needs no second model file.
        expression: dispatch <= available
    ```
 
-   The loader proves at load that no two cases can hold at one coordinate,
-   and `otherwise:` takes every coordinate they leave.
+   `otherwise:` takes every coordinate the cases leave.
 
 4. **Check it** with `python -m math_spec check model.yaml`. A pair of masks
    that can both hold, or a case with no `otherwise:`, is refused there with

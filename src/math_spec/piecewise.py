@@ -156,11 +156,11 @@ def assumptions_of(name: str, curve: PiecewiseDeclaration, where: str | None) ->
     d = curve.along
     mask, frame, exists = _masks(where, d, ragged=curve.ragged)
     if mask is not None:
-        rewrite = f'Bind the rows, or narrow where: {mask!r} to where the curve runs.'
+        rewrite = f'Attach the rows, or narrow where: {mask!r} to where the curve runs.'
     elif where is not None:
-        rewrite = f"Bind the rows, or let where: {where!r} test '{d}' too, to say how far each curve runs."
+        rewrite = f"Attach the rows, or let where: {where!r} test '{d}' too, to say how far each curve runs."
     else:
-        rewrite = 'Bind the rows, or declare where: to say how far the curve runs.'
+        rewrite = 'Attach the rows, or declare where: to say how far the curve runs.'
     assumed: dict[str, AssumptionBlock] = {}
     if values := [link.values for link in curve.links if not link.walks]:
         assumed[f'{name}_complete'] = AssumptionBlock(

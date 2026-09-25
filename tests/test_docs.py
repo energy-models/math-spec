@@ -67,7 +67,7 @@ def test_no_fold_in_the_readme_prints_its_math_as_a_code_block():
     `tools._page.inlined` is what rewrites a fold into it.
     """
     folds = re.findall(r'<details>.*?</details>', home_math.README.read_text(), re.DOTALL)
-    assert len(folds) == 3, 'the README folds the whole document, then the same document in the other two notations'
+    assert len(folds) == 1, 'the README folds one block, the whole document with its symbol table'
     hiding = [fold[:60] for fold in folds if '```math' in fold]
     assert not hiding, f'a `math` fence inside a fold prints its TeX rather than its math: {hiding}'
 
