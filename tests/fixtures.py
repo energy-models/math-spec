@@ -71,6 +71,14 @@ BALANCE: dict[str, Any] = {
     'constraints': {'balance': {'dims': BUS_FRAME, 'expression': 'injection == 0'}},
 }
 
+#: The network: it declares `injection` as a sum with a frame and no body, for
+#: the component fragments to add their terms to, and balances it.
+NETWORK: dict[str, Any] = {
+    'dimensions': BUS_DIMS,
+    'expressions': {'injection': {'dims': BUS_FRAME, 'description': INJECTION}},
+    'constraints': {'balance': {'dims': BUS_FRAME, 'expression': 'injection == 0'}},
+}
+
 
 def varied(base: dict[str, Any], **patch: Any) -> dict[str, Any]:
     """A deep copy of ``base`` with dotted paths replaced, missing parents created.

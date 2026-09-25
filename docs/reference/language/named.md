@@ -28,8 +28,28 @@ expressions:
     description: CO2 released, the quantity a cap would bound
 ```
 
-It is a bare string, or a mapping with a `description:`. Its body decides its
-dimensions, and there is no `dims:`.
+It is a bare string, or a mapping with a `description:` and a `dims:`. The
+`dims:` are the **frame**, the dimensions the quantity is read over. Left out,
+the body decides the frame. Declared, the body may carry no dimension the
+frame does not name, which the loader checks, and it may carry fewer: the
+quantity is then constant along the rest, and a constraint over the whole frame
+reads it at every coordinate.
+
+```yaml
+expressions:
+  cap:
+    dims: [snapshot, generator]
+    expression: p_max
+    description: the nominal capacity, the same in every snapshot
+```
+
+An entry with a `dims:` and no body at all is an **empty sum**: a quantity
+this file declares and other files add terms to, through
+[`merge`](../../howto/compose.md#a-library-of-components). Alone, the file
+reads it as a column over the frame, the way it reads a
+[given expression](declarations.md#given-expressions), and the legend says
+so. [A term a file adds](declarations.md#a-term-a-file-adds) is the other
+half.
 
 Where the objective or a constraint names it, the body is substituted there,
 and the [degree limit](expressions.md#where-a-product-of-two-variables-is-allowed)
@@ -70,11 +90,11 @@ $$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{co
 
 A named expression carries **exactly one** of `expression:` and `cases:`.
 
-| Key         |                                                                                                   |
-| ----------- | ------------------------------------------------------------------------------------------------- |
-| `dims`      | required with `cases:`, and refused without. The **frame**: the dimensions every case ranges over |
-| `cases`     | a map of named cases, each with a `when:` mask and an `expression:`                               |
-| `otherwise` | required. The value at every coordinate the cases leave                                           |
+| Key         |                                                                              |
+| ----------- | ---------------------------------------------------------------------------- |
+| `dims`      | required with `cases:`. The **frame**: the dimensions every case ranges over |
+| `cases`     | a map of named cases, each with a `when:` mask and an `expression:`          |
+| `otherwise` | required. The value at every coordinate the cases leave                      |
 
 ### The rules that keep the cases apart
 

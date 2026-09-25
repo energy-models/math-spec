@@ -173,7 +173,9 @@ class Legend:
                     self.symbols.name[g],
                     f'{fmt.mono(g)}{self._over(list(block.dims))}, '
                     + (
-                        f'an expression this file adds {fmt.mono(block.term.name)} to'
+                        'a sum other files add terms to'
+                        if block.owned
+                        else f'an expression this file adds {fmt.mono(block.term.name)} to'
                         if block.term is not None
                         else 'an expression another file defines'
                     ),

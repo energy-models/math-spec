@@ -15,7 +15,7 @@ from mathspec.errors import SchemaError
 from mathspec.program import Mask, RelationPairComparison
 from mathspec.resolution import Namespace
 from mathspec.validation import to_spec
-from tests.fixtures import expression_of, schema_of, varied, where_of
+from tests.fixtures import DISPATCH_MODEL, expression_of, schema_of, varied, where_of
 
 if TYPE_CHECKING:
     from mathspec.spec import Spec
@@ -605,3 +605,41 @@ def test_names_read_takes_both_sides_of_a_relation_pair():
     where = RelationPairComparison('from_bus', 'bus', 'to_bus', 'bus', '!=', ('line',))
 
     assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a relation pair names both maps it compares'
+
+
+# ---------------------------------------------------------------------------
+# a named expression's declared frame
+# ---------------------------------------------------------------------------
+
+#: A quantity that is one number per generator, read over every snapshot as well.
+FRAMED = varied(
+    DISPATCH_MODEL,
+    **{
+        'variables.build': {'dims': ['generator']},
+        'expressions.limit': {'dims': ['snapshot', 'generator'], 'expression': 'build * p_max'},
+    },
+)
+
+
+def test_a_declared_frame_is_the_frame_as_written():
+    """A plain entry's frame was its body's, in declaration order; declared, it is the dims: as written."""
+    spec = to_spec(
+        varied(FRAMED, **{'expressions.limit': {'dims': ['generator', 'snapshot'], 'expression': 'build * p_max'}})
+    )
+    assert spec.program.expressions['limit'].dims == ('generator', 'snapshot')
+    assert spec.to_dict()['expressions']['limit']['dims'] == ['generator', 'snapshot'], 'and it round-trips'
+
+
+def test_a_body_outside_its_declared_frame_is_refused():
+    wide = varied(DISPATCH_MODEL, **{'expressions.limit': {'dims': ['generator'], 'expression': 'p * p_max'}})
+    with pytest.raises(DimensionError, match=r"the body carries dims \['snapshot'\] outside the dims: \['generator'\]"):
+        to_spec(wide)
+
+
+def test_a_declared_frame_is_read_at_every_coordinate_where_the_body_is_narrower():
+    """The row would repeat across `snapshot` on the body's own frame; the declared frame says that is meant."""
+    row = {'constraints.capped': {'dims': ['snapshot', 'generator'], 'expression': 'limit <= 10'}}
+    assert to_spec(varied(FRAMED, **row)).program.constraints['capped'].dims == ('snapshot', 'generator')
+    undeclared = varied(FRAMED, **row, **{'expressions.limit': 'build * p_max'})
+    with pytest.raises(DimensionError, match=r"would be repeated across \['snapshot'\]"):
+        to_spec(undeclared)

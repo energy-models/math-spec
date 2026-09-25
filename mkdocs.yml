@@ -197,6 +197,9 @@ markdown_extensions:
       generic: true
   - pymdownx.superfences:
       custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: pymdownx.superfences.fence_code_format
         # A ```math fence is how GitHub takes block math verbatim, and is what
         # this project's own typesetter prints. Arithmatex reads `$$…$$`, so
         # the fence hands it over — indented inside a tab or a list included,

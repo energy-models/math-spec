@@ -51,6 +51,7 @@ from mathspec.program import (
     WindowSum,
     children,
 )
+from mathspec.spec import empty_sums
 
 if TYPE_CHECKING:
     from mathspec.program import Program
@@ -70,7 +71,8 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
         return frozenset({**schema.parameters, **schema.given.parameters}[node.name].dims)
 
     if isinstance(node, Variable):
-        return frozenset({**schema.variables, **schema.given.variables, **schema.given.expressions}[node.name].dims)
+        columns = {**schema.variables, **schema.given.variables, **schema.given.expressions, **empty_sums(schema)}
+        return frozenset(columns[node.name].dims or ())
 
     if isinstance(node, Dual):
         return frozenset({**schema.constraints, **schema.given.constraints}[node.constraint].dims)
@@ -98,7 +100,7 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
 
 
 def _named_dims(node: Named, schema: Spec, context: str) -> frozenset[str]:
-    """A cased entry's declared frame rather than the union of its arms — a narrower arm broadcasts — and a plain entry's body."""
+    """An entry's declared frame where it has one — a narrower arm or body broadcasts along the rest — else its body's."""
     declared = schema.expressions[node.name].dims
     if declared is not None:
         return frozenset(declared)
@@ -282,10 +284,13 @@ def check_schema(schema: Spec, program: Program) -> None:
                     )
 
     for ename, entry in program.expressions.items():
-        if not isinstance(entry.expression, Cases):
-            continue
         block = schema.expressions[ename]
-        frame = frozenset(block.dims or [])
+        if block.dims is None:
+            continue
+        frame = frozenset(block.dims)
+        if not isinstance(entry.expression, Cases):
+            _check_body_dims(entry.expression, schema, frame, f"Named expression '{ename}'")
+            continue
         for region, label in zip(entry.expression.regions, [*block.cases, None], strict=True):
             context = case_context(ename, label)
             if label is not None:
@@ -342,6 +347,17 @@ def _check_value_dims(node: Expression, schema: Spec, frame: frozenset[str], con
         raise DimensionError(
             f'{context}: the value carries dims {sorted(got - frame)} outside the dims: '
             f'{sorted(frame)}. A case is a value within the frame — it cannot widen it.'
+        )
+
+
+def _check_body_dims(node: Expression, schema: Spec, frame: frozenset[str], context: str) -> None:
+    """A plain entry's body may only carry dims its declared frame does; fewer is constant along the rest."""
+    got = dims_of(node, schema, context)
+    if not got <= frame:
+        raise DimensionError(
+            f'{context}: the body carries dims {sorted(got - frame)} outside the dims: {sorted(frame)}. '
+            f'The dims: are the frame the quantity is read over, and the body cannot widen it: add '
+            f'{sorted(got - frame)} to dims:, or take them out of the body.'
         )
 
 

@@ -28,7 +28,7 @@ from mathspec import (
     typeset_declaration,
 )
 from mathspec.program import Named, Variable, walk
-from tests.fixtures import BALANCE, BUS_DIMS, BUS_FRAME, INJECTION
+from tests.fixtures import BALANCE, BUS_DIMS, BUS_FRAME, INJECTION, NETWORK
 
 #: A generator fleet: what it puts in is its term.
 FLEET = {
@@ -62,8 +62,8 @@ STORAGE = {
     'expressions': {'store_injection': 'sum(store_p, by=store_bus, over=store, into=bus)'},
 }
 
-#: A network that defines the injection itself, as its slack, and reads it.
-NETWORK = {
+#: A network that defines the injection with a body of its own, its slack, and reads it.
+SLACKED = {
     'dimensions': BUS_DIMS,
     'variables': {'slack': {'dims': BUS_FRAME}},
     'expressions': {'injection': {'expression': 'slack', 'description': 'the slack, and what the components add'}},
@@ -85,6 +85,31 @@ def _demand(term: str = 'demand_injection', body: object = '-load', **fields: ob
 # ---------------------------------------------------------------------------
 
 
+def test_an_empty_sum_loads_alone_and_reads_as_a_column():
+    """The owner declares the name with a frame and no body; alone, its math reads a column nothing defines yet."""
+    program = to_spec(NETWORK).program
+    assert 'injection' not in program.expressions, 'no body, so no definition'
+    sum_ = program.given.expressions['injection']
+    assert sum_.owned and sum_.dims == ('snapshot', 'bus') and sum_.description == INJECTION
+    assert program.constraints['balance'].dims == ('snapshot', 'bus'), 'the row reads it over the frame'
+
+
+def test_an_empty_sum_needs_a_frame():
+    with pytest.raises(LanguageError, match=r'this has neither.*An entry with a `dims:` and no body is a sum'):
+        to_spec({**NETWORK, 'expressions': {'injection': {'description': INJECTION}}})
+
+
+def test_an_empty_sum_round_trips():
+    assert to_spec(NETWORK).to_dict()['expressions']['injection'] == {'dims': BUS_FRAME, 'description': INJECTION}
+
+
+def test_the_advice_says_other_files_fill_the_sum():
+    (note,) = [note for note in advice(NETWORK) if note.kind == 'given']
+    assert note.subject == 'injection'
+    assert 'a sum this file declares and other files add terms to' in note.text
+    assert 'merge()' in note.text
+
+
 def test_a_contributor_loads_alone_and_its_term_is_its_named_expression():
     program = to_spec(FLEET).program
     term = program.given.expressions['injection'].term
@@ -102,7 +127,7 @@ def test_a_contributor_reads_the_name_as_the_whole_sum():
     """Alone and composed the file reads one thing, so nothing has to refuse a file that adds and reads."""
     reads = {**FLEET, 'constraints': {'capped': {'dims': BUS_FRAME, 'expression': 'injection <= 10'}}}
     assert to_spec(reads).program.constraints['capped'].dims == ('snapshot', 'bus')
-    composed = merge({'balance': BALANCE, 'fleet': reads, 'demand': DEMAND})
+    composed = merge({'network': NETWORK, 'fleet': reads, 'demand': DEMAND})
     assert composed.constraints['capped'].expression == 'injection <= 10'
     assert composed.program.expressions['injection'].in_math, 'composed, the cap reads the sum of every term'
 
@@ -166,7 +191,7 @@ def test_the_advice_says_the_file_adds_a_term():
 
 
 def test_merging_adds_the_terms_by_name_in_fragment_name_order_and_keeps_them():
-    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
+    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'network': NETWORK})
     assert composed.expressions['injection'].expression == 'demand_injection + generator_injection'
     assert composed.expressions['demand_injection'].expression == '-load', 'each term stays a named expression'
     assert composed.program.expressions['generator_injection'].description == 'what the generators put in'
@@ -174,13 +199,13 @@ def test_merging_adds_the_terms_by_name_in_fragment_name_order_and_keeps_them():
 
 
 def test_the_order_the_fragments_are_given_in_does_not_reach_the_sum():
-    one = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
-    other = merge({'balance': BALANCE, 'demand': DEMAND, 'fleet': FLEET})
+    one = merge({'fleet': FLEET, 'demand': DEMAND, 'network': NETWORK})
+    other = merge({'network': NETWORK, 'demand': DEMAND, 'fleet': FLEET})
     assert one == other
 
 
 def test_a_term_is_added_to_the_definition_one_fragment_writes():
-    composed = merge({'network': NETWORK, 'fleet': FLEET, 'demand': DEMAND})
+    composed = merge({'network': SLACKED, 'fleet': FLEET, 'demand': DEMAND})
     assert composed.expressions['injection'].expression == 'slack + demand_injection + generator_injection'
     assert composed.expressions['injection'].description == 'the slack, and what the components add', (
         'the definition keeps its own description'
@@ -189,20 +214,20 @@ def test_a_term_is_added_to_the_definition_one_fragment_writes():
 
 def test_the_file_that_defines_the_name_reads_the_extended_sum_once_composed():
     """A contributor decides alone. The defining file does not opt in, and whoever composes answers for the sum."""
-    assert to_spec(NETWORK).expressions['injection'].expression == 'slack'
-    composed = merge({'network': NETWORK, 'demand': DEMAND})
+    assert to_spec(SLACKED).expressions['injection'].expression == 'slack'
+    composed = merge({'network': SLACKED, 'demand': DEMAND})
     assert composed.constraints['balance'].expression == 'injection == 0'
     assert composed.expressions['injection'].expression == 'slack + demand_injection'
 
 
 def test_a_definition_that_is_more_than_a_name_is_bracketed():
-    network = {**NETWORK, 'expressions': {'injection': 'slack - slack / 2'}}
+    network = {**SLACKED, 'expressions': {'injection': 'slack - slack / 2'}}
     composed = merge({'network': network, 'demand': DEMAND})
     assert composed.expressions['injection'].expression == '(slack - slack / 2) + demand_injection'
 
 
 def test_the_sum_takes_the_readers_description():
-    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
+    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'network': NETWORK})
     assert composed.program.expressions['injection'].description == INJECTION
 
 
@@ -211,15 +236,15 @@ def test_two_readers_that_word_the_sum_apart_give_it_the_first_wording_in_name_o
     capped = {**BALANCE, 'given': {'expressions': {'injection': {'dims': BUS_FRAME, 'description': 'a cap'}}}}
     capped = {**capped, 'constraints': {'capped': {'dims': BUS_FRAME, 'expression': 'injection <= 10'}}}
     for fragments in (
-        {'capped': capped, 'balance': BALANCE, 'fleet': FLEET},
-        {'balance': BALANCE, 'capped': capped, 'fleet': FLEET},
+        {'capped': capped, 'network': NETWORK, 'fleet': FLEET},
+        {'network': NETWORK, 'capped': capped, 'fleet': FLEET},
     ):
         assert merge(fragments).expressions['injection'].description == INJECTION, "the wording of 'balance'"
 
 
 def test_a_composed_spec_takes_more_terms_in_a_second_merge():
     """A composed definition is one a fragment wrote, so a later term adds to it like any other."""
-    shipped = merge({'balance': BALANCE, 'demand': DEMAND, 'fleet': FLEET})
+    shipped = merge({'network': NETWORK, 'demand': DEMAND, 'fleet': FLEET})
     extended = merge({'shipped': shipped, 'storage': STORAGE})
     assert extended.expressions['injection'].expression == (
         '(demand_injection + generator_injection) + store_injection'
@@ -235,7 +260,7 @@ def test_a_cased_term_is_added_like_any_other():
             'otherwise': '0',
         }
     )
-    composed = merge({'balance': BALANCE, 'demand': cased, 'fleet': FLEET})
+    composed = merge({'network': NETWORK, 'demand': cased, 'fleet': FLEET})
     assert composed.expressions['injection'].expression == 'demand_injection + generator_injection'
     assert composed.program.expressions['demand_injection'].in_math
 
@@ -245,13 +270,13 @@ def test_a_cased_term_is_added_like_any_other():
     [
         pytest.param(
             {'fleet': FLEET, 'demand': DEMAND},
-            r"fragments 'demand' and 'fleet' add a term to 'injection', which no fragment defines, reads or uses\. "
+            r"fragments 'demand' and 'fleet' add a term to 'injection', which no fragment declares\. "
             r'.*or fix the spelling\.$',
             id='terms-and-nothing-else-with-no-near-miss',
         ),
         pytest.param(
             {
-                'balance': BALANCE,
+                'network': NETWORK,
                 'fleet': {**FLEET, 'given': {'expressions': {'injecton': FLEET['given']['expressions']['injection']}}},
             },
             r"fragment 'fleet' adds a term to 'injecton', which no fragment.*Did you mean 'injection'\?",
@@ -260,19 +285,31 @@ def test_a_cased_term_is_added_like_any_other():
     ],
 )
 def test_terms_that_land_on_no_name_are_refused(fragments, message):
-    """Merge fills a reading or extends a definition; it never invents a name, which is what a typo would ask for."""
+    """Merge fills or extends a block a file declared; it never invents a name, which is what a typo would ask for."""
     with pytest.raises(LanguageError, match=message):
         merge(fragments)
 
 
-def test_a_term_lands_on_a_name_a_contributor_s_own_math_uses():
+def test_a_reading_is_no_place_for_a_term_to_land():
+    """A file that reads the name, or uses it in its own math, has not declared it; only an `expressions:` block has."""
     capped = {**FLEET, 'constraints': {'capped': {'dims': BUS_FRAME, 'expression': 'injection <= 10'}}}
-    composed = merge({'fleet': capped, 'demand': DEMAND})
-    assert composed.program.expressions['injection'].in_math
+    for fragments in ({'fleet': capped, 'demand': DEMAND}, {'balance': BALANCE, 'demand': DEMAND}):
+        with pytest.raises(LanguageError, match=r'which no fragment declares'):
+            merge(fragments)
+
+
+def test_the_composed_sum_keeps_the_owner_s_frame():
+    """The frame the owner declared holds the terms to it when the composed spec loads."""
+    composed = merge({'network': NETWORK, 'fleet': FLEET, 'demand': DEMAND})
+    assert composed.expressions['injection'].dims == BUS_FRAME
+    narrow = {**NETWORK, 'expressions': {'injection': {'dims': ['bus'], 'description': INJECTION}}}
+    narrow = {**narrow, 'constraints': {'balance': {'dims': ['bus'], 'expression': 'injection == 0'}}}
+    with pytest.raises(LanguageError, match=r"the body carries dims \['snapshot'\] outside the dims: \['bus'\]"):
+        merge({'network': narrow, 'fleet': FLEET})
 
 
 def test_one_term_alone_is_its_name():
-    composed = merge({'balance': BALANCE, 'storage': STORAGE})
+    composed = merge({'network': NETWORK, 'storage': STORAGE})
     assert composed.expressions['injection'].expression == 'store_injection'
 
 
@@ -284,7 +321,7 @@ def test_two_definitions_collide_and_the_message_names_the_term():
         'constraints': {'other_balance': {'dims': BUS_FRAME, 'expression': 'injection == 0'}},
     }
     with pytest.raises(LanguageError) as raised:
-        merge({'network': NETWORK, 'other': other})
+        merge({'network': SLACKED, 'other': other})
     message = str(raised.value)
     assert "both declare the expression 'injection'" in message
     assert '`term:` under `given: expressions:`' in message
@@ -299,12 +336,12 @@ def test_two_terms_of_one_name_collide():
         match=r"both declare the expression 'demand_injection', which a fragment adds to 'injection' as a term\. "
         r"A term shares one namespace.*name each fragment's term apart",
     ):
-        merge({'balance': BALANCE, 'demand': DEMAND, 'fleet': twin})
+        merge({'network': NETWORK, 'demand': DEMAND, 'fleet': twin})
 
 
 def test_a_cased_definition_a_term_adds_to_is_refused():
     cased = {
-        **NETWORK,
+        **SLACKED,
         'parameters': {'on': {'dims': BUS_FRAME, 'dtype': 'bool'}},
         'expressions': {
             'injection': {'dims': BUS_FRAME, 'cases': {'on': {'when': 'on', 'expression': 'slack'}}, 'otherwise': '0'}
@@ -323,13 +360,13 @@ def test_two_readers_that_disagree_about_the_frame_are_refused():
 
 def test_a_term_over_fewer_dimensions_merges_where_another_carries_the_rest():
     flat = {**DEMAND, 'parameters': {'load': {'dims': ['bus']}}}
-    composed = merge({'balance': BALANCE, 'demand': flat, 'fleet': FLEET})
+    composed = merge({'network': NETWORK, 'demand': flat, 'fleet': FLEET})
     assert composed.program.expressions['injection'].dims == ('snapshot', 'bus')
 
 
 def test_a_definition_over_a_dimension_the_readers_do_not_state_is_refused():
     wide = {
-        **NETWORK,
+        **SLACKED,
         'dimensions': {**BUS_DIMS, 'carrier': {'dtype': 'str'}},
         'variables': {'slack': {'dims': [*BUS_FRAME, 'carrier']}},
     }
@@ -358,17 +395,30 @@ def test_the_legend_names_the_term_the_file_adds():
     assert 'an expression this file adds `demand_injection` to' in given
 
 
-@pytest.mark.parametrize('spec', [pytest.param(BALANCE, id='a-reader'), pytest.param(FLEET, id='a-contributor')])
-def test_a_given_expression_prints_no_line_of_its_own(spec):
-    """The term prints as the definition it is; the name it adds to prints in the legend, with or without a term."""
-    with pytest.raises(
-        LanguageError, match=r"'injection' is a given expression, and a given declaration prints no line"
-    ):
+def test_the_legend_says_the_owner_s_sum_has_no_body_yet():
+    given = to_markdown(NETWORK).split('#### Given')[1]
+    assert '`injection`' in given and 'a sum other files add terms to' in given
+
+
+READS_IT = r"'injection' is a given expression, and a given declaration prints no line"
+
+
+@pytest.mark.parametrize(
+    ('spec', 'message'),
+    [
+        pytest.param(BALANCE, READS_IT, id='a-reader'),
+        pytest.param(FLEET, READS_IT, id='a-contributor'),
+        pytest.param(NETWORK, r"'injection' is a sum other files add terms to, and it has no body yet", id='an-owner'),
+    ],
+)
+def test_a_given_expression_prints_no_line_of_its_own(spec, message):
+    """The term prints as the definition it is; the name it adds to prints in the legend, with or without a body."""
+    with pytest.raises(LanguageError, match=message):
         typeset_declaration(spec, 'injection', 'latex')
 
 
 def test_the_composed_sum_prints_its_terms_by_name():
-    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE})
+    composed = merge({'fleet': FLEET, 'demand': DEMAND, 'network': NETWORK})
     assert typeset_declaration(composed, 'injection', 'typst', inline_expressions=False) == (
         'italic("injection")_(t,b) = upright("demand_injection")_(t,b) + italic("generator_injection")_(t,b) '
         'quad forall t in cal(T), b in cal(B)'
@@ -378,4 +428,4 @@ def test_the_composed_sum_prints_its_terms_by_name():
 @pytest.mark.parametrize('fmt', sorted(FORMATS))
 def test_a_contributor_and_a_composition_print_in_every_format(fmt):
     assert typeset(DEMAND, fmt), f'{fmt} rendered nothing for the contributor'
-    assert typeset(merge({'fleet': FLEET, 'demand': DEMAND, 'balance': BALANCE}), fmt), f'{fmt}: the composition'
+    assert typeset(merge({'fleet': FLEET, 'demand': DEMAND, 'network': NETWORK}), fmt), f'{fmt}: the composition'

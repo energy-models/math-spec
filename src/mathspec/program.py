@@ -617,7 +617,8 @@ class GivenDeclaration:
 
     The frame is the whole declaration. A consumer looks the name up in the
     model this one is layered onto, checks the frame against what it finds,
-    and refuses a name the host does not provide.
+    and refuses a name the host does not provide. An empty sum is the one
+    entry this program declares itself: its body is what the other files add.
     """
 
     dims: tuple[str, ...]
@@ -626,6 +627,9 @@ class GivenDeclaration:
     #: only reads the name: the [`Named`][] node of the entry the term names,
     #: read over at most ``dims``.
     term: Named | None = None
+    #: Whether this program declares the name itself, as an expression with a
+    #: frame and no body, and leaves the body to the files that add terms.
+    owned: bool = False
 
 
 @dataclass(frozen=True)
