@@ -162,6 +162,15 @@ given:
     Cycle_angle_sum: { dims: [scenario, snapshot, cycle], term: Line_angle_sum }
 
 expressions:
+  Line_transmission_volume_expansion:
+    expression: sum(Line_s_nom_ext * Line_volume_weight, over=line)
+  Line_transmission_expansion_cost:
+    expression: sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+  Line_tech_capacity_expansion:
+    expression: sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
+  Line_additions:
+    expression: >-
+      sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
   Line_s_monitored:
     description: >-
       the flow a line's post-contingency rows read — its flow where it stands,
@@ -178,12 +187,6 @@ expressions:
       - (0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus))
       - (0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus))
   Line_angle_sum: sum(Line_s * Line_cycle_weight, over=line)
-  Line_additions:
-    expression: >-
-      sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
-  Line_tech_capacity_expansion: sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
-  Line_transmission_volume_expansion: sum(Line_s_nom_ext * Line_volume_weight, over=line)
-  Line_transmission_expansion_cost: sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
 
 constraints:
   Line_fix_s_lower:

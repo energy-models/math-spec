@@ -394,8 +394,10 @@ class Walk:
             return self.format.superscript(base, self._expression(node.exponent, ctx)), _PRECEDENCE['**']
         op: BinaryOperator = '*' if isinstance(node, Multiply) else '+'
         precedence = _PRECEDENCE[op]
+        operand = self._substituted(node.right)
+        if op == '+' and isinstance(operand, Add):
+            return self._binary(Add(Add(node.left, operand.left), operand.right), ctx)
         left = self._expression(node.left, ctx, need=precedence)
-        operand = node.right
         if op == '+':
             while (unsigned := _unsigned(operand)) is not None:
                 operand, op = unsigned, '-' if op == '+' else '+'
@@ -404,6 +406,19 @@ class Walk:
         right = self._expression(operand, ctx, need=need)
         names: dict[BinaryOperator, OperatorName] = {'*': 'cdot', '+': 'plus', '-': 'minus'}
         return self.format.joined([left, right], self._op(names[op])), precedence
+
+    def _substituted(self, node: Expression) -> Expression:
+        """*node* with a plain named expression replaced by its body where inlining prints the body anyway.
+
+        Done before the sign folding of [`_binary`][], so a term that opens
+        with a minus prints as a subtraction once substituted, as it does
+        written out: ``a + t`` with ``t: -b`` is ``a - b``, not ``a + -b``. A
+        body that is itself a sum is re-associated to the left for the same
+        reason: ``a + (-b + c)`` prints as ``a - b + c``.
+        """
+        while self.inline_expressions and isinstance(node, Named) and not isinstance(node.body, Cases):
+            node = node.body
+        return node
 
     def _sum(self, node: Sum, ctx: _Context) -> tuple[str, int]:
         """A reduction over named dims: one dummy index per dim, in declaration order."""

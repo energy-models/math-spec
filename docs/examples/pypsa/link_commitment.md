@@ -1,0 +1,491 @@
+<!--
+SPDX-FileCopyrightText: mathspec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Links, the commitment
+
+One of the [24 fragments](index.md) of `examples/pypsa.yaml`: PyPSA's `Link`, the commitment rows. It adds a term to `scenario_opex`. It reads `Link_active`, `Link_maintenance_capacity`, `Link_maintenance_pu`, `Link_maintenance_status`, `Link_modules_installed`, `Link_n_mod` and 10 more under [`given`](../../reference/language/declarations.md#given).
+
+<!-- gallery:begin -->
+```yaml
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: datetime
+  link:
+    description: controllable connections, each from one bus to the buses it delivers to
+  period:
+    description: investment periods — PyPSA's `investment_periods`
+    dtype: int
+
+relations:
+  snapshot_period:
+    description: the investment period a snapshot falls in
+    key: snapshot
+    values: period
+
+parameters:
+  Link_committable:
+    description: whether flow is gated by an on/off status decision
+    dims: [link]
+    dtype: bool
+  Link_min_up_time:
+    description: least snapshots a link stays on once started
+    dims: [scenario, link]
+    dtype: int
+  Link_min_down_time:
+    description: least snapshots a link stays off once stopped
+    dims: [scenario, link]
+    dtype: int
+  Link_status_initial:
+    description: one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
+    dims: [scenario, link]
+    dtype: int
+  Link_must_stay_up:
+    description: >-
+      true while the up time a link brought into the horizon still binds —
+      data prep, since `position()` compares against a literal rather than a
+      parameter
+    dims: [scenario, snapshot, link]
+    dtype: bool
+  Link_must_stay_down:
+    description: >-
+      true while the down time a link brought into the horizon still binds —
+      PyPSA's `min_down_time - down_time_before` snapshots, where
+      `down_time_before > 0`, data prep for the same reason
+    dims: [scenario, snapshot, link]
+    dtype: bool
+  Link_start_up_cost:
+    description: cost of one start
+    dims: [scenario, link]
+  Link_shut_down_cost:
+    description: cost of one stop
+    dims: [scenario, link]
+  Link_stand_by_cost:
+    description: cost of one snapshot spent on
+    dims: [scenario, snapshot, link]
+  Link_big_m:
+    description: a bound safely above any feasible flow — the build cap at full availability, data prep
+    dims: [scenario, link]
+
+variables:
+  Link_status:
+    description: >-
+      `Link-status` — how much of a committable link is on: an integer
+      the rows below cap at one, or at the module count where the build is
+      modular
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    domain: integer
+    bounds:
+      lower: 0
+  Link_start_up:
+    description: "`Link-start_up` — how much of a committable link turns on this snapshot, capped as the status is"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    domain: integer
+    bounds:
+      lower: 0
+  Link_shut_down:
+    description: "`Link-shut_down` — how much of a committable link turns off this snapshot, capped as the status is"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    domain: integer
+    bounds:
+      lower: 0
+
+given:
+  parameters:
+    snapshot_weightings_objective: { dims: [snapshot] }
+    Link_p_nom: { dims: [scenario, link] }
+    Link_p_nom_extendable: { dims: [link], dtype: bool }
+    Link_p_min_pu: { dims: [scenario, snapshot, link] }
+    Link_p_max_pu: { dims: [scenario, snapshot, link] }
+    Link_p_nom_mod: { dims: [link] }
+    Link_modules_installed: { dims: [scenario, link] }
+    Link_p_min_pu_nonneg: { dims: [link], dtype: bool }
+    Link_maintenance_pu: { dims: [scenario, link] }
+    period_weight_objective: { dims: [period] }
+    Link_active: { dims: [snapshot, link], dtype: bool }
+  variables:
+    Link_p: { dims: [scenario, snapshot, link] }
+    Link_n_mod: { dims: [link], domain: integer }
+    Link_maintenance_capacity: { dims: [scenario, snapshot, link] }
+    Link_maintenance_status: { dims: [scenario, snapshot, link] }
+    Link_p_nom_ext: { dims: [link] }
+  expressions:
+    scenario_opex: { dims: [scenario], term: Link_commitment_opex }
+
+expressions:
+  Link_previous_status:
+    description: >-
+      the commitment state a link carries into a snapshot — the state it
+      brought into the horizon at the first, the previous snapshot's after that
+    dims: [scenario, snapshot, link]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: Link_status_initial }
+    otherwise: shift(Link_status, along=snapshot, offset=1)
+  Link_commitment_opex:
+    expression: >-
+      sum(sum(((Link_status * Link_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+      + sum(sum(Link_start_up * Link_start_up_cost, over=link), over=snapshot)
+      + sum(sum(Link_shut_down * Link_shut_down_cost, over=link), over=snapshot)
+
+constraints:
+  Link_com_p_lower:
+    description: "`Link-com-p-lower` — a committed link flows at least its minimum; off, at least nothing"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND not Link_p_nom_extendable AND Link_active
+    expression: Link_p >= Link_p_min_pu * Link_p_nom * (Link_status - Link_maintenance_pu * Link_maintenance_status)
+  Link_com_p_upper:
+    description: "`Link-com-p-upper` — a committed link flows at most what is available; off, at most nothing"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND not Link_p_nom_extendable AND Link_active
+    expression: Link_p <= Link_p_max_pu * Link_p_nom * (Link_status - Link_maintenance_pu * Link_maintenance_status)
+  Link_com_transition_start_up:
+    description: "`Link-com-transition-start-up` — turning on is a start, counted against the state the link carried into the snapshot"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    expression: Link_start_up >= Link_status - Link_previous_status
+  Link_com_transition_shut_down:
+    description: "`Link-com-transition-shut-down` — turning off is a stop, counted against the state the link carried into the snapshot"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_active
+    expression: Link_shut_down >= Link_previous_status - Link_status
+  Link_com_up_time:
+    description: >-
+      `Link-com-up-time` — a link started within its own minimum up time
+      is still on. The first snapshot's share of the window is the brought-in
+      up time's, which the must-stay-up mask carries
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_min_up_time > 0 AND position(snapshot) > 0 AND Link_active
+    expression: sum_back(Link_start_up, along=snapshot, window=Link_min_up_time) <= Link_status
+  Link_com_down_time:
+    description: >-
+      `Link-com-down-time` — a link stopped within its own minimum down
+      time is still off. The first snapshot's share of the window is the
+      brought-in down time's, which the must-stay-down mask carries
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_min_down_time > 0 AND position(snapshot) > 0 AND Link_active
+    expression: sum_back(Link_shut_down, along=snapshot, window=Link_min_down_time) <= 1 - Link_status
+  Link_com_status_must_stay_up:
+    description: "`Link-com-status-min_up_time_must_stay_up` — a link still serving the up time it brought in stays on"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_must_stay_up AND Link_active
+    expression: Link_status == 1
+  Link_com_status_must_stay_down:
+    description: >-
+      `Link-com-status-min_down_time_must_stay_up` — a link still serving
+      the down time it brought in stays off; PyPSA names the row `_must_stay_up`
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_must_stay_down AND Link_active
+    expression: Link_status == 0
+  Link_com_ext_p_upper_cap:
+    description: >-
+      `Link-com-ext-p-upper-cap` — a committed extendable link flows
+      at most what is available of the chosen build, whatever its status
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: Link_p <= Link_p_max_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
+  Link_com_ext_p_upper_big_m:
+    description: "`Link-com-ext-p-upper-bigM` — off, a link flows nothing; on, the big M is no bound"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: Link_p <= Link_big_m * Link_status
+  Link_com_ext_p_lower:
+    description: >-
+      `Link-com-ext-p-lower` — a committed extendable link flows at
+      least its minimum of the chosen build; off, the big M releases the row
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: >-
+      Link_p >=
+      Link_p_min_pu * (Link_p_nom_ext - Link_maintenance_pu * Link_maintenance_capacity)
+      + Link_big_m * Link_status - Link_big_m
+  Link_com_ext_p_lower_nonneg:
+    description: >-
+      `Link-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+      negative, flow is also plainly non-negative, a row the big-M lower
+      cannot assert while the link is off
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable
+      AND Link_p_min_pu_nonneg AND NOT (Link_p_nom_mod > 0) AND Link_active
+    expression: Link_p >= 0
+  Link_com_mod_p_lower:
+    description: >-
+      `Link-com-mod-p-lower` — a committed modular link flows at least
+      its minimum of one module, whether the build is fixed or a decision
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_p >= Link_p_min_pu * Link_p_nom_mod * (Link_status - Link_maintenance_pu * Link_maintenance_status)
+  Link_com_mod_p_upper:
+    description: >-
+      `Link-com-mod-p-upper` — a committed modular link flows at most
+      one module's share, whether the build is fixed or a decision
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_p <= Link_p_max_pu * Link_p_nom_mod * (Link_status - Link_maintenance_pu * Link_maintenance_status)
+  Link_status_p_fixed_upper:
+    description: >-
+      `Link-status-p-fixed-upper` — a status is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_status <= Link_modules_installed
+  Link_start_up_p_fixed_upper:
+    description: >-
+      `Link-start_up-p-fixed-upper` — a start is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_start_up <= Link_modules_installed
+  Link_shut_down_p_fixed_upper:
+    description: >-
+      `Link-shut_down-p-fixed-upper` — a stop is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND NOT (Link_p_nom_extendable AND Link_p_nom_mod > 0) AND Link_active
+    expression: Link_shut_down <= Link_modules_installed
+  Link_status_p_nom_variable_upper:
+    description: "`Link-status-p_nom-variable-upper` — a modular link is on only where a module is built"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_status <= Link_n_mod
+  Link_start_up_p_nom_variable_upper:
+    description: "`Link-start_up-p_nom-variable-upper` — a modular link starts only where a module is built"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_start_up <= Link_n_mod
+  Link_shut_down_p_nom_variable_upper:
+    description: "`Link-shut_down-p_nom-variable-upper` — a modular link stops only where a module is built"
+    dims: [scenario, snapshot, link]
+    where: Link_committable AND Link_p_nom_extendable AND Link_p_nom_mod > 0 AND Link_active
+    expression: Link_shut_down <= Link_n_mod
+```
+
+#### Sets
+
+| Symbol | Meaning |
+|---|---|
+| $`\Xi`$ | index $`\xi`$ — `scenario` — the futures dispatch is chosen in, each with a weight |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — dispatch periods |
+| $`\mathcal{L}`$ | index $`l`$ — `link` — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
+
+#### Parameters
+
+| Symbol | Meaning |
+|---|---|
+| $`\mathrm{com}^{f}`$ | `Link_committable` over $`\mathcal{L}`$ — whether flow is gated by an on/off status decision |
+| $`\mathrm{UT}^{f}`$ | `Link_min_up_time` over $`\Xi \times \mathcal{L}`$ — least snapshots a link stays on once started |
+| $`\mathrm{DT}^{f}`$ | `Link_min_down_time` over $`\Xi \times \mathcal{L}`$ — least snapshots a link stays off once stopped |
+| $`\mathrm{u}^{f,0}`$ | `Link_status_initial` over $`\Xi \times \mathcal{L}`$ — one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $`\mathrm{hold}^{f}`$ | `Link_must_stay_up` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — true while the up time a link brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $`\mathrm{rest}^{f}`$ | `Link_must_stay_down` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — true while the down time a link brought into the horizon still binds — PyPSA's `min_down_time - down_time_before` snapshots, where `down_time_before > 0`, data prep for the same reason |
+| $`\mathrm{c}^{f,\mathrm{up}}`$ | `Link_start_up_cost` over $`\Xi \times \mathcal{L}`$ — cost of one start |
+| $`\mathrm{c}^{f,\mathrm{dn}}`$ | `Link_shut_down_cost` over $`\Xi \times \mathcal{L}`$ — cost of one stop |
+| $`\mathrm{c}^{f,\mathrm{on}}`$ | `Link_stand_by_cost` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of one snapshot spent on |
+| $`\mathrm{M}^{f}`$ | `Link_big_m` over $`\Xi \times \mathcal{L}`$ — a bound safely above any feasible flow — the build cap at full availability, data prep |
+
+#### Variables
+
+| Symbol | Meaning |
+|---|---|
+| $`u^{f}`$ | `Link_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-status` — how much of a committable link is on: an integer the rows below cap at one, or at the module count where the build is modular |
+| $`\mathit{up}^{f}`$ | `Link_start_up` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-start_up` — how much of a committable link turns on this snapshot, capped as the status is |
+| $`\mathit{dn}^{f}`$ | `Link_shut_down` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — `Link-shut_down` — how much of a committable link turns off this snapshot, capped as the status is |
+
+#### Given
+
+| Symbol | Meaning |
+|---|---|
+| $`\mathrm{w}`$ | `snapshot_weightings_objective` over $`\mathcal{T}`$, data another file declares |
+| $`\mathrm{f}^{\mathrm{nom}}`$ | `Link_p_nom` over $`\Xi \times \mathcal{L}`$, data another file declares |
+| $`\mathrm{ext}^{f}`$ | `Link_p_nom_extendable` over $`\mathcal{L}`$, data another file declares |
+| $`\underline{\mathrm{f}}`$ | `Link_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$, data another file declares |
+| $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$, data another file declares |
+| $`\mathrm{f}^{\mathrm{mod}}`$ | `Link_p_nom_mod` over $`\mathcal{L}`$, data another file declares |
+| $`\mathrm{N}^{f,\mathrm{fix}}`$ | `Link_modules_installed` over $`\Xi \times \mathcal{L}`$, data another file declares |
+| $`\mathrm{nonneg}^{f}`$ | `Link_p_min_pu_nonneg` over $`\mathcal{L}`$, data another file declares |
+| $`\gamma^{f}`$ | `Link_maintenance_pu` over $`\Xi \times \mathcal{L}`$, data another file declares |
+| $`\mathrm{w}^{y}`$ | `period_weight_objective` over $`\mathcal{Y}`$, data another file declares |
+| $`\mathrm{on}^{f}`$ | `Link_active` over $`\mathcal{T} \times \mathcal{L}`$, data another file declares |
+| $`f`$ | `Link_p` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ |
+| $`N^{f}`$ | `Link_n_mod` over $`\mathcal{L}`$ |
+| $`\mu^{f,\mathrm{nom}}`$ | `Link_maintenance_capacity` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ |
+| $`\mu^{f,u}`$ | `Link_maintenance_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ |
+| $`F`$ | `Link_p_nom_ext` over $`\mathcal{L}`$ |
+| $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$, an expression this file adds `Link_commitment_opex` to |
+
+#### Definitions
+
+| Symbol | Meaning |
+|---|---|
+| $`\overleftarrow{u}^{f}`$ | `Link_previous_status` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — the commitment state a link carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
+| $`\mathit{Link\_commitment\_opex}`$ | `Link_commitment_opex` over $`\Xi`$ |
+
+$`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` steps along, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
+
+#### Subject to
+
+**`Link_com_p_lower`**
+
+```math
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{\xi,l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_p_upper`**
+
+```math
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{\xi,l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_transition_start_up`**
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \ge u^{f}_{\xi,t,l} - \overleftarrow{u}^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_transition_shut_down`**
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \ge \overleftarrow{u}^{f}_{\xi,t,l} - u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_up_time`**
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{UT}^{f}} \mathit{up}^{f}_{\xi,t',l} \le u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{UT}^{f}_{\xi,l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_down_time`**
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < \mathrm{DT}^{f}} \mathit{dn}^{f}_{\xi,t',l} \le 1 - u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{DT}^{f}_{\xi,l} > 0 \wedge \mathrm{pos}(t) > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_status_must_stay_up`**
+
+```math
+u^{f}_{\xi,t,l} = 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{hold}^{f}_{\xi,t,l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_status_must_stay_down`**
+
+```math
+u^{f}_{\xi,t,l} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{rest}^{f}_{\xi,t,l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_ext_p_upper_cap`**
+
+```math
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \left( F_{l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_ext_p_upper_big_m`**
+
+```math
+f_{\xi,t,l} \le \mathrm{M}^{f}_{\xi,l} \cdot u^{f}_{\xi,t,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_ext_p_lower`**
+
+```math
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \left( F_{l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,\mathrm{nom}}_{\xi,t,l} \right) + \mathrm{M}^{f}_{\xi,l} \cdot u^{f}_{\xi,t,l} - \mathrm{M}^{f}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_ext_p_lower_nonneg`**
+
+```math
+f_{\xi,t,l} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{nonneg}^{f}_{l} \wedge \neg \left( \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_mod_p_lower`**
+
+```math
+f_{\xi,t,l} \ge \underline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_com_mod_p_upper`**
+
+```math
+f_{\xi,t,l} \le \overline{\mathrm{f}}_{\xi,t,l} \cdot \mathrm{f}^{\mathrm{mod}}_{l} \cdot \left( u^{f}_{\xi,t,l} - \gamma^{f}_{\xi,l} \cdot \mu^{f,u}_{\xi,t,l} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_status_p_fixed_upper`**
+
+```math
+u^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_start_up_p_fixed_upper`**
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_shut_down_p_fixed_upper`**
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \le \mathrm{N}^{f,\mathrm{fix}}_{\xi,l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \neg \left( \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \right) \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_status_p_nom_variable_upper`**
+
+```math
+u^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_start_up_p_nom_variable_upper`**
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_shut_down_p_nom_variable_upper`**
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \le N^{f}_{l} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{mod}}_{l} > 0 \wedge \mathrm{on}^{f}_{t,l}
+```
+
+#### Definitions
+
+**`Link_previous_status`**
+
+```math
+\overleftarrow{u}^{f}_{\xi,t,l} = \begin{cases} \mathrm{u}^{f,0}_{\xi,l} & \text{if } \mathrm{pos}(t) = 0 \\ u^{f}_{\xi,t - 1,l} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
+
+**`Link_commitment_opex`**
+
+```math
+\mathit{Link\_commitment\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{\xi,l} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{\xi,l} \qquad \forall\, \xi \in \Xi
+```
+
+#### Variable domains
+
+**`Link_status`**
+
+```math
+u^{f}_{\xi,t,l} \ge 0, u^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_start_up`**
+
+```math
+\mathit{up}^{f}_{\xi,t,l} \ge 0, \mathit{up}^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+
+**`Link_shut_down`**
+
+```math
+\mathit{dn}^{f}_{\xi,t,l} \ge 0, \mathit{dn}^{f}_{\xi,t,l} \in \mathbb{Z} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ l \in \mathcal{L} \,:\, \mathrm{com}^{f}_{l} \wedge \mathrm{on}^{f}_{t,l}
+```
+<!-- gallery:end -->

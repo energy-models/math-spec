@@ -20,7 +20,7 @@ import pytest
 
 from mathspec import FORMATS, LanguageError, merge, to_spec, typeset
 from mathspec.canonical import canonical_yaml
-from tools.pypsa_split import SUM_HOME, Model, fragments, same_rows
+from tools.pypsa_split import SOURCE, SUM_HOME, Model, fragments
 
 FOLDER = Path(__file__).resolve().parent.parent / 'examples' / 'pypsa'
 PATHS = {path.stem: path for path in sorted(FOLDER.glob('*.yaml'))}
@@ -36,9 +36,9 @@ def test_a_fragment_loads_on_its_own(name):
     assert to_spec(PATHS[name]).program
 
 
-def test_the_fragments_merge_to_the_one_file_with_its_hubs_as_sums(model):
+def test_the_fragments_merge_to_the_one_file(model):
     merged = merge(PATHS, description=model.data['description'])
-    assert canonical_yaml(merged) == canonical_yaml(to_spec(model.data))
+    assert canonical_yaml(merged) == canonical_yaml(to_spec(SOURCE))
     assert not merged.program.given, 'every name a fragment reads, another fragment declares'
 
 
@@ -49,10 +49,6 @@ def test_each_sum_is_its_terms_by_name_and_each_term_stays(model):
         ' + StorageUnit_injection + Store_injection + Transformer_injection'
     ), 'the terms in the order the fragment names sort in'
     assert set(model.terms) <= set(merged.expressions), 'every term is a named expression of the composed spec'
-
-
-def test_the_one_file_with_its_hubs_as_sums_states_the_rows_of_pypsa_yaml(model):
-    assert same_rows(model.original, model.data) == [], 'each hub substituted back gives the rows the file wrote'
 
 
 def test_the_fragments_are_what_the_splitter_writes(model):
@@ -103,8 +99,8 @@ def test_every_sum_is_read_with_its_description_in_one_fragment(model):
         )
         for name in model.sums
     }
-    assert described == {name: [SUM_HOME.get(name, 'core')] for name in model.sums}, (
-        'the reader of a sum no model goes without describes it, and core describes the rest'
+    assert described == {name: [SUM_HOME.get(name, 'settings')] for name in model.sums}, (
+        'the reader of a sum no model goes without describes it, and settings describes the rest'
     )
 
 

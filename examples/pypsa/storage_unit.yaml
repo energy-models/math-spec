@@ -270,9 +270,14 @@ expressions:
         when: NOT StorageUnit_state_of_charge_initial_per_period
         expression: GlobalConstraint_snapshot_closes
     otherwise: 0
-  StorageUnit_injection:
+  StorageUnit_primary_energy:
     expression: >-
-      sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
+      -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+  StorageUnit_operational_limit:
+    expression: >-
+      -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+  StorageUnit_tech_capacity_expansion:
+    expression: sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
   StorageUnit_opex:
     expression: >-
       sum(sum(((StorageUnit_p_dispatch * StorageUnit_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
@@ -282,13 +287,9 @@ expressions:
   StorageUnit_additions:
     expression: >-
       sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
-  StorageUnit_primary_energy:
+  StorageUnit_injection:
     expression: >-
-      -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
-  StorageUnit_operational_limit:
-    expression: >-
-      -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-  StorageUnit_tech_capacity_expansion: sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+      sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
 
 constraints:
   StorageUnit_fix_p_dispatch_lower:

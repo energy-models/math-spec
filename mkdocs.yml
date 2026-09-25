@@ -95,6 +95,32 @@ nav:
           - Every construct, as math: reference/notation.md
           - PyPSA in one file: examples/pypsa.md
           - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md
+          - PyPSA in 24 files:
+              - examples/pypsa/index.md
+              - Settings: examples/pypsa/settings.md
+              - The network: examples/pypsa/network.md
+              - Power flow: examples/pypsa/power_flow.md
+              - The cost: examples/pypsa/cost.md
+              - Carriers: examples/pypsa/carrier.md
+              - Global constraints: examples/pypsa/global_constraints.md
+              - Security: examples/pypsa/security.md
+              - Generators: examples/pypsa/generator.md
+              - Generators, the commitment: examples/pypsa/generator_commitment.md
+              - Generators, the ramping: examples/pypsa/generator_ramping.md
+              - Generators, the maintenance: examples/pypsa/generator_maintenance.md
+              - Links: examples/pypsa/link.md
+              - Links, the commitment: examples/pypsa/link_commitment.md
+              - Links, the ramping: examples/pypsa/link_ramping.md
+              - Links, the maintenance: examples/pypsa/link_maintenance.md
+              - Processes: examples/pypsa/process.md
+              - Processes, the commitment: examples/pypsa/process_commitment.md
+              - Processes, the ramping: examples/pypsa/process_ramping.md
+              - Processes, the maintenance: examples/pypsa/process_maintenance.md
+              - Storage units: examples/pypsa/storage_unit.md
+              - Stores: examples/pypsa/store.md
+              - Lines: examples/pypsa/line.md
+              - Transformers: examples/pypsa/transformer.md
+              - Loads: examples/pypsa/load.md
 
 theme:
   palette:

@@ -2061,83 +2061,166 @@ expressions:
         when: NOT Store_e_initial_per_period
         expression: GlobalConstraint_snapshot_closes
     otherwise: 0
+  Generator_primary_energy:
+    expression: >-
+      sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_primary_energy_weight, over=snapshot), over=generator)
+  StorageUnit_primary_energy:
+    expression: >-
+      -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+  Store_primary_energy:
+    expression: >-
+      -sum(sum((Store_e * Store_closing_weight) * Store_primary_energy_weight, over=snapshot), over=store)
   primary_energy:
+    expression: Generator_primary_energy + StorageUnit_primary_energy + Store_primary_energy
     description: >-
       what a `primary_energy` row totals — weighted generator energy over the
       snapshots it counts, less the charge left in weighted storage at the
       close; the initial charge it is compared against is folded into the
       row's constant
+  Generator_operational_limit:
     expression: >-
-      sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_primary_energy_weight, over=snapshot), over=generator)
-      - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
-      - sum(sum(Store_e * Store_closing_weight * Store_primary_energy_weight, over=snapshot), over=store)
+      sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_operational_limit_weight, over=snapshot), over=generator)
+  StorageUnit_operational_limit:
+    expression: >-
+      -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+  Store_operational_limit:
+    expression: >-
+      -sum(sum((Store_e * Store_closing_weight) * Store_operational_limit_weight, over=snapshot), over=store)
   operational_limit:
+    expression: >-
+      Generator_operational_limit
+      + StorageUnit_operational_limit
+      + Store_operational_limit
     description: >-
       what an `operational_limit` row totals — the weighted energy its
       generators deliver over the snapshots it counts, plus what its
       non-cyclic storage draws down; the initial charge it draws from is
       folded into the row's constant
-    expression: >-
-      sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_operational_limit_weight, over=snapshot), over=generator)
-      - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-      - sum(sum(Store_e * Store_closing_weight * Store_operational_limit_weight, over=snapshot), over=store)
+  Line_transmission_volume_expansion:
+    expression: sum(Line_s_nom_ext * Line_volume_weight, over=line)
+  Link_transmission_volume_expansion:
+    expression: sum(Link_p_nom_ext * Link_volume_weight, over=link)
   transmission_volume_expansion:
-    description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
-    expression: >-
-      sum(Line_s_nom_ext * Line_volume_weight, over=line)
-      + sum(Link_p_nom_ext * Link_volume_weight, over=link)
+    expression: Line_transmission_volume_expansion + Link_transmission_volume_expansion
+    description: >-
+      what a `transmission_volume_expansion_limit` row totals — length times
+      the chosen build of the row's branches
+  Line_transmission_expansion_cost:
+    expression: sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+  Link_transmission_expansion_cost:
+    expression: sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
   transmission_expansion_cost:
-    description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
-    expression: >-
-      sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
-      + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+    expression: Line_transmission_expansion_cost + Link_transmission_expansion_cost
+    description: >-
+      what a `transmission_expansion_cost_limit` row totals — capital cost
+      times the chosen build of the row's branches
+  Generator_tech_capacity_expansion:
+    expression: sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+  Line_tech_capacity_expansion:
+    expression: sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
+  Link_tech_capacity_expansion:
+    expression: sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+  Process_tech_capacity_expansion:
+    expression: sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
+  StorageUnit_tech_capacity_expansion:
+    expression: sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+  Store_tech_capacity_expansion:
+    expression: sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
   tech_capacity_expansion:
-    description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
     expression: >-
-      sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
-      + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
-      + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
-      + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
-      + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
-      + sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
-  scenario_opex:
-    description: what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight; a start and a stop cost what they cost, unweighted, as PyPSA adds them (`optimize.py:414-429`)
+      Generator_tech_capacity_expansion
+      + Line_tech_capacity_expansion
+      + Link_tech_capacity_expansion
+      + Process_tech_capacity_expansion
+      + StorageUnit_tech_capacity_expansion
+      + Store_tech_capacity_expansion
+    description: >-
+      what a `tech_capacity_expansion_limit` row totals — the chosen build of
+      the row's carrier-and-bus set
+  Generator_opex:
     expression: >-
-      sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-      + sum(sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-      + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-      + sum(sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-      + sum(sum(Process_p * Process_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-      + sum(sum(Process_p * Process_p * Process_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-      + sum(sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-      + sum(sum(StorageUnit_p_dispatch * StorageUnit_p_dispatch * StorageUnit_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-      + sum(sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-      + sum(sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-      + sum(sum(Store_p * Store_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
-      + sum(sum(Store_p * Store_p * Store_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
-      + sum(sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
-      + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+      sum(sum(((Generator_p * Generator_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+      + sum(sum((((Generator_p * Generator_p) * Generator_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+  Generator_commitment_opex:
+    expression: >-
+      sum(sum(((Generator_status * Generator_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_start_up * Generator_start_up_cost, over=generator), over=snapshot)
       + sum(sum(Generator_shut_down * Generator_shut_down_cost, over=generator), over=snapshot)
-      + sum(sum(Link_status * Link_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+  Link_opex:
+    expression: >-
+      sum(sum(((Link_p * Link_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+      + sum(sum((((Link_p * Link_p) * Link_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+  Link_commitment_opex:
+    expression: >-
+      sum(sum(((Link_status * Link_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
       + sum(sum(Link_start_up * Link_start_up_cost, over=link), over=snapshot)
       + sum(sum(Link_shut_down * Link_shut_down_cost, over=link), over=snapshot)
-      + sum(sum(Process_status * Process_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+  Process_opex:
+    expression: >-
+      sum(sum(((Process_p * Process_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+      + sum(sum((((Process_p * Process_p) * Process_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+  Process_commitment_opex:
+    expression: >-
+      sum(sum(((Process_status * Process_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
       + sum(sum(Process_start_up * Process_start_up_cost, over=process), over=snapshot)
       + sum(sum(Process_shut_down * Process_shut_down_cost, over=process), over=snapshot)
-  Carrier_additions:
+  StorageUnit_opex:
+    expression: >-
+      sum(sum(((StorageUnit_p_dispatch * StorageUnit_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+      + sum(sum((((StorageUnit_p_dispatch * StorageUnit_p_dispatch) * StorageUnit_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+      + sum(sum(((StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+      + sum(sum(((StorageUnit_spill * StorageUnit_spill_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+  Store_opex:
+    expression: >-
+      sum(sum(((Store_p * Store_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+      + sum(sum((((Store_p * Store_p) * Store_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+      + sum(sum(((Store_e * Store_marginal_cost_storage) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+  scenario_opex:
+    expression: >-
+      Generator_opex
+      + Generator_commitment_opex
+      + Link_opex
+      + Link_commitment_opex
+      + Process_opex
+      + Process_commitment_opex
+      + StorageUnit_opex
+      + Store_opex
     description: >-
-      what a carrier adds in a period — every extendable component of that
-      carrier, counting each build in the first period it stands in. Like PyPSA,
-      it sums only the components that carry a carrier attribute, so a
-      transformer, which has none, counts in no carrier
+      what a future costs to run — every operating term, weighted by the
+      snapshot's hours and its period, before the scenario's own weight; a
+      start and a stop cost what they cost, unweighted, as PyPSA adds them
+      (`optimize.py:414-429`)
+  Generator_additions:
     expression: >-
       sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-      + sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
-      + sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
-      + sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
-      + sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
-      + sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
+  Line_additions:
+    expression: >-
+      sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
+  Link_additions:
+    expression: >-
+      sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
+  Process_additions:
+    expression: >-
+      sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
+  StorageUnit_additions:
+    expression: >-
+      sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
+  Store_additions:
+    expression: >-
+      sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
+  Carrier_additions:
+    expression: >-
+      Generator_additions
+      + Line_additions
+      + Link_additions
+      + Process_additions
+      + StorageUnit_additions
+      + Store_additions
+    description: >-
+      what a carrier adds in a period — every extendable component of that
+      carrier, counting each build in the first period it stands in. Like
+      PyPSA, it sums only the components that carry a carrier attribute, so a
+      transformer, which has none, counts in no carrier
   Carrier_relative_growth:
     description: >-
       the share of the previous period's additions a carrier's growth limit
@@ -2179,6 +2262,58 @@ expressions:
     cases:
       line: { when: Outage_line, expression: "at(Line_s_monitored, by=Outage_line, over=line, into=outage)" }
     otherwise: at(Transformer_s_monitored, by=Outage_transformer, over=transformer, into=outage)
+
+  Generator_injection:
+    expression: sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
+  Line_injection:
+    expression: >-
+      -sum(Line_s, by=Line_bus0, over=line, into=bus)
+      + sum(Line_s, by=Line_bus1, over=line, into=bus)
+      - (0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus))
+      - (0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus))
+  Link_injection:
+    expression: >-
+      -sum(Link_p, by=Link_bus0, over=link, into=bus)
+      + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
+  Load_injection: sum(Load_demand, by=Load_bus, over=load, into=bus)
+  Process_injection:
+    expression: >-
+      sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
+  StorageUnit_injection:
+    expression: >-
+      sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
+  Store_injection: sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
+  Transformer_injection:
+    expression: >-
+      -sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
+      + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
+      - (0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus))
+      - (0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus))
+  Bus_injection:
+    expression: >-
+      Generator_injection
+      + Line_injection
+      + Link_injection
+      + Load_injection
+      + Process_injection
+      + StorageUnit_injection
+      + Store_injection
+      + Transformer_injection
+    description: >-
+      what every component puts into a bus, less what it takes out of it;
+      PyPSA writes each term into the balance, and a load on its right-hand
+      side
+  Line_angle_sum: sum(Line_s * Line_cycle_weight, over=line)
+  Transformer_angle_sum:
+    expression: >-
+      sum(Transformer_s * Transformer_cycle_weight, over=transformer)
+      + sum(Transformer_phase_shift_weight, over=transformer)
+      + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer)
+  Cycle_angle_sum:
+    expression: Line_angle_sum + Transformer_angle_sum
+    description: >-
+      the voltage angle differences around a cycle: every branch flow times
+      its cycle weight, and every transformer phase shift
 
 constraints:
   Generator_fix_p_lower:
@@ -3354,11 +3489,7 @@ constraints:
       constant where the shift is fixed, or the shift decision times its cycle
       weight where the shift is a phase-shifting transformer's to choose
     dims: [scenario, snapshot, cycle]
-    expression: >-
-      sum(Line_s * Line_cycle_weight, over=line)
-      + sum(Transformer_s * Transformer_cycle_weight, over=transformer)
-      + sum(Transformer_phase_shift_weight, over=transformer)
-      + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer) == 0
+    expression: Cycle_angle_sum == 0
   Generator_p_ramp_limit_up:
     description: >-
       `Generator-p-ramp_limit_up` — a generator raises output no faster than
@@ -3685,22 +3816,7 @@ constraints:
       an inactive load not at all. A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     dims: [scenario, snapshot, bus]
-    expression: >-
-      sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
-      + sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
-      + sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
-      - sum(Link_p, by=Link_bus0, over=link, into=bus)
-      + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
-      + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
-      - sum(Line_s, by=Line_bus0, over=line, into=bus)
-      + sum(Line_s, by=Line_bus1, over=line, into=bus)
-      - 0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus)
-      - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
-      - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
-      + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
-      - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
-      - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
-      == -sum(Load_demand, by=Load_bus, over=load, into=bus)
+    expression: Bus_injection == 0
   Carrier_growth_limit:
     description: >-
       `Carrier-growth_limit` — what a carrier adds across its extendable components in a period,
