@@ -50,7 +50,30 @@ lists what the form sorts and what it keeps.
    Match only model files in `.gitattributes`. Git runs the command on every
    file the pattern matches, and a YAML file that is not a model fails to load.
 
-4. **Compare from Python** where the comparison is one step of a longer
+4. **Keep models in the canonical form in CI.** Then the files themselves
+   diff the way the form does, with no git setup. `--write` rewrites a file in
+   the form. The form holds no YAML comments, so `--write` drops them:
+
+   ```bash
+   python -m mathspec canonical --write model.yaml
+   ```
+
+   `--check` writes nothing. It exits with status 1 if the file is not in the
+   form, and names the rewrite:
+
+   ```text
+   model.yaml is not in the canonical form. Run `python -m mathspec canonical --write model.yaml` to rewrite it.
+   ```
+
+   Check every model, and fail the job if one of them fails:
+
+   ```bash
+   status=0
+   for model in models/*.yaml; do python -m mathspec canonical --check "$model" || status=1; done
+   exit $status
+   ```
+
+5. **Compare from Python** where the comparison is one step of a longer
    script. [`to_yaml`](../reference/api.md#mathspec.Spec.to_yaml) writes the
    same text with `canonical=True`:
 

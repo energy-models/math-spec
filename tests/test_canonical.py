@@ -259,6 +259,62 @@ def test_the_shell_refuses_a_model_the_language_refuses(tmp_path, capsys):
     assert capsys.readouterr().err, 'and its message on stderr'
 
 
+def test_the_check_passes_a_file_in_the_form_and_writes_nothing(tmp_path, capsys):
+    model = tmp_path / 'model.yaml'
+    model.write_text(ms.to_spec(DISPATCH_MODEL).to_yaml(canonical=True))
+    assert main(['canonical', '--check', str(model)]) == 0, 'a file in the form passes'
+    assert capsys.readouterr() == ('', ''), 'a check that passes prints nothing on either stream'
+
+
+def test_the_check_fails_a_file_out_of_the_form_and_names_the_rewrite(tmp_path, capsys):
+    """What a CI job runs: the model loads, so the language accepts it, and the
+    job still fails, because the file is not the text the form writes."""
+    model = tmp_path / 'model.yaml'
+    written = ms.to_spec(DISPATCH_MODEL).to_yaml()
+    model.write_text(written)
+    assert main(['canonical', '--check', str(model)]) == 1, 'a file out of the form is exit status 1'
+    assert capsys.readouterr().err == (
+        f'{model} is not in the canonical form. Run `python -m mathspec canonical --write {model}` to rewrite it.\n'
+    )
+    assert model.read_text() == written, 'the check leaves the file as it found it'
+
+
+def test_the_rewrite_leaves_a_file_the_check_passes(tmp_path, capsys):
+    model = tmp_path / 'model.yaml'
+    model.write_text(ms.to_spec(DISPATCH_MODEL).to_yaml())
+    assert main(['canonical', '--write', str(model)]) == 0, 'the rewrite of a model the language accepts exits 0'
+    assert model.read_text() == ms.to_spec(DISPATCH_MODEL).to_yaml(canonical=True), 'the file now holds the form'
+    assert capsys.readouterr().out == '', 'the form goes into the file, not to stdout'
+    assert main(['canonical', '--check', str(model)]) == 0, 'and the check passes the file it wrote'
+
+
+@pytest.mark.parametrize('flag', ['--check', '--write'])
+def test_a_refused_file_is_neither_checked_nor_rewritten(tmp_path, capsys, flag):
+    model = tmp_path / 'broken.yaml'
+    written = 'constraints: {k: {dims: [], expression: "p >= "}}\n'
+    model.write_text(written)
+    assert main(['canonical', flag, str(model)]) == 1, 'a refused file is exit status 1'
+    assert capsys.readouterr().err, 'and its message on stderr'
+    assert model.read_text() == written, 'the file is left as the author wrote it'
+
+
+@pytest.mark.parametrize(
+    'flags',
+    [
+        pytest.param(['--check', '--write'], id='check-and-write'),
+        pytest.param(['--check', '-o', 'out.yaml'], id='check-and-out'),
+        pytest.param(['--write', '-o', 'out.yaml'], id='write-and-out'),
+    ],
+)
+def test_the_form_goes_to_one_place(tmp_path, flags):
+    """Each flag names where the form goes, so two of them name two places."""
+    model = tmp_path / 'model.yaml'
+    model.write_text(ms.to_spec(DISPATCH_MODEL).to_yaml())
+    with pytest.raises(SystemExit) as refused:
+        main(['canonical', *flags, str(model)])
+    assert refused.value.code == 2, 'argparse refuses the pair before the model is read'
+
+
 # ---------------------------------------------------------------------------
 # What the form promises, over trees nobody wrote by hand
 # ---------------------------------------------------------------------------

@@ -271,6 +271,8 @@ The normal form loads to the same model. It does not load to a `Spec` equal to
 the original: a reprinted expression is a different string. Writing the form out
 again gives the same text, which is what the line above says.
 
-`python -m mathspec canonical model.yaml` writes it from a shell.
+`python -m mathspec canonical model.yaml` writes it from a shell. `--write`
+rewrites the file in the form, and `--check` exits with status 1 if the file is
+not in the form. The form holds no YAML comments, so `--write` drops them.
 [Compare two models](../howto/compare.md) shows how to diff two files in this
 form.
