@@ -1,0 +1,157 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: datetime
+  line:
+    description: passive branches, each between two buses, their flow set by impedance
+  transformer:
+    description: passive branches between two buses, their flow set by impedance and tap ratio, with a phase shift fixed or optimised
+  outage:
+    description: >-
+      the passive branches a security-constrained run takes out one at a time
+      — PyPSA's `branch_outages`, each a line or a transformer; none on a
+      plain run
+
+relations:
+  Outage_line:
+    description: the line an outage takes out; an outage of a transformer has no row
+    key: outage
+    values: line
+  Outage_transformer:
+    description: the transformer an outage takes out; an outage of a line has no row
+    key: outage
+    values: transformer
+
+parameters:
+  Line_BODF:
+    description: >-
+      the share of an outaged branch's flow a line takes on when that branch
+      goes out — PyPSA's `BODF`, from the sub-network's PTDF, data prep; a row
+      only where the line and the outage share a sub-network, -1 at the
+      outaged line itself
+    dims: [line, outage]
+  Transformer_BODF:
+    description: >-
+      the share of an outaged branch's flow a transformer takes on when that
+      branch goes out, as a line's; a row only where the transformer and the
+      outage share a sub-network
+    dims: [transformer, outage]
+
+given:
+  parameters:
+    Line_s_nom: { dims: [scenario, line] }
+    Line_s_nom_extendable: { dims: [line], dtype: bool }
+    Line_s_max_pu: { dims: [scenario, snapshot, line] }
+    Transformer_s_nom: { dims: [scenario, transformer] }
+    Transformer_s_nom_extendable: { dims: [transformer], dtype: bool }
+    Transformer_s_max_pu: { dims: [scenario, snapshot, transformer] }
+  variables:
+    Line_s_nom_ext: { dims: [line] }
+    Transformer_s_nom_ext: { dims: [transformer] }
+  expressions:
+    Line_s_monitored: { dims: [scenario, snapshot, line] }
+    Transformer_s_monitored: { dims: [scenario, snapshot, transformer] }
+
+expressions:
+  Outage_s:
+    description: >-
+      the flow an outage takes off its branch — the outaged line's or
+      transformer's flow before it goes out
+    dims: [scenario, snapshot, outage]
+    cases:
+      line: { when: Outage_line, expression: "at(Line_s_monitored, by=Outage_line, over=line, into=outage)" }
+    otherwise: at(Transformer_s_monitored, by=Outage_transformer, over=transformer, into=outage)
+
+constraints:
+  Line_fix_s_lower_security:
+    description: >-
+      `Line-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}` —
+      after any one outage, a fixed line carries at least the negative
+      of its rating: its flow takes on its share of the outaged branch's
+      flow. PyPSA names one row per outaged component `c` and
+      sub-network `n`; this block states them all over the outage
+      dimension
+    dims: [scenario, snapshot, line, outage]
+    where: not Line_s_nom_extendable AND Line_BODF
+    expression: Line_s_monitored + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom
+  Line_fix_s_upper_security:
+    description: >-
+      `Line-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}` —
+      after any one outage, a fixed line carries at most its rating: its
+      flow takes on its share of the outaged branch's flow. PyPSA names
+      one row per outaged component `c` and sub-network `n`; this block
+      states them all over the outage dimension
+    dims: [scenario, snapshot, line, outage]
+    where: not Line_s_nom_extendable AND Line_BODF
+    expression: Line_s_monitored + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom
+  Line_ext_s_lower_security:
+    description: >-
+      `Line-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}` —
+      after any one outage, an extendable line carries at least the
+      negative of its rating of the chosen build: its flow takes on its
+      share of the outaged branch's flow. PyPSA names one row per
+      outaged component `c` and sub-network `n`; this block states them
+      all over the outage dimension
+    dims: [scenario, snapshot, line, outage]
+    where: Line_s_nom_extendable AND Line_BODF
+    expression: Line_s_monitored + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom_ext
+  Line_ext_s_upper_security:
+    description: >-
+      `Line-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}` —
+      after any one outage, an extendable line carries at most its rating
+      of the chosen build: its flow takes on its share of the outaged
+      branch's flow. PyPSA names one row per outaged component `c` and
+      sub-network `n`; this block states them all over the outage
+      dimension
+    dims: [scenario, snapshot, line, outage]
+    where: Line_s_nom_extendable AND Line_BODF
+    expression: Line_s_monitored + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom_ext
+  Transformer_fix_s_lower_security:
+    description: >-
+      `Transformer-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+      — after any one outage, a fixed transformer carries at least the
+      negative of its rating: its flow takes on its share of the outaged
+      branch's flow. PyPSA names one row per outaged component `c` and
+      sub-network `n`; this block states them all over the outage
+      dimension
+    dims: [scenario, snapshot, transformer, outage]
+    where: not Transformer_s_nom_extendable AND Transformer_BODF
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom
+  Transformer_fix_s_upper_security:
+    description: >-
+      `Transformer-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+      — after any one outage, a fixed transformer carries at most its
+      rating: its flow takes on its share of the outaged branch's flow.
+      PyPSA names one row per outaged component `c` and sub-network `n`;
+      this block states them all over the outage dimension
+    dims: [scenario, snapshot, transformer, outage]
+    where: not Transformer_s_nom_extendable AND Transformer_BODF
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom
+  Transformer_ext_s_lower_security:
+    description: >-
+      `Transformer-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
+      — after any one outage, an extendable transformer carries at least
+      the negative of its rating of the chosen build: its flow takes on
+      its share of the outaged branch's flow. PyPSA names one row per
+      outaged component `c` and sub-network `n`; this block states them
+      all over the outage dimension
+    dims: [scenario, snapshot, transformer, outage]
+    where: Transformer_s_nom_extendable AND Transformer_BODF
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+  Transformer_ext_s_upper_security:
+    description: >-
+      `Transformer-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
+      — after any one outage, an extendable transformer carries at most
+      its rating of the chosen build: its flow takes on its share of the
+      outaged branch's flow. PyPSA names one row per outaged component
+      `c` and sub-network `n`; this block states them all over the
+      outage dimension
+    dims: [scenario, snapshot, transformer, outage]
+    where: Transformer_s_nom_extendable AND Transformer_BODF
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom_ext

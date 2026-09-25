@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  period:
+    description: investment periods — PyPSA's `investment_periods`
+    dtype: int
+  carrier:
+    description: energy carriers, what a growth limit is set per
+
+parameters:
+  Carrier_max_growth:
+    description: >-
+      most capacity of a carrier that may be added in a period; no value means
+      no limit. The least over the scenarios, as PyPSA takes it
+      (`global_constraints.py:226-230`), data prep. PyPSA reads it only under
+      `multi_investment_periods` (`global_constraints.py:219-220`), so data
+      prep feeds no value otherwise
+    dims: [carrier]
+  Carrier_max_relative_growth:
+    description: >-
+      share of the previous period's additions that may be added on top — the
+      least over the scenarios, as PyPSA takes it, data prep
+    dims: [carrier]
+
+given:
+  expressions:
+    Carrier_additions: { dims: [period, carrier] }
+
+expressions:
+  Carrier_relative_growth:
+    description: >-
+      the share of the previous period's additions a carrier's growth limit
+      reads — PyPSA's `max_relative_growth` clipped at zero, so a negative
+      share adds nothing and never tightens the limit
+    dims: [carrier]
+    cases:
+      positive: { when: Carrier_max_relative_growth > 0, expression: Carrier_max_relative_growth }
+    otherwise: 0
+
+constraints:
+  Carrier_growth_limit:
+    description: >-
+      `Carrier-growth_limit` — what a carrier adds across its extendable components in a period,
+      counting each build in the first period it stands in, is at most its allowance plus a share of
+      what it added the period before; the first period has no predecessor, so `edge=0` leaves it the
+      bare allowance
+    dims: [carrier, period]
+    where: Carrier_max_growth
+    expression: >-
+      Carrier_additions
+      - shift(Carrier_additions, along=period, offset=1, edge=0) * Carrier_relative_growth
+      <= Carrier_max_growth

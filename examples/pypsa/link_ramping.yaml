@@ -1,0 +1,237 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: datetime
+  link:
+    description: controllable connections, each from one bus to the buses it delivers to
+  period:
+    description: investment periods — PyPSA's `investment_periods`
+    dtype: int
+
+relations:
+  snapshot_period:
+    description: the investment period a snapshot falls in
+    key: snapshot
+    values: period
+
+parameters:
+  Link_ramp_limit_up:
+    description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, link]
+  Link_ramp_limit_down:
+    description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, link]
+  Link_ramp_limit_start_up:
+    description: most flow in the snapshot a link starts, per unit of nominal power
+    dims: [scenario, link]
+  Link_ramp_limit_shut_down:
+    description: most flow in the snapshot before a link stops, per unit of nominal power
+    dims: [scenario, link]
+  Link_p_init:
+    description: >-
+      the flow a link brought into the horizon — PyPSA's `p_init`, read
+      only where the link came in running; no value means it is unknown, so
+      the link carries no ramp row at the first snapshot
+    dims: [scenario, link]
+
+given:
+  parameters:
+    Link_p_nom_extendable: { dims: [link], dtype: bool }
+    Link_committable: { dims: [link], dtype: bool }
+    Link_status_initial: { dims: [scenario, link], dtype: int }
+    Link_p_nom_mod: { dims: [link] }
+    Link_big_m: { dims: [scenario, link] }
+    Link_active: { dims: [snapshot, link], dtype: bool }
+  variables:
+    Link_p: { dims: [scenario, snapshot, link] }
+    Link_status: { dims: [scenario, snapshot, link], domain: integer }
+    Link_start_up: { dims: [scenario, snapshot, link], domain: integer }
+    Link_shut_down: { dims: [scenario, snapshot, link], domain: integer }
+    Link_p_nom_ext: { dims: [link] }
+  expressions:
+    Link_p_nom_effective: { dims: [scenario, link] }
+    Link_previous_status: { dims: [scenario, snapshot, link] }
+    Link_p_nom_committed: { dims: [scenario, link] }
+
+expressions:
+  Link_previous_p:
+    description: >-
+      the flow a link carries into a snapshot — at the first, the
+      `p_init` it brought in where it came in running and nothing where it
+      came in off; the previous snapshot's after that
+    dims: [scenario, snapshot, link]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: Link_status_initial * Link_p_init }
+    otherwise: shift(Link_p, along=snapshot, offset=1)
+  Link_ramp_up_rate:
+    description: >-
+      the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the
+      full build where it has none, since a start-up ramp alone builds the row
+    dims: [scenario, snapshot, link]
+    cases:
+      given: { when: Link_ramp_limit_up, expression: Link_ramp_limit_up }
+    otherwise: 1
+  Link_ramp_down_rate:
+    description: >-
+      the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or
+      the full build where it has none, since a shut-down ramp alone builds the row
+    dims: [scenario, snapshot, link]
+    cases:
+      given: { when: Link_ramp_limit_down, expression: Link_ramp_limit_down }
+    otherwise: 1
+  Link_start_up_rate:
+    description: >-
+      the start-up ramp a link's up row reads — PyPSA's `ramp_limit_start_up`,
+      or the full build where it has none
+    dims: [scenario, link]
+    cases:
+      given: { when: Link_ramp_limit_start_up, expression: Link_ramp_limit_start_up }
+    otherwise: 1
+  Link_shut_down_rate:
+    description: >-
+      the shut-down ramp a link's down row reads — PyPSA's
+      `ramp_limit_shut_down`, or the full build where it has none
+    dims: [scenario, link]
+    cases:
+      given: { when: Link_ramp_limit_shut_down, expression: Link_ramp_limit_shut_down }
+    otherwise: 1
+  Link_ramp_up_allowance:
+    description: >-
+      how far a link may raise flow between two snapshots — its ramp
+      limit of the build while it stays on, plus its start-up ramp in the
+      snapshot it turns on
+    dims: [scenario, snapshot, link]
+    cases:
+      committed:
+        when: Link_committable
+        expression: >-
+          Link_ramp_up_rate * Link_p_nom_committed * Link_previous_status
+          + Link_start_up_rate * Link_p_nom_committed
+          * (Link_status - Link_previous_status)
+    otherwise: Link_ramp_up_rate * Link_p_nom_effective
+  Link_ramp_down_allowance:
+    description: >-
+      how far a link may lower flow between two snapshots — its ramp
+      limit of the build while it stays on, plus its shut-down ramp in the
+      snapshot it turns off
+    dims: [scenario, snapshot, link]
+    cases:
+      committed:
+        when: Link_committable
+        expression: >-
+          Link_ramp_down_rate * Link_p_nom_committed * Link_status
+          + Link_shut_down_rate * Link_p_nom_committed
+          * (Link_previous_status - Link_status)
+    otherwise: Link_ramp_down_rate * Link_p_nom_effective
+
+constraints:
+  Link_p_ramp_limit_up_run_big_m:
+    description: >-
+      `Link-p-ramp_limit_up-run-bigM` — a committed extendable link
+      raises flow no faster than its limit of the chosen build; the big M
+      releases the row in the snapshot it turns on
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
+      AND Link_active
+    expression: >-
+      Link_p - Link_previous_p <=
+      Link_ramp_up_rate * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_previous_status
+  Link_p_ramp_limit_up_start_big_m:
+    description: >-
+      `Link-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
+      committed extendable link ramps no further than its start-up ramp of
+      the chosen build; the big M releases the row everywhere else
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
+      AND Link_active
+    expression: >-
+      Link_p - Link_previous_p <=
+      Link_start_up_rate * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_start_up
+  Link_p_ramp_limit_down_run_big_m:
+    description: >-
+      `Link-p-ramp_limit_down-run-bigM` — a committed extendable link
+      lowers flow no faster than its limit of the chosen build; the big M
+      releases the row in the snapshot it turns off
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
+      AND Link_active
+    expression: >-
+      Link_previous_p - Link_p <=
+      Link_ramp_down_rate * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_status
+  Link_p_ramp_limit_down_shut_big_m:
+    description: >-
+      `Link-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
+      a committed extendable link ramps no further than its shut-down ramp of
+      the chosen build; the big M releases the row everywhere else
+    dims: [scenario, snapshot, link]
+    where: >-
+      Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
+      AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
+      AND Link_active
+    expression: >-
+      Link_previous_p - Link_p <=
+      Link_shut_down_rate * Link_p_nom_ext
+      + Link_big_m - Link_big_m * Link_shut_down
+  Link_p_ramp_limit_up:
+    description: >-
+      `Link-p-ramp_limit_up` — a link raises flow no faster than
+      its ramp limit of the build, and a committed one no further than its
+      start-up ramp in the snapshot it turns on. A link that came into the
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the flow it brought in, and no link carries one at
+      the start of a later investment period — nor does any link a big M releases instead
+    dims: [scenario, snapshot, link]
+    where: >-
+      (Link_ramp_limit_up OR Link_ramp_limit_start_up)
+      AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
+      AND Link_active
+    expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
+  Link_p_ramp_limit_down:
+    description: >-
+      `Link-p-ramp_limit_down` — a link lowers flow no faster than
+      its ramp limit of the build, and a committed one no further than its
+      shut-down ramp in the snapshot it turns off. A link that came into the
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the flow it brought in, and no link carries one at
+      the start of a later investment period — nor does any link a big M releases instead
+    dims: [scenario, snapshot, link]
+    where: >-
+      (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
+      AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
+      AND Link_active
+    expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
+
+assumptions:
+  Link_came_in_running_unless_committable:
+    holds: "Link_status_initial == 1"
+    where: "NOT Link_committable AND (Link_ramp_limit_up OR Link_ramp_limit_down)"
+    description: >-
+      PyPSA reads `up_time_before` of a link that is not committable in its
+      ramp rows. Where it is zero, PyPSA builds a row at the first snapshot
+      with nothing carried in, and caps the link there at zero, or at its
+      start-up ramp where another link of the component is committable with a
+      fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
+      the attribute as read only for a committable link and does not check
+      it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+      spec does not state that row, so it refuses the data

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: datetime
+  bus:
+    description: network nodes
+
+given:
+  expressions:
+    Bus_injection: { dims: [scenario, snapshot, bus] }
+
+constraints:
+  Bus_nodal_balance:
+    description: >-
+      `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
+      stores included, less what the links take away, plus what arrives over
+      them after losses and any delay at every port they deliver to, each
+      process port drawing or delivering at its own rate and each passive
+      branch carrying its flow, meets the load there, less half of every
+      incident line's and transformer's loss — PyPSA dissipates a branch's
+      loss half at either end. Each generator, storage unit, store and load
+      term enters with its component's `sign` (`constraints.py:1428-1429`,
+      `:1538`), and an inactive load not at all. A bus nothing is attached to
+      has no row; PyPSA refuses one that carries load, and this file does not
+      yet.
+    dims: [scenario, snapshot, bus]
+    expression: Bus_injection == 0

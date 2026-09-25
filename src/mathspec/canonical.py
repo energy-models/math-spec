@@ -207,11 +207,16 @@ def _canonical_links(links: list[list[object]]) -> list[list[object]]:
     return [[canonical_text(cast('str', link[0])), *link[1:]] for link in links]
 
 
+def _sorted_blocks(section: dict[str, object]) -> dict[str, object]:
+    """One section's declarations sorted by name, each with its expressions in the normal form."""
+    return {name: _canonical_block(block) for name, block in sorted(section.items())}
+
+
 def canonical_dict(spec: Spec) -> dict[str, object]:
     """The spec as plain data, in the form two files that mean the same thing share.
 
-    Declarations are sorted by name and every expression is printed from its
-    parsed tree, so what is left of a difference is a difference in the model.
+    Declarations are sorted by name, the ones under each kind of ``given:``
+    too, and every expression is printed from its parsed tree, so what is left of a difference is a difference in the model.
     A ``where`` string, the order of a ``cases:`` block's regions, the order of
     a declaration's ``dims`` and the order of a piecewise block's links are all
     left as written.
@@ -227,8 +232,10 @@ def canonical_dict(spec: Spec) -> dict[str, object]:
     data = spec.to_dict()
     built: dict[str, object] = {}
     for section, value in data.items():
-        if isinstance(value, dict) and section != 'objective':
-            built[section] = {name: _canonical_block(block) for name, block in sorted(value.items())}
+        if section == 'given' and isinstance(value, dict):
+            built[section] = {kind: _sorted_blocks(entries) for kind, entries in sorted(value.items())}
+        elif isinstance(value, dict) and section != 'objective':
+            built[section] = _sorted_blocks(value)
         else:
             built[section] = _canonical_block(value)
     piecewise = built.get('piecewise')

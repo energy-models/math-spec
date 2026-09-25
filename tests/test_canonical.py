@@ -487,3 +487,16 @@ def test_the_form_declares_the_same_model(path):
     assert (rewritten.objective is None) == (original.objective is None), 'an objective is kept, or its absence is'
     if original.objective is not None and rewritten.objective is not None:
         assert rewritten.objective.sense == original.objective.sense, 'and its sense with it'
+
+
+def test_the_names_a_file_reads_are_sorted_like_the_names_it_declares():
+    """`given:` nests its kinds one level below a section, so sorting the sections alone left them in file order."""
+    frame = {'dimensions': {'t': {'dtype': 'int'}}, 'constraints': {'c': {'dims': ['t'], 'expression': 'a + b >= 0'}}}
+    one, other = (
+        {**frame, 'given': {'variables': dict(entries)}}
+        for entries in (
+            [('a', {'dims': ['t']}), ('b', {'dims': ['t']})],
+            [('b', {'dims': ['t']}), ('a', {'dims': ['t']})],
+        )
+    )
+    assert ms.to_spec(one).to_yaml(canonical=True) == ms.to_spec(other).to_yaml(canonical=True)

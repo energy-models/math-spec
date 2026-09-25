@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: datetime
+  bus:
+    description: network nodes
+  load:
+    description: demands, each on one bus
+
+relations:
+  Load_bus:
+    description: the bus a load sits on
+    key: load
+    values: bus
+
+parameters:
+  Load_p_set:
+    description: demand
+    dims: [scenario, snapshot, load]
+  Load_sign:
+    description: >-
+      the sign a load's demand enters its bus's balance with — PyPSA's
+      `sign`, `-1` unless given, `1` for a load that feeds its bus. PyPSA
+      refuses one that differs by scenario (`consistency.py:1187`)
+    dims: [load]
+  Load_active:
+    description: >-
+      whether a load stands in the model — PyPSA's `active`. A load has no
+      build year and no lifetime, so the flag holds in every snapshot. PyPSA
+      refuses one that differs by scenario (`consistency.py:1195`)
+    dims: [load]
+    dtype: bool
+
+expressions:
+  Load_demand:
+    description: >-
+      what a load draws from its bus's balance — its demand times its sign
+      where it is active, nothing where it is not, since PyPSA drops an
+      inactive load from the balance (`constraints.py:1537-1538`)
+    dims: [scenario, snapshot, load]
+    cases:
+      active: { when: Load_active, expression: Load_sign * Load_p_set }
+    otherwise: 0
+  Bus_injection:
+    additive: true
+    description: >-
+      what every component puts into a bus, less what it takes out of it;
+      PyPSA writes each term into the balance, and a load on its right-hand
+      side
+    expression: sum(Load_demand, by=Load_bus, over=load, into=bus)
