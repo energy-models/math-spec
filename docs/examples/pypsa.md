@@ -2516,7 +2516,13 @@ its flow within its rating. PyPSA computes the sub-network's branch outage
 distribution factors (BODF) and copies each flow limit row with the outaged
 branch's flow, times its factor, added to the left-hand side
 (`abstract.py:443-489`). The copy keeps the row's sense, right-hand side and
-loss term, and its extendable rating. An outage is a line or a transformer, and
+extendable rating. It carries no loss term: PyPSA builds the model without
+`transmission_losses` and `linearized_unit_commitment` (`abstract.py:437-441`)
+and hands any other keyword to the solver (`abstract.py:491`), so a security
+run is lossless and integer. Data prep feeds `transmission_losses` false there.
+A network with no passive branch is the exception: PyPSA runs a plain
+`n.optimize()` with every keyword (`abstract.py:429-435`), and no outage
+exists. An outage is a line or a transformer, and
 a plain list names lines. The outaged branch is monitored too, at the factor
 `-1`. The file states the copies over an `outage` axis, with the factors as
 data prep, `Line_BODF` and `Transformer_BODF`. A plain run supplies no outage,
@@ -2536,6 +2542,7 @@ bind, in `Transformer-fix-s-lower` against a line outage and in
 | [`Transformer-fix-s-*-security-…`](#transformer-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Transformer-ext-s-*-security-…`](#transformer-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | the same for a transformer |
 | a branch not active in a period | done | PyPSA keeps the copy with that branch's flow dropped, so the file reads its flow as zero there; a copy left with no variable is not built here, where linopy counts it; no rung records it |
 | a security-constrained run over scenarios | out | PyPSA `1.3.0` raises, see [Refusals](#refusals) |
+| `transmission_losses`, `linearized_unit_commitment` in a security-constrained run | done | PyPSA builds neither, so the copies carry no loss term and data prep feeds `transmission_losses` false; no rung, since rung 30 is lossless |
 
 <!-- reference:rung_30_security_constrained:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `22113.333333333332`, 240 rows.
@@ -4279,7 +4286,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{s}^{\mathrm{set}}`$ | `Line_s_set` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — a given flow schedule; a line without one has no row here |
 | $`\mathrm{x}`$ | `Line_cycle_weight` over $`\mathcal{K} \times \mathcal{C}`$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row. PyPSA builds the cycle basis from the first scenario only (`networks.py:1354-1361`) |
 | $`\beta`$ | `Line_BODF` over $`\mathcal{K} \times \mathcal{K}^{\mathrm{out}}`$ — the share of an outaged branch's flow a line takes on when that branch goes out — PyPSA's `BODF`, from the sub-network's PTDF, data prep; a row only where the line and the outage share a sub-network, -1 at the outaged line itself |
-| $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` read as a flag; its mode, tangents or secants, only decides how data prep fills the `segment` axis, the rows are the same; false with no segments is a lossless run |
+| $`\mathrm{lossy}`$ | `transmission_losses` (scalar) — whether the network dissipates transmission losses — PyPSA's `transmission_losses` read as a flag; its mode, tangents or secants, only decides how data prep fills the `segment` axis, the rows are the same; false with no segments is a lossless run. A security-constrained run over a network with passive branches builds no loss: PyPSA does not hand the keyword to `create_model` (`abstract.py:437-441`) but to the solver (`:491`), so data prep feeds false there |
 | $`\overline{\ell}`$ | `Line_loss_max` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
 | $`\mathrm{a}`$ | `Line_loss_slope` over $`\Xi \times \mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — the slope of a cut to the loss curve — a tangent's `2 * r_pu_eff * p_k` at its segment's flow, a secant's `r_pu_eff * (p_k + p_k+1)` between consecutive breakpoints, data prep |
 | $`\mathrm{b}`$ | `Line_loss_offset` over $`\Xi \times \mathcal{T} \times \mathcal{K} \times \mathcal{B}`$ — where that cut meets the loss axis — a tangent's `loss_k - slope_k * p_k`, a secant's `-r_pu_eff * p_k * p_k+1`, negative, data prep |
@@ -7376,11 +7383,11 @@ Line_fix_s_lower_security:
     dimension
   dims: [scenario, snapshot, line, outage]
   where: not Line_s_nom_extendable AND Line_BODF
-  expression: Line_s_monitored - Line_loss + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom
+  expression: Line_s_monitored + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom
 ```
 
 ```math
-\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Line-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -7397,11 +7404,11 @@ Line_fix_s_upper_security:
     states them all over the outage dimension
   dims: [scenario, snapshot, line, outage]
   where: not Line_s_nom_extendable AND Line_BODF
-  expression: Line_s_monitored + Line_loss + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom
+  expression: Line_s_monitored + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom
 ```
 
 ```math
-\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{\xi,k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Line-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -7419,11 +7426,11 @@ Line_ext_s_lower_security:
     all over the outage dimension
   dims: [scenario, snapshot, line, outage]
   where: Line_s_nom_extendable AND Line_BODF
-  expression: Line_s_monitored - Line_loss + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom_ext
+  expression: Line_s_monitored + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom_ext
 ```
 
 ```math
-\check{s}_{\xi,t,k} - \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Line-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -7441,11 +7448,11 @@ Line_ext_s_upper_security:
     dimension
   dims: [scenario, snapshot, line, outage]
   where: Line_s_nom_extendable AND Line_BODF
-  expression: Line_s_monitored + Line_loss + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom_ext
+  expression: Line_s_monitored + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom_ext
 ```
 
 ```math
-\check{s}_{\xi,t,k} + \ell_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
+\check{s}_{\xi,t,k} + \beta_{k,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\mathrm{s}}_{\xi,t,k} \cdot S_{k} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ k \in \mathcal{K},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{s}_{k} \wedge \beta_{k,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -7463,11 +7470,11 @@ Transformer_fix_s_lower_security:
     dimension
   dims: [scenario, snapshot, transformer, outage]
   where: not Transformer_s_nom_extendable AND Transformer_BODF
-  expression: Transformer_s_monitored - Transformer_loss + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom
+  expression: Transformer_s_monitored + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -7484,11 +7491,11 @@ Transformer_fix_s_upper_security:
     this block states them all over the outage dimension
   dims: [scenario, snapshot, transformer, outage]
   where: not Transformer_s_nom_extendable AND Transformer_BODF
-  expression: Transformer_s_monitored + Transformer_loss + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom
+  expression: Transformer_s_monitored + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{\xi,t,m} \cdot \sigma^{\mathrm{nom}}_{\xi,m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \neg \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -7506,11 +7513,11 @@ Transformer_ext_s_lower_security:
     all over the outage dimension
   dims: [scenario, snapshot, transformer, outage]
   where: Transformer_s_nom_extendable AND Transformer_BODF
-  expression: Transformer_s_monitored - Transformer_loss + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+  expression: Transformer_s_monitored + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} - \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \ge -\overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Transformer-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -7528,11 +7535,11 @@ Transformer_ext_s_upper_security:
     outage dimension
   dims: [scenario, snapshot, transformer, outage]
   where: Transformer_s_nom_extendable AND Transformer_BODF
-  expression: Transformer_s_monitored + Transformer_loss + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom_ext
+  expression: Transformer_s_monitored + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom_ext
 ```
 
 ```math
-\check{\sigma}_{\xi,t,m} + \ell^{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
+\check{\sigma}_{\xi,t,m} + \beta^{\sigma}_{m,\kappa} \cdot \hat{s}_{\xi,t,\kappa} \le \overline{\sigma}_{\xi,t,m} \cdot \Sigma_{m} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ m \in \mathcal{M},\ \kappa \in \mathcal{K}^{\mathrm{out}} \,:\, \mathrm{ext}^{\sigma}_{m} \wedge \beta^{\sigma}_{m,\kappa} \text{ is defined}
 ```
 
 ### `Kirchhoff-Voltage-Law`

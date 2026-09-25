@@ -905,7 +905,10 @@ parameters:
       whether the network dissipates transmission losses — PyPSA's
       `transmission_losses` read as a flag; its mode, tangents or secants,
       only decides how data prep fills the `segment` axis, the rows are the
-      same; false with no segments is a lossless run
+      same; false with no segments is a lossless run. A security-constrained
+      run over a network with passive branches builds no loss: PyPSA does not
+      hand the keyword to `create_model` (`abstract.py:437-441`) but to the
+      solver (`:491`), so data prep feeds false there
     dims: []
     dtype: bool
   Line_loss_max:
@@ -3238,7 +3241,7 @@ constraints:
       dimension
     dims: [scenario, snapshot, line, outage]
     where: not Line_s_nom_extendable AND Line_BODF
-    expression: Line_s_monitored - Line_loss + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom
+    expression: Line_s_monitored + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom
   Line_fix_s_upper_security:
     description: >-
       `Line-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}` —
@@ -3248,7 +3251,7 @@ constraints:
       states them all over the outage dimension
     dims: [scenario, snapshot, line, outage]
     where: not Line_s_nom_extendable AND Line_BODF
-    expression: Line_s_monitored + Line_loss + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom
+    expression: Line_s_monitored + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom
   Line_ext_s_lower_security:
     description: >-
       `Line-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}` —
@@ -3259,7 +3262,7 @@ constraints:
       all over the outage dimension
     dims: [scenario, snapshot, line, outage]
     where: Line_s_nom_extendable AND Line_BODF
-    expression: Line_s_monitored - Line_loss + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom_ext
+    expression: Line_s_monitored + Line_BODF * Outage_s >= -Line_s_max_pu * Line_s_nom_ext
   Line_ext_s_upper_security:
     description: >-
       `Line-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}` —
@@ -3270,7 +3273,7 @@ constraints:
       dimension
     dims: [scenario, snapshot, line, outage]
     where: Line_s_nom_extendable AND Line_BODF
-    expression: Line_s_monitored + Line_loss + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom_ext
+    expression: Line_s_monitored + Line_BODF * Outage_s <= Line_s_max_pu * Line_s_nom_ext
   Transformer_fix_s_lower_security:
     description: >-
       `Transformer-fix-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -3281,7 +3284,7 @@ constraints:
       dimension
     dims: [scenario, snapshot, transformer, outage]
     where: not Transformer_s_nom_extendable AND Transformer_BODF
-    expression: Transformer_s_monitored - Transformer_loss + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom
   Transformer_fix_s_upper_security:
     description: >-
       `Transformer-fix-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -3291,7 +3294,7 @@ constraints:
       this block states them all over the outage dimension
     dims: [scenario, snapshot, transformer, outage]
     where: not Transformer_s_nom_extendable AND Transformer_BODF
-    expression: Transformer_s_monitored + Transformer_loss + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom
   Transformer_ext_s_lower_security:
     description: >-
       `Transformer-ext-s-lower-security-for-{c}-outage-in-sub-network-{n}`
@@ -3302,7 +3305,7 @@ constraints:
       all over the outage dimension
     dims: [scenario, snapshot, transformer, outage]
     where: Transformer_s_nom_extendable AND Transformer_BODF
-    expression: Transformer_s_monitored - Transformer_loss + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s >= -Transformer_s_max_pu * Transformer_s_nom_ext
   Transformer_ext_s_upper_security:
     description: >-
       `Transformer-ext-s-upper-security-for-{c}-outage-in-sub-network-{n}`
@@ -3313,7 +3316,7 @@ constraints:
       outage dimension
     dims: [scenario, snapshot, transformer, outage]
     where: Transformer_s_nom_extendable AND Transformer_BODF
-    expression: Transformer_s_monitored + Transformer_loss + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom_ext
+    expression: Transformer_s_monitored + Transformer_BODF * Outage_s <= Transformer_s_max_pu * Transformer_s_nom_ext
   Kirchhoff_Voltage_Law:
     description: >-
       `Kirchhoff-Voltage-Law` — around every independent cycle the
