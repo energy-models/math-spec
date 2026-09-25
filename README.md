@@ -41,22 +41,20 @@ Support in both is work in progress.
 
 <!--- --8<-- [start:benefits] -->
 
-- **Check a model repository in CI with no data.** A misspelled name, a `where`
-  string on an undeclared parameter, or a constraint whose dimensions do not
-  match its `dims` fails when the file loads. The message names the fix
-  ([errors](https://math-spec.readthedocs.io/en/latest/reference/language/errors/)).
-- **Publish the math you solve.** `to_latex(spec)` prints the model as equations
-  from the file alone, so the paper and the solver read one source
-  ([typeset](https://math-spec.readthedocs.io/en/latest/reference/typeset/)).
-- **Change the engine and keep the model.** The operators are a fixed set:
-  `sum`, `sum_back`, `at` and `shift`. A file cannot add one, so a model does not
-  depend on what one engine registered ([limits](https://math-spec.readthedocs.io/en/latest/about/limits/)).
-- **Review a model as a diff.** The file is plain YAML, and no Python state
-  changes what it means.
-- **Write full-size models.** [PyPSA in one file](https://math-spec.readthedocs.io/en/latest/examples/pypsa/) states
-  the model that PyPSA's `n.optimize()` builds, with an index of each PyPSA row.
-  Five more pages add quadratic costs, relaxed unit commitment, line losses,
-  two-stage stochastic scenarios and investment periods.
+- :white_check_mark: **Check models in CI, with no data.** A wrong name or
+  dimension fails when the file loads, and the error names the fix.
+  [Errors →](https://math-spec.readthedocs.io/en/latest/reference/language/errors/)
+- :page_facing_up: **Publish the math you solve.** The equations in the paper
+  print from the file the solver reads.
+  [Typeset →](https://math-spec.readthedocs.io/en/latest/reference/typeset/)
+- :arrows_counterclockwise: **Switch engines, keep the model.** The operators
+  are a fixed set, so every engine reads the file the same way.
+  [Limits →](https://math-spec.readthedocs.io/en/latest/about/limits/)
+- :mag: **Review a model as a diff.** The model is plain YAML, and no Python
+  state changes what it means.
+- :electric_plug: **Write full-size models.** PyPSA's `n.optimize()` model is
+  one file, with stochastic, multi-period and quadratic variants.
+  [PyPSA in one file →](https://math-spec.readthedocs.io/en/latest/examples/pypsa/)
 
 <!--- --8<-- [end:benefits] -->
 

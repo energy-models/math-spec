@@ -308,12 +308,38 @@
   margin-left: 0.5rem;
 }
 
+/* Benefit cards: the README bullet's icon and bold lead-in become the card's
+ * heading, since the README cannot carry card markup. */
+.md-typeset .landing .grid.cards > ul > li {
+  border-top: 0.2rem solid var(--md-accent-fg-color);
+}
+
+.md-typeset .landing .grid.cards > ul > li > .twemoji:first-child {
+  display: block;
+  width: 2.4rem;
+  height: 2.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.md-typeset .landing .grid.cards > ul > li > strong:first-of-type {
+  display: block;
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .landing .grid.cards > ul > li:hover {
+  transform: translateY(-0.15rem);
+}
+
 /* Grid card hover lift — small polish */
 .md-typeset .grid.cards > ul > li,
 .md-typeset .grid > .card {
   transition:
     border-color 125ms,
-    box-shadow 125ms;
+    box-shadow 125ms,
+    transform 125ms;
 }
 
 .md-typeset .grid.cards > ul > li:hover,
