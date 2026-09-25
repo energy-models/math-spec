@@ -36,7 +36,8 @@ objective:
   expression: sum(dispatch * cost) # an objective is one number, so the sum is written
 ```
 
-That file is a complete model. The pages below give the exact rules.
+That file is a complete model. The pages below give the exact rules, and the
+[glossary](../glossary.md) defines each word they use in a fixed sense.
 
 ## The pages
 
