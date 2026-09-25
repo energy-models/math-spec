@@ -1812,5 +1812,29 @@
       "Link-fix-p-lower": 4,
       "Link-fix-p-upper": 4
     }
+  },
+  "rung_48_unweighted_start_up": {
+    "columns": {
+      "Generator-p": 18,
+      "Generator-shut_down": 6,
+      "Generator-start_up": 6,
+      "Generator-status": 6
+    },
+    "global_constraints": {},
+    "objective": 7325.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 6,
+      "Generator-com-p-lower": 6,
+      "Generator-com-p-upper": 6,
+      "Generator-com-transition-shut-down": 6,
+      "Generator-com-transition-start-up": 6,
+      "Generator-fix-p-lower": 12,
+      "Generator-fix-p-upper": 12,
+      "Generator-shut_down-p-fixed-upper": 6,
+      "Generator-start_up-p-fixed-upper": 6,
+      "Generator-status-p-fixed-upper": 6
+    }
   }
 }

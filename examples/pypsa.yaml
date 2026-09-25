@@ -2061,7 +2061,7 @@ expressions:
       + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
       + sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
   scenario_opex:
-    description: what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight
+    description: what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight; a start and a stop cost what they cost, unweighted, as PyPSA adds them (`optimize.py:414-429`)
     expression: >-
       sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
@@ -2077,14 +2077,14 @@ expressions:
       + sum(sum(Store_p * Store_p * Store_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
       + sum(sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
       + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-      + sum(sum(Generator_start_up * Generator_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-      + sum(sum(Generator_shut_down * Generator_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+      + sum(sum(Generator_start_up * Generator_start_up_cost, over=generator), over=snapshot)
+      + sum(sum(Generator_shut_down * Generator_shut_down_cost, over=generator), over=snapshot)
       + sum(sum(Link_status * Link_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-      + sum(sum(Link_start_up * Link_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-      + sum(sum(Link_shut_down * Link_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+      + sum(sum(Link_start_up * Link_start_up_cost, over=link), over=snapshot)
+      + sum(sum(Link_shut_down * Link_shut_down_cost, over=link), over=snapshot)
       + sum(sum(Process_status * Process_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-      + sum(sum(Process_start_up * Process_start_up_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-      + sum(sum(Process_shut_down * Process_shut_down_cost * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+      + sum(sum(Process_start_up * Process_start_up_cost, over=process), over=snapshot)
+      + sum(sum(Process_shut_down * Process_shut_down_cost, over=process), over=snapshot)
   Carrier_additions:
     description: >-
       what a carrier adds in a period — every extendable component of that
