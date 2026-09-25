@@ -41,9 +41,9 @@ Support in both is work in progress.
 - **Publish the math you solve.** The equations in the paper
   print from the file the solver reads.
   [Typeset →](https://math-spec.readthedocs.io/en/latest/reference/typeset/)
-- **Switch engines, keep the model.** The operators
-  are a fixed set, so every engine reads the file the same way.
-  [Limits →](https://math-spec.readthedocs.io/en/latest/about/limits/)
+- **One model, many tools.** Engines, renderers and analysers read the model
+  through one public API, so no two of them can read the file differently.
+  [Program API →](https://math-spec.readthedocs.io/en/latest/reference/program/)
 - **Write full-size models.** PyPSA's `n.optimize()` model is
   one file, with stochastic, multi-period and quadratic variants.
   [PyPSA in one file →](https://math-spec.readthedocs.io/en/latest/examples/pypsa/)
