@@ -161,3 +161,18 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
     written_out = set(spec.expand().program.parameters)
 
     assert written_out == supplied, 'writing a formulation out asks for data the model it came from did not'
+
+
+def test_an_expansion_is_a_different_model_and_has_nothing_left_to_write_out():
+    """What `expand()` returns: a new model, which a second expansion hands back unchanged."""
+    spec = schema_of(CURVE)
+    expanded = spec.expand()
+
+    assert expanded != spec, 'the expansion declares more rows, so it is a different model'
+    assert expanded.expand() is expanded, 'an expansion has no formulation left, so it comes back as itself'
+
+
+def test_a_model_with_no_formulation_expands_to_itself():
+    spec = schema_of(DISPATCH_MODEL)
+
+    assert spec.expand() is spec, 'nothing to write out returns the same object, not a copy'

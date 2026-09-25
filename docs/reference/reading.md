@@ -76,31 +76,11 @@ is one the file declared.
 
 ## Formulations written out
 
-`spec.expand(*kinds)` returns a new `Spec` with each `piecewise:` and `sos:`
-block replaced by the variables and constraints it states.
-[Writing a formulation out](language/piecewise.md#writing-a-formulation-out)
-says what those are.
-
-```python
-expanded = spec.expand()
-expanded == spec  # False
-expanded.expand() is expanded  # True
-spec.expand('sos') is spec  # True
-```
-
-- **The kinds are `'piecewise'` and `'sos'`, and no argument means both.** Any
-  other string raises `ValueError`, naming the two. Curves go first whatever
-  the order of the arguments, so the set a `method: sos2` curve states is
-  written out too.
-- **The expansion is a different model.** It declares more variables and
-  constraints, so it does not compare equal to the model it came from. It
-  declares the same dimensions and parameters, so the same data binds both.
-- **A model with nothing to write out comes back as itself.** So does an
-  expansion asked for the same kinds again.
-- **The spec keeps no expansion.** A second call builds it again.
-- **Nothing expands a model unasked.** A program holds its curves until
-  `expand()` writes them out. The expansion is a model like any other:
-  `to_yaml()` writes it, and its `program` holds the rows and no curve.
+A program holds each curve and each set as one declaration until
+[`Spec.expand()`](api.md#math_spec.Spec.expand) writes it out. An engine that
+builds rows reads the program of `spec.expand('piecewise')` if it takes a set,
+and the program of `spec.expand()` if it does not. The program of an expansion
+holds no curve:
 
 ```python
 sorted(rows.piecewise)  # []
