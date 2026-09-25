@@ -53,7 +53,8 @@ When you contribute for the first time, ensure your reviewer [adds you as a cont
 
 Before submitting a pull request, check whether you have:
 
-- Written the PR title as a conventional commit subject (see below) — this, not a hand-written entry, is what appears in `CHANGELOG.md`.
+- Written the PR title as a conventional commit subject (see below).
+- Added its line under `## Upcoming version` in `CHANGELOG.md` by hand, if the PR is a `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` (see below).
 - Added or updated documentation for your changes (see [The docs](#the-docs)).
 - Added tests if you implemented new functionality.
 
@@ -77,9 +78,8 @@ what refuses a page with no nav entry.
 
 ### Commit messages
 
-Merges are squashed, and the resulting subject on `main` is what
-[release-please](https://github.com/googleapis/release-please) reads to build
-the changelog. So the **PR title** must be a
+Merges are squashed, so the **PR title** becomes the commit on `main`. Write it
+so it also works as the line you add to `CHANGELOG.md` by hand. It must be a
 [conventional commit](https://www.conventionalcommits.org) subject:
 
 ```text
@@ -90,16 +90,13 @@ fix(parser): where clauses with a trailing comma
 docs: describe the two expression tiers
 ```
 
-Types are `feat`, `fix`, `perf`, `refactor`, `docs` and `revert`, which appear
-in the changelog, and `chore`, `test`, `ci`, `build` and `style`, which are
-hidden. A subject the parser cannot read is not an error — the entry
-simply never appears — so the `Conventional commit subject` check enforces the
-format on every pull request.
-
-While the version is pinned to the alpha stream, a breaking marker (`!`, or a
-`BREAKING CHANGE:` footer) is refused, because it moves the base version rather
-than the alpha counter. Describe the break in the PR body instead. See
-[RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md).
+A `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its title,
+with a link to the PR, under `## Upcoming version` in `CHANGELOG.md`. A
+`chore`, `test`, `ci`, `build` or `style` PR adds no line. The
+`Conventional commit subject` check enforces the format on every pull request,
+and the `Changelog line` check enforces the line. The label `no changelog`
+opts a PR out of the second.
+See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph
 or bullet list covering what changed and its impact.
@@ -121,17 +118,16 @@ When adding docstrings, we request you use the [Google docstring style](https://
 
 ## Releases
 
-Nothing here is done by hand. release-please opens a release PR from the
-conventional-commit subjects on `main`; merging it tags the release, and the tag
-is what builds and publishes the package. While the project is on the alpha
-stream that release PR is merged automatically, so every merge to `main` cuts a
-version.
+A release is a PR that renames `## Upcoming version` in `CHANGELOG.md` to the
+version and the day, such as `## 0.1.0 (2026-10-01)`, and edits the section
+into the release notes. Merging it tags the release, opens the GitHub release
+and publishes the package to PyPI.
 
 The version is never written down in the source tree — it comes from the git
 tag at build time, and `mathspec.__version__` reads it back from the installed
 package metadata.
 
-See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md) for the full pipeline, the alpha-stream rules,
-and the one-time repository setup it still needs.
+See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md) for the steps, what to do when one
+fails, and the one-time repository setup.
 
 <!--- --8<-- [end:docs] -->

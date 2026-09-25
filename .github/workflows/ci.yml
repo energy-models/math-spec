@@ -75,6 +75,12 @@ jobs:
       # runs, and `fail_on_changes: always` means an unformatted tree fails here
       # rather than being fixed in place. ruff, pyrefly, typos, zizmor, reuse,
       # prettier and taplo all report from inside it.
+      # A pull request that puts a version heading on top of CHANGELOG.md
+      # releases it on merge, so the heading is checked here, before the merge
+      # can act on it. See RELEASING.md.
+      - name: Check the changelog headings
+        run: pixi run python -m tools.changelog check
+
       - name: Run linting
         run: pixi run lint
         env:

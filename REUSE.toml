@@ -11,8 +11,6 @@ SPDX-PackageDownloadLocation = "https://github.com/energy-models/mathspec"
 path = [
   ".github/pull_request_template.md",
   ".all-contributorsrc",
-  ".release-please-config.json",
-  ".release-please-manifest.json",
   # `src/py.typed` on main, which is a path that does not exist — the marker
   # is inside the package.
   "src/mathspec/py.typed",
@@ -69,11 +67,3 @@ SPDX-License-Identifier = "MIT"
 path = ["schema/*.json", "tests/typesetting/golden/*.out"]
 SPDX-FileCopyrightText = "mathspec Contributors"
 SPDX-License-Identifier = "MIT"
-
-# release-please rewrites CHANGELOG.md on every release and is not obliged to
-# keep the comment at the top of it. The header is in the file as well; this is
-# what survives if the rewrite drops it.
-[[annotations]]
-path = ["CHANGELOG.md"]
-SPDX-FileCopyrightText = "mathspec contributors"
-SPDX-License-Identifier = "CC-BY-4.0"
