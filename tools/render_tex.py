@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Render every model in the tree to standalone LaTeX, for the compile gate.
+"""Render every spec in the tree to standalone LaTeX, for the compile gate.
 
     pixi run python -m tools.render_tex build/tex
 
 ``tools/compile_tex.py`` is the other half, and ``pixi run compile-tex`` runs
-both. One interpreter for every model rather than one each: the process starts
+both. One interpreter for every spec rather than one each: the process starts
 were measured at three quarters of the step's wall clock.
 """
 
@@ -19,15 +19,15 @@ from pathlib import Path
 from mathspec.__main__ import main as render
 from tools._page import ROOT, sidecar_for
 
-#: Every model the repository has; `examples/*.yaml` is not recursive, and a glob that narrows is a gate that stops testing.
+#: Every spec the repository has; `examples/*.yaml` is not recursive, and a glob that narrows is a gate that stops testing.
 CORPUS = ('examples/**/*.yaml', 'tests/typesetting/golden/*.yaml')
 
-#: Inside that glob and not models: the symbol tables `sidecar_for` looks up.
+#: Inside that glob and not specs: the symbol tables `sidecar_for` looks up.
 NOT_MODELS = ('examples/symbols',)
 
 
 def models() -> list[Path]:
-    """Every model file, deduplicated and in a stable order."""
+    """Every spec file, deduplicated and in a stable order."""
     found = {path for pattern in CORPUS for path in ROOT.glob(pattern)}
     excluded = {ROOT / part for part in NOT_MODELS}
     return sorted(path for path in found if not excluded.intersection(path.parents))
@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
 
     found = models()
     if not found:
-        print('no models matched; the corpus globs are stale', file=sys.stderr)
+        print('no specs matched; the corpus globs are stale', file=sys.stderr)
         return 1
 
     for model in found:
@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
             args += ['--symbols', str(symbols)]
         render(args)
 
-    print(f'rendered {len(found)} model(s) to {out}')
+    print(f'rendered {len(found)} spec(s) to {out}')
     return 0
 
 

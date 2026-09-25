@@ -94,8 +94,8 @@ def read_yaml(path: Path | str) -> dict[str, object]:
     return parse_yaml(Path(path).read_text(encoding='utf-8'), str(path))
 
 
-def read_model(model: str | Path) -> dict[str, object]:
-    """A model from a file or from its text — a newline decides which a ``str`` is.
+def read_spec(spec: str | Path) -> dict[str, object]:
+    """A spec from a file or from its text — a newline decides which a ``str`` is.
 
     A [`Path`][] names a file, and so does a ``str`` with no
     newline in it, since no path holds one; a ``str`` with a newline is the
@@ -106,15 +106,15 @@ def read_model(model: str | Path) -> dict[str, object]:
         FileNotFoundError: A ``str`` with no newline that names no file — a
             one-line text is told to end with one.
     """
-    if isinstance(model, str) and '\n' not in model and not Path(model).is_file():
+    if isinstance(spec, str) and '\n' not in spec and not Path(spec).is_file():
         msg = (
-            f'no file named {model!r}. A str with no newline in it is read as a path, and YAML text '
+            f'no file named {spec!r}. A str with no newline in it is read as a path, and YAML text '
             f'is told apart by one — end the text with a newline, or pass a Path.'
         )
         raise FileNotFoundError(msg)
-    if isinstance(model, Path) or '\n' not in model:
-        return read_yaml(Path(model))
-    return parse_yaml(model, 'YAML text')
+    if isinstance(spec, Path) or '\n' not in spec:
+        return read_yaml(Path(spec))
+    return parse_yaml(spec, 'YAML text')
 
 
 def parse_yaml(text: str, origin: str = '<string>') -> dict[str, object]:
@@ -136,6 +136,6 @@ def parse_yaml(text: str, origin: str = '<string>') -> dict[str, object]:
     if not data:
         return {}
     if not isinstance(data, dict):
-        msg = f'{origin}: a model file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
+        msg = f'{origin}: a spec file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
         raise SchemaError(msg)
     return data

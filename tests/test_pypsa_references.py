@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What the PyPSA references pin the model files to, without any engine.
+"""What the PyPSA references pin the spec files to, without any engine.
 
-Everything here asserts over the committed model files, reference scripts and
+Everything here asserts over the committed spec files, reference scripts and
 `references.json` alone.
 """
 

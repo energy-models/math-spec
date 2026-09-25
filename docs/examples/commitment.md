@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Unit commitment
 
-This model adds a commitment decision and a start-up ramp to least-cost
+This spec adds a commitment decision and a start-up ramp to least-cost
 dispatch. Read `previous_status` first, then `ramp_up`: the state a unit
 carries into a snapshot has three regimes, stated once as a
 [`cases:`](../reference/language/named.md#cases) block, and `ramp_up` reads it
@@ -129,7 +129,7 @@ Unit commitment with a start-up ramp, the formulation `cases:` exists for. The s
 |---|---|
 | $`\mathit{previous\_status}`$ | `previous_status` over $`\mathcal{T} \times \mathcal{G}`$ — the commitment state a unit carries into a snapshot |
 
-Upright is what the model is given — a parameter such as $`\mathrm{committable}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the data supplies — a parameter such as $`\mathrm{committable}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 

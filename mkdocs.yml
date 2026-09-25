@@ -26,17 +26,17 @@ validation:
 nav:
   - Home: index.md
   # Arranged by what a page is for — tutorial, how-to guide, reference,
-  # explanation (https://diataxis.fr) — for someone who writes a model.
+  # explanation (https://diataxis.fr) — for someone who writes a spec.
   # `.claude/skills/docs-writing/SKILL.md` says how one kind is told from
-  # another, and the folders under `docs/` follow the same split. The model
+  # another, and the folders under `docs/` follow the same split. The example
   # pages are reference in their own form and sit at the end of the Reference
   # section, after the pages a reader looks things up in.
   - Tutorials:
-      - Your first model: first-model.md
+      - Your first spec: first-spec.md
   - How-to guides:
       - Installation: howto/installation.md
-      - Check a model without data: howto/check.md
-      - Print a model as math: howto/print.md
+      - Check a spec without data: howto/check.md
+      - Print a spec as math: howto/print.md
       - State a rule that differs by regime: howto/regimes.md
       - Declare a column of data: howto/declare-a-column.md
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
@@ -63,15 +63,15 @@ nav:
           - examples/index.md
           - Least-cost dispatch: examples/dispatch.md
           - Unit commitment: examples/commitment.md
-          - One construct per model: examples/operators.md
+          - One construct per spec: examples/operators.md
   - About:
       - The limits: about/limits.md
       - Versions: about/versions.md
       - Changelog: changelog.md
-  # Everything a model writer does not need, grouped by reader: whoever
+  # Everything a spec writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a
   # renderer, a checker), whoever changes mathspec itself, and the proofs of
-  # concept: the notation page, which renders the typesetting test model, and
+  # concept: the notation page, which renders the typesetting test spec, and
   # the PyPSA pages. The PyPSA pages stay in `docs/examples/`, where
   # `tools/gallery.py` writes them.
   - Development:

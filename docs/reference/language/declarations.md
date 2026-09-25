@@ -142,7 +142,7 @@ objective:
 
 The expression must be **scalar**. Nothing is summed for you:
 `sum(x * a) + sum(y * b)` and `sum(x * a + y * b)` are both allowed, and they
-are different models.
+state different objectives.
 
 There is one objective block. To pursue several goals, weight them into one
 expression.

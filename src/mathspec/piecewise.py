@@ -5,7 +5,7 @@
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
 A block becomes ordinary affine declarations when a caller asks
-[`expand`][mathspec.model.Spec.expand] for them, under names prefixed with the
+[`expand`][mathspec.spec.Spec.expand] for them, under names prefixed with the
 block's own; what each method emits is tabled in
 ``docs/reference/language/piecewise.md``. Every rule a block is held to is
 decided at load, before this runs: the names it references in
@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Literal
 import mathspec.sos as sos
 from mathspec.dimensions import dims_of
 from mathspec.errors import DimensionError
-from mathspec.model import AssumptionBlock, Curvature, PiecewiseBlock, Spec, VariableBlock
 from mathspec.program import PiecewiseDeclaration, PiecewiseMethod, VariableDeclaration, carries_variable
 from mathspec.resolution import resolve_expression_text
+from mathspec.spec import AssumptionBlock, Curvature, PiecewiseBlock, Spec, VariableBlock
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -102,11 +102,11 @@ def assumptions_of(block: str, pw: PiecewiseDeclaration) -> dict[str, Assumption
     with — exist only there; ``lp`` alone needs a segment to state a line for;
     a mask must be one run.
 
-    Read off the block rather than off an expansion, so a model states what it
+    Read off the block rather than off an expansion, so a spec states what it
     assumes whether or not its curves have been written out. Each condition is
     an ``assumptions:`` entry over the parameters the file declared, its
     ``description`` naming the method and the rewrite that takes a curve of any
-    shape: the expansion writes them into the model, and a model that still
+    shape: the expansion writes them into the spec, and a spec that still
     declares the block resolves the same entries at load.
     """
     d, mask = pw.over, pw.points
@@ -263,7 +263,7 @@ class Emitted:
         )
 
     def written(self, method: PiecewiseMethod, *, ungated: bool) -> tuple[str, ...]:
-        """The variables and constraints [`expand`][mathspec.model.Spec.expand] declares for a block of *method*.
+        """The variables and constraints [`expand`][mathspec.spec.Spec.expand] declares for a block of *method*.
 
         *ungated* is [`leaves_ungated`][] of the block's gate. The set a
         ``sos2`` or ``adjacency`` block states is written out too, since
@@ -349,7 +349,7 @@ def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[Exp
 
 
 class _Block:
-    """One ``piecewise:`` block being expanded into the raw model it writes.
+    """One ``piecewise:`` block being expanded into the raw spec it writes.
 
     ``mask`` is the parameter masking the weights, or ``None`` for a whole
     curve: the ``bool`` the file named, or one of the block's own values
@@ -373,7 +373,7 @@ class _Block:
         self.frame = curve.frame
 
     def expand(self) -> None:
-        """Write the block's declarations into the raw model."""
+        """Write the block's declarations into the raw spec."""
         if self.pw.method == 'lp':
             self._segment_lines()
         else:
@@ -381,10 +381,10 @@ class _Block:
         self._assumptions()
 
     def _assumptions(self) -> None:
-        """What the method assumes of the numbers, written into the model the expansion returns.
+        """What the method assumes of the numbers, written into the spec the expansion returns.
 
         A formulation states its conditions the way it states its rows, so a
-        model that has been written out carries them as language rather than
+        spec that has been written out carries them as language rather than
         as something a consumer has to know to ask for.
         """
         assumptions = sos.section(self.raw, 'assumptions')
@@ -486,7 +486,7 @@ def expand_piecewise(schema: Spec) -> Spec:
 
     A ``method: adjacency`` block states its restriction as the set
     ``method: sos2`` states, and then that set is written out here too: the
-    binaries are what the method *is*, so the model that comes back carries no
+    binaries are what the method *is*, so the spec that comes back carries no
     set of its own ([`mathspec.sos.emit`][] is where they are spelled).
     Each block's frame and names are read off the program *schema* lowered to.
     """

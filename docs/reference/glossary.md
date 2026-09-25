@@ -11,14 +11,15 @@ its [language page](language/index.md).
 
 ## The file and what reads it
 
-**Model**
-: The optimisation problem a file states: its dimensions, the data it expects,
-its decisions and its rules. A model holds no data. The Python objects that
-hold it are named for what they are, a `Spec` or a `Program`.
-
 **Spec**
-: The file as written, checked: what `to_spec` returns
+: Short for specification. The optimisation problem a file states: its dimensions, the data it expects,
+its decisions and its rules. A spec holds no data. In Python it is a `Spec`,
+the file as written and checked, which `to_spec` returns
 ([reading a spec and its program](reading.md#spec-and-program)).
+
+**Model**
+: A spec with data attached, which an engine builds and a solver takes.
+mathspec never holds one. The docs say "model" only in this sense.
 
 **Program**
 : What the file means, `spec.program`: every name typed, every macro expanded,
@@ -104,5 +105,5 @@ which.
 | set      | an `sos:` entry                                         | the set symbol of a dimension, $\mathcal{G}$, in the legend   |
 | regime   | one case of a [`cases:`](language/named.md#cases) block | one of two constraints, each under its own `where:`           |
 | domain   | a variable's `continuous`, `integer` or `binary`        | the rows that hold a curve's link inside its breakpoint range |
-| program  | `spec.program`, the typed model                         | a linear or quadratic program, the problem a solver takes     |
-| the rows | the constraint rows of a model                          | the expanded model: the spec a formulation is written out as  |
+| program  | `spec.program`, the typed spec                          | a linear or quadratic program, the problem a solver takes     |
+| the rows | the constraint rows of a spec                           | the expanded spec: the spec a formulation is written out as   |

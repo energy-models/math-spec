@@ -17,7 +17,7 @@ from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
-    from mathspec.model import Spec
+    from mathspec.spec import Spec
     from mathspec.typesetting import FormatName
     from mathspec.typesetting.format import Format
 

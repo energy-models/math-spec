@@ -15,7 +15,7 @@ from typing import get_args
 
 import pytest
 
-from mathspec import model
+from mathspec import spec
 from tools import schema
 
 
@@ -34,7 +34,7 @@ def test_the_checked_in_json_schema_has_not_drifted():
 )
 def test_the_json_schema_admits_the_shorthand_the_loader_admits(definition, shorthand, spelling):
     """A shorthand lives in a before-validator, which pydantic's generated schema
-    cannot see — each needs its own schema hook in model.py, and losing the hook
+    cannot see — each needs its own schema hook in spec.py, and losing the hook
     loses the shorthand from every editor silently."""
     forms = json.loads(schema.PATH.read_text())['$defs'][definition].get('anyOf', [])
     assert any(form.get('type') == shorthand for form in forms), (
@@ -56,13 +56,13 @@ def test_no_definition_refers_only_to_itself():
 @pytest.mark.parametrize(
     ('block', 'field', 'alias'),
     [
-        pytest.param('ObjectiveBlock', 'sense', model.ObjectiveSense, id='sense'),
-        pytest.param('VariableBlock', 'domain', model.VariableDomain, id='domain'),
-        pytest.param('VariableBlock', 'absence', model.VariableAbsence, id='absence'),
-        pytest.param('ParameterBlock', 'dtype', model.ParameterDtype, id='parameter-dtype'),
-        pytest.param('DimensionBlock', 'dtype', model.DimensionDtype, id='dimension-dtype'),
-        pytest.param('PiecewiseBlock', 'method', model.PiecewiseMethod, id='method'),
-        pytest.param('SosBlock', 'type', model.SosType, id='sos-type'),
+        pytest.param('ObjectiveBlock', 'sense', spec.ObjectiveSense, id='sense'),
+        pytest.param('VariableBlock', 'domain', spec.VariableDomain, id='domain'),
+        pytest.param('VariableBlock', 'absence', spec.VariableAbsence, id='absence'),
+        pytest.param('ParameterBlock', 'dtype', spec.ParameterDtype, id='parameter-dtype'),
+        pytest.param('DimensionBlock', 'dtype', spec.DimensionDtype, id='dimension-dtype'),
+        pytest.param('PiecewiseBlock', 'method', spec.PiecewiseMethod, id='method'),
+        pytest.param('SosBlock', 'type', spec.SosType, id='sos-type'),
     ],
 )
 def test_a_closed_vocabulary_is_published_as_an_enum(block, field, alias):
@@ -76,6 +76,6 @@ def test_a_closed_vocabulary_is_published_as_an_enum(block, field, alias):
 
 def test_the_piecewise_method_vocabulary_has_one_home():
     """`PiecewiseMethod` types the field and `PIECEWISE_METHODS` says what each emits."""
-    assert set(get_args(model.PiecewiseMethod)) == set(model.PIECEWISE_METHODS), (
+    assert set(get_args(spec.PiecewiseMethod)) == set(spec.PIECEWISE_METHODS), (
         'the typed methods and the emitting ones disagree, so a method is accepted that emits nothing or the reverse'
     )

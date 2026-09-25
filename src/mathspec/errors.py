@@ -25,7 +25,7 @@ AdviceKind = Literal['never-an-axis', 'unbounded']
 class Advice:
     """One thing the language advises about a file it accepts.
 
-    Never an error: each is what a half-written model looks like too. A
+    Never an error: each is what a half-written spec looks like too. A
     consumer prints it, or filters on ``kind`` and ``subject``; the text is the
     language's, so no consumer writes its own.
 
@@ -48,7 +48,7 @@ class MathSpecError(ValueError):
 
 
 class LanguageError(MathSpecError):
-    """The model is not sayable in the language, or does not obey its rules."""
+    """The spec is not sayable in the language, or does not obey its rules."""
 
 
 class SchemaError(LanguageError):

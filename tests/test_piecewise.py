@@ -16,9 +16,9 @@ from typing import get_args
 import pytest
 
 from mathspec.errors import LanguageError, SchemaError
-from mathspec.model import Curvature
 from mathspec.piecewise import expand_piecewise
 from mathspec.program import Assumption, Variable, assumption_message
+from mathspec.spec import Curvature
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency

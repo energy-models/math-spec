@@ -3,15 +3,15 @@ SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Your first model
+# Your first spec
 
-In this lesson you write a least-cost dispatch model one block at a time, check
+In this lesson you write a least-cost dispatch spec one block at a time, check
 it, and print it as math. [Install mathspec](howto/installation.md) first.
 
 ## Dimensions
 
 Make a file `dispatch.yaml` with a description and two
-[dimensions](reference/language/dimensions.md), the axes the model runs over:
+[dimensions](reference/language/dimensions.md), the axes the spec runs over:
 
 ```yaml title="dispatch.yaml"
 description: Least-cost dispatch of a generator fleet against an hourly load.
@@ -37,7 +37,7 @@ dimension 'generator' is never used: nothing is indexed by it, nothing aggregate
 ## Parameters and a variable
 
 Add three [parameters](reference/language/declarations.md#parameters), the data
-the model expects, and one [variable](reference/language/declarations.md#variables),
+the spec expects, and one [variable](reference/language/declarations.md#variables),
 the decision the solver makes. The `where:` line leaves out every generator with
 no capacity.
 
@@ -139,7 +139,7 @@ Change `loads` back to `load`.
 
 ## The math
 
-Print the whole model:
+Print the whole spec:
 
 ```bash
 python -m mathspec markdown dispatch.yaml
@@ -170,7 +170,7 @@ python -m mathspec markdown dispatch.yaml
     |---|---|
     | $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
-    Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+    Upright is what the data supplies — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
     #### Objective
 
@@ -197,5 +197,5 @@ python -m mathspec markdown dispatch.yaml
 ## Where to next
 
 - [The language](reference/language/index.md) gives every rule a file obeys.
-- [Examples](examples/index.md) shows larger models beside the math they print.
-- [Print a model as math](howto/print.md) prints LaTeX and Typst.
+- [Examples](examples/index.md) shows larger specs beside the math they print.
+- [Print a spec as math](howto/print.md) prints LaTeX and Typst.

@@ -267,7 +267,7 @@
 }
 
 /* --- Wide display math --------------------------------------------------
- * The typesetter does not line-break, and that is deliberate: where a model's
+ * The typesetter does not line-break, and that is deliberate: where a spec's
  * constraint wraps is a formatting decision this project does not make for the
  * reader. But a wide equation still has to be *reachable*. Material gives
  * `mjx-container` no overflow handling of its own — only `margin: 0` — so on a

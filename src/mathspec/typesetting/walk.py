@@ -114,7 +114,7 @@ class _Step:
     """One translation of an index, and what stands where it vacated.
 
     ``fill`` is the rendered ``edge=`` value, and it rides on the operator
-    rather than in the legend because it is per call site: one model may pad a
+    rather than in the legend because it is per call site: one spec may pad a
     sum with ``0`` and a product with ``1``, and one legend entry cannot say
     which term is which. It is empty for the two policies that substitute
     nothing.
@@ -829,7 +829,7 @@ class Walk:
     # -- assumptions -------------------------------------------------------
 
     def _assumptions(self) -> list[Line]:
-        """What the model assumes of its data, in the order a program carries it.
+        """What the spec assumes of its data, in the order a program carries it.
 
         A curve's conditions stand here with the file's own, because the
         method states them in the same language: the reader sees every

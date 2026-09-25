@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The example gallery: each model in `examples/`, beside the math it prints.
+"""The example gallery: each spec in `examples/`, beside the math it prints.
 
     pixi run python -m tools.gallery           # rewrite the pages' blocks
     pixi run python -m tools.gallery --check   # fail if one has drifted
 
-The prose above each block is the page's own. Only the fenced model and the
+The prose above each block is the page's own. Only the fenced spec and the
 math below it are written from here.
 """
 
@@ -32,14 +32,14 @@ if TYPE_CHECKING:
 PAGES = ROOT / 'docs' / 'examples'
 BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 
-#: Page -> the model it shows. One model per page, because a gallery of
+#: Page -> the spec it shows. One spec per page, because a gallery of
 #: fragments is what the reference pages already are.
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
     'commitment.md': ROOT / 'examples' / 'commitment.yaml',
 }
 
-#: Page -> the model it shows one declaration at a time — its YAML, then the
+#: Page -> the spec it shows one declaration at a time — its YAML, then the
 #: equation it renders, headed by the name the other side gives it, read from
 #: the declaration's own description.
 DECLARED = {
@@ -59,12 +59,12 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 
 
 def model_block(path: Path) -> str:
-    """One model, then the whole document the typesetter prints from it."""
+    """One spec, then the whole document the typesetter prints from it."""
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
 
 
 def probe_block() -> str:
-    """Every operator probe: the model, then the one equation it renders."""
+    """Every operator probe: the spec, then the one equation it renders."""
     parts = []
     for signature, name in OPERATORS.items():
         equation, _ = rendered_probe(name)

@@ -9,8 +9,8 @@ the way a ``piecewise:`` block becomes weights and rows; what it emits is
 tabled in ``docs/reference/language/piecewise.md``. An unpicked member is held
 at zero from both sides, so the rewrite states the same feasible set whatever
 sign the member takes — what it needs is a coefficient on each side, which a
-model declaring a set without is refused at load for
-([`mathspec.model.Spec`][] validates it) rather than here.
+spec declaring a set without is refused at load for
+([`mathspec.spec.Spec`][] validates it) rather than here.
 """
 
 from __future__ import annotations
@@ -18,18 +18,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from mathspec.model import Spec
+from mathspec.spec import Spec
 
 if TYPE_CHECKING:
     from mathspec.program import SosType
 
 #: One member's two linking coefficients, below and above. ``None`` on a side is
-#: a side the model leaves open, where no rewrite can hold the member at zero.
+#: a side the spec leaves open, where no rewrite can hold the member at zero.
 Coefficients = tuple[float | str | None, float | str | None]
 
 
 def coefficients(domain: str, lower: float | str | None, upper: float | str | None) -> Coefficients:
-    """What a member's two linking rows multiply its binary by, ``None`` on a side the model leaves open.
+    """What a member's two linking rows multiply its binary by, ``None`` on a side the spec leaves open.
 
     The 0 and 1 a binary's domain fixes, which no bounds block carries;
     otherwise the member's own declared bounds, each a number or the name of a
@@ -85,7 +85,7 @@ _SEGMENTS = {
 def expand_sets(schema: Spec) -> Spec:
     """*schema* with every ``sos:`` block written out as binaries and the rows that link them.
 
-    The curves an expansion wrote out ride along, because a model whose
+    The curves an expansion wrote out ride along, because a spec whose
     curves are already written out is the one this is usually asked of.
     """
     raw = schema.model_dump()
@@ -98,16 +98,16 @@ def emit(raw: dict[str, object], name: str) -> None:
     """Write what the set *name* states as declarations of *raw*, and drop the block.
 
     Args:
-        raw: A model as data, mid-expansion, declaring the set and the variable
+        raw: A spec as data, mid-expansion, declaring the set and the variable
             it runs over.
         name: Which set to lower.
     """
     sets = section(raw, 'sos')
     block = sets.pop(name)
-    assert isinstance(block, dict), 'a validated model carries each set as a mapping'
+    assert isinstance(block, dict), 'a validated spec carries each set as a mapping'
     variable, over, order = block['variable'], block['along'], block['type']
     member = section(raw, 'variables')[variable]
-    assert isinstance(member, dict), 'a validated model carries each variable as a mapping'
+    assert isinstance(member, dict), 'a validated spec carries each variable as a mapping'
     dims = list(member['dims'])
     emitted = Emitted.of(name, order)
 
@@ -142,7 +142,7 @@ def _scaled(factor: float | str, picked: str) -> str:
 def _coefficients(member: dict[str, object]) -> tuple[float | str, float | str]:
     """The two coefficients as an expression writes them, read off the member."""
     declared = member.get('bounds')
-    assert declared is None or isinstance(declared, dict), 'a validated model carries a bounds block as a mapping'
+    assert declared is None or isinstance(declared, dict), 'a validated spec carries a bounds block as a mapping'
     lower, upper = (declared.get('lower'), declared.get('upper')) if declared else (None, None)
     assert isinstance(lower, float | str | None) and isinstance(upper, float | str | None), (
         'a bound is a number, the name of a parameter, or open'
@@ -153,7 +153,7 @@ def _coefficients(member: dict[str, object]) -> tuple[float | str, float | str]:
 
 
 def section(raw: dict[str, object], name: str) -> dict[str, object]:
-    """The *name* section of the raw model, created empty where the file declares none."""
+    """The *name* section of the raw spec, created empty where the file declares none."""
     section = raw.setdefault(name, {})
-    assert isinstance(section, dict), f'{name}: is a mapping in a validated model'
+    assert isinstance(section, dict), f'{name}: is a mapping in a validated spec'
     return section

@@ -196,10 +196,10 @@ The sign travels in the values: `offset=-lead` is refused.
 
 ## Every operator as math
 
-Each row is generated from one model in
+Each row is generated from one spec in
 [`examples/operators/`](https://github.com/energy-models/mathspec/tree/main/examples/operators),
-printed by the [typesetter](../typeset.md). The models themselves are on
-[One construct per model](../../examples/operators.md).
+printed by the [typesetter](../typeset.md). The specs themselves are on
+[One construct per spec](../../examples/operators.md).
 
 <!-- operator-math:begin -->
 | Operator | Renders as |

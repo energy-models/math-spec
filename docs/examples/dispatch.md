@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Least-cost dispatch
 
-The smallest file that is a whole model: generators with a capacity, an hourly
-load to meet, and a cost to minimise. It is the model on the
+The smallest file that is a whole spec: generators with a capacity, an hourly
+load to meet, and a cost to minimise. It is the spec on the
 [home page](../index.md).
 
 The `where:` on `dispatch` deletes the rows where a generator has no capacity
@@ -66,7 +66,7 @@ Least-cost dispatch of a generator fleet against an hourly load.
 |---|---|
 | $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
-Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the data supplies — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 #### Objective
 

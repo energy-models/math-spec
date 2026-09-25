@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Dimensions
 
-A **dimension** is an axis of the model, such as `snapshot` or `generator`.
+A **dimension** is an axis of the spec, such as `snapshot` or `generator`.
 Declarations are indexed by it, and `sum` reduces over it. A map from one axis
 onto another is a [relation](relations.md).
 

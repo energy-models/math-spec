@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: mathspec Contributors
 SPDX-License-Identifier: MIT
 -->
 
-# `typesetting/` — the model, printed
+# `typesetting/` — the spec, printed
 
 This package is a consumer of the program. It builds no model and attaches no
 data. It walks a program, the one a loaded `Spec` holds or one handed to it,
@@ -32,8 +32,8 @@ A `Format` makes a much smaller decision: that a sum is written `\sum_{…}` or
 
 Those are different questions, and they live in different files. With one
 module, the second format becomes a _copy of the walk_. Two copies of a walk are
-two walks that can disagree about what the model says. That matters more here
-than it looks, because a typeset model is what a reader checks the math against.
+two walks that can disagree about what the spec says. That matters more here
+than it looks, because a typeset spec is what a reader checks the math against.
 
 Two rules keep the split honest:
 
@@ -41,12 +41,12 @@ Two rules keep the split honest:
   math with `math()` when it embeds it in prose, so the walk never knows which
   mode it is in.
 - **A format spells; it never decides.** No method in `format.py` takes a
-  syntax-tree node or a schema. If a format had to look at the model to answer a
+  syntax-tree node or a schema. If a format had to look at the spec to answer a
   question, that question belongs in the walk.
 
 ## Notation
 
-Symbols are derived by default, so a model prints with no setup at all.
+Symbols are derived by default, so a spec prints with no setup at all.
 
 A `SymbolTable` overrides the derived symbols. `symbols=` takes the table in
 whichever form the caller already has. The `--symbols` flag on the command line
@@ -61,7 +61,7 @@ mathspec.to_latex('dispatch.yaml', symbols=mathspec.SymbolTable.load(table))  # 
 The dict has the same sections as the file, which are `notation`, `dimensions`
 and `names`. It is what the YAML parses to, and not a flat `{name: symbol}` map.
 
-Whichever form you use, the table is checked against the model. A key that names
+Whichever form you use, the table is checked against the spec. A key that names
 nothing is an error, and the message gives the near miss. Without that check, a
 silent typo would be a symbol that never applies, and a reader who never finds
 out.
@@ -72,8 +72,8 @@ format that reads the other language refuses the table. Everything past that
 comparison is the caller's business.
 
 The table carries **notation only**. What a declaration _is_, which is the prose
-in the right-hand column of the legend, comes from the model's own
-`description:`, read straight off the block. That is the model talking about
+in the right-hand column of the legend, comes from the spec's own
+`description:`, read straight off the block. That is the spec talking about
 itself, rather than a reader choosing symbols.
 
 A description travels with the file, survives a rename, and needs no sidecar.

@@ -49,16 +49,16 @@ if TYPE_CHECKING:
 
 
 class _StrictBlock(BaseModel):
-    """Base for every schema model: unknown keys are an error, not a shrug.
+    """Base for every schema block: unknown keys are an error, not a shrug.
 
     A misspelled optional key would otherwise be dropped and its declaration
     fall back to a default — ``boundz:`` leaves the variable unbounded,
-    ``wher:`` leaves it unmasked — building a model the file does not describe.
+    ``wher:`` leaves it unmasked — loading a spec the file does not describe.
     """
 
     model_config = ConfigDict(extra='forbid')
 
-    #: What this model is called in a YAML file, for the error message.
+    #: What this block is called in a YAML file, for the error message.
     _label: ClassVar[str]
 
     @model_validator(mode='before')
@@ -308,7 +308,7 @@ class MacroBlock(_StrictBlock):
     """A parameterised expression template, defined in the YAML itself.
 
     Language, not code: formals (``args`` positional, ``kwargs`` keyword)
-    shadow model names inside the template, and every call site expands in
+    shadow the spec's names inside the template, and every call site expands in
     the syntax tree before resolution reads the expression.
     """
 
@@ -452,7 +452,7 @@ class ExpressionBlock(_StrictBlock):
 
 
 class AssumptionBlock(_StrictBlock):
-    """What the model assumes of its data: a predicate every coordinate it is checked at has to satisfy.
+    """What the spec assumes of its data: a predicate every coordinate it is checked at has to satisfy.
 
     Written in YAML as a bare where string, or as a mapping once it carries a
     ``where:`` or a ``description:``, and serialised back to whichever form it
@@ -706,14 +706,14 @@ class Spec(_StrictBlock):
     A ``Spec`` that exists has passed the whole language: constructing one by
     any route — ``to_spec``, [`model_validate`][], the constructor — runs
     every load-time check, expression pass included, and raises
-    [`LanguageError`][] on a model the language refuses.
+    [`LanguageError`][] on a spec the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
     The API is the eleven declaration sections plus ``version`` and
-    ``description``, three ways back out — [`to_dict`][] for the model as
+    ``description``, three ways back out — [`to_dict`][] for the spec as
     data, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the
-    model with its formulations written out as plain rows — and [`program`][], the
-    model typed, which every reader after load walks. Everything else on this
+    spec with its formulations written out as plain rows — and [`program`][], the
+    spec typed, which every reader after load walks. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
 
@@ -741,11 +741,11 @@ class Spec(_StrictBlock):
 
     @cached_property
     def program(self) -> Program:
-        """This model typed, section for section — what every reader after load walks.
+        """This spec typed, section for section — what every reader after load walks.
 
-        Computing it *is* the expression pass, so a model the language refuses
-        raises here; loading forces it, so every ask on a model in hand is the
-        one object. It mirrors the model: a ``piecewise:`` block still in it is
+        Computing it *is* the expression pass, so a spec the language refuses
+        raises here; loading forces it, so every ask on a spec in hand is the
+        one object. It mirrors the spec: a ``piecewise:`` block still in it is
         a curve under ``program.piecewise`` and a ``sos:`` block a set under
         ``program.sos``, and [`expand`][] is what writes either out as rows,
         so a consumer building rows reads ``spec.expand(...).program`` and
@@ -796,7 +796,7 @@ class Spec(_StrictBlock):
 
         supported = ', '.join(str(s) for s in SUPPORTED_VERSIONS)
         msg = (
-            f'model declares version {v}, and mathspec {installed} understands [{supported}]. '
+            f'the spec declares version {v}, and mathspec {installed} understands [{supported}]. '
             f'Upgrade mathspec, or write the version this file actually targets.'
         )
         raise ValueError(msg)
@@ -812,22 +812,22 @@ class Spec(_StrictBlock):
         return cast('dict[str, object]', _without_absence(handler(self)))
 
     def to_dict(self) -> dict[str, object]:
-        """The model as plain data. ``to_spec(m.to_dict())`` reproduces it."""
+        """The spec as plain data. ``to_spec(m.to_dict())`` reproduces it."""
         return self.model_dump()
 
     def to_yaml(self) -> str:
-        """The file a reviewer reads — including for a model that never had one."""
+        """The file a reviewer reads — including for a spec that never had one."""
         import yaml
 
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
     def expand(self, *kinds: Formulation) -> Spec:
-        """This model with its formulations written out as plain variables and constraints.
+        """This spec with its formulations written out as plain variables and constraints.
 
         A formulation states rows rather than being one — ``piecewise:`` states
         a curve, ``sos:`` states which members of a family may be nonzero.
         Expanding one writes those rows under names prefixed with the block's
-        own, and drops the block. The result is a different model: it declares
+        own, and drops the block. The result is a different spec: it declares
         more variables and constraints, so it does not compare equal to this
         one. It declares the same dimensions and parameters, so the same data
         attaches to both. Nothing is cached, so a second call builds the
@@ -840,9 +840,9 @@ class Spec(_StrictBlock):
                 ``method: sos2`` curve emits a set and no set emits a curve.
 
         Returns:
-            The model with those blocks written out, or this same object where
+            The spec with those blocks written out, or this same object where
             it declares none of them, so an expansion asked for the same kinds
-            again returns itself. It is a model like any other: [`to_yaml`][]
+            again returns itself. It is a spec like any other: [`to_yaml`][]
             writes it, and [`program`][] holds its rows.
 
         Raises:
@@ -861,7 +861,7 @@ class Spec(_StrictBlock):
     def _names_are_names(self) -> Spec:
         """Every declaration is keyed by something an expression could write.
 
-        Read off the model's own mappings rather than a list of sections, so a
+        Read off the spec's own mappings rather than a list of sections, so a
         section added later cannot be forgotten here — every mapping a Spec
         carries is keyed by a declaration name.
         """
@@ -885,7 +885,7 @@ class Spec(_StrictBlock):
 
         A fault in a curve's link is named against the link the file wrote. The
         rows a curve states are held to the language when [`expand`][]
-        writes them out, since an expansion is a model like any other.
+        writes them out, since an expansion is a spec like any other.
         """
         _ = self.program
         return self

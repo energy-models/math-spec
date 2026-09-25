@@ -4,7 +4,7 @@
 
 """The front door, and the rules a declaration is held to against the others before any expression is read.
 
-[`to_spec`][] reads a model definition into a [`Spec`][].
+[`to_spec`][] reads a spec definition into a [`Spec`][].
 [`reference_errors`][] holds the rules one declaration is held to against
 the others — a name declared once, a frame over declared dimensions, a bound
 naming a numeric parameter, a set over one dim of one variable, a curve
@@ -22,13 +22,13 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from mathspec._yaml import read_model
+from mathspec._yaml import read_spec
 from mathspec.errors import SchemaError
-from mathspec.model import NUMERIC_DTYPES, Spec, side_columns
 from mathspec.operators import BUILTIN_NAMES
 from mathspec.piecewise import Emitted as EmittedCurve
 from mathspec.sos import Emitted as EmittedSet
 from mathspec.sos import coefficients
+from mathspec.spec import NUMERIC_DTYPES, Spec, side_columns
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -37,15 +37,15 @@ if TYPE_CHECKING:
     from mathspec.program import Program
 
 
-def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
-    """Load and validate a model definition — the language's front door.
+def to_spec(spec: str | Path | Mapping[str, object] | Spec) -> Spec:
+    """Load and validate a spec definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
     rule one declaration is held to against the others, every expression and
     where string, and every macro template.
 
     Args:
-        model: A YAML path — a [`Path`][], or a ``str`` with no
+        spec: A YAML path — a [`Path`][], or a ``str`` with no
             newline in it — the YAML text itself as a ``str`` with one, a
             mapping, or a loaded [`Spec`][].
 
@@ -57,12 +57,12 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
             not a mapping of sections included.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    if isinstance(model, (list, tuple)):
-        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
+    if isinstance(spec, (list, tuple)):
+        msg = 'a spec is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
         raise SchemaError(msg)
-    if isinstance(model, Spec):
-        return model
-    return Spec.model_validate(model if isinstance(model, Mapping) else read_model(model))
+    if isinstance(spec, Spec):
+        return spec
+    return Spec.model_validate(spec if isinstance(spec, Mapping) else read_spec(spec))
 
 
 def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
@@ -248,7 +248,7 @@ def _sos_bounds(schema: Spec) -> Iterator[str]:
     """A set states what the binaries it expands to state: each side of a member carries a coefficient.
 
     The rewrite holds an unpicked member at zero from both sides, so a side
-    the model leaves open leaves the member free of it. Either coefficient
+    the spec leaves open leaves the member free of it. Either coefficient
     may be a parameter, because a row multiplies by it rather than reading
     it. Decided here rather than where the rewrite runs, so a set the
     language cannot state twice is refused before any data exists.

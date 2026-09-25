@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Lower a model to a [`Program`][] — the pass that decides every expression.
+"""Lower a spec to a [`Program`][] — the pass that decides every expression.
 
 One lowering, on the language side, run when a [`Spec`][]
 loads: it reads every expression and where string into the program's own
 nodes, checks every rule decidable without data, and packages the
-declarations, section for section. The program mirrors the model it was
-lowered from: a ``piecewise:`` block the model still declares is a curve on
-the program, and [`expand`][mathspec.model.Spec.expand] is what writes it out
+declarations, section for section. The program mirrors the spec it was
+lowered from: a ``piecewise:`` block the spec still declares is a curve on
+the program, and [`expand`][mathspec.spec.Spec.expand] is what writes it out
 as rows.
 """
 
@@ -53,8 +53,8 @@ from mathspec.resolution import (
 from mathspec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
-    from mathspec.model import AssumptionBlock, Spec
     from mathspec.program import Expression
+    from mathspec.spec import AssumptionBlock, Spec
 
 
 def lower(schema: Spec) -> Program:
@@ -71,7 +71,7 @@ def lower(schema: Spec) -> Program:
       dimension arguments name declared dimensions;
     - where strings parse *and* resolve — an unknown name there is an error,
       not a silently-empty mask;
-    - macro formals may shadow model names but not a declared dimension, since
+    - macro formals may shadow the spec's names but not a declared dimension, since
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - no name a set or curve writes out is one the file declares
       ([`emitted_name_errors`][]), read off the
@@ -81,7 +81,7 @@ def lower(schema: Spec) -> Program:
     A ``piecewise:`` block's links are resolved and its frame checked here, on
     the link the file wrote, so the expansion writes rows the language has
     already held to every rule; what its method assumes of the breakpoints
-    stands under the program's assumptions with the file's own, so a model
+    stands under the program's assumptions with the file's own, so a spec
     states what it assumes whether or not its curves are written out.
 
     Returns:

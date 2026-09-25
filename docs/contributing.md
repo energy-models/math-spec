@@ -38,7 +38,7 @@ the same checks and the rest of the gate by hand:
 
 - `pixi run lint`: every commit hook, over every file.
 - `pixi run test`: the test suite. `pixi run test-coverage` adds coverage.
-- `pixi run compile-tex`: print every model in the tree to standalone LaTeX and
+- `pixi run compile-tex`: print every spec in the tree to standalone LaTeX and
   compile it.
 - `pixi run ci`: lint, tests, a strict docs build and the LaTeX compile. This is
   what CI runs. Run it before you push.
@@ -55,7 +55,7 @@ changes.
 ??? question "I have updated the README.md"
 
     The home page includes named sections of the README rather than a copy: the
-    badges, the model and the status note. A section
+    badges, the example spec and the status note. A section
     is delimited in the README by `:::md <!--- --8<-- [start:name] -->` and
     `:::md <!--- --8<-- [end:name] -->`, and `docs/index.md` pulls it in with
     `:::md --8<-- "README.md:name"`. Edit inside the markers, and the site
@@ -65,7 +65,7 @@ changes.
     against `docs/index.md` on the site and against the repository root on GitHub,
     and only one of those can be right.
 
-??? question "I have changed what a model prints"
+??? question "I have changed what a spec prints"
 
     Every page that carries a block a tool writes is listed in
     `tests/test_docs.py`'s `GENERATED` table, and a test compares each block to
@@ -100,11 +100,11 @@ changes.
 The same construct passes through three layers, and each names it in full. The
 suffix says which layer:
 
-| Layer                         | Suffix               | Example                                |
-| ----------------------------- | -------------------- | -------------------------------------- |
-| YAML block (`mathspec.model`) | `Block`              | `VariableBlock`, `PiecewiseBlock`      |
-| Syntax (`mathspec.*_parser`)  | `Node`               | `NameNode`, `UnresolvedComparisonNode` |
-| Program (`mathspec.program`)  | none / `Declaration` | `Variable`, `VariableDeclaration`      |
+| Layer                        | Suffix               | Example                                |
+| ---------------------------- | -------------------- | -------------------------------------- |
+| YAML block (`mathspec.spec`) | `Block`              | `VariableBlock`, `PiecewiseBlock`      |
+| Syntax (`mathspec.*_parser`) | `Node`               | `NameNode`, `UnresolvedComparisonNode` |
+| Program (`mathspec.program`) | none / `Declaration` | `Variable`, `VariableDeclaration`      |
 
 A node names the operation, not the verb a file writes. One verb can resolve
 to two nodes, so the file's spelling cannot decide the name.

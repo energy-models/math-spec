@@ -20,7 +20,7 @@ only-include = ["src", "README.md", "LICENSE", "LICENSES"]
 
 [project]
 name = "mathspec"
-description = "Write an optimisation model as a YAML file. Check it and print it as math, with no data and no solver."
+description = "Write the specification (spec) of an optimisation model as a YAML file. Check it and print it as math, with no data and no solver."
 authors = [
   { name = "Felix Bumann", email = "117816358+FBumann@users.noreply.github.com" },
   { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },

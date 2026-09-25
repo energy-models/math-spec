@@ -357,7 +357,7 @@ def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(nam
             'coordinates)', _selected('snapshot >= 3'), _selected('position(snapshot) == 0'), id='numeric-coordinates'
         ),
         pytest.param(
-            'Upright is what the model is given', DISPATCH_MODEL, _storage('offset=1'), id='the-upright-convention'
+            'Upright is what the data supplies', DISPATCH_MODEL, _storage('offset=1'), id='the-upright-convention'
         ),
     ],
 )
@@ -558,10 +558,10 @@ def test_the_convention_note_quotes_only_what_the_derivation_chose(name: FormatN
     upright, contradicting itself on the page a reader arrives at first.
     """
     table = {'notation': fmt.notation, 'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}
-    assert 'Upright is what the model is given' not in typeset(DISPATCH_MODEL, name, symbols=table), (
+    assert 'Upright is what the data supplies' not in typeset(DISPATCH_MODEL, name, symbols=table), (
         'a symbol the table supplies is not one the note governs'
     )
-    assert 'Upright is what the model is given' in typeset(DISPATCH_MODEL, name), 'derived, so the note applies'
+    assert 'Upright is what the data supplies' in typeset(DISPATCH_MODEL, name), 'derived, so the note applies'
 
 
 @EVERY_FORMAT

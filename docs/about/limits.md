@@ -5,9 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # The limits of the language
 
-A model can only say what the language has words for. This page says which words
+A spec can only say what the language has words for. This page says which words
 can be added, and which cannot. Read it before you ask for a new operator, block
-or keyword. For the rules a model itself has to obey, read
+or keyword. For the rules a spec itself has to obey, read
 [the ten rules](../reference/language/index.md#the-ten-rules).
 
 ## How a new construct enters
@@ -27,7 +27,7 @@ costs to add.
   a primitive to build, but composes as freely as a macro. It emits variables,
   constraints and assumptions, and no parameter, so
   [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
-  writes it out with the data the model already attaches.
+  writes it out with the data the spec already expects.
 
 A request that is none of the three is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
@@ -58,8 +58,8 @@ Degree is not a test for a new primitive. The
 holds for every operator.
 
 A new primitive is finished when lowering builds it, the typesetter prints
-it in all three formats, and an engine's build of a model that uses it matches
-the same model written out by hand.
+it in all three formats, and an engine's build of a spec that uses it matches
+its build of the same spec written out by hand.
 
 ### Three kinds of refusal
 
@@ -72,14 +72,14 @@ the same model written out by hand.
 ## What counts as data preparation
 
 A column computed in pandas and a column the language could derive look the
-same inside a model. One sentence tells them apart:
+same once attached. One sentence tells them apart:
 
-> Data preparation computes what the model cannot know. The language derives what
-> it can from data the model already has.
+> Data preparation computes what the spec cannot state. The language derives
+> what it can from the data the spec already expects.
 
 A cycle basis is the first kind. It needs the network's topology, which only the
 data has, so `cycle_incidence` arrives as a parameter. A minimum up time is the
-second kind. `min_up_time` is a column the model already attaches, so
+second kind. `min_up_time` is a column the spec already expects, so
 `sum_back(window=min_up_time)` reads the width off the column and you ship no
 window mask.
 
@@ -103,6 +103,6 @@ instead.
 | A vocabulary for tracked metrics: `impacts:`, `effects:`, a `costs` axis | a named expression already does this                                                                                                       | an `impact` dimension and one named expression. Cap it with a constraint, weight it in the objective, read it back after the solve                                                 |
 | `**` with a variable in the base or the exponent                         | the exponent would decide the degree, and `to_spec` reads no data                                                                          | `x * x` for a square. `**` over parameters and numbers is allowed                                                                                                                  |
 | Normalisation, `x / sum(x)`                                              | dividing by a variable is not a polynomial, and no solver takes it                                                                         | write the ratio as a constraint, or fix the denominator                                                                                                                            |
-| An `if`, a loop, or declarations that depend on the data                 | `to_spec` could no longer read the file without the data                                                                                   | `where:` masks and `dims:` dimensions. A tool may loop over models                                                                                                                 |
-| A Python API for building models                                         | the model is the file you review and diff                                                                                                  | YAML, or a `dict` with the same keys, merged before `to_spec`                                                                                                                      |
+| An `if`, a loop, or declarations that depend on the data                 | `to_spec` could no longer read the file without the data                                                                                   | `where:` masks and `dims:` dimensions. A tool may loop over specs                                                                                                                  |
+| A Python API for building specs                                          | the spec is the file you review and diff                                                                                                   | YAML, or a `dict` with the same keys, merged before `to_spec`                                                                                                                      |
 | A `where` comparing a relation column against the dimension it maps into | the relation already pairs the two, and a mask over the pair is the same fact in a bigger shape                                            | place the quantity with `sum(by=)`, or read it with `at(by=)` ([operators](../reference/language/operators.md#sum))                                                                |

@@ -107,7 +107,7 @@ class Symbols:
         name: Each parameter's, variable's and expression's symbol.
         constraint: Each constraint's symbol, the subscript ``dual(c)`` prints
             λ against. Off the flat namespace, like the constraints themselves
-            — a model may name a constraint after a variable, so this is its
+            — a spec may name a constraint after a variable, so this is its
             own map rather than an entry in [`name`][]. Given structure, so
             upright unless a table overrides it.
         index: Each dimension's index letter.
@@ -178,13 +178,13 @@ def _first_free(candidates: list[str], taken: set[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# the symbol table (a sidecar file, not the model)
+# the symbol table (a sidecar file, not the spec)
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class SymbolTable:
-    r"""How a *reader* wants the model to print — notation only, kept out of the model.
+    r"""How a *reader* wants the spec to print — notation only, kept out of the spec.
 
     Every entry is a spelling, printed verbatim. ``notation:`` says which
     language they are written in, and a render in the other one refuses::
@@ -196,7 +196,7 @@ class SymbolTable:
         names:
           marginal_cost: "c^{\\mathrm{marg}}"
 
-    An entry naming nothing in the model is an error naming the near miss.
+    An entry naming nothing in the spec is an error naming the near miss.
 
     Attributes:
         notation: The language the entries are written in; [`load`][]
@@ -256,8 +256,8 @@ class SymbolTable:
         """Reject entries naming nothing in *program* or in what its formulations state, with the near miss.
 
         A name a ``piecewise:`` or ``sos:`` block emits counts as declared, so
-        one table spells both readings of a model: the blocks as the file states
-        them, and the rows [`expand`][mathspec.model.Spec.expand] writes out.
+        one table spells both readings of a spec: the blocks as the file states
+        them, and the rows [`expand`][mathspec.spec.Spec.expand] writes out.
         """
         dims = set(program.dimensions)
         everything = dims | _declared(program) | _emitted(program)
@@ -307,4 +307,4 @@ def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:
 
 
 def _unknown_entry(name: str, section: str, known: set[str]) -> str:
-    return f"symbol table: '{name}' under {section}: is not declared by the model. {did_you_mean(name, known)}"
+    return f"symbol table: '{name}' under {section}: is not declared by the spec. {did_you_mean(name, known)}"

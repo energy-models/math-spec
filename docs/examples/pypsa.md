@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA in one file
 
-The model a plain `n.optimize()` builds, stated as one file and grown a rung
-at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
+The spec of the model a plain `n.optimize()` builds, in one file and grown a
+rung at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
 `pypsa/optimization/`) and links each to its block in the file.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
@@ -1154,7 +1154,7 @@ def build():
     ``pipe_lose`` delays by one and does not wrap, so the flow that would arrive
     in the first snapshot is lost and that snapshot's demand falls to the backup.
     The two links differ in both a per-link number (`delay`) and a per-link kind
-    (`cyclic_delay`), which is what the model's ``cases:`` block turns on.
+    (`cyclic_delay`), which is what the spec's ``cases:`` block turns on.
     """
     import pypsa
 
@@ -1207,7 +1207,7 @@ concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 ## The file
 
 <!-- gallery:begin -->
-The model a plain `n.optimize()` builds, stated in one file. Every declaration is named `Component_attribute` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become `where:` masks. Bounds are the explicit rows PyPSA writes, so their duals are row duals. Parameters no PyPSA table carries verbatim are computed in data prep and say so in their description.
+The spec of the model a plain `n.optimize()` builds, in one file. Every declaration is named `Component_attribute` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become `where:` masks. Bounds are the explicit rows PyPSA writes, so their duals are row duals. Parameters no PyPSA table carries verbatim are computed in data prep and say so in their description.
 
 #### Sets
 

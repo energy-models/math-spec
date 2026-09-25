@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The homepage's model and the math under it, from one file.
+"""The homepage's spec and the math under it, from one file.
 
     pixi run python -m tools.home_math           # rewrite every block
     pixi run python -m tools.home_math --check   # fail if one has drifted
@@ -60,7 +60,7 @@ ms.to_markdown(spec)
 ```
 
 `symbols` gives every name its conventional spelling. Pass a dict, a YAML path
-or a `SymbolTable`. It is optional: drop it and the same model prints from the
+or a `SymbolTable`. It is optional: drop it and the same spec prints from the
 names in the file, as $\\mathrm{load}_t$ and $\\mathrm{capacity}_g$.
 
 Or from a shell, where the table is that same YAML on disk. `--standalone` emits

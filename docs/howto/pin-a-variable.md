@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Fix a quantity that is data in one model and a decision in another
 
-Write one model in which a quantity, such as a plant's size, is chosen by the
+Write one spec in which a quantity, such as a plant's size, is chosen by the
 solver in one study and given by the data in another. The file does not change
 between the two. The data does.
 
