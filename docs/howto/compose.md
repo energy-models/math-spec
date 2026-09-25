@@ -129,6 +129,10 @@ named. Here two files each say what a generator fleet is:
 fragments 'gas' and 'coal' both declare the parameter 'Generator_p_nom'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the fragment once, and let the data carry both. Different math under one spelling is a rename: call one of them something else.
 ```
 
+A term is a named expression like any other, so the terms of two fragments
+need two names. Name each term after its component, such as `generation` and
+`consumption`, rather than after the sum it adds to.
+
 ## A column read one way and introduced another
 
 What a fragment states about a column it reads has to agree with the fragment

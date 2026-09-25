@@ -246,8 +246,9 @@ def test_a_cased_term_is_added_like_any_other():
     [
         pytest.param(
             {'fleet': FLEET, 'demand': DEMAND},
-            r"fragments 'demand' and 'fleet' add a term to 'injection', which no fragment defines, reads or uses",
-            id='terms-and-nothing-else',
+            r"fragments 'demand' and 'fleet' add a term to 'injection', which no fragment defines, reads or uses\. "
+            r'.*or fix the spelling\.$',
+            id='terms-and-nothing-else-with-no-near-miss',
         ),
         pytest.param(
             {
@@ -294,7 +295,11 @@ def test_two_terms_of_one_name_collide():
     """A term is an ordinary named expression, so two fragments name theirs apart."""
     twin = {**FLEET, 'expressions': {'demand_injection': FLEET['expressions']['generator_injection']}}
     twin = {**twin, 'given': {'expressions': {'injection': {'dims': BUS_FRAME, 'term': 'demand_injection'}}}}
-    with pytest.raises(LanguageError, match=r"both declare the expression 'demand_injection'"):
+    with pytest.raises(
+        LanguageError,
+        match=r"both declare the expression 'demand_injection', which a fragment adds to 'injection' as a term\. "
+        r"A term shares one namespace.*name each fragment's term apart",
+    ):
         merge({'balance': BALANCE, 'demand': DEMAND, 'fleet': twin})
 
 
