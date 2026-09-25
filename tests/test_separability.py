@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Whether a horizon may be built in windows, asked before any data binds.
+"""Whether a horizon may be built in windows, asked before any data is attached.
 
 The verdict is what a rolling-horizon or myopic driver needs and cannot
 currently get: a model with an annual budget windows into feasible pieces whose
@@ -98,7 +98,7 @@ def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
     than refusing the model, so a driver holding the data knows what to read
     and `resolved` knows how to fold it."""
     verdict = _verdict(**patch)
-    assert not verdict.windowable, 'undecided until data binds'
+    assert not verdict.windowable, 'undecided until data is attached'
     assert verdict.undecided == (reach,), 'the report names what the driver has to read, once'
     assert not verdict.coupled, 'and nothing structural ties the axis'
 
@@ -153,7 +153,7 @@ def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
     """`at(cap, by=zone_of, over=zone, into=u)` reads `zone` at whatever coordinate the relation
     chooses, so how far that reaches along `zone` is the relation's data to say."""
     verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of, over=zone, into=u) <= 0'))
-    assert not verdict.windowable and not verdict.coupled, 'undecided until the relation binds'
+    assert not verdict.windowable and not verdict.coupled, 'undecided until the relation is attached'
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
         'the report names the relation a driver has to read'
     )

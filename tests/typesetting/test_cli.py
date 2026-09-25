@@ -182,4 +182,4 @@ def test_no_verb_binds_data():
     banned = {'--source', '--coords', '--data'}
     for name, verb in _verbs().items():
         flags = {option for action in verb._actions for option in action.option_strings}
-        assert not (flags & banned), f'{name} binds data: {sorted(flags & banned)}'
+        assert not (flags & banned), f'{name} attaches data: {sorted(flags & banned)}'

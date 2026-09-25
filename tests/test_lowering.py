@@ -37,8 +37,6 @@ from math_spec.program import (
     GroupSum,
     Mask,
     Multiply,
-    Named,
-    Negate,
     Not,
     Or,
     Parameter,
@@ -58,10 +56,7 @@ from math_spec.program import (
     WindowSum,
     assumption_message,
     children,
-    divisor_parameters,
-    fan_in,
-    quotients,
-    variables_of,
+    parameters_of,
     walk,
     walk_regions,
     where_children,
@@ -422,7 +417,7 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     assert mask is not None and isinstance(mask.root, ExpressionComparison)
     assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, Pullback)
     assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
-        'the relation a pullback and a partition read through is data the consumer binds too'
+        'the relation a pullback and a partition read through is data the consumer attaches too'
     )
 
 
@@ -439,7 +434,7 @@ def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
     assert mask.root.predicate.root == ExpressionComparison(
         Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
     ), 'the counted predicate is rebuilt, not handed through with the resolved comparison still in it'
-    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer binds'
+    assert mask.names_read == frozenset({'c', 'k'}), 'what the counted predicate reads is data the consumer attaches'
 
 
 def test_a_translated_predicate_keeps_what_it_reads_in_reach():
@@ -463,7 +458,7 @@ def test_a_translated_predicate_keeps_what_it_reads_in_reach():
 
 
 def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_in_reach():
-    """The comparison under the read is rebuilt, and the relation is data the consumer binds as well as the operand."""
+    """The comparison under the read is rebuilt, and the relation is data the consumer attaches as well as the operand."""
     program = to_spec(
         override(
             SHAPES_MODEL,
@@ -487,7 +482,7 @@ def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_i
 
 
 def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
-    """One mapping holds every fact about the data, so a consumer binding it has one loop and one refusal.
+    """One mapping holds every fact about the data, so a consumer attaching it has one loop and one refusal.
 
     The file's entries come first, in the order it wrote them; each
     ``piecewise:`` block's conditions follow under the name a refusal quotes.
@@ -516,7 +511,7 @@ def test_an_assumption_lowers_both_of_its_masks():
         Mask(ParameterDefined('flag', ('g',))),
     ), 'the arithmetic side is a program expression, and the where is the mask the file wrote'
     assert assumption_message('sound', assumption) == (
-        "assumption 'sound' does not hold for the data bound to 'c', 'k'"
+        "assumption 'sound' does not hold for the data attached to 'c', 'k'"
     ), 'the refusal names what the consumer bound, so it can say which column is wrong'
 
 
@@ -533,7 +528,7 @@ def test_an_assumption_refuses_in_the_words_the_file_wrote():
 
     assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
     assert assumption_message('sound', assumption) == (
-        f"assumption 'sound' does not hold for the data bound to 'c', 'k' \N{EM DASH} {reason}"
+        f"assumption 'sound' does not hold for the data attached to 'c', 'k' \N{EM DASH} {reason}"
     ), 'the sentence trails what the author wrote'
 
 
@@ -556,7 +551,7 @@ def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
     where = program.variables['p'].where
     assert where is not None
     assert where.names_read == frozenset({'c', 'k', 'flag', 'lk2'}), (
-        'the flag and the relation decide which region applies, so the consumer binds them too'
+        'the flag and the relation decide which region applies, so the consumer attaches them too'
     )
 
 
@@ -763,8 +758,8 @@ def test_a_divisor_under_a_pullback_is_still_named():
     component_of = RelationDeclaration((('flow', 'flow'), ('component', 'component')), ('flow',))
     pulled = Pullback(quotient, direction=Direction('component_of', component_of, ('component',), ('flow',), ()))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
-    assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
+    assert parameters_of(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
+    assert parameters_of(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
 def test_a_divisor_under_a_power_is_still_named():
@@ -773,22 +768,7 @@ def test_a_divisor_under_a_power_is_still_named():
     quotient = Divide(Variable('x'), Power(Parameter('d'), Constant(2.0)))
 
     assert children(quotient.divisor) == (Parameter('d'), Constant(2.0)), 'the base first, then the exponent'
-    assert divisor_parameters(quotient) == frozenset({'d'}), 'the walk descends through `Power`'
-
-
-def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
-    """`divisor_parameters` flattens, and one caller cannot use the flat answer."""
-    left = Divide(Variable('x'), Parameter('rate'))
-    right = Divide(Variable('y'), Parameter('loss'))
-
-    found = quotients(Sum(Add(left, right), ('flow',)))
-    assert [(variables_of(q.numerator), q.divisor) for q in found] == [
-        (frozenset({'x'}), Parameter('rate')),
-        (frozenset({'y'}), Parameter('loss')),
-    ], 'each quotient keeps its own numerator, in the order the expression writes them'
-    assert divisor_parameters(Sum(Add(left, right), ('flow',))) == frozenset({'rate', 'loss'}), (
-        'the flat answer is still the union of the same walk'
-    )
+    assert parameters_of(quotient) == frozenset({'d'}), 'the walk descends through `Power`'
 
 
 OUTER = Mask(ParameterDefined('committable', ('g',)))
@@ -824,45 +804,6 @@ def test_walk_regions_carries_the_regions_a_node_stands_under():
 def test_walk_is_the_node_column_of_walk_regions():
     """One recursion, so a node kind that learns to descend reaches both walks at once."""
     assert list(walk(NESTED)) == [node for node, _ in walk_regions(NESTED)]
-
-
-FAN_IN = {
-    Constant(1.0): 'one-to-one',
-    Parameter('c'): 'one-to-one',
-    Variable('p'): 'one-to-one',
-    Negate(Variable('p')): 'one-to-one',
-    Add(Variable('p'), Constant(1.0)): 'one-to-one',
-    Multiply(Variable('p'), Parameter('c')): 'one-to-one',
-    Power(Parameter('c'), Constant(2.0)): 'one-to-one',
-    Divide(Variable('p'), Parameter('c')): 'one-to-one',
-    Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), direction=Direction('at_bus', AT_BUS, ('g',), ('bus',), ())): 'many-to-one',
-    Pullback(Variable('p'), direction=Direction('at_bus', AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
-    Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
-    WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
-    Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',
-    Dual('balance'): 'one-to-one',
-    Named('total', Sum(Variable('p'), ('g',))): 'many-to-one',
-}
-
-
-def test_every_expression_node_is_classified_by_fan_in():
-    """`fan_in` was a ClassVar on five nodes, so `Add(...).fan_in` was an AttributeError."""
-    covered = {type(node) for node in FAN_IN}
-    assert covered == set(get_args(Expression)), (
-        'every node in the Expression union is classified, and nothing retired lingers'
-    )
-
-
-@pytest.mark.parametrize(('node', 'expected'), FAN_IN.items(), ids=[type(node).__name__ for node in FAN_IN])
-def test_a_node_answers_its_fan_in(node, expected):
-    assert fan_in(node) == expected
-
-
-def test_fan_in_reads_through_a_named_expression():
-    """`fan_in` on a tree holding a `Named` ended in `assert_never`."""
-    named = Named('total', Sum(Variable('p'), ('g',)))
-    assert fan_in(named) == 'many-to-one', 'a use of an entry fans in as the entry does'
 
 
 def test_a_relation_is_declared_as_the_file_declares_it():
@@ -1222,7 +1163,7 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
 def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
     """`program.constraints | program.variables` is a dict of both, as it was
     when the groups were `MappingProxyType`s — a consumer that walks every
-    declaration this way (lpspec's parity harness does) broke on alpha.78,
+    declaration this way (specsolve's parity harness does) broke on alpha.78,
     where the seal answered `|` with a `TypeError`."""
     program = to_spec(
         {
