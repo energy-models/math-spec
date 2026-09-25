@@ -125,7 +125,7 @@ def lower(schema: Spec) -> Program:
         if node is not None:
             entries[ename] = node
 
-    terms: dict[str, Expression] = {}
+    terms: dict[str, Named] = {}
     for gname, gdef in schema.given.expressions.items():
         if gdef.term is None:
             continue
@@ -140,6 +140,7 @@ def lower(schema: Spec) -> Program:
         term = resolve_expression_text(gdef.term, ns, context, errors, ceiling=2)
         if term is None:
             continue
+        assert isinstance(term, Named), 'a term is a name, and a name resolves to the entry it names'
         if any(isinstance(node, Variable) and node.name == gname for node in walk(term)):
             errors.append(
                 f"{context}: its term {gdef.term!r} reads '{gname}', the sum the term adds to, so the sum would "

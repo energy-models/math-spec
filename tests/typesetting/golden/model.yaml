@@ -138,14 +138,7 @@ piecewise:
       - [p, bp_x]
       - [heat, bp_heat, "<="]
 
-given:
-  expressions:
-    withdrawal: # a name another file defines, which this file adds a term to: the term prints after dots
-      dims: [snapshot, generator]
-      term: leak
-
 expressions:
-  leak: -eta # the term: an ordinary named expression, which a given expression names
   spend_cap: cost * 2 # a data-only entry, so a where may compare it
   spend: # a plain named expression: its symbol prints where it is used, its body once as a definition
     description: what a snapshot's dispatch costs

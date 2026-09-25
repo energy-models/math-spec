@@ -289,9 +289,8 @@ Each file loads alone. The term names an expression the file declares, and
 that expression does not read the name it adds to, directly or through
 another name. It carries no dimension the entry does not state, and it is
 held to degree two, as what reads the sum is. All of this is checked at load.
-The typeset legend lists the entry under _Given_, and the math prints the term
-under _Definitions_ as its own line and as `injection = ⋯ + generation`, the
-dots standing for what the other files add.
+The typeset legend lists the entry under _Given_ and names the term, and the
+math prints the term under _Definitions_ as its own line.
 
 [`merge`](../../howto/compose.md#a-library-of-components) defines the name as
 the definition one fragment writes under `expressions:`, if any, plus every

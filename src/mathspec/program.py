@@ -625,7 +625,7 @@ class GivenDeclaration:
     #: The term this program adds to a given expression, or ``None`` where it
     #: only reads the name: the [`Named`][] node of the entry the term names,
     #: read over at most ``dims``.
-    term: Expression | None = None
+    term: Named | None = None
 
 
 @dataclass(frozen=True)
