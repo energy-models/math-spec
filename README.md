@@ -191,10 +191,8 @@ The documentation is at <https://math-spec.readthedocs.io>.
 
 ## Installation
 
-Nothing is published yet.
-[Installation](docs/howto/installation.md) gives the command that installs from
-git, and [contributing](docs/contributing.md#setting-up-a-development-environment)
-sets up a development clone.
+See [installation](docs/howto/installation.md). To work on math-spec, see
+[contributing](docs/contributing.md#setting-up-a-development-environment).
 
 ## Prior art
 

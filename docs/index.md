@@ -189,8 +189,7 @@ call.
 
 ## Install it
 
-Nothing is published yet. [Installation](howto/installation.md) gives the
-command that installs from git.
+See [installation](howto/installation.md).
 
 !!! warning "Alpha, pre-1.0"
 
