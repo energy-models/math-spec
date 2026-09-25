@@ -171,7 +171,8 @@ class Legend:
             *(
                 self._entry(
                     self.symbols.name[g],
-                    f'{fmt.mono(g)}{self._over(list(block.dims))}, an expression another file defines',
+                    f'{fmt.mono(g)}{self._over(list(block.dims))}, '
+                    + ('a sum other files add terms to' if block.additive else 'an expression another file defines'),
                     block.description,
                 )
                 for g, block in program.given.expressions.items()

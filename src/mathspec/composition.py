@@ -21,14 +21,18 @@ What :func:`merge` does with each section:
   both named.
 * **The objectives are summed**, each term in parentheses, in the fragments'
   name order, and the senses have to agree.
-* **An additive expression is summed the same way.** A named expression every
-  fragment that defines it marks ``additive: true`` is the sum of their
-  bodies. A fragment that defines one share and reads the name is refused: on
-  its own it reads its share, and composed it would read the sum.
+* **A sum is summed the same way.** A ``given: expressions:`` entry marked
+  ``additive: true`` says the name is a sum other files add terms to. Every
+  fragment's declaration of it is a term, and the composed model declares their
+  sum and keeps the marked entry, so a later merge adds more. A term may carry
+  no dimension the entry does not state, and is one ``expression:``. A
+  fragment that declares a term and reads the name without carrying the marked
+  entry is refused: on its own it reads its term, and composed it would read
+  the sum.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
-  A given expression is checked against the frame its definition's body
-  carries, and a name read as one kind and introduced as another is refused.
+  A given expression's body may carry no dimension its reader does not state,
+  and a name read as one kind and introduced as another is refused.
   Two fragments that both only read a name have to read it the same way, and a
   fragment that declares a name and reads it as well is refused. What no
   fragment introduces stays under ``given:`` until a host model provides it.
@@ -77,6 +81,7 @@ from pydantic import BaseModel, ValidationError
 from mathspec._yaml import read_model
 from mathspec.errors import LanguageError, did_you_mean, schema_error
 from mathspec.model import GivenBlock, Spec
+from mathspec.program import Named, walk
 from mathspec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -138,7 +143,7 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
             declare one name; two fragments say different things about one
             dimension, relation or given declaration; a fragment reads a name as
             something other than what its sibling introduces, as another kind
-            of thing, or over another frame; two fragments are
+            of thing, or over fewer dimensions than its body carries; two fragments are
             written against different language versions; their objectives run
             opposite ways; or the composed model does not load.
         FileNotFoundError: A ``str`` with no newline that names no file.
@@ -151,12 +156,15 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
     for section in SHARED_SECTIONS:
         if agreed := _agreed(read, section, _singular(section)):
             merged[section] = agreed
+    asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
+    readings = _agreed_readings(asked)
+    sums = {key: entry for key, entry in readings.items() if entry['additive']}
     for section in OWNED_SECTIONS:
-        if claimed := _claimed(read, section):
+        if claimed := _claimed(read, section, sums if section == 'expressions' else {}):
             merged[section] = claimed
-    if summed := _summed_shares(read, loaded):
+    if summed := _summed_terms(read, loaded, sums):
         merged['expressions'] = {**_mapping(merged.get('expressions')), **summed}
-    if given := _folded(read, merged, _frames(loaded)):
+    if given := _folded(read, merged, loaded, readings):
         merged['given'] = given
     if (objective := _summed_objective(read)) is not None:
         merged['objective'] = objective
@@ -218,105 +226,153 @@ def _claims(block: object) -> object:
     return {key: value for key, value in block.items() if key != 'description'} if isinstance(block, dict) else block
 
 
-def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, object]:
+def _claimed(read: Mapping[str, dict[str, object]], section: str, sums: Mapping[str, object]) -> dict[str, object]:
     """One block of owned declarations, a name claimed twice being the refusal.
 
-    An additive expression is left to :func:`_summed_shares`.
+    The terms of a sum are left to :func:`_summed_terms`.
     """
     merged: dict[str, object] = {}
     for name, sections in read.items():
         for key, block in _mapping(sections.get(section)).items():
-            if section == 'expressions' and _is_share(block):
+            if key in sums:
                 continue
             if key in merged:
+                hint = (
+                    ' If each fragment adds a term to one sum, mark the name `additive: true` on a '
+                    '`given: expressions:` entry in the file that reads it.'
+                    if section == 'expressions'
+                    else ''
+                )
                 raise LanguageError(
                     f"fragments '{_author_of(read, section, key)}' and '{name}' both declare the "
                     f'{_singular(section)} {key!r}. Two of the same kind of thing are two rows of a dimension '
                     f'rather than two fragments: merge the fragment once, and let the data carry both. '
-                    f'Different math under one spelling is a rename: call one of them something else.'
+                    f'Different math under one spelling is a rename: call one of them something else.{hint}'
                 )
             merged[key] = block
     return merged
 
 
-def _is_share(block: object) -> bool:
-    """Whether an ``expressions:`` entry, as ``to_dict`` wrote it, is one share of an additive sum."""
-    return isinstance(block, dict) and bool(block.get('additive'))
+def _agreed_readings(asked: Mapping[str, dict[str, object]]) -> dict[str, dict[str, object]]:
+    """Every ``given: expressions:`` entry, the ones two fragments share folded together.
 
-
-def _summed_shares(read: Mapping[str, dict[str, object]], loaded: Mapping[str, Spec]) -> dict[str, object]:
-    """Every additive expression, its shares summed in the fragments' name order, each in parentheses.
-
-    One share is carried as written. A name one fragment adds to and another
-    defines whole is refused, and so is a fragment that adds a share and reads
-    the name, since on its own that fragment reads its share and not the sum.
+    Two readings of one name agree on the frame, compared as a set. Prose is
+    not a claim, and the flag is said once for every reader, so the first
+    description and any reader's flag are carried.
     """
-    shares: dict[str, dict[str, dict[str, object]]] = {}
-    for name, sections in sorted(read.items()):
-        for key, block in _mapping(sections.get('expressions')).items():
-            if _is_share(block):
-                shares.setdefault(key, {})[name] = cast('dict[str, object]', block)
-    summed: dict[str, object] = {}
-    for key, by_fragment in shares.items():
-        for name, sections in read.items():
-            if name not in by_fragment and key in _mapping(sections.get('expressions')):
+    agreed: dict[str, dict[str, object]] = {}
+    for name, given in asked.items():
+        for key, block in _mapping(given.get('expressions')).items():
+            entry = cast('dict[str, object]', block)
+            if key not in agreed:
+                agreed[key] = dict(entry)
+                continue
+            held = agreed[key]
+            if set(cast('list[str]', held['dims'])) != set(cast('list[str]', entry['dims'])):
                 raise LanguageError(
-                    f"fragment '{name}' defines {key!r} whole, where '{next(iter(by_fragment))}' adds a share "
-                    f'to it. An additive expression is a sum every fragment adds to: mark the definition in '
-                    f"'{name}' `additive: true`, or give one of the two a name of its own."
+                    f"fragments '{_author_of(asked, 'expressions', key)}' and '{name}' say different things "
+                    f'about the given expression {key!r}: over {held["dims"]} against over {entry["dims"]}. Two '
+                    f'files read one name over one frame: make the two identical.'
                 )
-        if len(by_fragment) > 1:
-            for name in by_fragment:
-                if loaded[name].program.expressions[key].in_math:
-                    raise LanguageError(
-                        f"fragment '{name}' adds a share to {key!r} and reads it. On its own the fragment reads "
-                        f'its share, and composed it would read the sum of every share: read the sum in a '
-                        f"fragment that adds nothing to it, under 'given: expressions:'."
-                    )
-        blocks = list(by_fragment.values())
-        bodies = [cast('str', block['expression']) for block in blocks]
-        summed[key] = {
-            **blocks[0],
-            'expression': bodies[0] if len(bodies) == 1 else ' + '.join(f'({body})' for body in bodies),
-            'description': next((block['description'] for block in blocks if block.get('description')), None),
+            held['additive'] = bool(held.get('additive') or entry.get('additive'))
+            held['description'] = held.get('description') or entry.get('description')
+    return agreed
+
+
+def _summed_terms(
+    read: Mapping[str, dict[str, object]], loaded: Mapping[str, Spec], sums: Mapping[str, dict[str, object]]
+) -> dict[str, object]:
+    """Every marked sum, its terms summed in the fragments' name order, each in parentheses.
+
+    One term is carried as written. A term written as ``cases:``, a term over a
+    dimension the marked entry does not state, and a fragment that declares a
+    term and reads the name without carrying the marked entry are refused.
+    """
+    summed: dict[str, object] = {}
+    for key, entry in sums.items():
+        terms = [
+            (name, _as_mapping(_mapping(sections.get('expressions'))[key]))
+            for name, sections in sorted(read.items())
+            if key in _mapping(sections.get('expressions'))
+        ]
+        for name, block in terms:
+            _one_term(key, entry, name, block, loaded[name])
+        bodies = [cast('str', block['expression']) for _, block in terms]
+        if not bodies:
+            continue
+        term: dict[str, object] = {
+            'expression': bodies[0] if len(bodies) == 1 else ' + '.join(f'({body})' for body in bodies)
         }
+        said = next((b['description'] for _, b in terms if b.get('description')), None)
+        if said is not None and not entry.get('description'):
+            term['description'] = said
+        summed[key] = term
     return summed
 
 
-def _frames(loaded: Mapping[str, Spec]) -> dict[str, tuple[str, ...]]:
-    """The frame of every named expression the fragments define, as each fragment's own program reads it.
+def _as_mapping(block: object) -> dict[str, object]:
+    """A named expression as ``to_dict`` wrote it, the one-line form read as its mapping."""
+    return cast('dict[str, object]', block) if isinstance(block, dict) else {'expression': block}
 
-    A definition writes no frame: its body carries one. The body is the same
-    text in the composition, so the frame the fragment reads is the one a
-    given declaration is checked against. The shares of an additive expression
-    broadcast into their sum, so its frame is the union of theirs.
-    """
-    frames: dict[str, tuple[str, ...]] = {}
-    for spec in loaded.values():
-        for name, declaration in spec.program.expressions.items():
-            frames[name] = tuple(dict.fromkeys((*frames.get(name, ()), *declaration.dims)))
-    return frames
+
+def _one_term(key: str, entry: Mapping[str, object], name: str, block: Mapping[str, object], spec: Spec) -> None:
+    """Refuse a term of the sum *key* that cannot be summed as written, or that its own file misreads."""
+    if block.get('cases'):
+        raise LanguageError(
+            f"fragment '{name}' adds a term to {key!r} written as `cases:`. The terms of a sum are summed as "
+            f'written, and a set of cases is no one body: name the cased term as its own expression in '
+            f"'{name}', and write that name as the term."
+        )
+    stated = cast('list[str]', entry['dims'])
+    frame = spec.program.expressions[key].dims
+    if extra := sorted(set(frame) - set(stated)):
+        raise LanguageError(
+            f"fragment '{name}' adds a term to {key!r} over {sorted(frame)}, where the sum is over "
+            f'{sorted(stated)}. A term carries no dimension its sum does not state: add {extra} to the '
+            f'dims of the marked `given:` entry, or leave them out of the term.'
+        )
+    marks = key in spec.given.expressions and spec.given.expressions[key].additive
+    if not marks and _reads(spec, key):
+        raise LanguageError(
+            f"fragment '{name}' adds a term to {key!r} and reads it. On its own the fragment reads its term, "
+            f'and composed it would read the sum of every term: mark {key!r} `additive: true` under '
+            f"'given: expressions:' in '{name}' to read the sum, or read it in another file."
+        )
+
+
+def _reads(spec: Spec, key: str) -> bool:
+    """Whether the math or another named expression of *spec* names *key*."""
+    program = spec.program
+    others = [entry.expression for name, entry in program.expressions.items() if name != key]
+    return any(isinstance(node, Named) and node.name == key for node in walk(*program.roots, *others))
 
 
 def _folded(
-    read: Mapping[str, dict[str, object]], merged: Mapping[str, object], frames: Mapping[str, tuple[str, ...]]
+    read: Mapping[str, dict[str, object]],
+    merged: Mapping[str, object],
+    loaded: Mapping[str, Spec],
+    readings: Mapping[str, dict[str, object]],
 ) -> dict[str, object]:
     """The ``given:`` block the composition still carries, once every reading a sibling introduces is spent.
 
     A given declaration is what a fragment expects of a name a sibling owns.
     Where the sibling is in the composition the expectation is checked and
     then dropped, so the composed model declares the name once. A given
-    expression is checked against the frame of the definition's body.
+    expression is checked against the frame of the definition's body: the body
+    carries no dimension the reader does not state. A marked entry is kept
+    beside the sum, so the composed model still says the name is one.
     """
     asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
     left: dict[str, object] = {}
     for kind, label in GIVEN_KINDS.items():
         introduced = _mapping(merged.get(kind))
-        agreed = _agreed(asked, kind, label)
+        agreed = readings if kind == 'expressions' else _agreed(asked, kind, label)
         for key, block in agreed.items():
             _same_kind(asked, read, merged, kind, key)
+            if kind == 'expressions' and _mapping(block).get('additive'):
+                continue
             if key in introduced and kind == 'expressions':
-                _same_frame(asked, read, key, block, frames[key])
+                _within_frame(asked, read, key, block, _definer_frame(loaded, key))
             elif key in introduced and not _says_less(block, introduced[key]):
                 raise LanguageError(
                     f"fragment '{_author_of(asked, kind, key)}' reads the {label} {key!r} as {block!r}, where "
@@ -324,9 +380,19 @@ def _folded(
                     f'says the same as the declaration it is folded into, or less: restate the frame as the '
                     f'introducer declares it, or leave the field out.'
                 )
-        if remaining := {key: block for key, block in agreed.items() if key not in introduced}:
-            left[kind] = remaining
+        kept = {
+            key: block
+            for key, block in agreed.items()
+            if key not in introduced or (kind == 'expressions' and _mapping(block).get('additive'))
+        }
+        if kept:
+            left[kind] = kept
     return left
+
+
+def _definer_frame(loaded: Mapping[str, Spec], key: str) -> tuple[str, ...]:
+    """The frame of the one definition of *key*, as the fragment that writes it reads it."""
+    return next(spec.program.expressions[key].dims for spec in loaded.values() if key in spec.program.expressions)
 
 
 #: The given kinds whose names share the flat namespace an expression reads.
@@ -353,25 +419,26 @@ def _same_kind(
             )
 
 
-def _same_frame(
+def _within_frame(
     asked: Mapping[str, dict[str, object]],
     read: Mapping[str, dict[str, object]],
     key: str,
     block: object,
     frame: tuple[str, ...],
 ) -> None:
-    """Refuse a given expression read over another frame than its definition carries.
+    """Refuse a definition whose body carries a dimension the given expression's reader does not state.
 
-    Compared as sets, since a definition's frame is what its body carries and
-    has no written order.
+    The reader's ``dims`` bounds what it reads. A body over fewer dimensions is
+    left to the composed model's load, which refuses a row it would repeat and
+    accepts one another term carries the dimension through.
     """
     stated = cast('list[str]', _mapping(block)['dims'])
-    if set(stated) != set(frame):
+    if extra := sorted(set(frame) - set(stated)):
         raise LanguageError(
             f"fragment '{_author_of(asked, 'expressions', key)}' reads the given expression {key!r} over "
             f"{sorted(stated)}, where '{_author_of(read, 'expressions', key)}' defines it over {sorted(frame)}. "
-            f'A given expression is read over the frame its definition carries: restate the frame as '
-            f'{sorted(frame)}.'
+            f'A given expression is read over at most the frame its reader states, and this body carries '
+            f'{extra} beyond it: add {extra} to the dims of the given entry.'
         )
 
 

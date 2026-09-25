@@ -35,6 +35,7 @@ from mathspec._where_resolver import WhereResolver
 from mathspec.errors import LanguageError, SchemaError, case_context, prefixed
 from mathspec.exclusivity import overlapping
 from mathspec.expansion import expand, parse_and_expand
+from mathspec.model import defined_sums
 from mathspec.program import (
     BooleanLiteral,
     Cases,
@@ -86,7 +87,9 @@ class Namespace:
         #: dim-checked against, since macros, named expressions and the dim
         #: rules read declarations the flat listing below does not carry.
         self.schema = schema
-        variables = {**schema.variables, **schema.given.variables, **schema.given.expressions}
+        defined = defined_sums(schema)
+        given = {name: g for name, g in schema.given.expressions.items() if name not in defined}
+        variables = {**schema.variables, **schema.given.variables, **given}
         parameters = {**schema.parameters, **schema.given.parameters}
         #: Every name an expression reads as a column: the variables, and the
         #: given expressions, whose bodies another file holds.

@@ -219,22 +219,83 @@ constraints:
     expression: injection == 0
 ```
 
-| Field         |                                                   |                |
-| ------------- | ------------------------------------------------- | -------------- |
-| `dims`        | required. The dimensions the expression runs over |                |
-| `description` | free text                                         | default `null` |
+| Field         |                                                                                              |                 |
+| ------------- | -------------------------------------------------------------------------------------------- | --------------- |
+| `dims`        | required. The dimensions the expression runs over                                            |                 |
+| `additive`    | `true` where the name is a sum other files add terms to ([a sum](#a-sum-other-files-add-to)) | default `false` |
+| `description` | free text                                                                                    | default `null`  |
 
 There is no body. This file reads the name as it reads a given variable: a
 quantity over the frame, of degree one. A `where` does not read it, because a
 mask is built before any variable exists. A name declared under both
-`expressions:` and `given: expressions:` is refused. The typeset legend lists a
-given expression under _Given_.
+`expressions:` and `given: expressions:` is refused, unless the entry is
+marked `additive`. The typeset legend lists a given expression under _Given_.
 
 [`merge`](../../howto/compose.md#a-library-of-components) folds a given
-expression into the definition of another fragment, and refuses one whose
-frame is not the frame the body carries. The composed model holds the body to
-the rules of every place this file reads it: a square of a given expression
-that is quadratic is refused once folded.
+expression into the definition of another fragment. The `dims` are an upper
+bound: a body that carries a dimension they do not name is refused. A body over
+fewer dimensions is folded, and the composed model decides: it refuses a row
+that would repeat across the missing dimension, and accepts one where another
+term carries it. The composed model holds the body to the rules of every place
+this file reads it: a square of a given expression that is quadratic is
+refused once folded.
+
+#### A sum other files add to
+
+`additive: true` says the name is a sum other files add terms to. One file
+says it, on its `given:` entry, with the frame. Each file that adds a term
+declares it as an ordinary named expression under that name.
+
+```yaml
+# balance.yaml reads the sum
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      additive: true
+      description: what the components put into a bus
+variables:
+  slack: { dims: [snapshot, bus] }
+constraints:
+  balance:
+    dims: [snapshot, bus]
+    expression: injection + slack == 0
+```
+
+```yaml
+# fleet.yaml adds a term
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_bus: { key: generator, values: bus }
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+expressions:
+  injection: sum(gen_p, by=gen_bus, over=generator, into=bus)
+```
+
+Each file loads alone: the reader over a sum it does not build, and the
+contributor over its own term. Other readers state the frame and nothing more.
+
+A file may carry the marked entry and declare a term too. Then it reads the
+sum so far, which alone is its own term. The term is one `expression:`, and
+carries no dimension the entry does not state; both are checked at load. The
+entry then folds into the definition, and the typeset legend lists it under
+_Definitions_, as a sum other files add terms to.
+
+[`merge`](../../howto/compose.md#a-library-of-components) sums every term of a
+marked name, each in parentheses, in fragment-name order, and keeps the marked
+entry, so a later merge adds more. The entry's description is the sum's. It
+refuses a term written as `cases:`, a term over a dimension the entry does not
+state, and a file that declares a term and reads the name without carrying the
+marked entry: on its own that file reads its term, and composed it would read
+the sum. Two terms of a name no entry marks are refused as a collision. A
+marked name no file adds to stays under `given:`.
 
 ## `constraints`
 

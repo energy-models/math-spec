@@ -168,11 +168,6 @@
           "additionalProperties": false,
           "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``dims:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
           "properties": {
-            "additive": {
-              "default": false,
-              "title": "Additive",
-              "type": "boolean"
-            },
             "cases": {
               "additionalProperties": {
                 "$ref": "#/$defs/ExpressionCase"
@@ -347,8 +342,13 @@
     },
     "GivenExpressionBlock": {
       "additionalProperties": false,
-      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed model holds the body to the rules\nof every place this file reads it.",
+      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed model holds the body to the rules\nof every place this file reads it.\n\n``additive: true`` says the name is a sum other files add terms to. Each\nof them declares its term as an ordinary named expression under the name,\nand :func:`~mathspec.composition.merge` sums the terms. A file that marks\nthe name may declare a term of its own too, and then reads the sum so far.",
       "properties": {
+        "additive": {
+          "default": false,
+          "title": "Additive",
+          "type": "boolean"
+        },
         "description": {
           "anyOf": [
             {

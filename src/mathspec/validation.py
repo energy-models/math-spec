@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from mathspec._yaml import read_model
 from mathspec.errors import SchemaError
-from mathspec.model import NUMERIC_DTYPES, Spec, side_columns
+from mathspec.model import NUMERIC_DTYPES, Spec, defined_sums, side_columns
 from mathspec.operators import BUILTIN_NAMES
 from mathspec.piecewise import Emitted as EmittedCurve
 from mathspec.sos import Emitted as EmittedSet
@@ -89,6 +89,7 @@ def reference_errors(schema: Spec) -> list[str]:
         *_sos_bounds(schema),
         *_piecewise_references(schema),
         *_given_constraint_collisions(schema),
+        *_cased_terms(schema),
     ]
 
 
@@ -107,7 +108,7 @@ def _flat_namespace(schema: Spec) -> list[tuple[str, Iterable[str]]]:
         ('variable', schema.variables),
         ('given variable', schema.given.variables),
         ('named expression', schema.expressions),
-        ('given expression', schema.given.expressions),
+        ('given expression', {n: g for n, g in schema.given.expressions.items() if n not in defined_sums(schema)}),
         ('macro', schema.macros),
     ]
 
@@ -143,6 +144,17 @@ def _given_constraint_collisions(schema: Spec) -> Iterator[str]:
             yield (
                 f"Given constraint '{name}' is also declared under 'constraints:'. A row family is "
                 f'either built by this file or given to it — drop one of the two.'
+            )
+
+
+def _cased_terms(schema: Spec) -> Iterator[str]:
+    """A term of a sum is one expression, since the terms are summed as written."""
+    for name in sorted(defined_sums(schema)):
+        if schema.expressions[name].cases:
+            yield (
+                f"Named expression '{name}': a term of a sum is one `expression:`, and this has `cases:`. "
+                f'The terms are summed as written: name the cased term as its own expression, and write '
+                f'that name as the term.'
             )
 
 

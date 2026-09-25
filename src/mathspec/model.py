@@ -333,11 +333,18 @@ class GivenExpressionBlock(_StrictBlock):
     over that frame, affine in the columns, as it reads a given variable: the
     body is the definer's, and the composed model holds the body to the rules
     of every place this file reads it.
+
+    ``additive: true`` says the name is a sum other files add terms to. Each
+    of them declares its term as an ordinary named expression under the name,
+    and :func:`~mathspec.composition.merge` sums the terms. A file that marks
+    the name may declare a term of its own too, and then reads the sum so far.
     """
 
     _label: ClassVar[str] = 'a given expression declaration'
 
     dims: list[str]
+    #: Whether the name is a sum other files add terms to.
+    additive: bool = False
     description: str | None = None
 
 
@@ -463,9 +470,6 @@ class ExpressionBlock(_StrictBlock):
     cases: Annotated[dict[str, ExpressionCase], Field(min_length=1)] = {}
     #: The value wherever no case's ``when`` holds, printed as the last row.
     otherwise: Expression | None = None
-    #: One share of a sum: :func:`~mathspec.composition.merge` adds the shares
-    #: every fragment defines under this name.
-    additive: bool = False
     description: str | None = None
 
     @model_validator(mode='before')
@@ -508,13 +512,6 @@ class ExpressionBlock(_StrictBlock):
                 'are none here. A value that holds everywhere is a plain `expression:`.'
             )
             raise ValueError(msg)
-        if self.additive and self.cases:
-            msg = (
-                '`additive: true` takes one `expression:`, and this has `cases:`. The shares are summed '
-                'as written, and a region belongs inside one share: write the share as its own '
-                'expression with a `cases:` entry, and add that name.'
-            )
-            raise ValueError(msg)
         return self
 
     @classmethod
@@ -533,14 +530,9 @@ class ExpressionBlock(_StrictBlock):
             written['otherwise'] = self.otherwise
             return written
         assert self.expression is not None
-        if self.description is None and not self.additive:
+        if self.description is None:
             return self.expression
-        written = {'expression': self.expression}
-        if self.additive:
-            written['additive'] = True
-        if self.description is not None:
-            written['description'] = self.description
-        return written
+        return {'expression': self.expression, 'description': self.description}
 
 
 class AssumptionBlock(_StrictBlock):
@@ -1003,6 +995,15 @@ class Spec(_StrictBlock):
         """
         _ = self.program
         return self
+
+
+def defined_sums(schema: Spec) -> frozenset[str]:
+    """The names *schema* marks ``additive`` under ``given: expressions:`` and declares a term of itself.
+
+    Such a name is defined in the file, and reads as the sum so far: it is not
+    a name the file reads from elsewhere, so it joins no given group.
+    """
+    return frozenset(name for name, g in schema.given.expressions.items() if g.additive and name in schema.expressions)
 
 
 def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:
