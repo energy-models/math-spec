@@ -12,6 +12,8 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+- docs: the README shows no conda-forge badge, because mathspec is not on conda-forge ([#PR](https://github.com/energy-models/mathspec/pull/PR))
+
 ## 0.1.0 (2026-09-25)
 
 🎉 mathspec is officially on PyPI!

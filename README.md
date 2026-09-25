@@ -8,7 +8,6 @@ SPDX-License-Identifier: CC-BY-4.0
 <!--- --8<-- [start:badges] -->
 
 [![CI](https://img.shields.io/github/actions/workflow/status/energy-models/mathspec/ci.yml?style=flat-square&branch=main)](https://github.com/energy-models/mathspec/actions/workflows/ci.yml)
-[![conda-forge](https://img.shields.io/conda/vn/conda-forge/mathspec?logoColor=white&logo=conda-forge&style=flat-square)](https://prefix.dev/channels/conda-forge/packages/mathspec)
 [![pypi-version](https://img.shields.io/pypi/v/mathspec.svg?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/mathspec)
 [![python-version](https://img.shields.io/pypi/pyversions/mathspec?logoColor=white&logo=python&style=flat-square)](https://pypi.org/project/mathspec)
 [![Documentation build status](https://readthedocs.org/projects/mathspec/badge/?version=latest&style=flat-square)](https://mathspec.readthedocs.io)
