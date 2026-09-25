@@ -95,6 +95,12 @@ parameters:
   Generator_marginal_cost_quadratic:
     description: cost of the square of one unit of output
     dims: [scenario, snapshot, generator]
+  Generator_sign:
+    description: >-
+      the sign output enters its bus's balance with — PyPSA's `sign`, `1`
+      unless given, `-1` for a unit that draws power. PyPSA refuses one that
+      differs by scenario (`consistency.py:1187`)
+    dims: [generator]
   Generator_committable:
     description: whether output is gated by an on/off status decision
     dims: [generator]
@@ -494,6 +500,12 @@ parameters:
   Load_p_set:
     description: demand
     dims: [scenario, snapshot, load]
+  Load_sign:
+    description: >-
+      the sign a load's demand enters its bus's balance with — PyPSA's
+      `sign`, `-1` unless given, `1` for a load that feeds its bus. PyPSA
+      refuses one that differs by scenario (`consistency.py:1187`)
+    dims: [load]
   scenario_weight:
     description: PyPSA's `scenario_weightings.weight` — the probability of a future
     dims: [scenario]
@@ -678,6 +690,12 @@ parameters:
   StorageUnit_efficiency_dispatch:
     description: share of the charge drawn down that reaches the bus
     dims: [scenario, storage_unit]
+  StorageUnit_sign:
+    description: >-
+      the sign net dispatch enters its bus's balance with — PyPSA's `sign`,
+      `1` unless given. PyPSA refuses one that differs by scenario
+      (`consistency.py:1187`)
+    dims: [storage_unit]
   StorageUnit_retention:
     description: share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep
     dims: [scenario, snapshot, storage_unit]
@@ -757,6 +775,12 @@ parameters:
   Store_e_max_pu:
     description: most energy held, per unit of nominal capacity
     dims: [scenario, snapshot, store]
+  Store_sign:
+    description: >-
+      the sign the power a store delivers enters its bus's balance with —
+      PyPSA's `sign`, `1` unless given. PyPSA refuses one that differs by
+      scenario (`consistency.py:1187`)
+    dims: [store]
   Store_retention:
     description: share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep
     dims: [scenario, snapshot, store]
@@ -3583,14 +3607,15 @@ constraints:
       process port drawing or delivering at its own rate and each passive branch
       carrying its flow, meets the load there, less half of every incident
       line's and transformer's loss — PyPSA dissipates a branch's loss half at
-      either end.
+      either end. Each generator, storage unit, store and load term enters
+      with its component's `sign` (`constraints.py:1428-1429`, `:1538`).
       A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     dims: [scenario, snapshot, bus]
     expression: >-
-      sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-      + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus, over=storage_unit, into=bus)
-      + sum(Store_p, by=Store_bus, over=store, into=bus)
+      sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
+      + sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
+      + sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
       - sum(Link_p, by=Link_bus0, over=link, into=bus)
       + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
       + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
@@ -3602,7 +3627,7 @@ constraints:
       + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
       - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
       - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
-      == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+      == -sum(Load_sign * Load_p_set, by=Load_bus, over=load, into=bus)
   Carrier_growth_limit:
     description: >-
       `Carrier-growth_limit` — what a carrier adds across its extendable components in a period,

@@ -85,6 +85,7 @@ def build():
 | [`Link-fix-p-lower`](#link-fix-p-lower)             | done   |                                                            |
 | [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
+| [`Bus-nodal_balance`](#bus-nodal_balance) with a component `sign` | done | rung 43 |
 | `Bus-meshed-*-nodal_balance`                        | out    | the same balance rows, dealt into linopy containers by how many component columns name a bus — `meshed_thresholds`, an `n.optimize()` keyword defaulting to `[30, 100, 400]`. Same rows, same duals, another name; a modeler whose engine wants the split states it, the file does not (#123) |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
 | [`marginal_cost_quadratic`](#objective)             | done   | rungs 10 and 36, below; Generator and Link `p`, Process `p`, StorageUnit `p_dispatch` only, and Store net `p` |
@@ -3578,6 +3579,65 @@ def build():
 </details>
 <!-- reference:rung_42_scenario_first_stage:end -->
 
+### Rung 43 — a component's sign
+
+`n.optimize()` with a generator, a load, a storage unit and a store whose
+`sign` is not PyPSA's default. PyPSA multiplies each of their terms in
+`Bus-nodal_balance` by that `sign`: a generator's `p`, a storage unit's
+`p_dispatch` and `p_store`, a store's `p` (`constraints.py:1428-1429`), and a
+load's `p_set` on the constant side (`constraints.py:1538`). It reads `sign`
+nowhere else in the model. The default is `1` for a generator, a storage unit
+and a store, and `-1` for a load. PyPSA refuses a `sign` that differs by
+scenario (`consistency.py:1187`), so the file states `Generator_sign`,
+`Load_sign`, `StorageUnit_sign` and `Store_sign` without `scenario`. A plain run
+feeds PyPSA's defaults, and the row collapses to the standard one.
+
+The rung adds a unit that draws `20` from its bus at a cost of `-50`, a storage
+unit that opens full and a full store, each with a `sign` of `-1`, and a load of
+`10` with a `sign` of `1`, which feeds its bus. Each sign binds. With the default sign on the
+unit, PyPSA solves to `-5652.78`; on the load, to `3925.0`; on the storage unit,
+to `1187.5`; on the store, to `925.0`; on all four, to `-5255.56`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Bus-nodal_balance`](#bus-nodal_balance) with a component `sign` | done | `Generator_sign`, `StorageUnit_sign` and `Store_sign` times each term, and `Load_sign` times the load, negated |
+
+<!-- reference:rung_43_sign:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `2125.0`, 80 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_43_sign.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 43: a component's `sign` turns its term in the bus balance around."""
+
+from __future__ import annotations
+
+import spine
+
+#: the sign each component enters the bus balance with, against PyPSA's default
+SIGNS = {'generators': ('flex43', -1), 'loads': ('feed43', 1), 'storage_units': ('su43', -1), 'stores': ('e43', -1)}
+
+
+def build():
+    """The spine with a unit that draws power, a load that feeds it, and a storage unit and a store drawn the other way round."""
+    n = spine.build()
+    n.add('Generator', 'flex43', bus='south', p_nom=20, marginal_cost=-50, sign=-1)
+    n.add('Load', 'feed43', bus='north', p_set=10, sign=1)
+    n.add('StorageUnit', 'su43', bus='south', p_nom=10, max_hours=2, state_of_charge_initial=20, sign=-1)
+    n.add('Store', 'e43', bus='north', e_nom=30, e_initial=30, sign=-1)
+    return n
+```
+
+</details>
+<!-- reference:rung_43_sign:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -3646,6 +3706,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\overline{\mathrm{p}}`$ | `Generator_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — most output, per unit of nominal power — an availability profile |
 | $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — cost of one unit of output |
 | $`\mathrm{c}^{(2)}`$ | `Generator_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — cost of the square of one unit of output |
+| $`\mathrm{sgn}`$ | `Generator_sign` over $`\mathcal{G}`$ — the sign output enters its bus's balance with — PyPSA's `sign`, `1` unless given, `-1` for a unit that draws power. PyPSA refuses one that differs by scenario (`consistency.py:1187`) |
 | $`\mathrm{com}`$ | `Generator_committable` over $`\mathcal{G}`$ — whether output is gated by an on/off status decision |
 | $`\mathrm{ru}`$ | `Generator_ramp_limit_up` over $`\Xi \times \mathcal{G}`$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
 | $`\mathrm{rd}`$ | `Generator_ramp_limit_down` over $`\Xi \times \mathcal{G}`$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
@@ -3736,6 +3797,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\tau^{z,\mathrm{mnt}}`$ | `Process_maintenance_duration` over $`\Xi \times \mathcal{J}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the process is not maintainable. No row reads it: data prep turns it into `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the assumptions hold it to the horizon |
 | $`\mathrm{blk}^{z}`$ | `Process_maintenance_start_blocked` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the process does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
 | $`\mathrm{load}`$ | `Load_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{D}`$ — demand |
+| $`\mathrm{sgn}^{\mathrm{load}}`$ | `Load_sign` over $`\mathcal{D}`$ — the sign a load's demand enters its bus's balance with — PyPSA's `sign`, `-1` unless given, `1` for a load that feeds its bus. PyPSA refuses one that differs by scenario (`consistency.py:1187`) |
 | $`\pi`$ | `scenario_weight` over $`\Xi`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
 | $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of operating cost priced at the tail rather than in expectation; zero recovers the risk-neutral model |
 | $`\mathrm{v}`$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
@@ -3792,6 +3854,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{T}^{h}`$ | `StorageUnit_max_hours` over $`\Xi \times \mathcal{S}`$ — energy capacity, as hours of dispatch at nominal power |
 | $`\eta^{-}`$ | `StorageUnit_efficiency_store` over $`\Xi \times \mathcal{S}`$ — share of the power drawn from the bus that becomes charge |
 | $`\eta^{+}`$ | `StorageUnit_efficiency_dispatch` over $`\Xi \times \mathcal{S}`$ — share of the charge drawn down that reaches the bus |
+| $`\mathrm{sgn}^{h}`$ | `StorageUnit_sign` over $`\mathcal{S}`$ — the sign net dispatch enters its bus's balance with — PyPSA's `sign`, `1` unless given. PyPSA refuses one that differs by scenario (`consistency.py:1187`) |
 | $`\rho`$ | `StorageUnit_retention` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
 | $`\mathrm{inflow}`$ | `StorageUnit_inflow` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — energy arriving per hour, a river into a reservoir |
 | $`\mathrm{soc}^{0}`$ | `StorageUnit_state_of_charge_initial` over $`\Xi \times \mathcal{S}`$ — charge held before the first snapshot |
@@ -3812,6 +3875,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{ext}^{e}`$ | `Store_e_nom_extendable` over $`\mathcal{V}`$ — whether the nominal energy capacity is a decision |
 | $`\underline{\mathrm{e}}`$ | `Store_e_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — least energy held, per unit of nominal capacity — negative for a store that may go short |
 | $`\overline{\mathrm{e}}`$ | `Store_e_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — most energy held, per unit of nominal capacity |
+| $`\mathrm{sgn}^{q}`$ | `Store_sign` over $`\mathcal{V}`$ — the sign the power a store delivers enters its bus's balance with — PyPSA's `sign`, `1` unless given. PyPSA refuses one that differs by scenario (`consistency.py:1187`) |
 | $`\rho^{e}`$ | `Store_retention` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
 | $`\mathrm{e}^{0}`$ | `Store_e_initial` over $`\Xi \times \mathcal{V}`$ — energy held before the first snapshot |
 | $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\Xi \times \mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
@@ -7962,14 +8026,15 @@ Bus_nodal_balance:
     process port drawing or delivering at its own rate and each passive branch
     carrying its flow, meets the load there, less half of every incident
     line's and transformer's loss — PyPSA dissipates a branch's loss half at
-    either end.
+    either end. Each generator, storage unit, store and load term enters
+    with its component's `sign` (`constraints.py:1428-1429`, `:1538`).
     A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
   dims: [scenario, snapshot, bus]
   expression: >-
-    sum(Generator_p, by=Generator_bus, over=generator, into=bus)
-    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus, over=storage_unit, into=bus)
-    + sum(Store_p, by=Store_bus, over=store, into=bus)
+    sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
+    + sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
+    + sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
     - sum(Link_p, by=Link_bus0, over=link, into=bus)
     + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
     + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
@@ -7981,11 +8046,11 @@ Bus_nodal_balance:
     + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
     - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
     - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
-    == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+    == -sum(Load_sign * Load_p_set, by=Load_bus, over=load, into=bus)
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} \mathrm{sgn}_{g} \cdot p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \mathrm{sgn}^{h}_{s} \cdot \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} \mathrm{sgn}^{q}_{v} \cdot q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) = -\left( \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{sgn}^{\mathrm{load}}_{d} \cdot \mathrm{load}_{\xi,t,d} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
 ```
 
 ### `Carrier-growth_limit`
