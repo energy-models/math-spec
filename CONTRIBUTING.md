@@ -10,7 +10,7 @@ We're glad you're reading this; we welcome all contributors!
 Some of the resources to look at if you're interested in contributing:
 
 - Look at open issues tagged with ["help wanted"](https://github.com/energy-models/mathspec/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) and ["good first issue"](https://github.com/energy-models/mathspec/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-- Look at the [contributing guide in our documentation](https://math-spec.readthedocs.io/en/latest/contributing/)
+- Look at the [contributing guide in our documentation](https://mathspec.readthedocs.io/en/latest/contributing/)
 
 ## Licensing
 
@@ -33,7 +33,7 @@ Follow these links to submit your issue:
 
 ## Submitting changes
 
-Look at the [development guide in our documentation](https://math-spec.readthedocs.io/en/latest/contributing/) for information on how to get set up for development.
+Look at the [development guide in our documentation](https://mathspec.readthedocs.io/en/latest/contributing/) for information on how to get set up for development.
 
 <!--- the "--8<--" html comments define what part of this file to add to the index page of the documentation -->
 <!--- --8<-- [start:docs] -->

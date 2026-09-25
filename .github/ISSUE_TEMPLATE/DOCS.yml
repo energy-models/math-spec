@@ -12,7 +12,7 @@ body:
     attributes:
       label: Description
       description: >-
-        Please describe the inconsistency or issue you have found in [our documentation](https://math-spec.readthedocs.io) or indicate where you feel there is a need for improvement.
+        Please describe the inconsistency or issue you have found in [our documentation](https://mathspec.readthedocs.io) or indicate where you feel there is a need for improvement.
         Furthermore, explain the severity of the issue, i.e., its impact on you and potentially other users.
     validations:
       required: true
@@ -22,7 +22,7 @@ body:
     attributes:
       label: Related links
       description: >-
-        Please list all links to the sections of [our documentation](https://math-spec.readthedocs.io) that are impacted by the issue you described above.
+        Please list all links to the sections of [our documentation](https://mathspec.readthedocs.io) that are impacted by the issue you described above.
         If applicable, add screenshots.
         Additionally, list links to possibly related open and closed [issues](https://github.com/energy-models/mathspec/issues) and [discussions](https://github.com/energy-models/mathspec/discussions) you encountered when searching our issue tracker.
     validations:
