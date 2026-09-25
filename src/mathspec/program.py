@@ -4,16 +4,16 @@
 
 """The program: what a file declares, with names resolved and shapes fixed.
 
-The second public state, and the one a consumer reads. A :class:`Program` is
+The second public state, and the one a consumer reads. A [`Program`][] is
 the file typed, section for section: every declaration it makes, with names
 resolved, shapes fixed and every rule decidable without data checked, and no
-data at all. Lowering, as a :class:`~mathspec.model.Spec` loads, is the only
+data at all. Lowering, as a [`Spec`][] loads, is the only
 thing that builds one, so nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
-node's structure does not show is :func:`children`; the questions over the walk
-are :func:`walk_regions`, :func:`walk` and the filters beside them. A
-resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
+node's structure does not show is [`children`][]; the questions over the walk
+are [`walk_regions`][], [`walk`][] and the filters beside them. A
+resolved ``where`` arrives as a [`Mask`][]. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
 one: ``docs/reference/reading.md``.
 """
@@ -154,7 +154,7 @@ ObjectiveSense = Literal['minimize', 'maximize']
 SosType = Literal[1, 2]
 
 #: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
-#: with :data:`~mathspec.model.PIECEWISE_METHODS`, which says what each one
+#: with [`PIECEWISE_METHODS`][mathspec.model.PIECEWISE_METHODS], which says what each one
 #: emits, by ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
@@ -189,7 +189,7 @@ class Variable:
 class Dual:
     """A constraint's dual — its shadow price, read after the solve.
 
-    Stands only under an :class:`ExpressionDeclaration` the math never reads:
+    Stands only under an [`ExpressionDeclaration`][] the math never reads:
     the loader refuses ``dual()`` anywhere a solver ingests. One value per
     coordinate of the named constraint's own ``dims`` frame: the leaf reshapes
     nothing, like a parameter.
@@ -214,7 +214,7 @@ class Multiply:
     """Product of two operands.
 
     Affine where at least one factor is variable-free; degree 2 where neither
-    is, which ``mathspec.degree`` admits in a :data:`QuadraticPosition` alone.
+    is, which ``mathspec.degree`` admits in a [`QuadraticPosition`][] alone.
     """
 
     left: Expression
@@ -264,7 +264,7 @@ class GroupSum:
 
 @dataclass(frozen=True)
 class Pullback:
-    """Read ``operand`` through a relation — the adjoint of :class:`GroupSum`.
+    """Read ``operand`` through a relation — the adjoint of [`GroupSum`][].
 
     The dims ``direction`` consumes go and the dims it produces arrive, one
     value per coordinate because the read takes value columns at a key the
@@ -290,7 +290,7 @@ class Translate:
     not depend on ``along`` and carries its sign in the values.
 
     ``partition`` is a relation with a key column over ``along``
-    (:class:`Partition`), and the translation then happens inside each group
+    ([`Partition`][]), and the translation then happens inside each group
     its ``within=`` columns make: the neighbour is the one before in the same
     group, the edge is the group's, and a wrap closes each group onto itself.
     A coordinate the relation sends nowhere reaches nothing.
@@ -334,7 +334,7 @@ class WindowSum:
 
 @dataclass(frozen=True)
 class Region:
-    """One region of a :class:`Cases`: where it applies, and the value there.
+    """One region of a [`Cases`][]: where it applies, and the value there.
 
     ``when`` is stated on every region; the one the file wrote as
     ``otherwise:`` carries the negation of the others.
@@ -361,10 +361,10 @@ class Named:
     """A use of an ``expressions:`` entry, standing where its name was written, with the entry's body under it.
 
     Its value is its body's: a consumer building rows steps through it, as
-    :func:`children` does. It is kept as a node rather than written in so the
+    [`children`][] does. It is kept as a node rather than written in so the
     typesetter can print the symbol where the name stood and define it once.
     Every use of one entry holds the one node resolution built for it, whose
-    :attr:`body` is the :attr:`ExpressionDeclaration.expression` of that entry.
+    [`body`][] is the [`ExpressionDeclaration.expression`][] of that entry.
     """
 
     name: str
@@ -376,10 +376,10 @@ class Named:
 #: ``assert_never`` and a node added without a branch is a type error at the
 #: site that must grow one, rather than a ``LanguageError`` raised at the first
 #: model that uses it. The degree rules (``mathspec.degree``) hold on every
-#: tree the math reads — :attr:`Program.roots`, a bound, and a named expression
-#: that is ``in_math`` — affine but where a :class:`QuadraticPosition` admits a
-#: :class:`Multiply` of two variable-carrying operands. A
-#: :class:`ExpressionDeclaration` the math never reads is held to none of them.
+#: tree the math reads — [`Program.roots`][], a bound, and a named expression
+#: that is ``in_math`` — affine but where a [`QuadraticPosition`][] admits a
+#: [`Multiply`][] of two variable-carrying operands. A
+#: [`ExpressionDeclaration`][] the math never reads is held to none of them.
 #: No node records which tree it stands in.
 Expression = (
     Constant
@@ -433,7 +433,7 @@ class RelationDeclaration:
 
     ``columns`` maps each role to its dimension in the order the table
     carries them, the key's roles first; ``key`` is the roles a row is
-    identified by, and :attr:`values` the rest — every role is a key role for
+    identified by, and [`values`][] the rest — every role is a key role for
     a bare relation, which is one with no value columns. Every value is
     checked when the data is attached to be a label of its column's dimension, and the table to
     have one row per key tuple — which keeps a mistyped label from silently
@@ -460,7 +460,7 @@ class RelationDeclaration:
 
     @cached_property
     def _dim_of(self) -> Mapping[str, str]:
-        """Each role's dimension, built once: :meth:`dim` is called per role inside loops over roles."""
+        """Each role's dimension, built once: [`dim`][] is called per role inside loops over roles."""
         return dict(self.columns)
 
     def dim(self, role: str) -> str:
@@ -472,7 +472,7 @@ class Direction:
     """One relation as one call reads it — which columns are consumed, which produced, which joined on.
 
     The declaration fixes no direction; the call does, and this is the one it
-    named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
+    named. ``name`` is the relation's, as [`Program.relations`][] keys it.
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
     ``relation``, which maps every role to its dimension and names the key.
     ``joined`` is the key roles the call did not name (every role, for a bare
@@ -507,7 +507,7 @@ class Direction:
 class Partition:
     """One relation as a partition steps along it — the key column stepped along, the group columns, and the key columns joined on.
 
-    ``name`` is the relation's, as :attr:`Program.relations` keys it.
+    ``name`` is the relation's, as [`Program.relations`][] keys it.
     ``along``, ``group`` and ``joined`` are *roles* — column names of
     ``relation``, which maps every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
@@ -602,7 +602,7 @@ class VariableDeclaration:
     #: A number or a parameter, or ``None`` where that side is open. What stands
     #: for an open side in a solve is the consumer's to choose.
     lower: Expression | None = None
-    #: As :attr:`lower`, for the other side.
+    #: As [`lower`][], for the other side.
     upper: Expression | None = None
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
@@ -634,7 +634,7 @@ class SosDeclaration:
     columns a consumer already has and says what may be nonzero among them. Which
     dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
-    (:attr:`Program.variables`).
+    ([`Program.variables`][]).
     """
 
     variable: str
@@ -658,9 +658,9 @@ class ExpressionDeclaration:
 
     ``in_math`` where the objective or a constraint reads it, directly or
     through another entry or a macro; its body then stands inside
-    :attr:`Program.roots` and is held to the degree rules where it is
+    [`Program.roots`][] and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
-    quantity, its body held to no degree, the one place a :class:`Dual` may
+    quantity, its body held to no degree, the one place a [`Dual`][] may
     stand. A bound and a ``where`` name no entry, so neither decides this.
     """
 
@@ -687,12 +687,12 @@ class Link:
 
 @dataclass(frozen=True)
 class PiecewiseDeclaration:
-    """A ``piecewise:`` block as the curve it states, which :meth:`~mathspec.model.Spec.expand` writes out as rows.
+    """A ``piecewise:`` block as the curve it states, which [`expand`][mathspec.model.Spec.expand] writes out as rows.
 
     A program of a model that still declares one carries it here, typed; a
     program of the expanded model carries the rows instead, under
-    :attr:`Program.variables` and :attr:`Program.constraints`, and what the
-    method assumes of the breakpoints under :attr:`Program.assumptions`. A
+    [`Program.variables`][] and [`Program.constraints`][], and what the
+    method assumes of the breakpoints under [`Program.assumptions`][]. A
     consumer building rows takes the expanded model.
 
     Attributes:
@@ -756,7 +756,7 @@ class Reach:
         label: The declaration reading, as the lowering's messages label it.
         name: The parameter or relation that says how far.
         kind: An ``offset`` is a parameter's values, which
-            :meth:`Separability.resolved` folds in; a ``partition`` and a
+            [`Separability.resolved`][] folds in; a ``partition`` and a
             ``coordinate`` are a relation's groups, which it does not.
     """
 
@@ -798,22 +798,22 @@ class Separability:
         undecided: Each read along the axis whose reach only data can say —
             a named offset, a partition whose groups a window may cut, a read
             through a relation at a coordinate the data chooses.
-            :meth:`resolved` folds a parameter's values in.
+            [`resolved`][] folds a parameter's values in.
         restarts: Each declaration counting a position along the axis, which a
             window restarts at its first row. Whether that is wanted — a seed
             once per window, or once per horizon — is the modeller's, so it is
             reported rather than refused.
         linking_rows: Each constraint no one window holds whole, in declaration
             order: one the axis does not index, whose row stands in every
-            window, and one :attr:`coupled` names. A reach the data decides is
-            not one, so a row waiting on :attr:`undecided` may span two windows.
+            window, and one [`coupled`][] names. A reach the data decides is
+            not one, so a row waiting on [`undecided`][] may span two windows.
         linking_columns: Each variable the axis does not index, in declaration
             order, whose column every window reads. A decomposition calls a
-            window a block, and with :attr:`linking_rows` this is the border of
+            window a block, and with [`linking_rows`][] this is the border of
             a bordered block-diagonal form cut along the axis, whole where
-            nothing is :attr:`undecided` and no set runs through it. A set
+            nothing is [`undecided`][] and no set runs through it. A set
             couples the axis without building a row, so it stands in neither
-            field. The form is exactly that where :attr:`ahead` is ``0``: a
+            field. The form is exactly that where [`ahead`][] is ``0``: a
             positive lookahead is neighbouring blocks overlapping by that much.
     """
 
@@ -827,18 +827,18 @@ class Separability:
 
     @property
     def windowable(self) -> bool:
-        """Whether every row builds complete inside a window looking :attr:`ahead` past its last row.
+        """Whether every row builds complete inside a window looking [`ahead`][] past its last row.
 
-        ``False`` while a reach is :attr:`undecided`, which a driver holding
-        the data may resolve; :attr:`restarts` do not count against it.
+        ``False`` while a reach is [`undecided`][], which a driver holding
+        the data may resolve; [`restarts`][] do not count against it.
         """
         return not self.coupled and not self.undecided
 
     def resolved(self, least: Mapping[str, int]) -> Separability:
-        """The same verdict with each named offset folded into :attr:`ahead`.
+        """The same verdict with each named offset folded into [`ahead`][].
 
         A driver holding the data reads the least value of each parameter an
-        :attr:`undecided` reach names and hands it here, so the rule that
+        [`undecided`][] reach names and hands it here, so the rule that
         turns a value into a reach — a negative offset reads ahead by that
         much, a positive one reads behind and asks nothing — has one home.
 
@@ -889,10 +889,10 @@ class Program:
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
     #: language decides none of it, so the consumer attaching the data checks
-    #: each and refuses with :func:`assumption_message`.
+    #: each and refuses with [`assumption_message`][].
     assumptions: Mapping[str, Assumption] = Sealed({})
     #: Declared ``expressions:``, each saying whether the math reads it. None
-    #: builds a row of its own — one the math reads stands as a :class:`Named`
+    #: builds a row of its own — one the math reads stands as a [`Named`][]
     #: where it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
@@ -920,9 +920,9 @@ class Program:
     def roots(self) -> tuple[Expression, ...]:
         """Every tree a row is built from — the objective and both sides of each constraint.
 
-        An :attr:`expressions` entry builds no row and is not among them. Nor is
-        a curve still under :attr:`piecewise`: it is not a row until
-        :meth:`~mathspec.model.Spec.expand` writes it out, and its rows are in
+        An [`expressions`][] entry builds no row and is not among them. Nor is
+        a curve still under [`piecewise`][]: it is not a row until
+        [`expand`][mathspec.model.Spec.expand] writes it out, and its rows are in
         the program of the expansion.
         """
         return tuple(e for _, group in self._by_position() for e in group)
@@ -932,7 +932,7 @@ class Program:
         """Which constructs this program uses — walked once, then held.
 
         It answers for the rows this program holds. A curve still under
-        :attr:`piecewise` is not counted, so a ``sos2`` curve adds no set order
+        [`piecewise`][] is not counted, so a ``sos2`` curve adds no set order
         here; ask the program of ``spec.expand('piecewise')`` for its rows.
         """
         return Footprint(
@@ -959,13 +959,13 @@ class Program:
         being a sum already.
 
         Every declared dimension has an entry, an axis nothing mentions being
-        trivially windowable. Walked once and held, like :attr:`footprint` and
+        trivially windowable. Walked once and held, like [`footprint`][] and
         for the same reason — a program cannot change after construction — and
         answering for every axis costs what answering for one did, every
         construct that ties an axis naming the axis it ties (#248).
 
-        It answers for the rows this program holds, as :attr:`footprint` does.
-        A curve still under :attr:`piecewise` ties nothing here, although its
+        It answers for the rows this program holds, as [`footprint`][] does.
+        A curve still under [`piecewise`][] ties nothing here, although its
         rows sum over its breakpoint dimension; ask the program of
         ``spec.expand('piecewise')``.
         """
@@ -986,10 +986,10 @@ def walk_regions(*expressions: Expression) -> Iterator[tuple[Expression, tuple[M
     it mentions, whether a variable stands under it, which divisions it
     contains, which rows a piece owes data at. One generator rather than that
     five-line recursion once per question: how a program is traversed is one
-    fact, so a node kind :func:`children` learns to descend into reaches every
+    fact, so a node kind [`children`][] learns to descend into reaches every
     caller at once rather than the callers that remembered.
 
-    The regions are the ``when`` of every :class:`Cases` region the node's
+    The regions are the ``when`` of every [`Cases`][] region the node's
     value stands under, the outermost first, which is the order the masks
     conjoin in. A node outside any ``cases:`` block carries the empty tuple,
     and a ``Cases`` node carries only the regions above it, not its own. The
@@ -1002,11 +1002,11 @@ def walk_regions(*expressions: Expression) -> Iterator[tuple[Expression, tuple[M
 def _walk_regions(
     expressions: tuple[Expression, ...], above: tuple[Mask, ...]
 ) -> Iterator[tuple[Expression, tuple[Mask, ...]]]:
-    """The recursion under :func:`walk_regions`, with the regions above *expressions* carried down.
+    """The recursion under [`walk_regions`][], with the regions above *expressions* carried down.
 
-    A ``Cases`` descends by its regions rather than by :func:`children`, because
+    A ``Cases`` descends by its regions rather than by [`children`][], because
     only the region pairs a value with its ``when``; every other node kind
-    descends by :func:`children`, which stays the one home of what sits under
+    descends by [`children`][], which stays the one home of what sits under
     a node.
     """
     for expression in expressions:
@@ -1021,7 +1021,7 @@ def _walk_regions(
 def walk(*expressions: Expression) -> Iterator[Expression]:
     """Every node under *expressions*, each expression itself included, parents first.
 
-    :func:`walk_regions` with the regions dropped, for the questions that do
+    [`walk_regions`][] with the regions dropped, for the questions that do
     not ask where a node stands.
     """
     return (node for node, _ in walk_regions(*expressions))
@@ -1136,7 +1136,7 @@ class DimensionPosition:
 
     Both sides are integers, negative counting from the end. With a
     ``partition`` the position is counted within each group the relation makes
-    (:class:`Partition`), whose joined columns' dimensions the frame carries.
+    ([`Partition`][]), whose joined columns' dimensions the frame carries.
     """
 
     name: str
@@ -1196,7 +1196,7 @@ class CountComparison:
     The count is one number per coordinate of ``dims``, which is every dim
     *predicate* reads minus *over*, so a claim about each curve is written
     without saying "each curve". A predicate a leaf reads arrives as a
-    :class:`Mask`, where a connective's operand is a bare :data:`Predicate`:
+    [`Mask`][], where a connective's operand is a bare [`Predicate`][]:
     a walk recurses through the second and stops at the first.
     """
 
@@ -1231,7 +1231,7 @@ class PulledBackPredicate:
     True at a coordinate where the relation has a row and *operand* holds at
     the coordinate that row reads. False where the relation has no row, which
     is what a missing row already means in a mask. The dims ``direction``
-    consumes go and the dims it produces arrive, as :class:`Pullback`'s do.
+    consumes go and the dims it produces arrive, as [`Pullback`][]'s do.
     """
 
     operand: Mask
@@ -1281,7 +1281,7 @@ TypedPredicate = (
 Connective = Not | And | Or
 
 #: Every resolved predicate node. The parser's ``Unresolved*`` nodes are not members: they live with the
-#: grammar in :mod:`mathspec._where_parser`, and resolution rewrites them away
+#: grammar in [`mathspec._where_parser`][], and resolution rewrites them away
 #: before anything here is asked.
 Predicate = BooleanLiteral | TypedPredicate | Connective
 
@@ -1289,7 +1289,7 @@ Predicate = BooleanLiteral | TypedPredicate | Connective
 def where_children(where: Predicate) -> tuple[Predicate, ...]:
     """The predicates under *where* — a connective's operands, and nothing under a leaf.
 
-    What every walk over a predicate recurses through, as :func:`children` is
+    What every walk over a predicate recurses through, as [`children`][] is
     for an expression. A leaf has nothing under it whether or not it is
     resolved, so the grammar measures its own output with this too.
     """
@@ -1319,7 +1319,7 @@ def _atoms(where: Predicate) -> Iterator[TypedPredicate]:
 
 
 def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
-    """One leaf's dims — the rule :attr:`Mask.dims` is the union of.
+    """One leaf's dims — the rule [`Mask.dims`][] is the union of.
 
     A parameter or variable leaf carries its own dims off the declaration; a
     comparison on a dimension is read through that dimension, and a relation
@@ -1353,13 +1353,13 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
 
 
 def _atom_names(atom: TypedPredicate) -> frozenset[str]:
-    """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
+    """One leaf's declarations, its dimension apart — the rule [`Mask.names_read`][] is the union of.
 
     A comparison on a dimension names no declaration — a coordinate is not
     data to feed — a relation pair names both maps it compares, and a
     comparison of expressions names every parameter and relation its sides
     read, answered on the program's form of it since only a program mask is
-    asked. ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
+    asked. ``assert_never``-closed for the reason [`_atom_dims`][] is: a predicate
     node added without a reading is a type error at this one branch rather
     than a name silently dropped at the first model to use it.
     """
@@ -1385,7 +1385,7 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
 def _names_under(*expressions: Expression) -> frozenset[str]:
     """Every parameter and relation the data has to supply for *expressions* — what a mask's ``names_read`` promises.
 
-    :func:`parameters_of` alone misses the data an operator reads beside its
+    [`parameters_of`][] alone misses the data an operator reads beside its
     operand: the relation a grouping or a pullback reads through, the one a
     translation or a window is partitioned by, the parameter a named offset or
     width is read from, and whatever decides which region of a cased value
@@ -1407,7 +1407,7 @@ def _names_under(*expressions: Expression) -> frozenset[str]:
 
 
 def _conjuncts(where: Predicate) -> tuple[Predicate, ...]:
-    """The flatten rule behind :attr:`Mask.conjuncts` — the one home of the split.
+    """The flatten rule behind [`Mask.conjuncts`][] — the one home of the split.
 
     ``a AND b AND c`` gives three, and a predicate that is not an ``AND`` gives
     itself. The walk stops at the first node that is not an ``AND``: the
@@ -1426,7 +1426,7 @@ def _fold(node: Predicate) -> Predicate:
     ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
     none, ``NOT True`` is ``False`` and ``NOT NOT X`` is ``X``. What survives
     is a predicate over data, or the one literal the whole mask reduces to —
-    the invariant :class:`Mask` applies at construction, so it holds wherever
+    the invariant [`Mask`][] applies at construction, so it holds wherever
     a mask is built.
     """
     if isinstance(node, Not):

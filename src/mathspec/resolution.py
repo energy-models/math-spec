@@ -5,12 +5,12 @@
 """Name resolution — the pass that reads the syntax tree into the program vocabulary.
 
 The grammars emit bare names and calls; resolution builds the
-:mod:`mathspec.program` node each stands for, so every pass after — the dim
+[`mathspec.program`][] node each stands for, so every pass after — the dim
 rules, the degree rules, the typesetter, lowering — reads one vocabulary. This
-module holds the :class:`Namespace` a resolution reads names from and the doors
+module holds the [`Namespace`][] a resolution reads names from and the doors
 lowering calls, one per kind of text; the walks are
-:class:`~mathspec._expression_resolver.ExpressionResolver` for arithmetic and
-:class:`~mathspec._where_resolver.WhereResolver` for a where string. The rules
+[`ExpressionResolver`][] for arithmetic and
+[`WhereResolver`][] for a where string. The rules
 live in the language reference.
 """
 
@@ -57,7 +57,7 @@ if TYPE_CHECKING:
 
 
 #: What a name a file may write turns out to be. Answered by
-#: :meth:`Namespace.kind`, so a pass reading a name switches over this rather
+#: [`Namespace.kind`][], so a pass reading a name switches over this rather
 #: than over the stores it would otherwise have to try in order.
 DeclarationKind = Literal['variable', 'parameter', 'dimension', 'relation']
 
@@ -147,7 +147,7 @@ class Namespace:
         The entries it reads are resolved before it, walked from a stack that
         holds the path of reads from *name* rather than by recursing into
         each, so a chain of entries however long costs no stack. An entry
-        that reads one on the path is a cycle, which :meth:`named` refuses
+        that reads one on the path is a cycle, which [`named`][] refuses
         with that path when the resolution reaches the read.
         """
         base = len(self._loading)
@@ -302,7 +302,7 @@ def resolve_where(
     errors: list[str],
     self_variable: str | None = None,
 ) -> Predicate | None:
-    """Rewrite a parsed where AST into typed predicates, folded as :class:`~mathspec.program.Mask` folds.
+    """Rewrite a parsed where AST into typed predicates, folded as [`Mask`][] folds.
 
     Returns:
         The typed tree — a mask admitting every row or none comes back as the
@@ -321,7 +321,7 @@ def resolve_where_text(
     errors: list[str],
     self_variable: str | None = None,
 ) -> Predicate | None:
-    """Parse and resolve one where string as :func:`resolve_where` does, a parse failure appended to *errors*.
+    """Parse and resolve one where string as [`resolve_where`][] does, a parse failure appended to *errors*.
 
     Returns:
         ``None`` where there is no mask to read, and where reading it failed.
@@ -343,10 +343,10 @@ def resolve_expression_text(
 
     *ceiling* is the degree the position honours, and ``None`` for an
     ``expressions:`` entry's body: what the math admits
-    (:func:`~mathspec.degree.check_expression`) is a rule about the position
+    ([`check_expression`][mathspec.degree.check_expression]) is a rule about the position
     that *reads* it, so it fires on the expanded tree of every objective and
     piecewise link, and not where an entry is declared. A constraint is
-    :func:`resolve_constraint_text`'s.
+    [`resolve_constraint_text`][]'s.
 
     Returns:
         The typed tree, or ``None`` once anything failed, the problem appended

@@ -4,9 +4,9 @@
 
 """The expression walk of name resolution: an arithmetic syntax tree into the program's expression nodes.
 
-Every operator call is read here — its shape against :data:`~mathspec.operators.BUILTINS`,
+Every operator call is read here — its shape against [`BUILTINS`][],
 its dimension and relation arguments against the namespace — and the node it
-stands for is built. :mod:`mathspec.resolution` holds the namespace and the
+stands for is built. [`mathspec.resolution`][] holds the namespace and the
 doors that call this.
 """
 
@@ -101,7 +101,7 @@ class ExpressionResolver:
         return isinstance(value, NameNode) and value.name in self.formals
 
     def build(self, node: ArithmeticNode) -> Expression | None:
-        """The program tree *node* stands for, held to :data:`MAX_RESOLVED_DEPTH` before anything walks it.
+        """The program tree *node* stands for, held to [`MAX_RESOLVED_DEPTH`][] before anything walks it.
 
         The depth is measured with every named expression written in, since
         that is the tree every later pass recurses over, and measured with an
@@ -175,9 +175,9 @@ class ExpressionResolver:
     def _name(self, node: NameNode) -> Expression | None:
         """A bare name as the variable, parameter or named expression it declares; a dimension or relation is not a value.
 
-        A named expression arrives as the one node :meth:`Namespace.named`
+        A named expression arrives as the one node [`Namespace.named`][]
         built for it; the cast is the one place a
-        :class:`~mathspec.program.Named` enters a tree typed as a program's,
+        [`Named`][mathspec.program.Named] enters a tree typed as a program's,
         which lowering makes true.
         """
         if node.name in self.formals:
@@ -360,7 +360,7 @@ class ExpressionResolver:
     def _amount(self, value: ArithmeticNode, operator: str, key: str) -> int | str | None:
         """``offset=`` or ``window=``: a whole number in the operator's range, or the name of a parameter.
 
-        Closed so that :func:`mathspec.dimensions._check_named_amount` sees
+        Closed so that [`mathspec.dimensions._check_named_amount`][] sees
         every parameter an amount carries, and so that a program's
         ``offset`` and ``width`` are the ``int | str`` they say.
         """
@@ -441,7 +441,7 @@ class ExpressionResolver:
         Constraints sit outside the flat namespace, so this store is consulted
         only here — a bare name in arithmetic never reaches it. A dual standing
         where the math is built is refused separately
-        (:mod:`mathspec.degree`); this pass only types the name.
+        ([`mathspec.degree`][]); this pass only types the name.
         """
         (value,) = node.args
         if self._formal(value):

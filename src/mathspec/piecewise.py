@@ -5,12 +5,12 @@
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
 A block becomes ordinary affine declarations when a caller asks
-:meth:`~mathspec.model.Spec.expand` for them, under names prefixed with the
+[`expand`][mathspec.model.Spec.expand] for them, under names prefixed with the
 block's own; what each method emits is tabled in
 ``docs/reference/language/piecewise.md``. Every rule a block is held to is
 decided at load, before this runs: the names it references in
-:class:`~mathspec.model.Spec`, its links where every expression is typed, and
-its frame in :func:`curve_frame`.
+[`Spec`][], its links where every expression is typed, and
+its frame in [`curve_frame`][].
 """
 
 from __future__ import annotations
@@ -263,9 +263,9 @@ class Emitted:
         )
 
     def written(self, method: PiecewiseMethod, *, ungated: bool) -> tuple[str, ...]:
-        """The variables and constraints :meth:`~mathspec.model.Spec.expand` declares for a block of *method*.
+        """The variables and constraints [`expand`][mathspec.model.Spec.expand] declares for a block of *method*.
 
-        *ungated* is :func:`leaves_ungated` of the block's gate. The set a
+        *ungated* is [`leaves_ungated`][] of the block's gate. The set a
         ``sos2`` or ``adjacency`` block states is written out too, since
         ``expand()`` writes every set.
         """
@@ -312,7 +312,7 @@ def curve_frame(schema: Spec, name: str, pw: PiecewiseBlock, links: Iterable[Exp
 
     In declaration order, because iterating a set would vary the emitted
     ``dims`` — and every column index behind it — per process. *links* are the
-    block's link expressions typed, as :func:`resolve_links` answers.
+    block's link expressions typed, as [`resolve_links`][] answers.
 
     Raises:
         DimensionError: A link or the gate carries the breakpoint dimension, or
@@ -487,7 +487,7 @@ def expand_piecewise(schema: Spec) -> Spec:
     A ``method: adjacency`` block states its restriction as the set
     ``method: sos2`` states, and then that set is written out here too: the
     binaries are what the method *is*, so the model that comes back carries no
-    set of its own (:func:`mathspec.sos.emit` is where they are spelled).
+    set of its own ([`mathspec.sos.emit`][] is where they are spelled).
     Each block's frame and names are read off the program *schema* lowered to.
     """
     if not schema.piecewise:

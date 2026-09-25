@@ -214,10 +214,10 @@ def _unsigned(node: Expression) -> Expression | None:
 
 
 class Walk:
-    """Walks a program, emitting :class:`Line`s in one format.
+    """Walks a program, emitting [`Line`][]s in one format.
 
-    :meth:`equations` prints every section; what those sections use, the
-    legend reads off the program (:func:`~mathspec.typesetting.legend.notice`).
+    [`equations`][] prints every section; what those sections use, the
+    legend reads off the program ([`notice`][]).
     """
 
     def __init__(

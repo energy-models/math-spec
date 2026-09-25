@@ -97,7 +97,7 @@ def read_yaml(path: Path | str) -> dict[str, object]:
 def read_model(model: str | Path) -> dict[str, object]:
     """A model from a file or from its text — a newline decides which a ``str`` is.
 
-    A :class:`~pathlib.Path` names a file, and so does a ``str`` with no
+    A [`Path`][] names a file, and so does a ``str`` with no
     newline in it, since no path holds one; a ``str`` with a newline is the
     YAML itself, which every file and every ``to_yaml()`` ends with. Nothing
     else is read off the content and nothing is read off the disk to decide.

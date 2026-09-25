@@ -19,7 +19,7 @@ class Sealed[K, V](Mapping[K, V]):
     What every group a program hands out is held behind, and a node's
     keyword arguments with them: a consumer cannot rewrite what another
     consumer reads, and the whole crosses a process — which is the one thing
-    :class:`types.MappingProxyType` cannot do. Equal to any mapping with the
+    [`types.MappingProxyType`][] cannot do. Equal to any mapping with the
     same items, and hashable over them where they are, so a dataclass may
     hold one as a default.
     """

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from pydantic import ValidationError
 
 
-#: Which pass an :class:`Advice` comes from. Closed, like the operator set: a
+#: Which pass an [`Advice`][] comes from. Closed, like the operator set: a
 #: consumer filtering on it can enumerate every value.
 AdviceKind = Literal['never-an-axis', 'unbounded']
 
@@ -71,8 +71,8 @@ def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') ->
 def schema_error(exc: ValidationError) -> LanguageError:
     """A pydantic ``ValidationError`` as one of ours.
 
-    Returns the original :class:`LanguageError` subclass where exactly one
-    error carries one, and a :class:`SchemaError` otherwise.
+    Returns the original [`LanguageError`][] subclass where exactly one
+    error carries one, and a [`SchemaError`][] otherwise.
     """
     errors = exc.errors()
     lines = []

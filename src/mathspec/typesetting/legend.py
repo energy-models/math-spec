@@ -5,7 +5,7 @@
 """The legend: the glossary of symbols, and a note for each notation the equations use.
 
 What the equations use is read off the program before anything prints
-(:func:`notice`), so the legend explains every symbol the walk will print and
+([`notice`][]), so the legend explains every symbol the walk will print and
 nothing the walk decides is asked of it twice.
 """
 

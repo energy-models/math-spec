@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The walk behind :attr:`~mathspec.program.Program.separability` — every axis's verdict, in one pass over a program."""
+"""The walk behind [`Program.separability`][] — every axis's verdict, in one pass over a program."""
 
 from __future__ import annotations
 

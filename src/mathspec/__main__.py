@@ -5,10 +5,10 @@
 """``python -m mathspec <verb> model.yaml`` — the shell front.
 
 ``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off :data:`mathspec.typesetting.FORMATS`. Every verb
+per typeset format, read off [`mathspec.typesetting.FORMATS`][]. Every verb
 reads the file as written, and nothing here writes a formulation out unasked.
 The typeset verbs take ``--expand``, because a shell cannot compose
-:meth:`~mathspec.model.Spec.expand` the way a caller does and the rows are a
+[`expand`][mathspec.model.Spec.expand] the way a caller does and the rows are a
 different document; ``check`` has no such flag, because advice reads a block
 as the rows it states.
 """
@@ -19,7 +19,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from mathspec.advice import advice
+from mathspec.advising import advice
 from mathspec.errors import MathSpecError
 from mathspec.typesetting import FORMATS, typeset
 from mathspec.validation import to_spec

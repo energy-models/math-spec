@@ -4,15 +4,15 @@
 
 """The front door, and the rules a declaration is held to against the others before any expression is read.
 
-:func:`to_spec` reads a model definition into a :class:`~mathspec.model.Spec`.
-:func:`reference_errors` holds the rules one declaration is held to against
+[`to_spec`][] reads a model definition into a [`Spec`][].
+[`reference_errors`][] holds the rules one declaration is held to against
 the others — a name declared once, a frame over declared dimensions, a bound
 naming a numeric parameter, a set over one dim of one variable, a curve
 through parameters carrying its breakpoints — which lowering runs before it
 reads any expression, since resolution assumes every one of them.
-:func:`emitted_name_errors` is read off the program instead: what a block's
+[`emitted_name_errors`][] is read off the program instead: what a block's
 expansion writes is decided by the block as lowered. The rules that need a
-typed expression stay with the expressions in :func:`~mathspec.lowering.lower`:
+typed expression stay with the expressions in [`lower`][mathspec.lowering.lower]:
 a macro formal against a dimension, a curve's links, and every dim rule.
 """
 
@@ -45,9 +45,9 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
     where string, and every macro template.
 
     Args:
-        model: A YAML path — a :class:`~pathlib.Path`, or a ``str`` with no
+        model: A YAML path — a [`Path`][], or a ``str`` with no
             newline in it — the YAML text itself as a ``str`` with one, a
-            mapping, or a loaded :class:`Spec`.
+            mapping, or a loaded [`Spec`][].
 
     Returns:
         The schema *as the file declares it*, ``piecewise:`` intact.

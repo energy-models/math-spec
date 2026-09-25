@@ -12,6 +12,8 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+- fix(docs): the Python API pages link every name a docstring cites, and show advice as the function it is ([#720](https://github.com/energy-models/mathspec/pull/720))
+
 ## 0.1.0 (2026-09-25)
 
 🎉 mathspec is officially on PyPI!

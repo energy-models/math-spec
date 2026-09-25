@@ -7,7 +7,7 @@
 A bare name, a comparison, a count and a predicate read through a relation
 or along a dimension are each typed here against the namespace, and a
 comparison of expressions hands its sides to the expression walk.
-:mod:`mathspec.resolution` holds the namespace and the doors that call this.
+[`mathspec.resolution`][] holds the namespace and the doors that call this.
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ class WhereResolver:
     appended to ``errors``; every sibling is still read, so a mask with two
     faults reports both. ``self_variable`` is the variable whose own
     ``where`` is being read, which may not ask whether it exists. A side
-    that is an expression is built by an :class:`ExpressionResolver` over
+    that is an expression is built by an [`ExpressionResolver`][] over
     the same namespace.
     """
 
@@ -169,7 +169,7 @@ class WhereResolver:
         """``shift(<predicate>, along=, offset=)`` or ``at(<predicate>, by=, over=, into=)`` — the two operators that read a predicate and answer one.
 
         ``count`` answers a number, so it stands on a comparison's side and
-        :meth:`_count` reads it there. Anything else naming a predicate is
+        [`_count`][] reads it there. Anything else naming a predicate is
         refused here rather than resolved into arithmetic it cannot be.
 
         An operand that failed to resolve is handed straight back: resolution
