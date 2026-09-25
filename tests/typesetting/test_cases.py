@@ -140,11 +140,11 @@ def test_a_variable_reached_through_another_cased_expression_still_prints_chosen
 
 def test_the_table_may_rename_a_named_expression_cased_or_plain():
     """Both print under their own name, so both are the table's to spell."""
-    tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
+    tex = to_latex(CASED, symbols={'latex': {'names': {'headroom': r'\bar h'}}}, legend=False)
     assert r'\bar h_{t,g}' in tex
 
     plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
-    tex = to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+    tex = to_latex(plain, symbols={'latex': {'names': {'supply': 's'}}}, legend=False)
     assert 's_{t} & =' in tex, 'the definition prints under the spelling the table gave'
 
 

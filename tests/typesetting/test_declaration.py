@@ -105,9 +105,9 @@ def test_a_line_on_its_own_inlines_the_expressions_it_uses_unless_told_otherwise
 
 
 def test_a_symbol_table_renames_an_expression_either_way():
-    table = {'notation': 'latex', 'names': {'headroom': r'\bar h'}}
+    table = {'latex': {'names': {'headroom': r'\bar h'}}}
     assert typeset_declaration(CASED, 'headroom', 'latex', symbols=table).startswith(r'\bar h_{t,g} =')
-    table = {'notation': 'latex', 'names': {'spend': 'S'}}
+    table = {'latex': {'names': {'spend': 'S'}}}
     assert typeset_declaration(PLAIN, 'spend', 'latex', symbols=table).startswith('S_{t} =')
 
 

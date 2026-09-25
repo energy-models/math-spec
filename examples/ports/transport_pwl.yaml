@@ -80,3 +80,15 @@ objective:
   sense: minimize
   description: total freight, charged on the scaled consignment rather than on the shipment
   expression: sum(scaled * distance * freight / 1000)
+
+# The adjacency method writes out two families — the convex-combination weights
+# and the binary that says which segment is live — and names both after the
+# block, which no equation can carry. Lambda and delta are what the
+# piecewise-linear literature calls them.
+symbols:
+  latex:
+    names:
+      economies_of_scale_lam: "\\lambda"
+      economies_of_scale_seg: "\\delta"
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"

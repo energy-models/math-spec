@@ -16,13 +16,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, get_args
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
-#: The language a symbol table's entries are written in, and the one a format
-#: reads them as. Markdown is absent because its math is MathJax's, so it reads
-#: ``latex``; nothing translates between the two.
-Notation = Literal['latex', 'typst']
-
-#: The set form, for the sidecar that has to check a string against it.
-NOTATIONS = frozenset(get_args(Notation))
+    from mathspec.program import Notation
 
 #: Every operator a walk can name. A walk asks for one by name and a format
 #: spells it, so neither keeps a list of its own; the spellings are below, one

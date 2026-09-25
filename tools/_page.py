@@ -51,12 +51,6 @@ def without_header(path: Path) -> str:
     return '\n'.join(lines[start:]).strip()
 
 
-def sidecar_for(model: Path) -> Path | None:
-    """The symbol table under ``examples/symbols/`` named after *model*, if one exists."""
-    table = ROOT / 'examples' / 'symbols' / f'{model.stem}.yaml'
-    return table if table.is_file() else None
-
-
 def main(argv: list[str] | None, pages: Mapping[Path, Callable[[str], str]], tool: str) -> int:
     """Rewrite every page from its renderer, or with ``--check`` only say which have drifted."""
     ap = argparse.ArgumentParser(prog=f'python -m tools.{tool}')

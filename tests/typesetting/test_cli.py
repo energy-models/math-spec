@@ -159,6 +159,27 @@ def test_expand_prints_the_rows_the_blocks_state_rather_than_the_blocks(capsys):
     assert r'\mathit{hull\_curve\_lam}' in written, 'the weights print where the rows do'
 
 
+@pytest.mark.parametrize(
+    ('flags', 'printed'),
+    [
+        pytest.param([], r'\ell_{s}', id='the-models-own'),
+        pytest.param(['--no-symbols'], r'\mathrm{load}_{t}', id='none'),
+        pytest.param(['--symbols', 'TABLE'], r'L_{t}', id='a-file-in-its-place'),
+    ],
+)
+def test_symbols_print_from_the_model_unless_a_flag_replaces_them(flags, printed, tmp_path, capsys):
+    table = tmp_path / 'symbols.yaml'
+    table.write_text('latex: {names: {load: L}}\n')
+    argv = [
+        'latex',
+        str(EXAMPLES / 'dispatch.yaml'),
+        '--no-legend',
+        *(str(table) if f == 'TABLE' else f for f in flags),
+    ]
+    assert front.main(argv) == 0
+    assert printed in capsys.readouterr().out
+
+
 def test_a_format_nothing_can_render_is_refused_rather_than_guessed():
     """The failure worth excluding is a front that writes an empty file.
 

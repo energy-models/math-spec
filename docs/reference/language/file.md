@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # File shape
 
 A model file is a YAML mapping with **eleven declaration keys**, plus
-`version` and `description`. Any subset of the eleven is accepted.
+`version`, `description` and `symbols`. Any subset of the eleven is accepted.
 
 | Key           |                                                                                                   |
 | ------------- | ------------------------------------------------------------------------------------------------- |
@@ -33,6 +33,24 @@ Free text that says what the model is. It is optional, and a
 ```yaml
 description: Least-cost dispatch of a generator fleet against an hourly load.
 ```
+
+## `symbols`
+
+How the names print, one table per notation. It is optional, and it changes
+nothing the model means. A [typeset document](../typeset.md#symbol-tables)
+reads the table for its own notation.
+
+```yaml
+symbols:
+  latex:
+    names:
+      load: "\\ell"
+  typst:
+    names:
+      load: ell
+```
+
+An entry that names nothing in the model is a load error.
 
 ## `version`
 

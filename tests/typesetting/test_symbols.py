@@ -9,9 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+import yaml
 
 from mathspec.errors import SchemaError
-from mathspec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
+from mathspec.typesetting import to_latex, to_markdown, to_typst, typeset
 from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
@@ -34,9 +35,10 @@ WITH_MARGINAL_COST = override(
         pytest.param(
             to_latex,
             {
-                'notation': 'latex',
-                'dimensions': {'generator': {'index': 'u', 'set': r'\mathcal{U}'}},
-                'names': {'p': r'\pi', 'marginal_cost': r'c^{\mathrm{marg}}'},
+                'latex': {
+                    'dimensions': {'generator': {'index': 'u', 'set': r'\mathcal{U}'}},
+                    'names': {'p': r'\pi', 'marginal_cost': r'c^{\mathrm{marg}}'},
+                }
             },
             (r'\pi_{t,u}', r'c^{\mathrm{marg}}_{u}', r'u \in \mathcal{U}', r'\mathrm{load}_{t}'),
             id='latex',
@@ -55,6 +57,70 @@ def test_the_table_prints_verbatim_and_the_rest_is_still_derived(render, symbols
     out = render(WITH_MARGINAL_COST, symbols=symbols, legend=False)
     for fragment in fragments:
         assert fragment in out
+
+
+#: The dispatch model spelling its own symbols, one table per notation.
+SPELLED = override(
+    DISPATCH_MODEL,
+    **{'symbols.latex.names': {'p': r'\pi'}, 'symbols.typst.names': {'p': 'pi'}},
+)
+
+
+@pytest.mark.parametrize(
+    'model',
+    [
+        pytest.param(lambda: SPELLED, id='a-mapping'),
+        pytest.param(lambda: yaml.safe_dump(SPELLED), id='the-yaml'),
+        pytest.param(lambda: to_spec(SPELLED), id='a-spec'),
+        pytest.param(lambda: to_spec(SPELLED).program, id='a-program'),
+        pytest.param(lambda: to_spec(to_spec(SPELLED).to_yaml()), id='the-yaml-a-spec-writes'),
+    ],
+)
+@pytest.mark.parametrize(
+    ('render', 'symbol'),
+    [
+        pytest.param(to_latex, r'\pi_{t,g}', id='latex'),
+        pytest.param(to_markdown, r'\pi_{t,g}', id='markdown'),
+        pytest.param(to_typst, 'pi_(t,g)', id='typst'),
+    ],
+)
+def test_the_model_carries_its_own_symbols_and_each_render_reads_its_notation(model, render, symbol):
+    """#492: the symbols lived in a sidecar written in one notation, so a model
+    documented in LaTeX could not print as Typst without a second file that
+    drifts. Markdown's math is MathJax's, so it reads the `latex` table."""
+    assert symbol in render(model(), legend=False)
+
+
+def test_a_notation_the_model_does_not_spell_prints_derived():
+    """A model with only a LaTeX table used to be refused by a Typst render."""
+    latex_only = override(DISPATCH_MODEL, **{'symbols.latex.names': {'p': r'\pi'}})
+    assert to_typst(latex_only) == to_typst(DISPATCH_MODEL), 'no typst table, so every symbol is derived'
+
+
+@pytest.mark.parametrize(
+    ('symbols', 'expected'),
+    [
+        pytest.param({}, lambda: to_latex(DISPATCH_MODEL), id='an-empty-block-derives-every-symbol'),
+        pytest.param(
+            {'latex': {'names': {'cost': 'c'}}},
+            lambda: to_latex(DISPATCH_MODEL, symbols={'latex': {'names': {'cost': 'c'}}}),
+            id='a-block-replaces-the-models-whole',
+        ),
+    ],
+)
+def test_the_symbols_argument_replaces_the_models_block(symbols, expected):
+    """An author whose symbols need a package the reader lacks, such as
+    `upgreek`, is not stuck with them: `symbols=` replaces the block rather than
+    merging into it, so `p` is no longer `\\pi` in either case."""
+    assert to_latex(SPELLED, symbols=symbols) == expected()
+
+
+def test_a_render_reads_only_the_table_for_its_own_notation():
+    """#321 was LaTeX passed into a Typst document, which failed three tools
+    later. A table is now picked by the render's notation, so a LaTeX spelling
+    never reaches a Typst document."""
+    latex_only = {'latex': {'names': {'p_max': r'\bar p'}}}
+    assert to_typst(DISPATCH_MODEL, symbols=latex_only) == to_typst(DISPATCH_MODEL)
 
 
 DESCRIBED = override(
@@ -112,16 +178,15 @@ CURVED = override(
 def test_one_table_spells_the_blocks_a_file_states_and_the_rows_they_state():
     """The weights are named after the block, which no equation can carry, and the
     table that renames them has to render the file they came from too."""
-    spec = to_spec(CURVED)
-    table = {'notation': 'latex', 'names': {'curve_lam': r'\lambda'}}
+    spec = to_spec(override(CURVED, **{'symbols.latex.names': {'curve_lam': r'\lambda'}}))
 
-    assert r'\lambda' not in to_latex(spec, symbols=table, legend=False), 'no weight stands where the curve prints'
-    assert r'\lambda_{t,g,b}' in to_latex(spec.expand(), symbols=table, legend=False)
+    assert r'\lambda' not in to_latex(spec, legend=False), 'no weight stands where the curve prints'
+    assert r'\lambda_{t,g,b}' in to_latex(spec.expand(), legend=False), 'the expansion keeps the block'
 
 
 def test_a_misspelled_name_is_still_a_typo_where_a_formulation_could_have_emitted_it():
     with pytest.raises(SchemaError, match="Did you mean 'curve_lam'"):
-        to_latex(CURVED, symbols={'notation': 'latex', 'names': {'curve_laam': 'x'}})
+        to_spec(override(CURVED, **{'symbols.latex.names': {'curve_laam': 'x'}}))
 
 
 def _names(spec: Spec) -> set[str]:
@@ -163,7 +228,7 @@ def test_a_table_spells_the_names_the_expansion_declares_and_no_other(patch):
 
     def accepted(name: str) -> bool:
         try:
-            to_latex(spec, symbols={'notation': 'latex', 'names': {name: 'x'}}, legend=False)
+            to_latex(spec, symbols={'latex': {'names': {name: 'x'}}}, legend=False)
         except SchemaError:
             return False
         return True
@@ -172,71 +237,38 @@ def test_a_table_spells_the_names_the_expansion_declares_and_no_other(patch):
 
 
 @pytest.mark.parametrize(
+    'load',
+    [
+        pytest.param(lambda symbols: to_spec({**DISPATCH_MODEL, 'symbols': symbols}), id='in-the-file'),
+        pytest.param(lambda symbols: to_latex(DISPATCH_MODEL, symbols=symbols), id='passed'),
+    ],
+)
+@pytest.mark.parametrize(
     ('symbols', 'match'),
     [
-        pytest.param({'names': {'p_maxx': 'x'}}, "Did you mean 'p_max'", id='a-misspelled-name'),
+        pytest.param({'latex': {'names': {'p_maxx': 'x'}}}, "Did you mean 'p_max'", id='a-misspelled-name'),
         pytest.param(
-            {'dimensions': {'generatr': {'index': 'g'}}},
-            "Did you mean 'generator'",
+            {'typst': {'dimensions': {'generatr': {'index': 'g'}}}},
+            "symbols: typst: 'generatr' under dimensions: .* Did you mean 'generator'",
             id='a-misspelled-dimension',
         ),
-        pytest.param({'symbols': {'p': 'x'}}, 'unknown section', id='an-unknown-section'),
+        pytest.param({'latex': {'namez': {'p': 'x'}}}, "unknown key 'namez' .* Did you mean 'names'", id='a-section'),
         pytest.param(
-            {'descriptions': {'p': 'the output'}},
-            r"unknown section\(s\) \['descriptions'\]",
-            id='a-table-still-carrying-descriptions',
+            {'latex': {'dimensions': {'generator': {'letter': 'g'}}}},
+            "unknown key 'letter' .* Valid keys: index, set",
+            id='a-dimension-key',
         ),
-        pytest.param({'dimensions': {'generator': {'letter': 'g'}}}, 'unknown key', id='an-unknown-key'),
-        pytest.param({'dimensions': ['generator']}, 'dimensions: must be a mapping', id='a-section-that-is-a-list'),
-        pytest.param({'names': 'p_max'}, 'names: must be a mapping', id='a-section-that-is-a-string'),
+        pytest.param({'latx': {}}, "Input should be 'latex' or 'typst'", id='a-notation-outside-the-vocabulary'),
+        pytest.param({'latex': {'dimensions': ['generator']}}, 'dimensions: Input should be a valid dict', id='a-list'),
     ],
 )
-def test_an_entry_naming_nothing_is_an_error_with_the_near_miss(symbols, match):
+def test_an_entry_naming_nothing_is_an_error_with_the_near_miss(load, symbols, match):
     """A silent typo means a symbol that never applies and a reader who never
-    finds out — so it fails, and says what it probably meant."""
+    finds out, so it fails at load and says what it probably meant."""
     with pytest.raises(SchemaError, match=match):
-        to_latex(DISPATCH_MODEL, symbols={'notation': 'latex', **symbols})
-
-
-@pytest.mark.parametrize(
-    ('render', 'symbols', 'match'),
-    [
-        pytest.param(
-            to_typst,
-            {'notation': 'latex', 'names': {'p_max': r'\bar p'}},
-            'written in latex, but this is a typst render',
-            id='a-latex-table-into-typst',
-        ),
-        pytest.param(to_latex, TYPST_SYMBOLS, 'written in typst, but this is a latex render', id='typst-table-latex'),
-        pytest.param(
-            to_markdown, TYPST_SYMBOLS, 'written in typst, but this is a latex render', id='typst-table-markdown'
-        ),
-        pytest.param(to_latex, {'names': {'p': 'x'}}, "'notation:' is required", id='a-table-that-does-not-say'),
-        pytest.param(
-            to_latex,
-            {'notation': 'latx', 'names': {'p': 'x'}},
-            "unknown notation 'latx'. Valid notations",
-            id='a-notation-outside-the-vocabulary',
-        ),
-    ],
-)
-def test_a_table_in_the_wrong_notation_refuses(render, symbols, match):
-    """#321 was this failing silently — LaTeX passed into a Typst document,
-    breaking three tools later; now it stops at the call, naming both notations."""
-    with pytest.raises(SchemaError, match=match):
-        render(DISPATCH_MODEL, symbols=symbols)
-
-
-def test_notation_is_case_insensitive():
-    assert to_latex(DISPATCH_MODEL, symbols={'notation': 'LaTeX', 'names': {'p': r'\pi'}}) == to_latex(
-        DISPATCH_MODEL, symbols={'notation': 'latex', 'names': {'p': r'\pi'}}
-    ), 'load lower-cases the notation, so casing never changes the render'
+        load(symbols)
 
 
 def test_an_empty_override_is_used_not_fallen_through():
-    tex = to_latex(DISPATCH_MODEL, symbols={'notation': 'latex', 'names': {'p_max': ''}})
+    tex = to_latex(DISPATCH_MODEL, symbols={'latex': {'names': {'p_max': ''}}})
     assert r'p^{\mathrm{max}}' not in tex, 'an entry in the table is used verbatim, even empty — never re-derived'
-
-
-def test_a_model_renders_identically_with_an_empty_table():
-    assert to_latex(DISPATCH_MODEL) == to_latex(DISPATCH_MODEL, symbols=SymbolTable('latex'))

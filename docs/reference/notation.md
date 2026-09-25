@@ -926,16 +926,16 @@ A curve prints as the curve it states, over the frame the block builds one per c
 
 `method: adjacency` — a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the breakpoints print as:
+Rendered with the symbols the model declares, which is what the breakpoints print as:
 
 ```yaml
-notation: latex
-
-names:
-  economies_of_scale_lam: "\\lambda"
-  economies_of_scale_seg: "\\delta"
-  bp_x: "\\mathrm{x}"
-  bp_y: "\\mathrm{y}"
+symbols:
+  latex:
+    names:
+      economies_of_scale_lam: "\\lambda"
+      economies_of_scale_seg: "\\delta"
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"
 ```
 
 ```yaml
@@ -989,15 +989,15 @@ Written out by `spec.expand()`:
 
 `method: sos2` — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the breakpoints print as:
+Rendered with the symbols the model declares, which is what the breakpoints print as:
 
 ```yaml
-notation: latex
-
-names:
-  cost_curve_lam: "\\lambda"
-  bp_x: "\\mathrm{x}"
-  bp_y: "\\mathrm{y}"
+symbols:
+  latex:
+    names:
+      cost_curve_lam: "\\lambda"
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"
 ```
 
 ```yaml
@@ -1044,15 +1044,15 @@ Written out by `spec.expand()`:
 
 `method: convex` — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the breakpoints print as:
+Rendered with the symbols the model declares, which is what the breakpoints print as:
 
 ```yaml
-notation: latex
-
-names:
-  cost_curve_lam: "\\lambda"
-  bp_x: "\\mathrm{x}"
-  bp_y: "\\mathrm{y}"
+symbols:
+  latex:
+    names:
+      cost_curve_lam: "\\lambda"
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"
 ```
 
 ```yaml
@@ -1103,14 +1103,14 @@ Written out by `spec.expand()`:
 
 `method: lp` — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
 
-Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the breakpoints print as:
+Rendered with the symbols the model declares, which is what the breakpoints print as:
 
 ```yaml
-notation: latex
-
-names:
-  bp_x: "\\mathrm{x}"
-  bp_y: "\\mathrm{y}"
+symbols:
+  latex:
+    names:
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"
 ```
 
 ```yaml

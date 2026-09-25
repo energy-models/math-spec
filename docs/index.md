@@ -140,35 +140,23 @@ call.
     ```python
     import mathspec as ms
 
-    symbols = {
-        'notation': 'latex',
-        'dimensions': {
-            'snapshot': {'index': 's', 'set': '\\mathcal{S}'},
-            'generator': {'index': 'g', 'set': '\\mathcal{G}'},
-        },
-        'names': {
-            'cost': 'c',
-            'load': '\\ell',
-            'capacity': '\\bar p',
-        },
-    }
-
     spec = ms.to_spec('dispatch.yaml')
 
-    ms.to_latex(spec, symbols=symbols)
+    ms.to_latex(spec)
     ms.to_typst(spec)
     ms.to_markdown(spec)
     ```
 
-    `symbols` gives every name its conventional spelling. Pass a dict, a YAML path
-    or a `SymbolTable`. It is optional: drop it and the same model prints from the
-    names in the file, as $\mathrm{load}_t$ and $\mathrm{capacity}_g$.
+    The file's `symbols:` block gives every name its conventional spelling, one
+    table per notation; Markdown math reads the `latex` one. It is optional: pass
+    `symbols={}` and the same model prints from the names in the file, as
+    $\mathrm{load}_t$ and $\mathrm{capacity}_g$.
 
-    Or from a shell, where the table is that same YAML on disk. `--standalone` emits
-    a document that compiles, rather than a fragment to `\input`:
+    Or from a shell. `--standalone` emits a document that compiles, rather than a
+    fragment to `\input`:
 
     ```bash
-    python -m mathspec latex dispatch.yaml --symbols dispatch.symbols.yaml
+    python -m mathspec latex dispatch.yaml
     python -m mathspec typst dispatch.yaml --standalone -o dispatch.typ
     ```
 

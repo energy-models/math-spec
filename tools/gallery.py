@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from mathspec import to_spec
 from mathspec.typesetting import to_markdown
-from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import ROOT, splice, without_header
 from tools._page import main as page_main
 from tools.notation import equations
 from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
@@ -105,7 +105,7 @@ def declared_block(path: Path) -> str:
     """The legend, the objective, then every constraint and every named expression as YAML beside its equation."""
     text = without_header(path)
     model = to_spec(path)
-    page = to_markdown(model, symbols=sidecar_for(path), numbered=False)
+    page = to_markdown(model, numbered=False)
     legend = page[: page.index('#### Objective')].strip()
     objective = _section(page, 'Objective').strip().removeprefix('#### Objective').strip()
     equation = equations(_section(page, 'Subject to'))

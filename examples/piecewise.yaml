@@ -64,3 +64,12 @@ objective:
   sense: minimize
   description: total operating cost, taken off the curves rather than from a marginal rate
   expression: sum(op_cost)
+
+# `x` and `y` are what the piecewise-linear literature calls the breakpoints,
+# and `lambda` the convex-combination weight the expansion writes out.
+symbols:
+  latex:
+    names:
+      cost_curve_lam: "\\lambda"
+      bp_x: "\\mathrm{x}"
+      bp_y: "\\mathrm{y}"

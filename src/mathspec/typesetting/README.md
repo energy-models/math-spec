@@ -15,7 +15,7 @@ and prints it.
 | `walk.py`     | the program's trees to `Line`s. Every decision about the **math**, written once                        |
 | `legend.py`   | the notes under the equations, read off what the program uses                                          |
 | `format.py`   | the boundary: what a format must spell, and the operator vocabulary                                    |
-| `symbols.py`  | which symbol a name gets, and the `SymbolTable` sidecar that overrides it                              |
+| `symbols.py`  | which symbol a name gets, and the `symbols=` file that replaces the model's own table                  |
 | `latex.py`    | amsmath, the format that lands in a journal                                                            |
 | `typst.py`    | Typst, the format that compiles without a toolchain                                                    |
 | `markdown.py` | GitHub-flavoured Markdown: LaTeX math, with a Markdown document layer                                  |
@@ -48,18 +48,18 @@ Two rules keep the split honest:
 
 Symbols are derived by default, so a model prints with no setup at all.
 
-A `SymbolTable` overrides the derived symbols. `symbols=` takes the table in
-whichever form the caller already has. The `--symbols` flag on the command line
-is the path case:
+A model's `symbols:` block overrides the derived symbols, one table per
+notation. The loader types each table as a `SymbolTable` on
+`Program.symbols`, and a render reads the one for its format's notation.
+`symbols=` replaces the whole block, in the same shape. The `--symbols` flag on
+the command line is the path case:
 
 ```python
-mathspec.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')  # a path
-mathspec.to_latex('dispatch.yaml', symbols={'notation': 'latex', 'names': {'load': r'\ell'}})  # a dict
-mathspec.to_latex('dispatch.yaml', symbols=mathspec.SymbolTable.load(table))  # the object
+mathspec.to_latex('dispatch.yaml')  # the model's own block
+mathspec.to_latex('dispatch.yaml', symbols='other.symbols.yaml')  # a path
+mathspec.to_latex('dispatch.yaml', symbols={'latex': {'names': {'load': r'\ell'}}})  # a dict
+mathspec.to_latex('dispatch.yaml', symbols={})  # every symbol derived
 ```
-
-The dict has the same sections as the file, which are `notation`, `dimensions`
-and `names`. It is what the YAML parses to, and not a flat `{name: symbol}` map.
 
 Whichever form you use, the table is checked against the model. A key that names
 nothing is an error, and the message gives the near miss. Without that check, a
@@ -67,16 +67,15 @@ silent typo would be a symbol that never applies, and a reader who never finds
 out.
 
 Every value is a spelling, and it is printed exactly as written. Nothing parses
-or translates it. `notation` says which language the table is written in, and a
-format that reads the other language refuses the table. Everything past that
-comparison is the caller's business.
+or translates it, so a render never reads a table written for the other
+notation.
 
 The table carries **notation only**. What a declaration _is_, which is the prose
 in the right-hand column of the legend, comes from the model's own
 `description:`, read straight off the block. That is the model talking about
 itself, rather than a reader choosing symbols.
 
-A description travels with the file, survives a rename, and needs no sidecar.
+A description travels with the file, and survives a rename.
 The price is that it has to be plain prose, because every format sets the same
 words.
 

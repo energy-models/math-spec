@@ -41,6 +41,29 @@ constraints:
 objective:
   sense: minimize
   expression: sum(dispatch * cost)
+
+# How the names print, one table per notation. It is optional: a name it does
+# not carry prints as the name itself. An entry prints as written, so `\bar p`
+# is italic although a parameter the typesetter spells is upright.
+symbols:
+  latex:
+    dimensions:
+      snapshot: { index: s, set: "\\mathcal{S}" }
+      generator: { index: g, set: "\\mathcal{G}" }
+
+    names:
+      cost: c
+      load: "\\ell"
+      capacity: "\\bar p"
+  typst:
+    dimensions:
+      snapshot: { index: s, set: "cal(S)" }
+      generator: { index: g, set: "cal(G)" }
+
+    names:
+      cost: c
+      load: ell
+      capacity: bar(p)
 ```
 
 Least-cost dispatch of a generator fleet against an hourly load.
@@ -49,29 +72,27 @@ Least-cost dispatch of a generator fleet against an hourly load.
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\mathcal{S}`$ | index $`s`$ — `snapshot` — dispatch periods |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` — generating units |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathrm{capacity}`$ | `capacity` over $`\mathcal{G}`$ — installed capacity |
-| $`\mathrm{load}`$ | `load` over $`\mathcal{T}`$ — demand to be met |
-| $`\mathrm{cost}`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
+| $`\bar p`$ | `capacity` over $`\mathcal{G}`$ — installed capacity |
+| $`\ell`$ | `load` over $`\mathcal{S}`$ — demand to be met |
+| $`c`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
 
 #### Variables
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
-
-Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+| $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
 #### Objective
 
 ```math
-\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g}
+\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}
 ```
 
 #### Subject to
@@ -79,7 +100,7 @@ Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$
 **`power_balance`**
 
 ```math
-\sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G}} \mathit{dispatch}_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
 ```
 
 #### Variable domains
@@ -87,7 +108,7 @@ Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$
 **`dispatch`**
 
 ```math
-0 \le \mathit{dispatch}_{t,g} \le \mathrm{capacity}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{capacity}_{g} > 0
+0 \le \mathit{dispatch}_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
 ```
 <!-- gallery:end -->
 

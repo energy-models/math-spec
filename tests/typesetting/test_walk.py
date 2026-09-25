@@ -552,12 +552,12 @@ def test_the_convention_note_quotes_only_what_the_derivation_chose(name: FormatN
     """A table is printed verbatim and is the author's to write, so a symbol it
     supplies is not one the note governs.
 
-    `examples/symbols/dispatch.yaml` maps three parameters to italic symbols,
+    `examples/dispatch.yaml` maps three parameters to italic symbols,
     and the homepage renders through it — so the note quoting one of those said
     "a parameter such as $\\bar p$" under a sentence claiming a parameter is
     upright, contradicting itself on the page a reader arrives at first.
     """
-    table = {'notation': fmt.notation, 'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}
+    table = {fmt.notation: {'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}}
     assert 'Upright is what the model is given' not in typeset(DISPATCH_MODEL, name, symbols=table), (
         'a symbol the table supplies is not one the note governs'
     )
