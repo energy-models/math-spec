@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -75,6 +75,12 @@ jobs:
       # runs, and `fail_on_changes: always` means an unformatted tree fails here
       # rather than being fixed in place. ruff, pyrefly, typos, zizmor, reuse,
       # prettier and taplo all report from inside it.
+      # A pull request that puts a version heading on top of CHANGELOG.md
+      # releases it on merge, so the heading is checked here, before the merge
+      # can act on it. See RELEASING.md.
+      - name: Check the changelog headings
+        run: pixi run python -m tools.changelog check
+
       - name: Run linting
         run: pixi run lint
         env:
@@ -83,12 +89,14 @@ jobs:
       - name: Run pytest
         run: pixi run test --color=yes
 
-      # `--strict` turns every mkdocs warning into a failure, so this gate
-      # catches a dead cross-link, a page added without a nav entry, and an
-      # anchor that stopped resolving. It is also the closest thing to a
-      # rehearsal of the Read the Docs build, which runs the same task.
+      # `--strict` turns every zensical warning into a failure, so this gate
+      # catches a dead cross-link and an anchor that stopped resolving. A page
+      # added without a nav entry is the pytest step's question now, because
+      # zensical validates links and leaves navigation alone. This is also the
+      # closest thing to a rehearsal of the Read the Docs build, which runs the
+      # same task. It takes no directory: the site lands in `site_dir`.
       - name: Build the docs
-        run: pixi run docs-build "$RUNNER_TEMP/site"
+        run: pixi run docs-build
 
       # Every model to standalone LaTeX, then through a real engine. The task
       # renders first — `compile-tex` depends on `render-tex` — so this one

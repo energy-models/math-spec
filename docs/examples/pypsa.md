@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -31,7 +31,7 @@ sub-network.
 Each rung's banner states what PyPSA solved its reference network to.
 
 <!-- reference:spine:begin -->
-> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.
+> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine attaches the network to the file, and what it makes of it, is that engine's own record.
 
 <details markdown="1">
 <summary>The shared spine, <code>spine.py</code></summary>
@@ -885,7 +885,7 @@ composed; the first rung with an objective constant.
 `rung_11_ac_dc_meshed.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1197,7 +1197,7 @@ balance, and the model collapses to the lossless one.
 `rung_13_losses.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1250,7 +1250,7 @@ its cuts placed by PyPSA's tolerance loop rather than fixed per segment.
 `rung_19_losses_secants.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1339,7 +1339,7 @@ security-constrained run over scenarios. This rung's wind `p_max_pu` differs by 
 `rung_14_stochastic.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1398,7 +1398,7 @@ own dimensions.
 `rung_15_multi_period.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1504,7 +1504,7 @@ shift that varies along the snapshot axis, above what `shift` states (#299).
 `rung_16_link_delay.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1588,7 +1588,7 @@ generator's and the link's, read over a converter.
 `rung_17_process.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1664,7 +1664,7 @@ transformer's built capacity.
 `rung_18_transformer.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1750,7 +1750,7 @@ whole varying load, and the fixed `phase_shift` gives way to it.
 `rung_20_phase_shifter.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1812,7 +1812,7 @@ transformer counts in no carrier.
 `rung_21_carrier_growth.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1907,7 +1907,7 @@ the flow it carries.
 `rung_22_transformer_losses.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -1960,7 +1960,7 @@ its cuts placed by PyPSA's tolerance loop.
 `rung_23_transformer_losses_secants.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2019,7 +2019,7 @@ the load.
 `rung_24_must_stay_down.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2087,7 +2087,7 @@ extendable, modular, or both.
 `rung_25_committable_link.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2209,7 +2209,7 @@ time rules bind.
 `rung_26_committable_process.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2332,7 +2332,7 @@ the load.
 `rung_27_modular_ramp.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2393,7 +2393,7 @@ the snapshot before it turns off.
 `rung_28_start_up_ramp.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2458,7 +2458,7 @@ snapshot, while its ramp rows bind inside each period.
 `rung_29_storage_per_period.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2553,7 +2553,7 @@ bind, in `Transformer-fix-s-lower` against a line outage and in
 `rung_30_security_constrained.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2629,7 +2629,7 @@ opened on any level it chose. With the same rows, the objective falls to
 `rung_32_storage_later_period.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2726,7 +2726,7 @@ bus. With the same network and no `maintainable`, PyPSA solves to
 `rung_33_maintenance.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2842,7 +2842,7 @@ With the same network and no `maintainable`, PyPSA solves to `5370.0`.
 `rung_34_committable_maintenance.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -2981,7 +2981,7 @@ PyPSA solves to `10675.0`.
 `rung_35_period_global_constraints.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3087,7 +3087,7 @@ cost, PyPSA solves to `17641.666666666668`.
 `rung_36_quadratic_storage_process.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3148,7 +3148,7 @@ charging in the second. With the same network and no pins, PyPSA solves to
 `rung_37_fixed_storage_dispatch.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3214,7 +3214,7 @@ that flat shift patched into PyPSA's source index, the network solves to
 `rung_38_delay_per_period.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3300,7 +3300,7 @@ the network solves to `9347.5` (#620).
 `rung_39_negative_relative_growth.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3398,7 +3398,7 @@ network and the calm values in both futures, PyPSA solves to
 `rung_40_scenario_global_constraints.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3489,7 +3489,7 @@ calm efficiency in both, to `16992.0`; with both calm values in both, to
 `rung_41_scenario_operational_data.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3559,7 +3559,7 @@ futures, PyPSA solves to `1943.0`.
 `rung_42_scenario_first_stage.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3622,7 +3622,7 @@ to `1187.5`; on the store, to `925.0`; on all four, to `-5255.56`.
 `rung_43_sign.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3683,7 +3683,7 @@ the peak, and PyPSA solves to `90871.0` (#620).
 `rung_45_ramp_per_snapshot.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3778,7 +3778,7 @@ them, PyPSA solves to `9921.0` (#620).
 `rung_46_initial_output.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3873,7 +3873,7 @@ earlier file weighted them by the period, which reads `600.0` (#620).
 `rung_48_unweighted_start_up.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -3949,7 +3949,7 @@ caps the build at `10` and solves to `2583.33` (#620).
 `rung_49_single_period_growth.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -4000,7 +4000,7 @@ The rung adds an inactive load to the spine's south bus. PyPSA solves to
 `rung_50_inactive_load.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -4046,7 +4046,7 @@ where it should live — language, data prep, or harness — is one open questio
 | nothing; HiGHS refuses the model, `constraints.py:500-503` | a fixed modular committable maintainable build, whose module count `p_nom_max / p_nom_mod` is infinite | assumed: [`Generator_maintenance_module_count_is_finite`](#generator_maintenance_module_count_is_finite), and the `Link` and `Process` ones | |
 | nothing; PyPSA builds the row, `constraints.py:1091-1094`, `1110-1112` | a ramp-limited Generator, Link or Process that is not committable, with `up_time_before = 0` | assumed: [`Generator_came_in_running_unless_committable`](#generator_came_in_running_unless_committable), and the `Link` and `Process` ones. PyPSA caps the unit at zero in the first snapshot, or at its start-up ramp where another unit of the component is committable with a fixed build, and documents `up_time_before` as read only for a committable unit | |
 
-Duals and solutions are read back by the harness on the lpspec side:
+Duals and solutions are read back by the harness on the specsolve side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
 concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 

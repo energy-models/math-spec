@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,8 +19,8 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import to_spec
-from math_spec.typesetting import to_markdown
+from mathspec import to_spec
+from mathspec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
 from tools.notation import equations
@@ -165,7 +165,7 @@ def spine_block() -> str:
     """The shared spine, shown once."""
     return (
         "> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not"
-        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to"
+        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine attaches the network to"
         " the file, and what it makes of it, is that engine's own record.\n"
         '\n'
         '<details markdown="1">\n'

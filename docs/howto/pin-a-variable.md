@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -26,7 +26,7 @@ between the two. The data does.
 2. **Write every rule against the variable.** `rate - relmax * size <= 0` is
    one equation whether `size` is chosen or given.
 
-3. **Pin it in the data where it is given.** Bind `size_min` and `size_max` to
+3. **Pin it in the data where it is given.** Attach `size_min` and `size_max` as
    the same value for a plant whose size is fixed. Equal bounds pin a variable
    ([variables](../reference/language/declarations.md#variables)).
 

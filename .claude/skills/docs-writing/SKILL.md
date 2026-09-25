@@ -45,19 +45,31 @@ Two questions decide it, and they work on a paragraph as well as a page:
 1. Does it inform **action** or **cognition**?
 2. Does it serve **acquiring** a skill or **applying** one?
 
-| Kind        | Informs   | Serves  | Answers                                               | Nav section · folder                                           |
+| Kind        | Informs   | Serves  | Answers                                               | Section · folder                                               |
 | ----------- | --------- | ------- | ----------------------------------------------------- | -------------------------------------------------------------- |
 | Tutorial    | action    | acquire | "Get me a first file that loads and prints"           | Tutorials · `docs/`                                            |
 | How-to      | action    | apply   | "I have this task"                                    | How-to guides · `docs/howto/`                                  |
 | Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`, model pages in `docs/examples/` |
 | Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                          |
 
-The nav and the tree are both arranged by kind. A new page goes in the folder
-of its kind and under the nav section of the same name; the first tutorial
-opens the `Tutorials:` section, above the how-to guides. The model pages sit at
-the end of the Reference section, after the pages a reader looks things up in.
-A worked example is neither a tutorial nor a how-to: it teaches no path and
-names no task, it shows that the language says a model.
+The nav and the tree are both arranged by kind, for someone who writes a
+model. A new page goes in the folder of its kind and under the nav section of
+the same name. The model pages sit at the end of the Reference section, after
+the pages a reader looks things up in. A worked example is neither a tutorial
+nor a how-to: it teaches no path and names no task, it shows that the language
+says a model.
+
+The Development section, last in the nav, holds every page a model writer does
+not need, in three groups:
+
+- **Building on mathspec** is for someone who writes a tool against `Spec`
+  and `Program`: an engine such as specsolve, a renderer, a checker.
+- **Contributing** is for someone who changes mathspec itself.
+- **Proofs of concept** holds the notation page, which renders the typesetting
+  test model, and the PyPSA pages. The PyPSA pages stay in `docs/examples/`,
+  where `tools/gallery.py` writes them.
+
+A page in Development keeps the folder of its kind.
 
 Each kind has one job, and one thing it must not do:
 
@@ -80,16 +92,19 @@ math the typesetter prints from it. The block is written by `tools/gallery.py`
 between `<!-- gallery:begin -->` and `<!-- gallery:end -->`; the paragraph is
 the only prose on the page, and it says what the model is and the one or two
 things worth reading for, which the `description:` line in the file does not.
-The PyPSA pages add a generated block per rung, holding the reference script
-and what PyPSA solved it to. Every model is a file under `examples/`, loaded
-by the suite and compiled by the LaTeX gate, and `tests/test_docs.py` holds
-each block to its generator byte for byte. The catalogue in
-`docs/examples/index.md` is hand-written: one bullet per page, saying why a
-reader would open it.
+The PyPSA pages, in the Development section, add a generated block per rung,
+holding the reference script and what PyPSA solved it to. Every model is a
+file under `examples/`, loaded by the suite and compiled by the LaTeX gate,
+and `tests/test_docs.py` holds each block to its generator byte for byte. The catalogue in
+`docs/examples/index.md` is hand-written: one bullet per page in the Examples
+section, saying why a reader would open it.
 
-**The Python API pages are built, not written.** mkdocs renders
-`reference/math_spec/` from the docstrings at build time, so their prose is
-the docstring rules in `AGENTS.md`.
+**The Python API is rendered from the docstrings.**
+`docs/reference/api.md` holds one `:::` entry per name in `mathspec.__all__`,
+for a model writer. `docs/reference/program.md` renders `mathspec.program`,
+for whoever builds on the program. mkdocstrings renders both from the
+docstrings, so their prose is the docstring rules in `AGENTS.md`. No other
+module gets a page: an internal module is read in the source.
 
 Mixing kinds is the most common failure. Rationale inside a reference section
 makes the rules unskimmable, and rules inside an explanation page make the
@@ -98,11 +113,11 @@ survives into an explanation page is the part a user needs to make decisions.
 
 The language is documented here and only here. A page says what a file may
 contain, what it means, what the loader refuses, and what the typesetter
-prints from it. What a consumer does with a spec — the data it binds, how it
+prints from it. What a consumer does with a spec — the data it attaches, how it
 solves, what it reads back — is that consumer's page, not this tree's
 ([what counts as language](../../../docs/about/what-counts-as-language.md)).
 A rule about a consumer says only what the file guarantees it
-([reading a loaded model](../../../docs/reference/language/reading.md)).
+([reading a spec and its program](../../../docs/reference/reading.md)).
 
 Answer the two questions before starting. If a page needs two kinds, it is
 two sections with two headings, or two pages.
@@ -132,7 +147,7 @@ The obvious rule gets one sentence.
   `expression  # value` line. The `NAME` production on the expressions page
   is compared to the parser's. A YAML fence anywhere else is read by nothing,
   so load it before committing: write it to a file and run
-  `pixi run python -m math_spec check model.yaml`. Write the fragment as a
+  `pixi run python -m mathspec check model.yaml`. Write the fragment as a
   whole model where the page allows it; a fragment that cannot stand alone is
   one the reader cannot run either.
 - **Quote error messages whole.** This language's messages name the rewrite,
@@ -179,7 +194,7 @@ not
 
 - **Gloss house vocabulary at first use** — _spec_, _program_, _declaration_,
   _dimension_, _coordinate_, _frame_, _relation_, _absence_, _macro_, _named
-  expression_, _reported expression_, _escape_. One clause with a concrete
+  expression_, _reported expression_. One clause with a concrete
   instance: "one point of it, one generator in one snapshot, is a coordinate".
 - **Gloss every acronym and domain term at first use**, in parentheses, six
   words or fewer.
@@ -204,7 +219,7 @@ The bar, and it is checkable:
 1. **One idea per sentence.** Median at or under 20 words; over 25 is where a
    newcomer re-reads.
 2. **Active voice, with a real subject.** "The loader refuses it before any
-   data binds", not "the refusal comes before any data binds". An abstract
+   data is attached", not "the refusal comes before any data is attached". An abstract
    noun as subject is the single biggest reason technical prose reads
    expert-only.
 3. **State the rule in things, then in abstractions.** "One generator at one
@@ -307,7 +322,7 @@ PY
 - **Anything that duplicates another page.** One fact, one home; link instead.
   A second copy drifts silently. The README is pulled into `docs/index.md` as
   snippets, so a sentence that appears on both is edited once, in the README.
-- **A rule of an engine.** How a spec is bound to data, solved, or read back
+- **A rule of an engine.** How data is attached to a spec, how it is solved, or read back
   is a consumer's page. Here a consumer is named only for what the file
   guarantees it.
 - **Generated content.** The model and its math on every example page and the
@@ -322,9 +337,11 @@ PY
 ## 9. Mechanics
 
 - **A new page needs a nav entry in `mkdocs.yml`.** The docs build is
-  `--strict`, so a page without one fails it, as do a dead cross-link and a
-  stale anchor.
-- **A new page carries the SPDX header** — `math-spec contributors`,
+  `--strict`, so a dead cross-link and a stale anchor fail it. A page with no
+  nav entry does not fail the build — zensical validates links and leaves
+  navigation alone — so `pixi run test` is what reports it, in
+  `tests/test_docs.py`.
+- **A new page carries the SPDX header** — `mathspec contributors`,
   `CC-BY-4.0` — in an HTML comment at the top, or as YAML comments inside the
   front matter where the page has one, as `docs/index.md` does. `reuse lint`
   is part of `pixi run lint`.

@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 name: Bug Report
-description: Report a bug that leads to math-spec not working as expected.
+description: Report a bug that leads to mathspec not working as expected.
 labels: [bug]
 body:
   - type: markdown
@@ -34,7 +34,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: What version of math_spec are you using?
+      description: What version of mathspec are you using?
       placeholder: v0.0.1
   - type: textarea
     id: logs

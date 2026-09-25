@@ -1,123 +1,93 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 name: Release
 
-# Opens and maintains a release PR from the conventional commits on main.
-# Merging it tags the release, and that tag is what build.yml already reacts to
-# — release-please never edits pyproject.toml, so the two halves compose without
-# either knowing about the other. See RELEASING.md.
-#
-# TEMPORARY, WHILE ON THE ALPHA STREAM: the last step merges the release PR for
-# you, so every merge to main cuts a 0.0.0-alpha.N. It expires by itself at the
-# first official version — see the step's own comment.
+# A release is a merged pull request that puts a version heading, such as
+# `## 0.1.0 (2026-10-01)`, above everything else in CHANGELOG.md. On that
+# merge this workflow tags the commit, opens the GitHub release with the
+# section as its notes, builds the wheel from the tag and publishes it to PyPI.
+# Every other push to main finds no untagged version and does nothing.
+# See RELEASING.md.
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      target-branch:
-        description: "Release line to run against (e.g. a 0.1.x maintenance branch). Defaults to main."
-        required: false
-        default: main
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
-  group: release-${{ inputs.target-branch || github.ref_name }}
+  group: release
   cancel-in-progress: false
 
-# secrets are not readable from a step-level `if`, so hoist the check here
-env:
-  HAS_RELEASE_APP: ${{ secrets.APP_CLIENT_ID != '' }}
-
 jobs:
-  release-please:
-    name: Release Please
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+  tag:
+    name: Tag the version the changelog names
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.pending.outputs.version }}
     steps:
-      # Two things a GITHUB_TOKEN cannot do, both of which this workflow needs:
-      # a PR it authors does not trigger CI, and a tag it pushes does not trigger
-      # build.yml. Without the app the release is opened but never built.
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        id: app-token
-        if: env.HAS_RELEASE_APP == 'true'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          # Narrow the token to what release-please and the auto-merge step
-          # actually do, rather than inheriting whatever the installation was
-          # granted: commits, the tag and the GitHub release (contents), and
-          # the release PR itself (pull-requests).
-          permission-contents: write
-          permission-pull-requests: write
+          # The tags are what tells a new version from one already released.
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Warn when falling back to GITHUB_TOKEN
-        if: env.HAS_RELEASE_APP != 'true'
-        run: |
-          echo "::warning::APP_CLIENT_ID is unset — using GITHUB_TOKEN. The release PR will not run CI and its tag will not trigger build.yml. See RELEASING.md."
+      - id: pending
+        name: Read the version to release
+        run: echo "version=$(python3 -m tools.changelog pending)" >> "$GITHUB_OUTPUT"
 
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
-        with:
-          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
-          target-branch: ${{ inputs.target-branch || 'main' }}
-
-      # ----------------------------------------------------------------------
-      # TEMPORARY — alpha stream only. Delete this step and the project is back
-      # to release PRs merged by hand, which is what RELEASING.md documents.
-      # ----------------------------------------------------------------------
-      # It exists so an early user always has a version number to quote in a bug
-      # report: every merge to main cuts a 0.0.0-alpha.N rather than being
-      # reachable only as a commit sha.
-      #
-      # Expiry is enforced here, not remembered: the version comes off the PR
-      # title and anything that is not a prerelease is left for a human. So the
-      # first official release ends this by itself.
-      #
-      # Auto-merge rather than a direct merge: the required checks have not
-      # reported on the just-updated PR yet, so a direct merge would be refused.
-      # GitHub merges it when they go green; if they fail, it sits there. This
-      # needs "Allow auto-merge" enabled on the repository.
-      #
-      # Set the repo variable AUTO_RELEASE to "false" to pause it early and go
-      # back to merging by hand.
-      - name: Merge the release PR when CI passes (temporary, alpha only)
-        if: vars.AUTO_RELEASE != 'false'
+      # `gh release create --target` makes the tag on the server, at the
+      # commit this run is for. A pre-release version is marked as one, so it
+      # never shows as the latest release.
+      - name: Tag and open the GitHub release
+        if: steps.pending.outputs.version != ''
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          # this job never checks out, so gh has no remote to infer the repo from
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          BASE: ${{ inputs.target-branch || 'main' }}
+          VERSION: ${{ steps.pending.outputs.version }}
         run: |
           set -euo pipefail
-          # resolve the PR from the API rather than the action's outputs: those
-          # distinguish created from updated, and we want it merged either way
-          read -r pr version < <(
-            gh pr list --state open --base "$BASE" --json number,title,headRefName \
-              --jq '[.[] | select(.headRefName | startswith("release-please--"))]
-                    | first
-                    | select(. != null)
-                    | "\(.number) \(.title | split(" ") | last)"'
-          ) || true
+          python3 -m tools.changelog notes "$VERSION" > notes.md
+          flags=()
+          if [[ "$VERSION" =~ (a|b|rc)[0-9]+$ ]]; then flags+=(--prerelease); fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --notes-file notes.md "${flags[@]}"
 
-          if [[ -z "${pr:-}" ]]; then
-            echo "no open release PR against $BASE — nothing to release"
-            exit 0
-          fi
+  build:
+    needs: tag
+    if: needs.tag.outputs.version != ''
+    uses: ./.github/workflows/build.yml
 
-          # 0.0.0-alpha.15 auto-merges; 0.1.0 does not. Dashed semver is the same
-          # signal RELEASING.md uses to describe what is and is not a prerelease.
-          if [[ "$version" != *-* ]]; then
-            echo "::notice::#$pr releases $version — the first official version is not automatic. Merge it yourself (RELEASING.md)."
-            exit 0
-          fi
+  publish:
+    name: Publish to PyPI
+    needs: [tag, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The trusted publisher on PyPI names this workflow and this environment.
+    # A required reviewer on the environment is the last point a release can
+    # be stopped: PyPI never takes a version twice.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: artifact
+          path: dist
 
-          echo "enabling auto-merge on #$pr ($version) — temporary alpha-stream policy, see RELEASING.md"
-          gh pr merge "$pr" --squash --auto
+      - name: Check the wheel is the tagged version
+        env:
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          ls dist
+          test -f "dist/mathspec-${VERSION}-py3-none-any.whl"
+          test -f "dist/mathspec-${VERSION}.tar.gz"
+
+      - name: Publish package on PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

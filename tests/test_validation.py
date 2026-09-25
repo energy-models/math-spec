@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
-"""What `to_spec` refuses with no data bound, and how it says so."""
+"""What `to_spec` refuses with no data attached, and how it says so."""
 
 from __future__ import annotations
 
@@ -12,17 +12,16 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from math_spec._yaml import parse_yaml
-from math_spec.errors import DimensionError, LanguageError, SchemaError
-from math_spec.lowering import to_program
-from math_spec.program import DimensionPosition
-from math_spec.resolution import Namespace
-from math_spec.typesetting import to_markdown
-from math_spec.validation import to_spec
+from mathspec._yaml import parse_yaml
+from mathspec.errors import DimensionError, LanguageError, SchemaError
+from mathspec.program import DimensionPosition
+from mathspec.resolution import Namespace
+from mathspec.typesetting import to_markdown
+from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
 
 if TYPE_CHECKING:
-    from math_spec.model import Spec
+    from mathspec.model import Spec
 
 
 def _schema(**patch) -> Spec:
@@ -195,7 +194,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).expressions['lcoe'].in_math is False, (
+        assert to_spec(model).program.expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
@@ -530,7 +529,7 @@ class TestVersion:
         message = _refusal(version=1)
         assert 'declares version 1' in message
         assert 'understands [0]' in message, 'the error has to say what this reader can read'
-        assert 'Upgrade math_spec' in message, 'and what to do about it'
+        assert 'Upgrade mathspec' in message, 'and what to do about it'
 
     def test_the_version_gates_no_behaviour(self):
         """Two files differing only in a declared supported version build the same model."""
@@ -603,7 +602,7 @@ class TestAWhereSideIsReadInResolution:
     """The grammar hands a comparison's sides over as arithmetic, and the language decides here what a side may be.
 
     A ``position()`` call is held to its shape, a literal is the expression grammar's, and
-    everything else on a side is a comparison of expressions, decided with no data bound.
+    everything else on a side is a comparison of expressions, decided with no data attached.
     """
 
     @pytest.mark.parametrize(
@@ -998,22 +997,22 @@ class TestAPredicateIsAnOperand:
         assert 'translation' not in str(caught.value)
 
     def test_a_read_lands_on_the_dims_it_produces_and_reads_the_relation(self):
-        """The mask is over what the relation maps onto, and a consumer binds the relation as well as the operand."""
+        """The mask is over what the relation maps onto, and a consumer attaches the relation as well as the operand."""
         mask = where_of("at(h == 'north', by=lk, over=h, into=g)", Namespace(_schema()), 'probe')
         assert mask is not None
         assert sorted(mask.dims) == ['g'], "'h' is read at lk(g), so g is all the mask is over"
-        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer binds, the label is not'
+        assert mask.names_read == frozenset({'lk'}), 'the relation is data a consumer attaches, the label is not'
 
     def test_a_count_reduces_the_dim_it_counts_along_away(self):
         """The count is one number per remaining coordinate, so a claim about each group needs no word for the group."""
         mask = where_of('count(q, over=h) >= 2', Namespace(_schema()), 'probe')
         assert mask is not None
         assert sorted(mask.dims) == ['g'], "'q' is read over g and h, and h is counted away"
-        assert mask.names_read == frozenset({'q'}), 'a consumer binds what the counted predicate reads'
+        assert mask.names_read == frozenset({'q'}), 'a consumer attaches what the counted predicate reads'
 
 
 class TestRulesDecidedWithoutData:
-    """Every refusal the schema or the resolver makes with no data bound, one row each."""
+    """Every refusal the schema or the resolver makes with no data attached, one row each."""
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -1365,11 +1364,6 @@ class TestRulesDecidedWithoutData:
                 id='literal-bounds-that-cross',
             ),
             pytest.param(
-                {'variables.p.bounds': {'lower': float('inf'), 'upper': float('-inf')}},
-                ('bounds.lower inf is above bounds.upper -inf',),
-                id='infinite-bounds-that-cross',
-            ),
-            pytest.param(
                 {'variables.p.dims': ['g', 'g']},
                 ("Variable 'p' names dimension 'g' twice",),
                 id='dims-repeats-a-dim',
@@ -1603,7 +1597,7 @@ class TestAssumptions:
     Everything here is about the data, so nothing in it is decided at load but
     the shape of the predicate: the entry is refused where the connectives
     already settle it, and where it names a variable, which is what the solver
-    decides rather than what the caller binds.
+    decides rather than what the caller attaches.
     """
 
     @pytest.mark.parametrize(
@@ -1865,7 +1859,7 @@ class TestExpressionCases:
             to_spec(_cased(cases))
 
     def test_two_cases_may_not_claim_one_coordinate(self):
-        """Proved before any data binds, so the arms are read apart rather than in order."""
+        """Proved before any data is attached, so the arms are read apart rather than in order."""
         cases = {
             'gas': {'when': "generator == 'gas'", 'expression': 'p_max'},
             'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max * 2'},
@@ -2096,7 +2090,7 @@ def test_a_chain_of_named_expressions_is_held_to_the_resolved_depth_and_costs_no
     chain = _chain(150, deepest_first=deepest_first)
     constraint = {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) <= e149'}
     spec = to_spec(override(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
-    to_markdown(to_program(spec) and spec)
+    to_markdown(spec.program and spec)
 
     with pytest.raises(LanguageError, match='nests 301 deep with every named expression it reads written in') as caught:
         to_spec(override(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
@@ -2121,13 +2115,14 @@ def test_a_name_may_open_with_an_underscore():
 def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
     """Loading, lowering and typesetting a model resolve each expression and where string once.
 
-    Every reader after validation — the dim rules, lowering, the typesetter —
-    used to parse, expand and resolve the declaration's text again, so one
-    constraint was resolved four times per load and the trees the readers
-    walked were built apart from the one the language checked (#401). They
-    read the trees validation built now.
+    Every reader after validation — the dim rules, the typesetter — used to
+    parse, expand and resolve the declaration's text again, so one constraint
+    was resolved four times per load and the trees the readers walked were
+    built apart from the one the language checked (#401). They read the
+    program lowering built now. A curve's links were resolved again for its
+    rules at load and again when printed.
     """
-    from math_spec import resolution, validation
+    from mathspec import lowering, resolution
 
     seen: list[tuple[str, str]] = []
 
@@ -2139,7 +2134,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         return record
 
     doors = (resolution.resolve_expression, resolution.resolve_constraint_text, resolution.resolve_where_text)
-    for module in (validation, resolution):
+    for module in (lowering, resolution):
         for door in doors:
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
@@ -2154,10 +2149,15 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
                     'otherwise': 'p_max - p',
                 },
                 'constraints.spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+                'dimensions.bp': {'dtype': 'int'},
+                'parameters.bp_x': {'dims': ['generator', 'bp']},
+                'parameters.bp_y': {'dims': ['generator', 'bp']},
+                'variables.op_cost': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+                'piecewise.curve': {'over': 'bp', 'links': [['p', 'bp_x'], ['op_cost', 'bp_y']]},
             },
         )
     )
-    to_program(spec)
+    _ = spec.program
     to_markdown(spec)
 
     assert sorted(seen) == [
@@ -2166,8 +2166,63 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         ('resolve_expression', "Named expression 'headroom', case 'opening'"),
         ('resolve_expression', "Named expression 'headroom', otherwise"),
         ('resolve_expression', 'The objective'),
+        ('resolve_expression', "piecewise 'curve' link 0"),
+        ('resolve_expression', "piecewise 'curve' link 1"),
+        ('resolve_where_text', "Assumption 'curve_complete'"),
+        ('resolve_where_text', "Assumption 'curve_complete', where"),
         ('resolve_where_text', "Constraint 'balance'"),
         ('resolve_where_text', "Constraint 'spare'"),
         ('resolve_where_text', "Named expression 'headroom', case 'opening'"),
+        ('resolve_where_text', "Variable 'op_cost'"),
         ('resolve_where_text', "Variable 'p'"),
     ], 'every expression and where position once, under the context validation reads it in, and nothing after'
+
+
+@pytest.mark.parametrize(
+    'constraints',
+    [
+        pytest.param({}, id='an-entry-nothing-reads'),
+        pytest.param({'c': {'dims': ['g'], 'expression': 'p <= bad'}}, id='an-entry-a-constraint-reads'),
+    ],
+)
+def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_name(constraints):
+    """An entry nothing read loaded and failed only when printed, and one a constraint read was
+    refused under the constraint's name. The program reads an entry's frame off its body at
+    load, so the fault is the entry's, wherever it is read."""
+    model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
+    with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
+        to_spec(model)
+
+
+@pytest.mark.parametrize(
+    'upper',
+    [
+        pytest.param({}, id='omitted'),
+        pytest.param({'upper': None}, id='null'),
+    ],
+)
+def test_an_open_bound_is_null_in_the_file_and_in_the_program(upper):
+    """`upper: null` was refused, though every other field a file may leave open takes `null`."""
+    spec = to_spec(override(DISPATCH_MODEL, **{'variables.p.bounds': {'lower': 0, **upper}}))
+    assert spec.variables['p'].bounds.upper is None
+    assert spec.program.variables['p'].upper is None, 'the program says the side is open rather than infinite'
+    assert spec.to_dict()['variables']['p']['bounds'] == {'lower': 0}, 'an open bound is not written back out'
+
+
+@pytest.mark.parametrize(
+    ('side', 'value'),
+    [
+        pytest.param('upper', float('inf'), id='the-infinity-that-opens-the-upper-side'),
+        pytest.param('lower', float('-inf'), id='the-infinity-that-opens-the-lower-side'),
+        pytest.param('lower', float('inf'), id='a-lower-bound-no-value-meets'),
+        pytest.param('upper', float('-inf'), id='an-upper-bound-no-value-meets'),
+    ],
+)
+def test_an_infinite_bound_is_refused_with_the_null_that_opens_a_side(side, value):
+    """An infinity is either the open side, which is `null`, or a bound no value meets.
+
+    A lone `lower: .inf` loaded: only two literal bounds that cross were refused.
+    """
+    message = _refusal(DISPATCH_MODEL, **{f'variables.p.bounds.{side}': value})
+    assert f'bounds.{side} is {value}, and a bound is finite' in message
+    assert f'{side}: null' in message, 'the refusal names the spelling of an open side'

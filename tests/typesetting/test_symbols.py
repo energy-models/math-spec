@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,15 +10,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec.errors import SchemaError
-from math_spec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
-from math_spec.validation import to_spec
+from mathspec.errors import SchemaError
+from mathspec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
+from mathspec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
-    from math_spec.typesetting import FormatName
-    from math_spec.typesetting.format import Format
+    from mathspec.model import Spec
+    from mathspec.typesetting import FormatName
+    from mathspec.typesetting.format import Format
 
 
 WITH_MARGINAL_COST = override(
@@ -121,6 +122,53 @@ def test_one_table_spells_the_blocks_a_file_states_and_the_rows_they_state():
 def test_a_misspelled_name_is_still_a_typo_where_a_formulation_could_have_emitted_it():
     with pytest.raises(SchemaError, match="Did you mean 'curve_lam'"):
         to_latex(CURVED, symbols={'notation': 'latex', 'names': {'curve_laam': 'x'}})
+
+
+def _names(spec: Spec) -> set[str]:
+    return {*spec.parameters, *spec.variables, *spec.expressions, *spec.constraints}
+
+
+@pytest.mark.parametrize(
+    'patch',
+    [
+        pytest.param({}, id='adjacency'),
+        pytest.param({'piecewise.curve.method': 'sos2'}, id='sos2'),
+        pytest.param({'piecewise.curve.method': 'convex'}, id='convex'),
+        pytest.param(
+            {'piecewise.curve.method': 'lp', 'piecewise.curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]},
+            id='lp',
+        ),
+        pytest.param(
+            {
+                'variables.u': {'dims': ['generator'], 'domain': 'binary', 'where': 'p_max'},
+                'piecewise.curve.activity': 'u',
+            },
+            id='a-gate-that-leaves-coordinates-ungated',
+        ),
+    ],
+)
+def test_a_table_spells_the_names_the_expansion_declares_and_no_other(patch):
+    """A name any method could write counted as declared, so a table naming the
+    chord of a curve that has none, or the curve's own set, was ignored rather
+    than refused."""
+    spec = to_spec(override(CURVED, **patch))
+    written = _names(spec.expand()) - _names(spec)
+    reserved = {
+        'curve',
+        *(f'curve_{s}' for s in ('lam', 'convexity', 'convexity_ungated', 'chord', 'domain_lo', 'domain_hi')),
+        *(f'curve_{s}' for s in ('seg', 'pick', 'adjacency', 'adjacency_below', 'link0', 'link1')),
+        *(f'curve_{s}' for s in ('complete', 'increasing')),
+    }
+    assert written <= reserved, 'the reserved names cover every name the expansion writes'
+
+    def accepted(name: str) -> bool:
+        try:
+            to_latex(spec, symbols={'notation': 'latex', 'names': {name: 'x'}}, legend=False)
+        except SchemaError:
+            return False
+        return True
+
+    assert {n for n in reserved if accepted(n)} == written
 
 
 @pytest.mark.parametrize(

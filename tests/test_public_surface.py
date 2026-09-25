@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 """The export surface, pinned — because a consumer depends on it by name.
 
-`math_spec.__all__` is what another repository is allowed to import, so an
+`mathspec.__all__` is what another repository is allowed to import, so an
 addition to it is a decision, and the table below is where it is recorded.
 """
 
@@ -15,41 +15,36 @@ from pathlib import Path
 
 import pytest
 
-import math_spec
-from math_spec import Spec, program, typesetting
+import mathspec
+from mathspec import Spec, program, typesetting
 
-#: Every name `math_spec` promises. Grouped as a reader meets them, not
+#: Every name `mathspec` promises. Grouped as a reader meets them, not
 #: alphabetically: the alphabetical form is `__all__` itself, and repeating it
 #: here would make the two one list checked against itself.
 SURFACE = frozenset(
     {
-        # the two public states, and the conversion to each
-        'Spec', 'to_spec', 'program', 'to_program',
-        # the error tree
+        # the two public states, and the door to both
+        'Spec', 'to_spec', 'program',
+        # the error tree, and the one wording a consumer's own refusals share
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
-        'did_you_mean', 'schema_error',
+        'did_you_mean',
         # the verdicts a consumer asks for rather than re-deriving
-        'advice', 'Advice',
-        # the closed operator set, and the wording of its refusals
-        'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
-        'unknown_operator_message',
-        # the declaration vocabularies a consumer pins its own tables against
-        'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE', 'ADVICE_KINDS',
-        'CURVATURES', 'SosBlock',
+        'advice', 'Advice', 'AdviceKind',
+        # the closed operator set, the one vocabulary with no Literal form, which a consumer pins its table against
+        'BUILTIN_NAMES',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
     }
 )  # fmt: skip
 
 #: What `Spec` promises beyond the sections a file declares: the two ways back
-#: out, the verb that writes a formulation out, the relations of one dimension,
-#: and the typed trees every reader in this package walks. A `model_`-prefixed
-#: name is pydantic's, not a contract this project keeps.
-SPEC_SURFACE = frozenset({'relations_of', 'to_dict', 'to_yaml', 'expand', 'resolved'})
+#: out, the verb that writes a formulation out, and the program the file means.
+#: A `model_`-prefixed name is pydantic's, not a contract this project keeps.
+SPEC_SURFACE = frozenset({'to_dict', 'to_yaml', 'expand', 'program'})
 
 #: The modules whose `__all__` a consumer imports from.
 MODULES = [
-    pytest.param(math_spec, id='math_spec'),
+    pytest.param(mathspec, id='mathspec'),
     pytest.param(typesetting, id='typesetting'),
     pytest.param(program, id='program'),
 ]
@@ -65,7 +60,7 @@ def test_spec_promises_the_pinned_methods_and_nothing_else():
 
 def test_all_matches_the_pinned_surface():
     """Both directions, because either alone rots."""
-    declared = set(math_spec.__all__)
+    declared = set(mathspec.__all__)
     assert declared == SURFACE, (
         f'only in __all__: {sorted(declared - SURFACE)}; only in SURFACE: {sorted(SURFACE - declared)}'
     )
@@ -104,7 +99,7 @@ def _defined_by(module: object) -> set[str]:
 
 
 def test_the_program_module_exports_everything_it_defines():
-    """`math_spec.__all__` exports the module, so this is the consumers' surface — both
+    """`mathspec.__all__` exports the module, so this is the consumers' surface — both
     directions, so a public name added without a decision fails here."""
     declared = set(program.__all__)
     defined = _defined_by(program)

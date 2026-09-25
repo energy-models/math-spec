@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,7 +17,7 @@ import sys
 
 import pytest
 
-from math_spec import to_spec
+from mathspec import to_spec
 from tools import gallery
 from tools.gallery import DECLARED, RECORDED, REFERENCES, _names_for, _stands_for
 

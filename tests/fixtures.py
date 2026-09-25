@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,16 +10,16 @@ import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from math_spec import Spec
-from math_spec._expression_parser import ComparisonNode
-from math_spec._yaml import parse_yaml, read_yaml
-from math_spec.errors import SchemaError
-from math_spec.expansion import parse_and_expand
-from math_spec.resolution import Namespace, mask_of, resolve_expression, resolve_where_text
-from math_spec.validation import to_spec
+from mathspec import Spec
+from mathspec._expression_parser import ComparisonNode
+from mathspec._yaml import parse_yaml, read_yaml
+from mathspec.errors import SchemaError
+from mathspec.expansion import parse_and_expand
+from mathspec.resolution import Namespace, mask_of, resolve_expression, resolve_where_text
+from mathspec.validation import to_spec
 
 if TYPE_CHECKING:
-    from math_spec.program import Expression, Mask
+    from mathspec.program import Expression, Mask
 
 EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
 
@@ -85,7 +85,7 @@ def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Spec:
 
 
 def expanded(source: str | Path | dict[str, Any] | Spec, *kinds: Any, **patch: Any) -> Spec:
-    """:func:`schema_of` with its formulations written out — what ``to_program`` takes from a model with a curve."""
+    """:func:`schema_of` with its formulations written out — what a consumer building rows reads from a model with a curve."""
     schema = source if isinstance(source, Spec) else schema_of(source, **patch)
     return schema.expand(*kinds)
 

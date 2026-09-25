@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -33,7 +33,7 @@ them for the integer run, and the keyword relaxes them in the same way.
 `rung_12_linearized_uc.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -138,7 +138,7 @@ maintainable, to `7310.0`; with the fixed unit not maintainable, to `7100.0`.
 `rung_44_linearized_commitment.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -248,7 +248,7 @@ sign at `-1`, it solves to `13887.5`.
 `rung_47_linearized_ramps.py`
 
 ```python
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 

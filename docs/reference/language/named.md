@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -11,8 +11,8 @@ before anything reads it.
 
 ## `expressions`
 
-A named expression is a quantity the model names once. A constraint or the
-objective may use it, and the engine can report its value after a solve:
+A constraint or the objective may use a named expression, and a solve may
+report its value:
 
 ```yaml
 dimensions:
@@ -28,8 +28,8 @@ expressions:
     description: CO2 released, the quantity a cap would bound
 ```
 
-Write it as a bare string, or as a mapping when it carries a `description:`. Its
-dimensions follow from its body, so there is no `dims:`.
+It is a bare string, or a mapping with a `description:`. Its body decides its
+dimensions, and there is no `dims:`.
 
 Where the objective or a constraint names it, the body is substituted there,
 and the [degree limit](expressions.md#where-a-product-of-two-variables-is-allowed)
@@ -87,7 +87,7 @@ A named expression carries **exactly one** of `expression:` and `cases:`.
   > two `when:` strings by the negation of the other, or drop the wider one and
   > let `otherwise:` carry that region.
 
-  That is why `boundary` above says `committable and`. The cases carry no order.
+  The cases carry no order.
 
 - **A `when:` must be a question the data answers.** `True`, `False`, and a mask
   that folds to one of them, such as `committable OR True`, are refused.
@@ -96,14 +96,16 @@ A named expression carries **exactly one** of `expression:` and `cases:`.
   against `position(snapshot) == -1` pick the same row on an axis with one
   member. Count from one end only.
 
+- **A `when:` may not compare expressions**, such as `c > 2 * k`, even in a
+  block with one case. Precompute the test as a boolean parameter.
+
 - **Each `when:` and each value sits inside the frame.** A narrower case
   broadcasts as a parameter with fewer dimensions does.
 
-Claiming a coordinate is not the same as having a value there. The `otherwise:`
-above carries no `edge=`, so its `shift` has no value at the first snapshot, and
-`previous_status` is whole there only because a case claims every unit at that
-snapshot. To close such a hole, widen a `when`, give the `shift` an `edge=`, or
-set `absence: zero` on the masked variable.
+A claimed coordinate can still have no value: the `otherwise:` above has none
+at the first snapshot, where a case claims every unit. To close such a hole,
+widen a `when`, give the `shift` an `edge=`, or set `absence: zero` on the
+masked variable.
 
 `cases:` is not accepted inside a `macros:` template.
 
@@ -127,18 +129,15 @@ expressions:
 objective: { sense: minimize, expression: system_cost }
 ```
 
-`system_cost` is in the math: the objective uses it, so the solver sees its body.
-`delivered` and `lcoe` are reported: nothing in the math uses them, so the
-engine computes them from the solution after the solve.
+`system_cost` is in the math. `delivered` and `lcoe` are reported.
 
 An entry is in the math when the objective, a constraint or a `piecewise:`
 link reaches it, directly or through another entry or a macro. A bound and a
 `where` name no entry.
 
-A reported body is built by no solver, so **no degree limit applies to it**:
-it may divide by a variable, raise one to a power, and multiply two sums. A
-comparison stays out. A constraint that later names such an entry inlines its
-body, and is refused there under the constraint's own name.
+**No degree limit applies to a reported entry**: it may divide by a variable,
+raise one to a power, and multiply two sums. A comparison stays out. A
+constraint that names such an entry is refused under the constraint's own name.
 
 ### Reading a constraint's dual
 
@@ -152,14 +151,11 @@ Constraint 'd': a dual exists only after a solve; the math cannot read one —
 keep the entry that carries it out of constraints, the objective, bounds and where.
 ```
 
-`c` [resolves against the constraints alone](expressions.md#name-resolution).
-
 `dual(c)` is the rate at which the optimal objective improves as `c` is relaxed
 in the direction its comparator points, under the model's own `minimize` or
 `maximize`.
 
-A row that `c`'s `where:` deletes has no dual. Where the solver returns no dual,
-as for a model with integer variables, the engine reports no value.
+A row that `c`'s `where:` deletes has no dual.
 
 ## `macros`
 
@@ -183,6 +179,6 @@ macros:
 - Every template is held at load to every rule a call site is, whether or not it
   is called. A formal is left for the call site to bind.
 
-Anything composed out of the [built-in operators](operators.md) belongs here.
-What the language cannot express is under
-[what the language will not express](errors.md#what-the-language-will-not-express).
+A composition of the [built-in operators](operators.md) belongs here. What
+the language will not express is in
+[the limits](../../about/limits.md#deliberate-non-primitives).

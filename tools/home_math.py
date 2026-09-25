@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -9,7 +9,7 @@
 
 ``examples/dispatch.yaml`` is printed once and spliced into two pages that need
 different shapes for it. GitHub renders the Markdown math but not a tabbed
-block, so ``README.md`` takes the equations with the other two formats folded
+block, so ``README.md`` takes the equations with the whole document folded
 under them, and ``docs/index.md`` takes tabs, plus a third tab holding the call
 that produced the other two.
 """
@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import textwrap
 
-from math_spec import to_spec
-from math_spec.typesetting import to_latex, to_markdown, to_typst
+from mathspec import to_spec
+from mathspec.typesetting import to_latex, to_markdown
 from tools._page import ROOT, inlined, sidecar_for, splice, without_header
 from tools._page import main as page_main
 
@@ -37,7 +37,7 @@ MODEL_BEGIN, MODEL_END = '<!--- --8<-- [start:model] -->', '<!--- --8<-- [end:mo
 #: spelling of it, and the sidecar file the repository actually uses is one
 #: line further down.
 HOW = """```python
-import math_spec as ms
+import mathspec as ms
 
 symbols = {
     'notation': 'latex',
@@ -52,11 +52,11 @@ symbols = {
     },
 }
 
-spec = ms.to_spec('dispatch.yaml')  # read and checked once, then printed three ways
+spec = ms.to_spec('dispatch.yaml')
 
-ms.to_latex(spec, symbols=symbols)  # amsmath align
-ms.to_typst(spec)  # compiles without a TeX toolchain
-ms.to_markdown(spec)  # renders as-is on GitHub
+ms.to_latex(spec, symbols=symbols)
+ms.to_typst(spec)
+ms.to_markdown(spec)
 ```
 
 `symbols` gives every name its conventional spelling. Pass a dict, a YAML path
@@ -67,8 +67,8 @@ Or from a shell, where the table is that same YAML on disk. `--standalone` emits
 a document that compiles, rather than a fragment to `\\input`:
 
 ```bash
-python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml
-python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
+python -m mathspec latex dispatch.yaml --symbols dispatch.symbols.yaml
+python -m mathspec typst dispatch.yaml --standalone -o dispatch.typ
 ```
 
 [Typeset the math](reference/typeset.md) documents the three functions, their
@@ -107,10 +107,7 @@ def readme_block() -> str:
     The visible block carries no legend and no symbol table, because a README
     is read before anything else: three legend tables are half its length, and
     a derived symbol is the file's own name, which needs no table to be read.
-    The first fold is what the legend and a table add.
-
-    Typst is printed with no table for a second reason: the sidecar is written
-    in LaTeX, and a render in the other notation is refused.
+    The fold is what the legend and a table add.
     """
     spec = to_spec(MODEL)
     symbols = sidecar_for(MODEL)
@@ -120,14 +117,6 @@ def readme_block() -> str:
             details(
                 'The whole document: a symbol table, and the legend it prints',
                 inlined(to_markdown(spec, symbols=symbols, numbered=False).strip()),
-            ),
-            details(
-                'The same document as LaTeX',
-                f'```latex\n{to_latex(spec, symbols=symbols, numbered=False).strip()}\n```',
-            ),
-            details(
-                'The same document as Typst, printed with no symbol table',
-                f'```typst\n{to_typst(spec, numbered=False).strip()}\n```',
             ),
         )
     )

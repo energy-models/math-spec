@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -8,11 +8,10 @@ SPDX-License-Identifier: CC-BY-4.0
 Turn a model file into the math a paper would print, from the file alone, and
 keep the document current as the file changes.
 
-1. **Print Markdown first** and read it. It is the quickest way to see that
-   the YAML says what you meant:
+1. **Print Markdown first** and read it:
 
    ```bash
-   python -m math_spec markdown model.yaml
+   python -m mathspec markdown model.yaml
    ```
 
 2. **Give the symbols their conventional spelling** with a symbol table beside
@@ -38,8 +37,8 @@ keep the document current as the file changes.
    preamble, so the output builds on its own:
 
    ```bash
-   python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
-   python -m math_spec typst model.yaml --standalone -o model.typ
+   python -m mathspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
+   python -m mathspec typst model.yaml --standalone -o model.typ
    ```
 
    Then `tectonic model.tex` or `typst compile model.typ`. A symbol table is
@@ -47,12 +46,10 @@ keep the document current as the file changes.
    `notation: typst` or none. Without `--standalone` the output is a fragment
    to `\input` or `#include` into a paper.
 
-4. **Print the rows a solver holds** with `--expand`, where the model states a
-   curve or a set and the reader wants the formulation rather than the
-   construct:
+4. **Print the rows a curve or a set states** with `--expand`:
 
    ```bash
-   python -m math_spec markdown model.yaml --expand
+   python -m mathspec markdown model.yaml --expand
    ```
 
    The same table serves both renders: a name the expansion emits, such as
@@ -62,9 +59,8 @@ keep the document current as the file changes.
 
    ```make
    model.tex: model.yaml model.symbols.yaml
-   	python -m math_spec latex $< --symbols model.symbols.yaml --standalone -o $@
+   	python -m mathspec latex $< --symbols model.symbols.yaml --standalone -o $@
    ```
 
-The options each renderer takes, what a symbol table may say, and how one
-declaration is printed on its own are under
-[typeset the math](../reference/typeset.md).
+[Typeset the math](../reference/typeset.md) lists every option and what a
+symbol table may say.

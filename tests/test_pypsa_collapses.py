@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,8 +17,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from math_spec import to_spec
-from math_spec._yaml import read_yaml
+from mathspec import to_spec
+from mathspec._yaml import read_yaml
 from tests.fixtures import EXAMPLES
 
 STANDARD = read_yaml(Path(__file__).resolve().parent / 'fixtures' / 'pypsa_standard_shape.yaml')

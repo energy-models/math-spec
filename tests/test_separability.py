@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
-"""Whether a horizon may be built in windows, asked before any data binds.
+"""Whether a horizon may be built in windows, asked before any data is attached.
 
 The verdict is what a rolling-horizon or myopic driver needs and cannot
 currently get: a model with an annual budget windows into feasible pieces whose
@@ -18,8 +18,8 @@ from typing import Any
 
 import pytest
 
-import math_spec as ms
-from math_spec.program import Reach
+from mathspec import to_spec
+from mathspec.program import Reach
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
 
@@ -38,7 +38,7 @@ BASE: dict[str, Any] = {
 
 
 def _verdict(dimension: str = 'h', **patch: Any):
-    return ms.to_program({**BASE, **patch}).separability[dimension]
+    return to_spec({**BASE, **patch}).program.separability[dimension]
 
 
 def _rows(expression: str, *, dims: list[str] | None = None, **block: Any) -> dict[str, Any]:
@@ -98,7 +98,7 @@ def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
     than refusing the model, so a driver holding the data knows what to read
     and `resolved` knows how to fold it."""
     verdict = _verdict(**patch)
-    assert not verdict.windowable, 'undecided until data binds'
+    assert not verdict.windowable, 'undecided until data is attached'
     assert verdict.undecided == (reach,), 'the report names what the driver has to read, once'
     assert not verdict.coupled, 'and nothing structural ties the axis'
 
@@ -153,7 +153,7 @@ def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
     """`at(cap, by=zone_of, over=zone, into=u)` reads `zone` at whatever coordinate the relation
     chooses, so how far that reaches along `zone` is the relation's data to say."""
     verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of, over=zone, into=u) <= 0'))
-    assert not verdict.windowable and not verdict.coupled, 'undecided until the relation binds'
+    assert not verdict.windowable and not verdict.coupled, 'undecided until the relation is attached'
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
         'the report names the relation a driver has to read'
     )
@@ -213,12 +213,12 @@ def test_the_lookahead_is_the_widest_reach_of_any_block():
 
 
 def test_a_grouping_that_consumes_the_axis_couples_it():
-    program = ms.to_program(
+    program = to_spec(
         {
             **BASE,
             'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of, over=u, into=zone) <= cap'}},
         }
-    )
+    ).program
     verdict = program.separability['u']
     assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'
 
@@ -227,7 +227,7 @@ def test_every_declared_axis_has_a_verdict_and_nothing_else_does():
     """The mapping is complete over the program's dimensions, so an axis nothing
     mentions is trivially windowable rather than missing, and a name that is not
     an axis is a `KeyError` rather than a verdict nobody should trust."""
-    program = ms.to_program({**BASE, **_rows('p >= 0')})
+    program = to_spec({**BASE, **_rows('p >= 0')}).program
     assert sorted(program.separability) == sorted(program.dimensions), 'every declared axis is answered for'
     assert program.separability['zone'].windowable, 'an axis no construct mentions is trivially windowable'
     with pytest.raises(KeyError):
@@ -238,7 +238,7 @@ def test_every_declared_axis_has_a_verdict_and_nothing_else_does():
 def test_every_node_a_program_can_carry_is_judged_without_raising(dimension):
     """The fixture the node fence maintains carries every construct, so this is
     the pass meeting each of them at least once."""
-    verdict = ms.to_program(FIXTURE).separability[dimension]
+    verdict = to_spec(FIXTURE).program.separability[dimension]
     assert isinstance(verdict.ahead, int), 'a verdict comes back for every axis of the widest model there is'
 
 
@@ -246,7 +246,7 @@ def test_a_reduction_over_several_axes_couples_every_one_of_them():
     """`sum(p)` with no `over=` collapses every dimension its operand carries,
     so the verdict for each of them has to say so — a walk that read only the
     first would call the rest windowable."""
-    program = ms.to_program({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}})
+    program = to_spec({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}}).program
     assert not program.separability['h'].windowable, 'the reduction consumes h'
     assert not program.separability['u'].windowable, 'and u, in the same node'
 

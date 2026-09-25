@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,15 +6,15 @@
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass, replace
 from functools import partial
 
 import pytest
 
-from math_spec.errors import LanguageError
-from math_spec.expansion import parse_and_expand
-from math_spec.lowering import inline
-from math_spec.program import Multiply, Named, Parameter, Sum, Translate, Variable
-from math_spec.resolution import Namespace
+from mathspec.errors import LanguageError
+from mathspec.expansion import parse_and_expand
+from mathspec.program import Multiply, Named, Parameter, Sum, Translate, Variable
+from mathspec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
 
 WEIGHTED_SUM = {
@@ -35,10 +35,13 @@ def _resolved(text, ns):
 
 def _bodies(resolved):
     """*resolved* with every named expression's body standing bare where its name was."""
+    if isinstance(resolved, Named):
+        return _bodies(resolved.body)
     if isinstance(resolved, tuple):
-        left, op, right = resolved
-        return inline(left), op, inline(right)
-    return inline(resolved)
+        return tuple(_bodies(part) for part in resolved)
+    if is_dataclass(resolved) and not isinstance(resolved, type):
+        return replace(resolved, **{f.name: _bodies(getattr(resolved, f.name)) for f in fields(resolved) if f.init})
+    return resolved
 
 
 @pytest.mark.parametrize(
@@ -317,11 +320,18 @@ def test_a_template_is_held_to_the_rules_a_call_site_is(template, match):
         schema_of(SMALL_MODEL, macros={'m': {'args': ['x'], 'template': template}})
 
 
-@pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'escape'])
+@pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'docs/about/limits.md'])
 def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     with pytest.raises(LanguageError) as exc:
         schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
     assert fragment in str(exc.value)
+
+
+def test_an_unknown_operator_names_no_construct_the_language_lacks():
+    """The refusal told the author to "use a declared escape", and the schema has no `escape:` key."""
+    with pytest.raises(LanguageError) as exc:
+        schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
+    assert 'escape' not in str(exc.value), 'the message points at a key the closed schema refuses'
 
 
 @pytest.mark.parametrize(
@@ -361,7 +371,7 @@ def test_a_call_binding_the_dimension_a_partition_steps_along_builds_it():
 
 def test_a_named_expression_is_resolved_once_however_many_uses(monkeypatch):
     """Every use parsed, expanded and resolved the entry again, and a cased one's arms with it."""
-    from math_spec import resolution
+    from mathspec import resolution
 
     resolved: list[str] = []
     named = resolution._named

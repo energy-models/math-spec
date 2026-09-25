@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
-"""The shell front — `python -m math_spec <verb> model.yaml`.
+"""The shell front — `python -m mathspec <verb> model.yaml`.
 
 `main` takes its argv and `parser` hands back the verbs, so none of this needs a
 subprocess or a scrape of help text.
@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-import math_spec.__main__ as front
-from math_spec.typesetting import FORMATS
+import mathspec.__main__ as front
+from mathspec.typesetting import FORMATS
 from tests.fixtures import EXAMPLES
 from tests.typesetting import golden
 
@@ -74,6 +74,21 @@ def test_check_accepts_the_model_that_carries_every_construct(capsys):
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
+def test_check_reads_a_curve_as_written(capsys):
+    """`check` expanded every curve on the user's behalf, then refused a curve without `--expand`; either way
+    it read a file differently from the typeset verbs, which print it as written.
+
+    Advice reads a block as the rows it states, so `check` takes the file as
+    written and has no `--expand`: the rows are a different document to
+    print, not a different model to advise on.
+    """
+    assert front.main(['check', str(EXAMPLES / 'piecewise.yaml')]) == 0, 'a curve left as written is checked as written'
+    assert capsys.readouterr() == ('', ''), 'no advice, no output'
+    with pytest.raises(SystemExit) as left:
+        front.main(['check', str(EXAMPLES / 'piecewise.yaml'), '--expand'])
+    assert left.value.code == 2, 'check has no --expand, since it would change nothing'
+
+
 def _carries(stream: str, said: str) -> bool:
     """*stream* mentions *said*, or is silent where *said* is empty."""
     return said in stream if said else stream == ''
@@ -99,7 +114,7 @@ def test_check_puts_advice_on_stdout_and_a_refusal_on_stderr(tmp_path, capsys, y
 
 def test_the_shell_front_costs_no_dependency():
     """It is stdlib argparse over `typeset`, and that is a decision: an optional
-    extra would stop `python -m math_spec latex` working on a bare install."""
+    extra would stop `python -m mathspec latex` working on a bare install."""
     tree = ast.parse(Path(front.__file__).read_text())
     roots = set()
     for node in ast.walk(tree):
@@ -108,7 +123,7 @@ def test_the_shell_front_costs_no_dependency():
         elif isinstance(node, ast.ImportFrom) and node.module:
             roots.add(node.module.split('.')[0])
 
-    assert roots <= sys.stdlib_module_names | {'math_spec'}, f'the shell front grew a dependency: {roots}'
+    assert roots <= sys.stdlib_module_names | {'mathspec'}, f'the shell front grew a dependency: {roots}'
 
 
 @pytest.mark.parametrize('fmt', sorted(FORMATS))
@@ -165,4 +180,4 @@ def test_no_verb_binds_data():
     banned = {'--source', '--coords', '--data'}
     for name, verb in _verbs().items():
         flags = {option for action in verb._actions for option in action.option_strings}
-        assert not (flags & banned), f'{name} binds data: {sorted(flags & banned)}'
+        assert not (flags & banned), f'{name} attaches data: {sorted(flags & banned)}'

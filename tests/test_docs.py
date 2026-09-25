@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec.model import PIECEWISE_METHODS
+from mathspec.model import PIECEWISE_METHODS
 from tools import expansion_math, gallery, home_math, notation, spec_math
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -67,7 +67,7 @@ def test_no_fold_in_the_readme_prints_its_math_as_a_code_block():
     `tools._page.inlined` is what rewrites a fold into it.
     """
     folds = re.findall(r'<details>.*?</details>', home_math.README.read_text(), re.DOTALL)
-    assert len(folds) == 3, 'the README folds the whole document, then the same document in the other two notations'
+    assert len(folds) == 1, 'the README folds one block, the whole document with its symbol table'
     hiding = [fold[:60] for fold in folds if '```math' in fold]
     assert not hiding, f'a `math` fence inside a fold prints its TeX rather than its math: {hiding}'
 
@@ -126,7 +126,7 @@ def test_the_published_grammar_spells_a_name_the_way_the_code_reads_one():
     what the language accepts is the drift this asks about; it went unnoticed
     because nothing compared the two.
     """
-    from math_spec._expression_parser import NAME
+    from mathspec._expression_parser import NAME
 
     page = (ROOT / 'docs' / 'reference' / 'language' / 'expressions.md').read_text()
     published = re.search(r'^NAME\s*::=\s*(.+)$', page, re.MULTILINE)
@@ -144,11 +144,16 @@ _FENCED_MATH = re.compile(r'^[ \t]*```math$', re.MULTILINE)
 _INLINE_MATH = re.compile(r'\$`[^`\n]+`\$')
 
 
+def _site_config():
+    """`mkdocs.yml` as the site reads it, resolved by the builder itself."""
+    config = pytest.importorskip('zensical.config', reason='the docs feature; the bare test environment skips it')
+    return config.parse_config(str(ROOT / 'mkdocs.yml'))
+
+
 def _site_markdown():
     """A renderer configured exactly as the site's, from `mkdocs.yml` itself."""
     markdown = pytest.importorskip('markdown', reason='the docs feature; the bare test environment skips it')
-    config = pytest.importorskip('mkdocs.config', reason='the docs feature; the bare test environment skips it')
-    site = config.load_config(str(ROOT / 'mkdocs.yml'))
+    site = _site_config()
     return markdown.Markdown(extensions=site['markdown_extensions'], extension_configs=site['mdx_configs'])
 
 
@@ -162,14 +167,20 @@ def test_the_site_renders_the_math_the_page_prints_for_github(page: Path):
 
     The two delimiters are GitHub's verbatim pair, which is the whole point of
     them — nothing can escape into the span. Arithmatex reads neither: the
-    fence is a `superfences` entry in `mkdocs.yml` and the inline pair is the
-    hook's, and a page rendering its equations as literal backticks is what
-    either of those going missing looks like. The regex that preceded the
-    fence entry missed `docs/index.md`, whose math is indented inside a tab.
+    fence is a `superfences` entry in `mkdocs.yml` and the inline pair is
+    `tools.mdx_github_math`'s, and a page rendering its equations as literal
+    backticks is what either of those going missing looks like. The regex that
+    preceded the fence entry missed `docs/index.md`, whose math is indented
+    inside a tab.
+
+    The renderer carries the extension, so this converts the page source
+    itself. It was the hook's output until the site moved to zensical, and
+    reading the source is what makes the extension's own registration part of
+    what the test asks about.
     """
     source = page.read_text()
     printed = len(_FENCED_MATH.findall(source)) + len(_INLINE_MATH.findall(source))
-    html = _site_markdown().convert(_hooks().on_page_markdown(source))
+    html = _site_markdown().convert(source)
     assert html.count('class="arithmatex"') >= printed, (
         f'{page.relative_to(ROOT)} prints {printed} math spans and the site renders '
         f'{html.count('class="arithmatex"')} — the rest reach the reader as literal text'
@@ -177,15 +188,16 @@ def test_the_site_renders_the_math_the_page_prints_for_github(page: Path):
     assert '$`' not in html and 'language-math' not in html, 'no delimiter is left for the reader to see'
 
 
-def _hooks():
-    """The site's own hook module, loaded the way `mkdocs.yml` names it."""
-    import importlib.util
+def _rewrite():
+    """`tools.mdx_github_math.rewrite`, imported only where python-markdown is.
 
-    spec = importlib.util.spec_from_file_location('hooks', ROOT / 'docs' / 'static' / 'hooks.py')
-    assert spec and spec.loader, 'the site loads docs/static/hooks.py, so it has to be importable'
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    The extension is the docs feature, and the bare interpreter environments
+    carry neither it nor python-markdown.
+    """
+    pytest.importorskip('markdown', reason='the docs feature; the bare test environment skips it')
+    from tools.mdx_github_math import rewrite
+
+    return rewrite
 
 
 @pytest.mark.parametrize(
@@ -200,16 +212,88 @@ def _hooks():
             id='a-math-fence-indented-in-a-tab',
         ),
         pytest.param('```yaml\nname: $`x`$\n```', '```yaml\nname: $`x`$\n```', id='a-model-that-shows-the-syntax'),
+        pytest.param(
+            '````text\n$`x`$\n````\n\nand $`y`$ after',
+            '````text\n$`x`$\n````\n\nand $y$ after',
+            id='a-fence-opened-with-more-than-three-backticks',
+        ),
     ],
 )
-def test_the_hook_rewrites_math_and_nothing_that_only_quotes_it(source: str, expected: str):
+def test_the_extension_rewrites_math_and_nothing_that_only_quotes_it(source: str, expected: str):
     """Inline math becomes `$…$`; a fence and a code span are left exactly as they are.
 
-    The fence is the `superfences` entry's, not the hook's — reaching into one
-    would rewrite the YAML a gallery page shows beside its equation. And a
+    The fence is the `superfences` entry's, not the extension's — reaching into
+    one would rewrite the YAML a gallery page shows beside its equation. And a
     backtick on the outer edge is a code span quoting the delimiter rather than
     math using it, which is how `docs/reference/typeset.md` documents it: an
     earlier version rewrote that page's own prose and hid the syntax it was
     explaining.
     """
-    assert _hooks().on_page_markdown(source) == expected
+    assert _rewrite()(source) == expected
+
+
+def _nav_pages(entries: list[dict]) -> Iterator[str]:
+    """Every page the nav points at, depth first, as the site resolves the URL.
+
+    A section heading carries no URL of its own, and an entry may name an
+    address on another site, so neither is a page in this tree.
+    """
+    for entry in entries:
+        url = entry['url']
+        if url and url.endswith('.md'):
+            yield url
+        yield from _nav_pages(entry['children'])
+
+
+def test_every_page_under_docs_has_a_nav_entry():
+    """The strict build stopped asking this when the site moved to zensical.
+
+    mkdocs failed the build on a page with no nav entry, under
+    `validation.nav.omitted_files`. zensical validates links and leaves
+    navigation alone, so an orphan page builds, ships and is reachable only by
+    search. Both directions are asked here, because a nav entry naming a file
+    that is not there is dropped just as quietly.
+    """
+    nav = set(_nav_pages(_site_config()['nav']))
+    pages = {path.relative_to(ROOT / 'docs').as_posix() for path in (ROOT / 'docs').rglob('*.md')}
+    assert pages == nav, (
+        f'pages with no nav entry in mkdocs.yml: {sorted(pages - nav)}; nav entries with no page: {sorted(nav - pages)}'
+    )
+
+
+#: The API pages, by the module each renders. `mathspec.typesetting` has no
+#: page of its own: `mathspec` re-exports what a consumer calls from it.
+API_PAGES = {
+    'mathspec': Path('docs') / 'reference' / 'api.md',
+    'mathspec.program': Path('docs') / 'reference' / 'program.md',
+}
+
+
+def _targets(page: Path) -> list[str]:
+    """What each `:::` block on the page asks mkdocstrings to render."""
+    return [line.removeprefix(':::').strip() for line in page.read_text().splitlines() if line.startswith(':::')]
+
+
+def test_the_api_pages_render_the_public_surface_and_nothing_else():
+    """The API reference is the export surface, and nothing else.
+
+    `docs/static/hooks.py` used to write one page per source module, so
+    `lowering`, `resolution` and `separability` were published beside
+    `to_spec` although no consumer may import them. A page now renders only a
+    module `tests/test_public_surface.py` pins, or a name one of them exports.
+    """
+    from tests.test_public_surface import MODULES
+
+    pinned = {module.values[0].__name__: module.values[0] for module in MODULES}
+    public = set(pinned) | {f'{name}.{member}' for name, module in pinned.items() for member in module.__all__}
+    rendered = {target for page in API_PAGES.values() for target in _targets(ROOT / page)}
+    assert rendered <= public, f'an API page renders a name no pinned module exports: {sorted(rendered - public)}'
+
+
+def test_every_name_the_package_exports_has_an_entry_on_an_api_page():
+    """A name joins `mathspec.__all__` and the Python API page together."""
+    import mathspec
+
+    rendered = {target for page in API_PAGES.values() for target in _targets(ROOT / page)}
+    missing = sorted(name for name in mathspec.__all__ if f'mathspec.{name}' not in rendered)
+    assert missing == [], f'names in mathspec.__all__ with no ::: entry on an API page: {missing}'

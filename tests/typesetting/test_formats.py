@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import to_spec, typeset_declaration
-from math_spec.typesetting import FORMATS, to_latex, to_markdown, to_typst, typeset
-from math_spec.typesetting.format import OPERATOR_NAMES
+from mathspec import to_spec, typeset_declaration
+from mathspec.typesetting import FORMATS, to_latex, to_markdown, to_typst, typeset
+from mathspec.typesetting.format import OPERATOR_NAMES
 from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
@@ -21,8 +21,8 @@ from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from math_spec.typesetting import FormatName
-    from math_spec.typesetting.format import Format
+    from mathspec.typesetting import FormatName
+    from mathspec.typesetting.format import Format
 
 
 #: Every math span of a Markdown document: a `math` fence, then the verbatim

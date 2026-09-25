@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -12,13 +12,13 @@ concept of a set.
 
 ## 1. Write the formulation out
 
-`expand()` returns the same math with its formulations stated as plain
-declarations. `to_yaml()` prints the result as a file.
+`expand()` writes each formulation out as plain declarations, and `to_yaml()`
+prints the result as a file.
 
 === "Python"
 
     ```python
-    from math_spec import to_spec
+    from mathspec import to_spec
 
     spec = to_spec('before.yaml')
     print(spec.expand().to_yaml())
@@ -27,7 +27,7 @@ declarations. `to_yaml()` prints the result as a file.
 === "Command line"
 
     ```bash
-    python -m math_spec markdown before.yaml --expand
+    python -m mathspec markdown before.yaml --expand
     ```
 
 The command line prints the expansion as math rather than as YAML. Pass
@@ -35,10 +35,9 @@ The command line prints the expansion as math rather than as YAML. Pass
 
 ## 2. Read a set
 
-The `sos:` block below says that at most one `p` is nonzero. Its expansion
-adds one binary per member, a row that picks at most one binary, and a row that
-holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
-`p`.
+Compare the tabs. The `sos:` block below says that at most one `p` is nonzero.
+[What a set is written out as](../reference/language/piecewise.md#what-a-set-is-written-out-as)
+names each row the expansion adds.
 
 <!-- prettier-ignore-start -->
 <!-- expansion:set:begin -->
@@ -138,21 +137,11 @@ holds an unpicked member at zero. The coefficient `10.0` is the upper bound of
 <!-- expansion:set:end -->
 <!-- prettier-ignore-end -->
 
-Every name the expansion adds starts with the name of the block, so `pick_seg`
-is the binary of the set `pick`.
-
 ## 3. Read a curve
 
-The `piecewise:` block below ties `x` and `y` to a curve through the
-breakpoints in `x_bp` and `y_bp`. A `method: sos2` curve states a set, so it
-writes out in two steps. Compare the tabs from left to right:
-
-- **`expand('piecewise')` writes the curve out and leaves its set.** It adds a
-  weight per breakpoint and one link row per tied variable. An `sos:` block
-  over the weights keeps at most two neighbouring weights nonzero.
-- **`expand()` writes the set out too.** The `sos:` block becomes one binary
-  per segment and the rows that keep the two nonzero weights next to each
-  other.
+Compare the tabs from left to right. `expand('piecewise')` writes the
+`method: sos2` curve below out and leaves the set it states. `expand()` writes
+the set out too.
 
 <!-- prettier-ignore-start -->
 <!-- expansion:curve:begin -->
@@ -257,7 +246,7 @@ writes out in two steps. Compare the tabs from left to right:
             description: >-
               piecewise 'curve': every breakpoint the curve runs through needs a row in
               'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
-              curve, so it sits the curve on the origin. Bind the rows, or declare
+              curve, so it sits the curve on the origin. Attach the rows, or declare
               points: to say how far the curve runs.
         ```
 
@@ -364,7 +353,7 @@ writes out in two steps. Compare the tabs from left to right:
             description: >-
               piecewise 'curve': every breakpoint the curve runs through needs a row in
               'x_bp', 'y_bp' — a missing row is read as a zero rather than as a shorter
-              curve, so it sits the curve on the origin. Bind the rows, or declare
+              curve, so it sits the curve on the origin. Attach the rows, or declare
               points: to say how far the curve runs.
         ```
 
@@ -439,7 +428,7 @@ writes out in two steps. Compare the tabs from left to right:
 <!-- expansion:curve:end -->
 <!-- prettier-ignore-end -->
 
-The [`assumptions:`](../reference/language/assumptions.md) rows state what
-the curve needs of its data. What
-`expand()` accepts, and what each `method:` emits, is under
-[piecewise curves and SOS](../reference/language/piecewise.md#writing-a-formulation-out).
+[`Spec.expand()`](../reference/api.md#mathspec.Spec.expand) lists what
+the call accepts, and
+[writing a formulation out](../reference/language/piecewise.md#writing-a-formulation-out)
+says what each block emits.

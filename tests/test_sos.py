@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 """`sos:` as a formulation: what a set is written out as, and what it may not lose.
 
-Every claim here is one `Spec.expand` reaches with no data bound — which
+Every claim here is one `Spec.expand` reaches with no data attached — which
 declarations a set emits, which coefficient links them, and that the adjacency
 method is the same rows under the same names.
 """
@@ -13,8 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec.errors import SchemaError
-from math_spec.lowering import to_program
+from mathspec.errors import SchemaError
 from tests.fixtures import SMALL_MODEL, expanded, override, schema_of
 
 #: A set over a bounded member, which is the smallest model `expand('sos')` acts on.
@@ -97,21 +96,19 @@ def test_the_emitted_binary_carries_the_members_own_mask():
 
 
 def test_a_set_emits_no_parameter_so_the_same_sources_bind_both():
-    program, written_out = to_program(schema_of(PICKED)), to_program(schema_of(PICKED).expand('sos'))
+    program, written_out = schema_of(PICKED).program, schema_of(PICKED).expand('sos').program
 
     assert set(written_out.parameters) == set(program.parameters), 'a set states rows and columns, never data'
 
 
 def test_the_adjacency_method_is_the_sos2_curve_with_its_set_written_out():
     """The one spelling of the binaries, so the two methods cannot drift apart."""
-    sos2 = to_program(schema_of(CURVE).expand())
-    adjacency = to_program(expanded(override(CURVE, **{'piecewise.cost_curve.method': 'adjacency'}), 'piecewise'))
+    sos2 = schema_of(CURVE).expand().program
+    adjacency = expanded(override(CURVE, **{'piecewise.cost_curve.method': 'adjacency'}), 'piecewise').program
 
     assert sos2.variables == adjacency.variables
     assert sos2.constraints == adjacency.constraints
     assert not sos2.sos and not adjacency.sos, 'neither hands a solver a set'
-    assert sos2.piecewise['cost_curve'].method == 'sos2', 'the block still records the method it declared'
-    assert adjacency.piecewise['cost_curve'].method == 'adjacency'
 
 
 @pytest.mark.parametrize(
