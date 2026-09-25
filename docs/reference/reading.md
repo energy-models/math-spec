@@ -162,6 +162,44 @@ and the relation a `PulledBackPredicate` reads is in its `.names_read`.
 and `~`, `&` and `|` combine masks into a mask. A mask folds as it is built, so a boolean literal
 stands at a mask's root or nowhere. A `Region`'s `when` is a `Mask` too.
 
+## What a program does not build
+
+`program.given.parameters`, `program.given.variables`,
+`program.given.expressions` and `program.given.constraints` name what the spec
+reads and does not build ([given](language/declarations.md#given)). Every
+other group is a build instruction. These four are names to look up in the
+model this one is layered onto. An expression reads a given expression as a
+`Variable` of that name, over the frame under `program.given.expressions`.
+A given expression with `additive` set is a sum other files add terms to.
+Where the file also declares a term of it, the name is a definition with
+`additive` set under `program.expressions`, and not a given name.
+
+```python
+layer = to_spec(
+    {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
+        'given': {
+            'variables': {'p': {'dims': ['snapshot', 'bus']}},
+            'constraints': {'balance': {'dims': ['snapshot', 'bus']}},
+        },
+        'parameters': {'rate': {'dims': ['bus']}},
+        'constraints': {'cap': {'dims': [], 'expression': 'sum(p * rate) <= 100'}},
+        'expressions': {'price': {'expression': 'dual(balance)'}},
+    }
+).program
+
+sorted(layer.variables)  # []
+sorted(layer.given.variables)  # ['p']
+layer.given.constraints['balance'].dims  # ('snapshot', 'bus')
+```
+
+The host model provides each name: it holds a column or a row family of that
+name. A consumer that builds the program checks that the host provides each
+name on the same frame, and refuses the program where it does not. A consumer
+with no host refuses a program whose four groups are not all empty. `advice`
+returns one note of kind `given` per name
+([what `advice` warns about](language/errors.md#what-advice-warns-about)).
+
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one program uses.

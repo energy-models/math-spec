@@ -283,6 +283,90 @@ class VariableBlock(_StrictBlock):
         return self
 
 
+class GivenParameterBlock(_StrictBlock):
+    """Data this file reads and another file declares.
+
+    It says what a [`ParameterBlock`][] says, because the frame and the
+    dtype are all a parameter declaration holds: a where compares against the
+    dtype, and the dim rules read the frame.
+    """
+
+    _label: ClassVar[str] = 'a given parameter declaration'
+
+    dims: list[str]
+    dtype: ParameterDtype = 'float'
+    description: str | None = None
+
+
+class GivenVariableBlock(_StrictBlock):
+    """A column this file reads and another file introduces.
+
+    The frame and the domain are all this file states. The file that introduces
+    the column owns its bounds and its mask.
+    """
+
+    _label: ClassVar[str] = 'a given variable declaration'
+
+    dims: list[str]
+    domain: VariableDomain = 'continuous'
+    description: str | None = None
+
+
+class GivenConstraintBlock(_StrictBlock):
+    """A row family this file reads the dual of and another model builds.
+
+    The frame says how many duals there are and what indexes them, which is
+    what ``dual()`` needs. There is no ``expression:``, because nothing here
+    builds a row.
+    """
+
+    _label: ClassVar[str] = 'a given constraint declaration'
+
+    dims: list[str]
+    description: str | None = None
+
+
+class GivenExpressionBlock(_StrictBlock):
+    """A named expression this file reads and another file defines.
+
+    The frame is all this file states. This file reads the name as a quantity
+    over that frame, affine in the columns, as it reads a given variable: the
+    body is the definer's, and the composed spec holds the body to the rules
+    of every place this file reads it.
+
+    ``additive: true`` says the name is a sum other files add terms to. Each
+    of them declares its term as an ordinary named expression under the name,
+    and [`merge`][mathspec.composition.merge] sums the terms. A file that marks
+    the name may declare a term of its own too, and then reads the sum so far.
+    """
+
+    _label: ClassVar[str] = 'a given expression declaration'
+
+    dims: list[str]
+    #: Whether the name is a sum other files add terms to.
+    additive: bool = False
+    description: str | None = None
+
+
+class GivenBlock(_StrictBlock):
+    """What this file reads and does not build, by kind. Closed at the four kinds."""
+
+    _label: ClassVar[str] = 'a given block'
+
+    #: Data another file declares ([`GivenParameterBlock`][]).
+    parameters: dict[str, GivenParameterBlock] = {}
+    #: Columns another file introduces ([`GivenVariableBlock`][]).
+    variables: dict[str, GivenVariableBlock] = {}
+    #: Row families another model builds ([`GivenConstraintBlock`][]).
+    constraints: dict[str, GivenConstraintBlock] = {}
+    #: Named expressions another file defines ([`GivenExpressionBlock`][]).
+    expressions: dict[str, GivenExpressionBlock] = {}
+
+    def __bool__(self) -> bool:
+        """Whether the file reads anything it does not build."""
+        return bool(self.parameters or self.variables or self.constraints or self.expressions)
+
+
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
 
@@ -709,7 +793,7 @@ class Spec(_StrictBlock):
     [`LanguageError`][] on a spec the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the eleven declaration sections plus ``version`` and
+    The API is the twelve declaration sections plus ``version`` and
     ``description``, three ways back out — [`to_dict`][] for the spec as
     data, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the
     spec with its formulations written out as plain rows — and [`program`][], the
@@ -731,6 +815,11 @@ class Spec(_StrictBlock):
     relations: dict[str, RelationBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
+    #: What this file reads and does not build ([`GivenBlock`][]): data
+    #: under ``parameters:``, columns under ``variables:``, row families under
+    #: ``constraints:`` and definitions under ``expressions:``. Empty in a file
+    #: that stands alone.
+    given: GivenBlock = GivenBlock()
     constraints: dict[str, ConstraintBlock] = {}
     objective: ObjectiveBlock | None = None
     expressions: dict[str, ExpressionBlock] = {}
@@ -877,13 +966,16 @@ class Spec(_StrictBlock):
 
         Read off the spec's own mappings rather than a list of sections, so a
         section added later cannot be forgotten here — every mapping a Spec
-        carries is keyed by a declaration name.
+        carries is keyed by a declaration name. ``given:`` nests its four
+        mappings one level down, so they are read off [`GivenBlock`][] the
+        same way.
         """
+        sections = [*self, *((f'given: {kind}', group) for kind, group in self.given)]
         errors = [
             f'{section}: {name!r} is not a name. A declaration is named the way an expression '
             f'writes it — a letter or an underscore, then letters, digits or underscores — so '
             f'nothing can refer to this one. Rename it.'
-            for section, value in self
+            for section, value in sections
             if isinstance(value, dict)
             for name in value
             if not re.fullmatch(NAME, name)
@@ -903,6 +995,15 @@ class Spec(_StrictBlock):
         """
         _ = self.program
         return self
+
+
+def defined_sums(schema: Spec) -> frozenset[str]:
+    """The names *schema* marks ``additive`` under ``given: expressions:`` and declares a term of itself.
+
+    Such a name is defined in the file, and reads as the sum so far: it is not
+    a name the file reads from elsewhere, so it joins no given group.
+    """
+    return frozenset(name for name, g in schema.given.expressions.items() if g.additive and name in schema.expressions)
 
 
 def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:

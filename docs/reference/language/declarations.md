@@ -5,8 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Parameters, variables, constraints and the objective
 
-These four blocks carry the math. Each takes an optional `description:`, free
-text that the [typeset](../typeset.md#descriptions) legend prints.
+These four blocks carry the math, and `given:` names what the math reads from
+another file. Each takes an optional `description:`, free text that the
+[typeset](../typeset.md#descriptions) legend prints.
 
 ## `parameters`
 
@@ -80,6 +81,221 @@ and `upper: -rating` is refused. Ship the negated column as data.
 
 Equal bounds pin a variable ([fix a quantity](../../howto/pin-a-variable.md)).
 A pinned variable is still a variable.
+
+## `given`
+
+`given:` holds what this file reads and does not build: data under
+`parameters:`, columns under `variables:`, named expressions under
+`expressions:`, and row families under `constraints:`. It takes those four keys
+and no other. A file with a `given:` block loads and prints on its own.
+
+### `given: parameters`
+
+A given parameter is data this file reads and another file declares.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+given:
+  parameters:
+    gen_cost: { dims: [generator], description: what one unit of output costs }
+    gen_on: { dims: [generator], dtype: bool }
+  variables:
+    gen_p: { dims: [snapshot, generator] }
+constraints:
+  off_units_idle:
+    dims: [snapshot, generator]
+    where: not gen_on
+    expression: gen_p <= 0
+objective:
+  sense: minimize
+  expression: sum(gen_p * gen_cost)
+```
+
+| Field         |                                                      |                 |
+| ------------- | ---------------------------------------------------- | --------------- |
+| `dims`        | required. The dimensions the parameter is indexed by |                 |
+| `dtype`       | `float`, `int`, `bool` or `str`                      | default `float` |
+| `description` | free text                                            | default `null`  |
+
+A given parameter is read wherever a parameter is: in an expression, a `where`
+and a bound. A name declared under both `parameters:` and
+`given: parameters:` is refused. The typeset legend lists a given parameter
+under _Given_.
+
+### `given: variables`
+
+A given variable is a column this file reads and another file introduces.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_port: { key: generator, values: port }
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+given:
+  variables:
+    flow:
+      dims: [snapshot, port]
+      description: what a port puts into its bus
+constraints:
+  gen_injects:
+    dims: [snapshot, generator]
+    expression: at(flow, by=gen_port, over=port, into=generator) == gen_p
+```
+
+| Field         |                                                   |                      |
+| ------------- | ------------------------------------------------- | -------------------- |
+| `dims`        | required. The dimensions the column is indexed by |                      |
+| `domain`      | `continuous`, `integer` or `binary`               | default `continuous` |
+| `description` | free text                                         | default `null`       |
+
+There is no `bounds` and no `where`. The file that introduces the column owns
+both.
+
+An expression reads a given variable as it reads any other. A name declared
+under both `variables:` and `given: variables:` is refused. The typeset legend
+lists a given variable under _Given_, and prints no domain line for it.
+
+[`merge`](../../howto/compose.md#a-library-of-components) folds a given
+declaration into the declaration of another fragment that introduces the name,
+so a composed library carries none of them. The folded declaration is the
+introducer's, and what the reader states has to say the same or less.
+
+Where nothing in this language introduces the column, the program carries the
+declaration until a host model provides it
+([what a program does not build](../reading.md#what-a-program-does-not-build)).
+
+### `given: constraints`
+
+A given constraint is a row family that another model builds. This file reads
+its dual.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  constraints:
+    balance:
+      dims: [snapshot, bus]
+      description: the host model clears each bus
+expressions:
+  price:
+    expression: dual(balance)
+```
+
+| Field         |                                                   |                |
+| ------------- | ------------------------------------------------- | -------------- |
+| `dims`        | required. The dimensions the row family runs over |                |
+| `description` | free text                                         | default `null` |
+
+There is no `expression` and no `sense`.
+`dual(name)` is the only place a given row family may be named, and the frame
+gives the reported expression its dimensions. A name declared under both
+`constraints:` and `given: constraints:` is refused.
+
+### `given: expressions`
+
+A given expression is a named expression this file reads and another file
+defines.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      description: what the components put into a bus
+constraints:
+  balance:
+    dims: [snapshot, bus]
+    expression: injection == 0
+```
+
+| Field         |                                                                                              |                 |
+| ------------- | -------------------------------------------------------------------------------------------- | --------------- |
+| `dims`        | required. The dimensions the expression runs over                                            |                 |
+| `additive`    | `true` where the name is a sum other files add terms to ([a sum](#a-sum-other-files-add-to)) | default `false` |
+| `description` | free text                                                                                    | default `null`  |
+
+There is no body. This file reads the name as it reads a given variable: a
+quantity over the frame, of degree one. A `where` does not read it, because a
+mask is built before any variable exists. A name declared under both
+`expressions:` and `given: expressions:` is refused, unless the entry is
+marked `additive`. The typeset legend lists a given expression under _Given_.
+
+[`merge`](../../howto/compose.md#a-library-of-components) folds a given
+expression into the definition of another fragment. The `dims` are an upper
+bound: a body that carries a dimension they do not name is refused. A body over
+fewer dimensions is folded, and the composed spec decides: it refuses a row
+that would repeat across the missing dimension, and accepts one where another
+term carries it. The composed spec holds the body to the rules of every place
+this file reads it: a square of a given expression that is quadratic is
+refused once folded.
+
+#### A sum other files add to
+
+`additive: true` says the name is a sum other files add terms to. One file
+says it, on its `given:` entry, with the frame. Each file that adds a term
+declares it as an ordinary named expression under that name.
+
+```yaml
+# balance.yaml reads the sum
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      additive: true
+      description: what the components put into a bus
+variables:
+  slack: { dims: [snapshot, bus] }
+constraints:
+  balance:
+    dims: [snapshot, bus]
+    expression: injection + slack == 0
+```
+
+```yaml
+# fleet.yaml adds a term
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_bus: { key: generator, values: bus }
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+expressions:
+  injection: sum(gen_p, by=gen_bus, over=generator, into=bus)
+```
+
+Each file loads alone: the reader over a sum it does not build, and the
+contributor over its own term. Other readers state the frame and nothing more.
+
+A file may carry the marked entry and declare a term too. Then it reads the
+sum so far, which alone is its own term. The term is one `expression:`, and
+carries no dimension the entry does not state; both are checked at load. The
+entry then folds into the definition, and the typeset legend lists it under
+_Definitions_, as a sum other files add terms to.
+
+[`merge`](../../howto/compose.md#a-library-of-components) sums every term of a
+marked name, each in parentheses, in fragment-name order, and keeps the marked
+entry, so a later merge adds more. The entry's description is the sum's. It
+refuses a term written as `cases:`, a term over a dimension the entry does not
+state, and a file that declares a term and reads the name without carrying the
+marked entry: on its own that file reads its term, and composed it would read
+the sum. Two terms of a name no entry marks are refused as a collision. A
+marked name no file adds to stays under `given:`.
 
 ## `constraints`
 

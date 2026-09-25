@@ -29,6 +29,8 @@ from mathspec.program import (
     ConstraintDeclaration,
     DimensionDeclaration,
     ExpressionDeclaration,
+    GivenDeclaration,
+    GivenTargets,
     Link,
     Mask,
     Named,
@@ -50,6 +52,7 @@ from mathspec.resolution import (
     resolve_expression_text,
     resolve_where_text,
 )
+from mathspec.spec import defined_sums
 from mathspec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
@@ -195,6 +198,7 @@ def lower(schema: Spec) -> Program:
             assert assumption is not None and not errors, 'what a method assumes is stated in the language'
             assumptions[aname] = assumption
 
+    sums = defined_sums(schema)
     program = Program(
         parameters={
             name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype, pdef.description)
@@ -218,10 +222,29 @@ def lower(schema: Spec) -> Program:
                 entry.body,
                 _frame_of(name, entry, schema),
                 in_math=name in in_math,
-                description=schema.expressions[name].description,
+                description=schema.expressions[name].description
+                or (schema.given.expressions[name].description if name in sums else None),
+                additive=name in sums,
             )
             for name, entry in entries.items()
         },
+        given=GivenTargets(
+            parameters={
+                name: ParameterDeclaration(tuple(g.dims), g.dtype, g.description)
+                for name, g in schema.given.parameters.items()
+            },
+            variables={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.variables.items()
+            },
+            constraints={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
+            },
+            expressions={
+                name: GivenDeclaration(tuple(g.dims), g.description, additive=g.additive)
+                for name, g in schema.given.expressions.items()
+                if name not in sums
+            },
+        ),
         description=schema.description,
     )
     if errors := emitted_name_errors(schema, program):

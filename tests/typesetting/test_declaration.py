@@ -6,13 +6,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from mathspec import LanguageError, SchemaError, typeset_declaration
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
-from tests.fixtures import override
+from tests.fixtures import varied
 from tests.typesetting.fixtures import EVERY_FORMAT
 from tests.typesetting.test_cases import CASED
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 #: A variable-carrying reduction, a scalar reduction, a data-only body, and a
 #: constraint reading the first — the shapes a line has to read.
-PLAIN = override(
+PLAIN = varied(
     DISPATCH,
     **{
         'expressions.spend': 'sum(p * cost, over=generator)',
@@ -114,7 +114,7 @@ def test_a_symbol_table_renames_an_expression_either_way():
 def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_the_document():
     """On its own, `double_spend` is complete only with `spend` substituted; in
     the document both are defined, each once, so a use prints the symbol."""
-    model = override(PLAIN, **{'expressions.double_spend': 'spend * 2'})
+    model = varied(PLAIN, **{'expressions.double_spend': 'spend * 2'})
     assert typeset_declaration(model, 'double_spend', 'latex') == (
         r'\mathit{double\_spend}_{t} = \left( \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \right) '
         r'\cdot 2 \qquad \forall\, t \in \mathcal{T}'
@@ -124,25 +124,42 @@ def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_
     )
 
 
+#: A column and a row family this file reads, each named by something that prints.
+GIVEN = varied(
+    PLAIN,
+    **{
+        'given.variables.flow': {'dims': ['snapshot']},
+        'given.constraints.clearing': {'dims': ['snapshot']},
+        'expressions.price': 'dual(clearing)',
+        'expressions.drawn': 'flow * 2',
+    },
+)
+
+
 @pytest.mark.parametrize(
-    ('name', 'match'),
+    ('model', 'name', 'match'),
     [
         pytest.param(
+            PLAIN,
             'spent',
             r"'spent' is not a named expression, constraint, assumption, curve or variable.*spend",
             id='a-near-miss',
         ),
-        pytest.param('objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
+        pytest.param(PLAIN, 'objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
+        pytest.param(GIVEN, 'flow', r"'flow' is a given variable.*no line of its own.*legend", id='a-given-variable'),
+        pytest.param(
+            GIVEN, 'clearing', r"'clearing' is a given constraint.*no line of its own.*legend", id='a-given-constraint'
+        ),
     ],
 )
-def test_a_name_declared_as_none_of_the_four_is_refused(name: str, match: str):
+def test_a_name_that_prints_no_line_of_its_own_is_refused(model: dict[str, Any], name: str, match: str):
     with pytest.raises(SchemaError, match=match):
-        typeset_declaration(PLAIN, name, 'latex')
+        typeset_declaration(model, name, 'latex')
 
 
 def test_a_name_shared_by_a_constraint_and_a_variable_is_refused_rather_than_guessed():
     """Constraints sit outside the flat namespace, so the model admits the pair; one line prints one of them."""
-    model = override(PLAIN, **{'constraints.p': {'dims': ['snapshot', 'generator'], 'expression': 'p <= 1'}})
+    model = varied(PLAIN, **{'constraints.p': {'dims': ['snapshot', 'generator'], 'expression': 'p <= 1'}})
     with pytest.raises(SchemaError, match="'p' is declared twice, as constraint and as variable"):
         typeset_declaration(model, 'p', 'latex')
 
@@ -153,6 +170,6 @@ def test_a_format_nobody_spells_is_refused():
 
 
 def test_an_invalid_model_is_refused_before_anything_renders():
-    broken = override(PLAIN, **{'expressions.spend': 'p * nonexistent'})
+    broken = varied(PLAIN, **{'expressions.spend': 'p * nonexistent'})
     with pytest.raises(LanguageError):
         typeset_declaration(broken, 'spend', 'latex')

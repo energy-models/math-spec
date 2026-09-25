@@ -34,6 +34,8 @@ SURFACE = frozenset(
         'BUILTIN_NAMES',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
+        # the two file-level verbs: peers composed, and patches laid over a base
+        'merge', 'override',
     }
 )  # fmt: skip
 

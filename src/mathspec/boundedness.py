@@ -76,7 +76,7 @@ def unbounded_notes(program: Program) -> list[Advice]:
     minimize = program.objective.sense == 'minimize'
     notes: list[Advice] = []
     for vname, sign in signs.items():
-        if sign is None or vname in constrained:
+        if sign is None or vname in constrained or vname in program.given.variables:
             continue
         side: BoundSide = 'lower' if minimize == (sign == '+') else 'upper'
         if _is_open(program.variables[vname], side):

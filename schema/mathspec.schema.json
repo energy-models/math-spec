@@ -270,6 +270,192 @@
       "title": "ExpressionCase",
       "type": "object"
     },
+    "GivenBlock": {
+      "additionalProperties": false,
+      "description": "What this file reads and does not build, by kind. Closed at the four kinds.",
+      "properties": {
+        "constraints": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenConstraintBlock"
+          },
+          "default": {},
+          "title": "Constraints",
+          "type": "object"
+        },
+        "expressions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenExpressionBlock"
+          },
+          "default": {},
+          "title": "Expressions",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenParameterBlock"
+          },
+          "default": {},
+          "title": "Parameters",
+          "type": "object"
+        },
+        "variables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenVariableBlock"
+          },
+          "default": {},
+          "title": "Variables",
+          "type": "object"
+        }
+      },
+      "title": "GivenBlock",
+      "type": "object"
+    },
+    "GivenConstraintBlock": {
+      "additionalProperties": false,
+      "description": "A row family this file reads the dual of and another model builds.\n\nThe frame says how many duals there are and what indexes them, which is\nwhat ``dual()`` needs. There is no ``expression:``, because nothing here\nbuilds a row.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "GivenConstraintBlock",
+      "type": "object"
+    },
+    "GivenExpressionBlock": {
+      "additionalProperties": false,
+      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed spec holds the body to the rules\nof every place this file reads it.\n\n``additive: true`` says the name is a sum other files add terms to. Each\nof them declares its term as an ordinary named expression under the name,\nand [`merge`][mathspec.composition.merge] sums the terms. A file that marks\nthe name may declare a term of its own too, and then reads the sum so far.",
+      "properties": {
+        "additive": {
+          "default": false,
+          "title": "Additive",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "GivenExpressionBlock",
+      "type": "object"
+    },
+    "GivenParameterBlock": {
+      "additionalProperties": false,
+      "description": "Data this file reads and another file declares.\n\nIt says what a [`ParameterBlock`][] says, because the frame and the\ndtype are all a parameter declaration holds: a where compares against the\ndtype, and the dim rules read the frame.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        },
+        "dtype": {
+          "default": "float",
+          "enum": [
+            "float",
+            "int",
+            "bool",
+            "str"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "GivenParameterBlock",
+      "type": "object"
+    },
+    "GivenVariableBlock": {
+      "additionalProperties": false,
+      "description": "A column this file reads and another file introduces.\n\nThe frame and the domain are all this file states. The file that introduces\nthe column owns its bounds and its mask.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        },
+        "domain": {
+          "default": "continuous",
+          "enum": [
+            "continuous",
+            "integer",
+            "binary"
+          ],
+          "title": "Domain",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "GivenVariableBlock",
+      "type": "object"
+    },
     "MacroBlock": {
       "additionalProperties": false,
       "description": "A parameterised expression template, defined in the YAML itself.\n\nLanguage, not code: formals (``args`` positional, ``kwargs`` keyword)\nshadow the spec's names inside the template, and every call site expands in\nthe syntax tree before resolution reads the expression.",
@@ -681,7 +867,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, [`model_validate`][], the constructor \u2014 runs\nevery load-time check, expression pass included, and raises\n[`LanguageError`][] on a spec the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, three ways back out \u2014 [`to_dict`][] for the spec as\ndata, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the\nspec with its formulations written out as plain rows \u2014 and [`program`][], the\nspec typed, which every reader after load walks. Everything else on this\nclass is pydantic's, not a contract this package keeps.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, [`model_validate`][], the constructor \u2014 runs\nevery load-time check, expression pass included, and raises\n[`LanguageError`][] on a spec the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the twelve declaration sections plus ``version`` and\n``description``, three ways back out \u2014 [`to_dict`][] for the spec as\ndata, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the\nspec with its formulations written out as plain rows \u2014 and [`program`][], the\nspec typed, which every reader after load walks. Everything else on this\nclass is pydantic's, not a contract this package keeps.",
   "properties": {
     "assumptions": {
       "additionalProperties": {
@@ -726,6 +912,15 @@
       "default": {},
       "title": "Expressions",
       "type": "object"
+    },
+    "given": {
+      "$ref": "#/$defs/GivenBlock",
+      "default": {
+        "constraints": {},
+        "expressions": {},
+        "parameters": {},
+        "variables": {}
+      }
     },
     "macros": {
       "additionalProperties": {
