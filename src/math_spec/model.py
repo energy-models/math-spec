@@ -707,7 +707,7 @@ class Spec(_StrictBlock):
     The API is the eleven declaration sections plus ``version`` and
     ``description``, three ways back out — :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
-    same math with its formulations written out — and :attr:`program`, the
+    model with its formulations written out as plain rows — and :attr:`program`, the
     model typed, which every reader after load walks. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
@@ -820,11 +820,13 @@ class Spec(_StrictBlock):
         """This model with its formulations written out as plain variables and constraints.
 
         A formulation states rows rather than being one — ``piecewise:`` states
-        a curve, ``sos:`` states which members of a family may be nonzero — and
-        expanding one writes those rows under names prefixed with the block's
-        own, then drops the block. The math is the same afterwards, and so is
-        the data attached to it: neither a set nor a curve emits a parameter,
-        and a curve's rows sit on ``where`` predicates over the file's own.
+        a curve, ``sos:`` states which members of a family may be nonzero.
+        Expanding one writes those rows under names prefixed with the block's
+        own, and drops the block. The result is a different model: it declares
+        more variables and constraints, so it does not compare equal to this
+        one. It declares the same dimensions and parameters, so the same data
+        attaches to both. Nothing is cached, so a second call builds the
+        expansion again.
 
         Args:
             kinds: Which formulations to write out — ``'piecewise'``,
@@ -834,9 +836,10 @@ class Spec(_StrictBlock):
                 curve.
 
         Returns:
-            The model those blocks wrote out, or this one where it declares
-            none of them. It is a model like any other: :meth:`to_yaml` writes
-            it, and the same data attaches to it as to the one it came from.
+            The model with those blocks written out, or this same object where
+            it declares none of them, so an expansion asked for the same kinds
+            again returns itself. It is a model like any other: :meth:`to_yaml`
+            writes it, and :attr:`program` holds its rows.
 
         Raises:
             ValueError: *kinds* names something that is not a formulation.
