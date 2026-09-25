@@ -42,14 +42,14 @@ tab prints the patch beside that math.
 version: 0
 dimensions:
   snapshot: {dtype: datetime, description: dispatch periods}
-  bus: {dtype: str, description: network nodes}
   port: {dtype: str, description: 'the connections components make, one label per connection'}
   generator: {dtype: str, description: 'generating units, each on one port'}
   load: {dtype: str, description: 'demands, each on one port'}
+  bus: {dtype: str, description: network nodes}
 relations:
-  Port_bus: {key: port, values: bus}
   Generator_port: {key: generator, values: port}
   Load_port: {key: load, values: port}
+  Port_bus: {key: port, values: bus}
 parameters:
   Generator_p_nom:
     dims: [generator]
@@ -64,22 +64,18 @@ parameters:
     dtype: float
     description: '`Load-p_set` — what a load takes in a snapshot'
 variables:
-  Port_p:
-    dims: [snapshot, port]
-    domain: continuous
-    absence: undefined
-    description: what a port puts into its bus in a snapshot, negative for a withdrawal
   Generator_p:
     dims: [snapshot, generator]
     bounds: {lower: 0.0, upper: Generator_p_nom}
     domain: continuous
     absence: undefined
     description: '`Generator-p` — what a generator produces in a snapshot'
+  Port_p:
+    dims: [snapshot, port]
+    domain: continuous
+    absence: undefined
+    description: what a port puts into its bus in a snapshot, negative for a withdrawal
 constraints:
-  Bus_nodal_balance:
-    dims: [snapshot, bus]
-    expression: sum(Port_p, by=Port_bus, over=port, into=bus) == 0
-    description: '`Bus-nodal_balance` — what the ports on a bus put in nets to nothing'
   Generator_injection:
     dims: [snapshot, generator]
     expression: at(Port_p, by=Generator_port, over=port, into=generator) == Generator_p
@@ -90,6 +86,10 @@ constraints:
     expression: at(Port_p, by=Load_port, over=port, into=load) == -Load_p_set
     description: 'what a load takes is what its port withdraws. No PyPSA row stands for this: PyPSA writes
       the load into the balance instead'
+  Bus_nodal_balance:
+    dims: [snapshot, bus]
+    expression: sum(Port_p, by=Port_bus, over=port, into=bus) == 0
+    description: '`Bus-nodal_balance` — what the ports on a bus put in nets to nothing'
 objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_cost)}
 ```
 
@@ -100,10 +100,10 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
     | Symbol | Meaning |
     |---|---|
     | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-    | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
-    | $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N},\ \mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J},\ \mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — the connections components make, one label per connection |
+    | $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J},\ \mathrm{Load\_port}: \mathcal{D} \to \mathcal{J},\ \mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — the connections components make, one label per connection |
     | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J}`$ — generating units, each on one port |
     | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — demands, each on one port |
+    | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
 
     #### Parameters
 
@@ -117,8 +117,8 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
 
     | Symbol | Meaning |
     |---|---|
-    | $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
     | $`p`$ | `Generator_p` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-p` — what a generator produces in a snapshot |
+    | $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
 
     #### Objective
 
@@ -127,12 +127,6 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
     ```
 
     #### Subject to
-
-    **`Bus_nodal_balance`**
-
-    ```math
-    \sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
-    ```
 
     **`Generator_injection`**
 
@@ -146,18 +140,24 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
     f_{t,\mathrm{Load\_port}(d)} = -\mathrm{load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
     ```
 
-    #### Variable domains
-
-    **`Port_p`**
+    **`Bus_nodal_balance`**
 
     ```math
-    f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
+    \sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
     ```
+
+    #### Variable domains
 
     **`Generator_p`**
 
     ```math
     0 \le p_{t,g} \le \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+    **`Port_p`**
+
+    ```math
+    f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
     ```
 
 === "With commitment"
@@ -187,10 +187,10 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
     | Symbol | Meaning |
     |---|---|
     | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-    | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
-    | $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N},\ \mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J},\ \mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — the connections components make, one label per connection |
+    | $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J},\ \mathrm{Load\_port}: \mathcal{D} \to \mathcal{J},\ \mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — the connections components make, one label per connection |
     | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J}`$ — generating units, each on one port |
     | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — demands, each on one port |
+    | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
 
     #### Parameters
 
@@ -205,8 +205,8 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
 
     | Symbol | Meaning |
     |---|---|
-    | $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
     | $`p`$ | `Generator_p` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-p` — what a generator produces in a snapshot |
+    | $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
     | $`u`$ | `Generator_status` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-status` — whether a unit is on in a snapshot |
 
     #### Objective
@@ -216,12 +216,6 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
     ```
 
     #### Subject to
-
-    **`Bus_nodal_balance`**
-
-    ```math
-    \sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
-    ```
 
     **`Generator_injection`**
 
@@ -233,6 +227,12 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
 
     ```math
     f_{t,\mathrm{Load\_port}(d)} = -\mathrm{load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
+    ```
+
+    **`Bus_nodal_balance`**
+
+    ```math
+    \sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
     ```
 
     **`Generator_com_p_upper`**
@@ -249,16 +249,16 @@ objective: {sense: minimize, expression: sum(Generator_p * Generator_marginal_co
 
     #### Variable domains
 
-    **`Port_p`**
-
-    ```math
-    f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
-    ```
-
     **`Generator_p`**
 
     ```math
     p_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+    **`Port_p`**
+
+    ```math
+    f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
     ```
 
     **`Generator_status`**

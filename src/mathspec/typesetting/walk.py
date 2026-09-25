@@ -696,7 +696,7 @@ class Walk:
         )
 
     def _definitions(self) -> list[Line]:
-        """One line per named expression, in declaration order, defining it, then one per term this program adds.
+        """One line per named expression, in declaration order, defining it.
 
         A use prints the symbol and the block prints here, as a paper states a
         quantity it names. Every declared one prints, used or not. Inlining
@@ -704,28 +704,7 @@ class Walk:
         no single body to substitute, and an entry the math never reads has
         nowhere to be substituted *into*, so both still print.
         """
-        return [*(self.definition(name) for name in self.defined()), *(self.term(name) for name in self.terms())]
-
-    def terms(self) -> list[str]:
-        """The given expressions this program adds a term to, in declaration order."""
-        return [name for name, given in self.program.given.expressions.items() if given.term is not None]
-
-    def term(self, name: str) -> Line:
-        """The line for the term this program adds to a given expression: ``symbol = ⋯ + term`` over the entry's frame.
-
-        The dots stand for what the other files put in.
-        """
-        given = self.program.given.expressions[name]
-        assert given.term is not None, 'a line prints for a term, and not for a name this program only reads'
-        frame = list(given.dims)
-        ctx = self._context(frame)
-        rendered = self._expression(given.term, ctx, need=_PRECEDENCE['+'])
-        return Line(
-            label=name,
-            left=ctx.indexed(self.symbols.name[name], frame),
-            right=f'{self._op("equal")} {self._op("ellipsis")} {self._op("plus")} {rendered}',
-            condition=self._quantifier(frame, ''),
-        )
+        return [self.definition(name) for name in self.defined()]
 
     def defined(self) -> list[str]:
         """The named expressions that print under their own symbol: every one, or only the unsubstitutable when inlining.
@@ -753,7 +732,7 @@ class Walk:
         )
 
     def line(self, name: str) -> Line:
-        """The one line *name* prints as: a named expression, a term this program adds, a constraint, an assumption, a curve, or a variable's domain.
+        """The one line *name* prints as: a named expression, a constraint, an assumption, a curve, or a variable's domain.
 
         An assumption is looked up where the document prints it from, so a
         condition a curve's method states is a line a reader can ask for
@@ -767,7 +746,6 @@ class Walk:
         program = self.program
         kinds = {
             'named expression': (program.expressions, self.definition),
-            'term': (dict.fromkeys(self.terms()), self.term),
             'constraint': (program.constraints, self._constraint),
             'assumption': (program.assumptions, self._assumption),
             'curve': (program.piecewise, self._piecewise),
@@ -777,7 +755,7 @@ class Walk:
         if not found:
             everything = {n for group, _ in kinds.values() for n in group}
             msg = (
-                f"'{name}' is not a named expression, term, constraint, assumption, curve or variable. "
+                f"'{name}' is not a named expression, constraint, assumption, curve or variable. "
                 f'{did_you_mean(name, everything)}'
             )
             raise SchemaError(msg)

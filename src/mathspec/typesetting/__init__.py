@@ -176,9 +176,8 @@ def typeset_declaration(
     """Render one declaration as the bare line the document prints for it.
 
     The line the whole-spec render prints for it — a named expression's
-    definition, the term this file adds to a given expression, a constraint,
-    an assumption, a ``piecewise:`` curve, or a variable's domain, quantifier
-    included —
+    definition, a constraint, an assumption, a ``piecewise:`` curve, or a
+    variable's domain, quantifier included —
     with no document, label, equation number or math delimiters around it, for
     a math context the caller lays out: a docstring, a table cell. A line on
     its own has no Definitions section beside it, so the plain named
@@ -188,8 +187,7 @@ def typeset_declaration(
     Args:
         spec: Anything [`mathspec.to_spec`][] accepts, or a [`Program`][].
         name: A named expression, constraint, assumption, ``piecewise:``
-            block or variable the spec declares, or a given expression it adds
-            a term to.
+            block or variable the spec declares.
         fmt: What spells the math — a key of [`FORMATS`][].
         symbols: How names print; see [`typeset`][].
         inline_expressions: Substitute the plain named expressions the line uses, so it
@@ -203,17 +201,17 @@ def typeset_declaration(
     Raises:
         ValueError: *fmt* names no format.
         LanguageError: A spec that does not compile; it does not print.
-        SchemaError: *name* is declared as none of the six, as two — a
-            constraint may share a variable's name — or under ``given:`` with
-            no term, which prints in the legend rather than as a line; or a
-            symbol table entry names nothing in the spec.
+        SchemaError: *name* is declared as none of the five, as two — a
+            constraint may share a variable's name — or under ``given:``, which
+            prints in the legend rather than as a line; or a symbol table entry
+            names nothing in the spec.
     """
     walk = _walk(spec, fmt, symbols, inline_expressions=inline_expressions)
     given = walk.program.given
     givens = {
         'parameter': given.parameters,
         'variable': given.variables,
-        'expression': {name: block for name, block in given.expressions.items() if block.term is None},
+        'expression': given.expressions,
         'constraint': given.constraints,
     }
     given_kind = next((kind for kind, group in givens.items() if name in group), None)

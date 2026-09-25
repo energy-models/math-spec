@@ -164,8 +164,8 @@ def test_two_descriptions_of_one_dimension_agree_and_the_first_is_carried():
     first = {**SUPPLY, 'dimensions': {**SUPPLY['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'an hour'}}}
     second = {**DEMAND, 'dimensions': {**DEMAND['dimensions'], 'snapshot': {'dtype': 'int', 'description': 'a step'}}}
     composed = merge({'supply': first, 'demand': second})
-    assert composed.dimensions['snapshot'].description == 'an hour', (
-        "the claim is carried whole, under the first fragment's wording of the prose"
+    assert composed.dimensions['snapshot'].description == 'a step', (
+        'the claim is carried whole, under the first wording in fragment-name order, whatever order the call used'
     )
 
 

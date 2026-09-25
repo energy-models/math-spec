@@ -20,7 +20,8 @@ What that means for each section:
 
 * **A dimension or a relation every fragment may declare**, and the ones that
   do have to say the same thing about it. Prose is not a claim, so two
-  descriptions of one dimension agree, and the first fragment's is carried.
+  descriptions of one dimension agree, and the first in the fragments' name
+  order is carried.
 * **Every other declaration is owned.** A name two fragments declare is refused,
   both named.
 * **The objectives are summed**, each term in parentheses, in the fragments'
@@ -38,8 +39,13 @@ What that means for each section:
   name, once the reader is checked to say the same as the introducer or less.
   A given expression's body may carry no dimension its reader does not state,
   and a name read as one kind and introduced as another is refused.
-  Two fragments that both read a name have to read it over one frame. What no
-  fragment introduces stays under ``given:`` until a host model provides it.
+  Two fragments that both read a name have to read it over one frame, as a
+  set. What no fragment introduces stays under ``given:`` until a host model
+  provides it.
+
+The fragments are taken in name order once, so nothing below depends on the
+order they were passed in: not the sums, not the composed spec's key order,
+and not the fragment a refusal names first.
 
 A patch says only what it changes, because declarations are laid over a field
 at a time::
@@ -91,7 +97,7 @@ from mathspec.spec import GivenBlock, Spec
 from mathspec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
     from pathlib import Path
 
 #: The declarations that are the coordinate space rather than the math. A patch
@@ -154,20 +160,23 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
             opposite ways; or the composed spec does not load.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    loaded = {name: _fragment(name, fragment) for name, fragment in fragments.items()}
+    loaded = {name: _fragment(name, fragment) for name, fragment in sorted(fragments.items())}
     read = {name: spec.to_dict() for name, spec in loaded.items()}
     merged: dict[str, object] = {'version': _one_version(read)}
     if description is not None:
         merged['description'] = description
     for section in SHARED_SECTIONS:
-        if agreed := _agreed(read, section, _singular(section)):
+        if agreed := _agreed(read, section, _singular(section), 'give one of them a name of its own'):
             merged[section] = agreed
-    asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
-    readings = _agreed_readings(asked)
+    asked = {name: _readings(sections) for name, sections in read.items()}
+    readings = {
+        kind: _agreed(asked, kind, label, 'read it over one frame', claims=_reading_claims)
+        for kind, label in GIVEN_KINDS.items()
+    }
     for section in OWNED_SECTIONS:
         if claimed := _claimed(read, section):
             merged[section] = claimed
-    if summed := _summed(read, loaded, _mapping(merged.get('expressions')), readings):
+    if summed := _summed(read, loaded, _mapping(merged.get('expressions')), readings['expressions']):
         merged['expressions'] = {**_mapping(merged.get('expressions')), **summed}
     if given := _folded(read, merged, loaded, readings):
         merged['given'] = given
@@ -201,34 +210,61 @@ def _one_version(read: Mapping[str, dict[str, object]]) -> int:
 
 
 def _author_of(read: Mapping[str, dict[str, object]], section: str, key: str) -> str:
-    """The first fragment declaring *key* under *section*, for a message that names both sides."""
+    """The first fragment in name order declaring *key* under *section*, for a message that names both sides."""
     return next(name for name, sections in read.items() if key in _mapping(sections.get(section)))
-
-
-def _agreed(read: Mapping[str, dict[str, object]], section: str, label: str) -> dict[str, object]:
-    """One block every fragment may declare, peers that say the same thing folded together.
-
-    Equality of the claims rather than "the same or less": between peers
-    neither declaration is the one being restated, so a field only one of them
-    writes is a difference nothing settles.
-    """
-    merged: dict[str, object] = {}
-    for name, sections in read.items():
-        for key, block in _mapping(sections.get(section)).items():
-            if key in merged and _claims(merged[key]) != _claims(block):
-                raise LanguageError(
-                    f"fragments '{_author_of(read, section, key)}' and '{name}' say different things about "
-                    f'the {label} {key!r}: {merged[key]!r} against {block!r}. A declaration two fragments '
-                    f'share is one both say the same thing about: make the two identical, or give one of '
-                    f'them a name of its own.'
-                )
-            merged.setdefault(key, block)
-    return merged
 
 
 def _claims(block: object) -> object:
     """*block* without its prose, which is what the declaration says rather than a remark about it."""
     return {key: value for key, value in block.items() if key != 'description'} if isinstance(block, dict) else block
+
+
+def _reading_claims(block: object) -> object:
+    """What a reading claims: its fields but the prose, with the frame as a set, since two files read one name over one frame however they list it."""
+    claims = _mapping(_claims(block))
+    return {**claims, 'dims': frozenset(cast('list[str]', claims.get('dims', [])))}
+
+
+def _readings(sections: Mapping[str, object]) -> dict[str, object]:
+    """The ``given:`` block of one fragment, each entry without its term: what the fragment reads, apart from what it adds."""
+    return {
+        kind: {key: {f: v for f, v in _mapping(entry).items() if f != 'term'} for key, entry in _mapping(group).items()}
+        for kind, group in _mapping(sections.get('given')).items()
+    }
+
+
+def _agreed(
+    read: Mapping[str, dict[str, object]],
+    section: str,
+    label: str,
+    repair: str,
+    *,
+    claims: Callable[[object], object] = _claims,
+) -> dict[str, object]:
+    """One block every fragment may declare, peers that say the same thing folded together.
+
+    Equality of the claims rather than "the same or less": between peers
+    neither declaration is the one being restated, so a field only one of them
+    writes is a difference nothing settles. *claims* says what a block claims;
+    a reading's frame is a set. Prose is not a claim, so the first description
+    in the fragments' name order is carried.
+    """
+    merged: dict[str, object] = {}
+    for name, sections in read.items():
+        for key, block in _mapping(sections.get(section)).items():
+            if key not in merged:
+                merged[key] = dict(block) if isinstance(block, dict) else block
+                continue
+            if claims(merged[key]) != claims(block):
+                raise LanguageError(
+                    f"fragments '{_author_of(read, section, key)}' and '{name}' say different things about "
+                    f'the {label} {key!r}: {merged[key]!r} against {block!r}. A declaration two fragments '
+                    f'share is one both say the same thing about: make the two identical, or {repair}.'
+                )
+            held, said = _mapping(merged[key]), _mapping(block).get('description')
+            if said and not held.get('description'):
+                held['description'] = said
+    return merged
 
 
 def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, object]:
@@ -253,35 +289,10 @@ def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, o
     return merged
 
 
-def _agreed_readings(asked: Mapping[str, dict[str, object]]) -> dict[str, dict[str, object]]:
-    """Every ``given: expressions:`` entry, the ones two fragments share folded together, without their terms.
-
-    Two readings of one name agree on the frame, compared as a set. A term is
-    the fragment's own and is summed by [`_summed`][], so it is no claim about
-    the name; prose is not one either, so the first description is carried.
-    """
-    agreed: dict[str, dict[str, object]] = {}
-    for name, given in asked.items():
-        for key, block in _mapping(given.get('expressions')).items():
-            entry = {field: value for field, value in cast('dict[str, object]', block).items() if field != 'term'}
-            if key not in agreed:
-                agreed[key] = entry
-                continue
-            held = agreed[key]
-            if set(cast('list[str]', held['dims'])) != set(cast('list[str]', entry['dims'])):
-                raise LanguageError(
-                    f"fragments '{_author_of(asked, 'expressions', key)}' and '{name}' say different things "
-                    f'about the given expression {key!r}: over {held["dims"]} against over {entry["dims"]}. Two '
-                    f'files read one name over one frame: make the two identical.'
-                )
-            held['description'] = held.get('description') or entry.get('description')
-    return agreed
-
-
 def _terms(read: Mapping[str, dict[str, object]], key: str) -> list[tuple[str, str]]:
     """Every term the fragments add to *key*, with the fragment that adds it, in the fragments' name order."""
     found = []
-    for name, sections in sorted(read.items()):
+    for name, sections in read.items():
         entry = _mapping(_mapping(_mapping(sections.get('given')).get('expressions')).get(key))
         if entry.get('term') is not None:
             found.append((name, cast('str', entry['term'])))
@@ -292,7 +303,7 @@ def _summed(
     read: Mapping[str, dict[str, object]],
     loaded: Mapping[str, Spec],
     defined: Mapping[str, object],
-    readings: Mapping[str, dict[str, object]],
+    readings: Mapping[str, object],
 ) -> dict[str, object]:
     """Every name a fragment adds a term to, defined as the definition plus the terms.
 
@@ -304,7 +315,8 @@ def _summed(
     a reader wrote.
     """
     summed: dict[str, object] = {}
-    for key, entry in readings.items():
+    for key, reading in readings.items():
+        entry = _mapping(reading)
         terms = _terms(read, key)
         if not terms:
             continue
@@ -390,30 +402,58 @@ def _folded(
 
     A given declaration is what a fragment expects of a name a sibling owns.
     Where the sibling is in the composition the expectation is checked and
-    then dropped, so the composed spec declares the name once. A given
-    expression is checked against the frame of the composed body: the body
-    carries no dimension the reader does not state.
+    then dropped, so the composed spec declares the name once.
     """
-    asked = {name: _mapping(sections.get('given')) for name, sections in read.items()}
     left: dict[str, object] = {}
-    for kind, label in GIVEN_KINDS.items():
+    for kind, agreed in readings.items():
         introduced = _mapping(merged.get(kind))
-        agreed = readings if kind == 'expressions' else _agreed(asked, kind, label)
         for key, block in agreed.items():
-            _same_kind(asked, read, merged, kind, key)
-            if key in introduced and kind == 'expressions':
-                _within_frame(asked, read, key, block, _definer_frame(loaded, key))
-            elif key in introduced and not _says_less(block, introduced[key]):
-                raise LanguageError(
-                    f"fragment '{_author_of(asked, kind, key)}' reads the {label} {key!r} as {block!r}, where "
-                    f"'{_author_of(read, kind, key)}' introduces it as {introduced[key]!r}. A given declaration "
-                    f'says the same as the declaration it is folded into, or less: restate the frame as the '
-                    f'introducer declares it, or leave the field out.'
-                )
+            _same_kind(read, merged, kind, key)
+            if key in introduced:
+                _fits(read, loaded, kind, key, block, introduced[key])
         kept = {key: block for key, block in agreed.items() if key not in introduced}
         if kept:
             left[kind] = kept
     return left
+
+
+def _reader_of(read: Mapping[str, dict[str, object]], kind: str, key: str) -> str:
+    """The first fragment in name order reading *key* under ``given: {kind}:``."""
+    return next(name for name, sections in read.items() if key in _mapping(_readings(sections).get(kind)))
+
+
+def _fits(
+    read: Mapping[str, dict[str, object]],
+    loaded: Mapping[str, Spec],
+    kind: str,
+    key: str,
+    reading: object,
+    introduced: object,
+) -> None:
+    """Refuse a reading that says more than the declaration it folds into.
+
+    A reading states the frame its introducer declares, and every other field
+    it writes is the introducer's. A given expression is the one kind whose
+    frame may be wider than the composed body: a body over fewer dimensions
+    broadcasts, and the composed load refuses a row it would repeat.
+    """
+    stated = set(cast('list[str]', _mapping(reading)['dims']))
+    if kind == 'expressions':
+        frame = set(_definer_frame(loaded, key))
+        fits = frame <= stated
+    else:
+        frame = set(cast('list[str]', _mapping(introduced)['dims']))
+        fits = frame == stated
+    fields = {f: v for f, v in _mapping(_claims(reading)).items() if f != 'dims'}
+    if fits and all(_mapping(introduced).get(f) == v for f, v in fields.items()):
+        return
+    how = f'over {sorted(frame)}' if kind == 'expressions' else f'as {introduced!r}'
+    raise LanguageError(
+        f"fragment '{_reader_of(read, kind, key)}' reads the {GIVEN_KINDS[kind]} {key!r} as {reading!r}, where "
+        f"'{_author_of(read, kind, key)}' introduces it {how}. A given declaration says the same as the "
+        f'declaration it is folded into, or less: restate the frame as the introducer declares it, or leave '
+        f'the field out.'
+    )
 
 
 def _definer_frame(loaded: Mapping[str, Spec], key: str) -> frozenset[str]:
@@ -433,63 +473,24 @@ def _definer_frame(loaded: Mapping[str, Spec], key: str) -> frozenset[str]:
 READ_KINDS = ('parameters', 'variables', 'expressions')
 
 
-def _same_kind(
-    asked: Mapping[str, dict[str, object]],
-    read: Mapping[str, dict[str, object]],
-    merged: Mapping[str, object],
-    kind: str,
-    key: str,
-) -> None:
+def _same_kind(read: Mapping[str, dict[str, object]], merged: Mapping[str, object], kind: str, key: str) -> None:
     """Refuse a given declaration whose name a sibling introduces as another kind of thing."""
     if kind not in READ_KINDS:
         return
     for other in READ_KINDS:
         if other != kind and key in _mapping(merged.get(other)):
             raise LanguageError(
-                f"fragment '{_author_of(asked, kind, key)}' reads {key!r} as a {GIVEN_KINDS[kind]}, where "
+                f"fragment '{_reader_of(read, kind, key)}' reads {key!r} as a {GIVEN_KINDS[kind]}, where "
                 f"'{_author_of(read, other, key)}' introduces it under '{other}:'. A given declaration reads a "
                 f"name as the kind of thing its introducer declares: move it under 'given: {other}:'."
             )
 
 
-def _within_frame(
-    asked: Mapping[str, dict[str, object]],
-    read: Mapping[str, dict[str, object]],
-    key: str,
-    block: object,
-    frame: frozenset[str],
-) -> None:
-    """Refuse a definition whose body carries a dimension the given expression's reader does not state.
-
-    The reader's ``dims`` bounds what it reads. A body over fewer dimensions is
-    left to the composed spec's load, which refuses a row it would repeat and
-    accepts one another term carries the dimension through.
-    """
-    stated = cast('list[str]', _mapping(block)['dims'])
-    if extra := sorted(set(frame) - set(stated)):
-        raise LanguageError(
-            f"fragment '{_author_of(asked, 'expressions', key)}' reads the given expression {key!r} over "
-            f"{sorted(stated)}, where '{_author_of(read, 'expressions', key)}' defines it over {sorted(frame)}. "
-            f'A given expression is read over at most the frame its reader states, and this body carries '
-            f'{extra} beyond it: add {extra} to the dims of the given entry.'
-        )
-
-
-def _says_less(reader: object, introducer: object) -> bool:
-    """Whether every claim *reader* makes is one *introducer* makes too.
-
-    Both come from a loaded spec's ``to_dict``, which writes every default
-    out, so a field one of them left to its default is still a claim here.
-    """
-    return all(_mapping(introducer).get(key) == value for key, value in _mapping(_claims(reader)).items())
-
-
 def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object] | None:
     """Every fragment's objective summed, each term in parentheses, or ``None`` where none declares one.
 
-    The terms are summed in the fragments' name order, so the order they were
-    passed in does not reach the expression. The first description in that
-    order is carried, as a shared dimension's is. The senses have to agree: a sum has
+    The terms are summed in the fragments' name order, and the first
+    description in that order is carried, as a shared dimension's is. The senses have to agree: a sum has
     one sense, and negating the odd one out would be this function deciding what
     a spec means.
     """
@@ -504,7 +505,7 @@ def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object
             f'one objective and one sense, so write every fragment against the same one: negate the terms '
             f'of the odd one out rather than its sense.'
         )
-    ordered = [objective for _, objective in sorted(declared.items())]
+    ordered = list(declared.values())
     terms = [objective['expression'] for objective in ordered]
     joined = terms[0] if len(terms) == 1 else ' + '.join(f'({term})' for term in terms)
     summed: dict[str, object] = {'sense': next(iter(senses.values())), 'expression': joined}

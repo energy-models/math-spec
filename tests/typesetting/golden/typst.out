@@ -46,11 +46,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $italic("op_cost")$: `op_cost` over $cal(T) times cal(G)$
 / $italic("warm")$: `warm` over $cal(T) times cal(G)$
 
-== Given
-/ $italic("withdrawal")$: `withdrawal` over $cal(T) times cal(G)$, an expression this file adds a term to
-
 == Definitions
-/ $upright("leak")$: `leak` over $cal(G)$
 / $upright("spend")^(upright("cap"))$: `spend_cap` over $cal(G)$
 / $italic("spend")$: `spend` over $cal(T)$ --- what a snapshot's dispatch costs
 / $italic("lcoe")$: `lcoe` (scalar)
@@ -131,13 +127,11 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
 
 == Definitions
 #set math.equation(numbering: "(1)")
-$ upright("leak") & upright("leak")_(g) & = -upright("eta")_(g) & forall g in cal(G) \
-  upright("spend_cap") & upright("spend")^(upright("cap"))_(g) & = upright("cost")_(g) dot 2 & forall g in cal(G) \
+$ upright("spend_cap") & upright("spend")^(upright("cap"))_(g) & = upright("cost")_(g) dot 2 & forall g in cal(G) \
   upright("spend") & italic("spend")_(t) & = sum_(g in cal(G)) p_(t,g) dot upright("cost")_(g) & forall t in cal(T) \
   upright("lcoe") & italic("lcoe") & = frac(sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g), sum_(t in cal(T), g in cal(G)) p_(t,g)) \
   upright("marginal_price") & italic("marginal_price")_(t,b) & = lambda_(upright("balance"),t,b) & forall t in cal(T), b in cal(B) \
-  upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("pos")(t) > 0 and upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) \
-  upright("withdrawal") & italic("withdrawal")_(t,g) & = dots.c + upright("leak")_(g) & forall t in cal(T), g in cal(G) $
+  upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("pos")(t) > 0 and upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) $
 
 == Variable domains
 #set math.equation(numbering: "(1)")

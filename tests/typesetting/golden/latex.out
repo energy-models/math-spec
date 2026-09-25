@@ -56,14 +56,8 @@
 \item[{$\mathit{warm}$}] \texttt{warm} over $\mathcal{T} \times \mathcal{G}$
 \end{description}
 
-\paragraph{Given}
-\begin{description}
-\item[{$\mathit{withdrawal}$}] \texttt{withdrawal} over $\mathcal{T} \times \mathcal{G}$, an expression this file adds a term to
-\end{description}
-
 \paragraph{Definitions}
 \begin{description}
-\item[{$\mathrm{leak}$}] \texttt{leak} over $\mathcal{G}$
 \item[{$\mathrm{spend}^{\mathrm{cap}}$}] \texttt{spend\_cap} over $\mathcal{G}$
 \item[{$\mathit{spend}$}] \texttt{spend} over $\mathcal{T}$ --- what a snapshot's dispatch costs
 \item[{$\mathit{lcoe}$}] \texttt{lcoe} (scalar)
@@ -147,13 +141,11 @@
 
 \paragraph{Definitions}
 \begin{align}
-\text{leak} && \mathrm{leak}_{g} & = -\mathrm{eta}_{g} && \forall\, g \in \mathcal{G} \\
 \text{spend\_cap} && \mathrm{spend}^{\mathrm{cap}}_{g} & = \mathrm{cost}_{g} \cdot 2 && \forall\, g \in \mathcal{G} \\
 \text{spend} && \mathit{spend}_{t} & = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} && \forall\, t \in \mathcal{T} \\
 \text{lcoe} && \mathit{lcoe} & = \frac{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}} \\
 \text{marginal\_price} && \mathit{marginal\_price}_{t,b} & = \lambda_{\mathrm{balance},t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
-\text{startup\_cost} && \mathrm{startup\_cost}_{t,g} & = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \\ 0 & \text{otherwise} \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{withdrawal} && \mathit{withdrawal}_{t,g} & = \cdots + \mathrm{leak}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\text{startup\_cost} && \mathrm{startup\_cost}_{t,g} & = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \\ 0 & \text{otherwise} \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 \end{align}
 
 \paragraph{Variable domains}
