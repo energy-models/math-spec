@@ -19,6 +19,51 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.125](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.124...v0.0.0-alpha.125) (2026-09-25)
+
+
+### Bug Fixes
+
+* **language:** an unknown operator's refusal points at the limits page instead of an escape key that does not exist ([#676](https://github.com/energy-models/mathspec/issues/676)) ([5e4ef2b](https://github.com/energy-models/mathspec/commit/5e4ef2b8e6f397f71f9b09ab55685d6c02fe3a83))
+* **language:** messages and docs say data is attached rather than bound, so a bound is only a variable's limit ([#694](https://github.com/energy-models/mathspec/issues/694)) ([cc8ba08](https://github.com/energy-models/mathspec/commit/cc8ba089ed50f746aae39d914ba3b7a8e700a267))
+
+
+### Documentation
+
+* a development section holds the PyPSA parity pages and the contributing guide ([#678](https://github.com/energy-models/mathspec/issues/678)) ([a399bdd](https://github.com/energy-models/mathspec/commit/a399bdd045500bf2cca5c5c386653188ef640361))
+* a first tutorial writes the dispatch model one block at a time, checks it and prints it ([#680](https://github.com/energy-models/mathspec/issues/680)) ([48b60e8](https://github.com/energy-models/mathspec/commit/48b60e8507cbfd598471109a2813c48c2654cba5))
+* a glossary defines each word the docs use in a fixed sense ([#675](https://github.com/energy-models/mathspec/issues/675)) ([2561ad8](https://github.com/energy-models/mathspec/commit/2561ad874cdf5d5300c1fb95bf520b09b59aa1b8))
+* each page keeps only what its reader needs, and a fact stated twice keeps one home ([#686](https://github.com/energy-models/mathspec/issues/686)) ([ef8dcb9](https://github.com/energy-models/mathspec/commit/ef8dcb9c71845a1a64c471406bd3a47ec8bc45af))
+* engine authors get a program api page rendered from math_spec.program, and the per-module pages and the file-and-program page are gone ([#697](https://github.com/energy-models/mathspec/issues/697)) ([784867a](https://github.com/energy-models/mathspec/commit/784867a5db6df556001d58559b46cb5acf916055))
+* one Python API page documents every public name, including the typesetting functions ([#679](https://github.com/energy-models/mathspec/issues/679)) ([ee5ffdf](https://github.com/energy-models/mathspec/commit/ee5ffdf58ade9d803aedb48cdfbc5c47f5dd625c))
+* the nav keeps tutorials, how-to guides, reference and about for model writers, and puts the rest under development ([#683](https://github.com/energy-models/mathspec/issues/683)) ([341ad2a](https://github.com/energy-models/mathspec/commit/341ad2a768aea4808d579627d39ab9321f05bd78))
+* the notation page heads each section with the construct it shows ([#682](https://github.com/energy-models/mathspec/issues/682)) ([66faa7b](https://github.com/energy-models/mathspec/commit/66faa7b24863eae2d170355a70bc6f1216dbaaa0))
+* the readme and home page lead with what a user gets, and name specsolve and linopy as engines ([#698](https://github.com/energy-models/mathspec/issues/698)) ([9fda1bc](https://github.com/energy-models/mathspec/commit/9fda1bc9f967246db2e7f27a9e6c6432b7ffd686))
+* the readme drops the internals diagram and the repeated formats, and is a third shorter ([#699](https://github.com/energy-models/mathspec/issues/699)) ([234245b](https://github.com/energy-models/mathspec/commit/234245b82427d046eb79e15955dc6ad34e578114))
+* what spec.expand() returns is documented on the model writer's python api page, and reading.md keeps only which program an engine reads ([#696](https://github.com/energy-models/mathspec/issues/696)) ([a9caeae](https://github.com/energy-models/mathspec/commit/a9caeae7cbc07e18cdf5685e2234f31980afd746))
+* what spec.expand() returns is stated once, as a different model that binds the same data ([#677](https://github.com/energy-models/mathspec/issues/677)) ([413550e](https://github.com/energy-models/mathspec/commit/413550e884fc1a31639c5518bf3f869edee18548))
+
+## [0.0.0-alpha.124](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.123...v0.0.0-alpha.124) (2026-09-24)
+
+
+### Features
+
+* **language:** a bound is null where it is open, never infinite, in the file and in the program ([#689](https://github.com/energy-models/mathspec/issues/689)) ([8df92d0](https://github.com/energy-models/mathspec/commit/8df92d08422bfbb973f604306419da05dd34e550))
+
+## [0.0.0-alpha.123](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.122...v0.0.0-alpha.123) (2026-09-24)
+
+
+### Documentation
+
+* the engine these pages point at is called specsolve ([#673](https://github.com/energy-models/math-spec/issues/673)) ([647e351](https://github.com/energy-models/math-spec/commit/647e351066dc63750a63e43c0e15469daaf1f81a))
+
+## [0.0.0-alpha.122](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.121...v0.0.0-alpha.122) (2026-09-24)
+
+
+### Refactoring
+
+* **program:** the program no longer exports fan_in, FanIn, quotients or divisor_parameters ([#633](https://github.com/energy-models/math-spec/issues/633)) ([352431b](https://github.com/energy-models/math-spec/commit/352431b121d5e517e3e1ed08c0553b3c33489ab7))
+
 ## [0.0.0-alpha.121](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.120...v0.0.0-alpha.121) (2026-09-24)
 
 
