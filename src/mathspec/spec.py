@@ -372,15 +372,19 @@ class ExpressionBlock(_StrictBlock):
             expression: sum(p * rate, over=generator)
             description: CO2 released, the quantity the cap bounds
 
-    A quantity whose value varies by region is written as ``cases:`` over a
-    declared ``dims:``, with an ``otherwise:`` for the rest — see the
-    language reference.
+    ``dims:`` declares the frame the quantity is read over. A plain entry may
+    leave it out, and its body then decides the frame; a body that carries a
+    dimension the frame does not name is refused, and one that carries fewer
+    is constant along the rest. A quantity whose value varies by region is
+    written as ``cases:`` over a declared ``dims:``, with an ``otherwise:``
+    for the rest — see the language reference.
     """
 
     _label: ClassVar[str] = 'a named expression'
 
     expression: Expression | None = None
-    #: The frame the cases are read over — required with them, refused without.
+    #: The frame the quantity is read over — required with ``cases:``, and
+    #: the body's own dims where a plain entry leaves it out.
     dims: list[str] | None = None
     #: The regions, keyed by the name labelling the row each prints; every ``when`` is proved apart from the others.
     cases: Annotated[dict[str, ExpressionCase], Field(min_length=1)] = {}
@@ -407,12 +411,6 @@ class ExpressionBlock(_StrictBlock):
             msg = (
                 '`cases:` needs a `dims:` — it is the frame the cases are read over, and no one '
                 "case's body gives it, since a case may be a scalar while the condition selecting it is not."
-            )
-            raise ValueError(msg)
-        if self.dims is not None and not self.cases:
-            msg = (
-                '`dims:` is only for a named expression with `cases:`. Without them the dims fall '
-                'out of the body, and declaring a second answer is a second thing to keep true.'
             )
             raise ValueError(msg)
         if self.cases and self.otherwise is None:
@@ -446,9 +444,13 @@ class ExpressionBlock(_StrictBlock):
             written['otherwise'] = self.otherwise
             return written
         assert self.expression is not None
-        if self.description is None:
+        if self.description is None and self.dims is None:
             return self.expression
-        return {'expression': self.expression, 'description': self.description}
+        written = {'dims': list(self.dims)} if self.dims is not None else {}
+        written['expression'] = self.expression
+        if self.description is not None:
+            written['description'] = self.description
+        return written
 
 
 class AssumptionBlock(_StrictBlock):
