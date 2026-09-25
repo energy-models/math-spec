@@ -66,6 +66,7 @@ nav:
           - One construct per model: examples/operators.md
   - About:
       - The limits: about/limits.md
+      - Versions: about/versions.md
       - Changelog: changelog.md
   # Everything a model writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a
