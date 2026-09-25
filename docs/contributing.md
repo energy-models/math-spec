@@ -90,8 +90,9 @@ stale anchor fails it. `pixi run docs-serve` builds the site and serves it at
       - My Page: my-page.md
     ```
 
-    The Python API pages are generated from the docstrings, so a new class or
-    module appears in the next build.
+    The module pages under Development are generated from the docstrings, so a
+    new module appears in the next build. A new public name also needs its own
+    `:::` entry on the [Python API](reference/api.md) page.
 
 ## Naming across the layers
 
