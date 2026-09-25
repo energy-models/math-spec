@@ -3,64 +3,88 @@ SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Print a model as math
+# Print the math
 
-Turn a model file into the math a paper would print, from the file alone, and
-keep the document current as the file changes.
+Turn a model file into the equations for a paper, a report or a review. The
+math comes from the file alone, so it always matches the model you solve.
 
-1. **Print Markdown first** and read it:
+## Print Markdown
 
-   ```bash
-   python -m mathspec markdown model.yaml
-   ```
+Start with Markdown, and read it:
 
-2. **Give the symbols their conventional spelling** with a symbol table beside
-   the model, `model.symbols.yaml`. Without one, `load` prints as
-   $\mathrm{load}_t$; with one it prints as whatever you write:
+```bash
+python -m mathspec markdown model.yaml
+```
 
-   ```yaml
-   notation: latex
+The output has tables of symbols, the objective, the constraints and the
+variable domains. [Your first model](../first-model.md#the-math) shows a full
+example.
 
-   dimensions:
-     snapshot: { index: s, set: "\\mathcal{S}" }
-     generator: { index: g, set: "\\mathcal{G}" }
+## Choose your own symbols
 
-   names:
-     cost: c
-     load: "\\ell"
-     capacity: "\\bar p"
-   ```
+By default a name prints as itself: `load` prints as $\mathrm{load}_t$. To use
+the symbols of your field, write a symbol table beside the model, for example
+`model.symbols.yaml`:
 
-   A key naming nothing in the model is an error.
+```yaml
+notation: latex
 
-3. **Emit a document that compiles.** `--standalone` wraps the fragment in a
-   preamble, so the output builds on its own:
+dimensions:
+  snapshot: { index: s, set: "\\mathcal{S}" }
+  generator: { index: g, set: "\\mathcal{G}" }
 
-   ```bash
-   python -m mathspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
-   python -m mathspec typst model.yaml --standalone -o model.typ
-   ```
+names:
+  cost: c
+  load: "\\ell"
+  capacity: "\\bar p"
+```
 
-   Then `tectonic model.tex` or `typst compile model.typ`. A symbol table is
-   written for one notation, so the Typst render takes a table with
-   `notation: typst` or none. Without `--standalone` the output is a fragment
-   to `\input` or `#include` into a paper.
+Pass it with `--symbols`:
 
-4. **Print the rows a curve or a set states** with `--expand`:
+```bash
+python -m mathspec markdown model.yaml --symbols model.symbols.yaml
+```
 
-   ```bash
-   python -m mathspec markdown model.yaml --expand
-   ```
+A key that names nothing in the model is an error.
 
-   The same table serves both renders: a name the expansion emits, such as
-   `cost_curve_lam`, may be spelled in it.
+## Make a document that compiles
 
-5. **Keep it current** with a rule in the paper's build:
+`--standalone` adds a preamble, so the output builds on its own:
 
-   ```make
-   model.tex: model.yaml model.symbols.yaml
-   	python -m mathspec latex $< --symbols model.symbols.yaml --standalone -o $@
-   ```
+```bash
+python -m mathspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
+python -m mathspec typst model.yaml --standalone -o model.typ
+```
 
-[Typeset the math](../reference/typeset.md) lists every option and what a
-symbol table may say.
+Then run `tectonic model.tex` or `typst compile model.typ`.
+
+- **Without `--standalone`, the output is a fragment.** Put it into your paper
+  with `\input` or `#include`.
+- **A symbol table is for one notation.** The Typst render takes a table with
+  `notation: typst`, or no table.
+
+## Show what a curve or a set means
+
+A `piecewise:` or `sos:` block prints as one compact line. `--expand` prints
+the plain constraints it stands for:
+
+```bash
+python -m mathspec markdown model.yaml --expand
+```
+
+The same symbol table serves both renders. It may also spell a name that the
+expansion adds, such as `cost_curve_lam`. See
+[expand curves and sets](see-an-expansion.md).
+
+## Keep the document current
+
+Add a rule to the build of your paper, so the math prints again when the model
+changes:
+
+```make
+model.tex: model.yaml model.symbols.yaml
+	python -m mathspec latex $< --symbols model.symbols.yaml --standalone -o $@
+```
+
+[Typeset the math](../reference/typeset.md) lists every option and everything
+a symbol table may say.

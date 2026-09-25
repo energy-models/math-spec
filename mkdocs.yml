@@ -34,14 +34,14 @@ nav:
   - Tutorials:
       - Your first model: first-model.md
   - How-to guides:
-      - Installation: howto/installation.md
-      - Check a model without data: howto/check.md
-      - Print a model as math: howto/print.md
-      - State a rule that differs by regime: howto/regimes.md
-      - Declare a column of data: howto/declare-a-column.md
-      - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
-      - Write a piecewise curve out by hand: howto/curve-by-hand.md
-      - See what a curve or a set expands to: howto/see-an-expansion.md
+      - Install: howto/installation.md
+      - Check a model: howto/check.md
+      - Print the math: howto/print.md
+      - Map your data: howto/declare-a-column.md
+      - Vary a rule by regime: howto/regimes.md
+      - Pin a variable: howto/pin-a-variable.md
+      - Write a curve by hand: howto/curve-by-hand.md
+      - Expand curves and sets: howto/see-an-expansion.md
   - Reference:
       - Language:
           - reference/language/index.md

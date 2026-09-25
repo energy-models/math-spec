@@ -3,17 +3,17 @@ SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# See what a curve or a set expands to
+# Expand curves and sets
 
 A [`piecewise:`](../reference/language/piecewise.md) block and a `sos:` block
 each stand for plain variables and constraints. Write them out to review a
-formulation, to teach one, or to hand the model to an engine that has no
-concept of a set.
+formulation, to teach one, or to give the model to an engine that does not
+know SOS (special ordered sets).
 
-## 1. Write the formulation out
+## Write the formulation out
 
-`expand()` writes each formulation out as plain declarations, and `to_yaml()`
-prints the result as a file.
+`expand()` writes each block out as plain declarations. `to_yaml()` prints the
+result as a model file.
 
 === "Python"
 
@@ -33,7 +33,7 @@ prints the result as a file.
 The command line prints the expansion as math rather than as YAML. Pass
 `'piecewise'` or `'sos'` to write out one kind and keep the other.
 
-## 2. Read a set
+## A set
 
 Compare the tabs. The `sos:` block below says that at most one `p` is nonzero.
 [What a set is written out as](../reference/language/piecewise.md#what-a-set-is-written-out-as)
@@ -137,7 +137,7 @@ names each row the expansion adds.
 <!-- expansion:set:end -->
 <!-- prettier-ignore-end -->
 
-## 3. Read a curve
+## A curve
 
 Compare the tabs from left to right. `expand('piecewise')` writes the
 `method: sos2` curve below out and leaves the set it states. `expand()` writes

@@ -5,8 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Your first model
 
-In this lesson you write a least-cost dispatch model one block at a time, check
-it, and print it as math. [Install mathspec](howto/installation.md) first.
+In this tutorial you write a small model of a power system: a fleet of
+generators that meets an hourly load at least cost. You add one block at a
+time, check the file after each step, and end with the model printed as math.
+
+You need mathspec [installed](howto/installation.md) and a text editor.
 
 ## Dimensions
 
@@ -198,4 +201,4 @@ python -m mathspec markdown dispatch.yaml
 
 - [The language](reference/language/index.md) gives every rule a file obeys.
 - [Examples](examples/index.md) shows larger models beside the math they print.
-- [Print a model as math](howto/print.md) prints LaTeX and Typst.
+- [Print the math](howto/print.md) prints LaTeX and Typst.

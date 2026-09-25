@@ -3,90 +3,112 @@ SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# State a rule that differs by regime
+# Vary a rule by regime
 
-Write one model in which a rule takes a different form for some members of a
-dimension. Committable and non-committable generators are the usual case, and
-the recipe needs no second model file.
+Give some members of a dimension a different rule, in one model file. The
+usual case is a fleet of generators where only some are committable: those
+have an on/off state, and the others do not.
 
-1. **Put the regime in the data.** A `bool` parameter says which members are
-   in it; a `str` parameter names one of several:
+## Put the regime in the data
 
-   ```yaml
-   parameters:
-     committable: { dims: [generator], dtype: bool }
-   ```
+A `bool` parameter says which members are in the regime. A `str` parameter
+names one of several regimes:
 
-2. **Write one block per regime, each under its own `where:`.** The block
-   builds rows only where its mask holds, so a regime that needs no row gets
-   none:
+```yaml
+parameters:
+  committable: { dims: [generator], dtype: bool }
+```
 
-   ```yaml
-   dimensions:
-     snapshot: { dtype: int }
-     generator: { dtype: str }
+## Write one block per regime
 
-   parameters:
-     capacity: { dims: [generator] }
-     min_output: { dims: [generator] }
-     committable: { dims: [generator], dtype: bool }
+Put each block under its own [`where:`](../reference/language/absence.md). A
+block builds rows only where its mask holds, so a regime that needs no row gets
+none:
 
-   variables:
-     dispatch: { dims: [snapshot, generator], bounds: { lower: 0, upper: capacity } }
-     on: { dims: [snapshot, generator], where: committable, domain: binary }
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
 
-   constraints:
-     floor_committed:
-       dims: [snapshot, generator]
-       where: committable
-       expression: dispatch >= min_output * on
-     ceiling_committed:
-       dims: [snapshot, generator]
-       where: committable
-       expression: dispatch <= capacity * on
-   ```
+parameters:
+  capacity: { dims: [generator] }
+  min_output: { dims: [generator] }
+  committable: { dims: [generator], dtype: bool }
 
-   Here a non-committable generator is bounded by `capacity` alone, through the
-   variable's `bounds:`. Where the other regime has a rule of its own, write
-   it as a third block under `where: "NOT committable"`.
+variables:
+  dispatch: { dims: [snapshot, generator], bounds: { lower: 0, upper: capacity } }
+  on: { dims: [snapshot, generator], where: committable, domain: binary }
 
-3. **Where the regime changes a quantity rather than a rule, name the
-   quantity with `cases:`** and write the rule once against it:
+constraints:
+  floor_committed:
+    dims: [snapshot, generator]
+    where: committable
+    expression: dispatch >= min_output * on
+  ceiling_committed:
+    dims: [snapshot, generator]
+    where: committable
+    expression: dispatch <= capacity * on
+```
 
-   ```yaml
-   dimensions:
-     snapshot: { dtype: int }
-     generator: { dtype: str }
+??? example "Rendered output"
 
-   parameters:
-     capacity: { dims: [generator] }
-     committable: { dims: [generator], dtype: bool }
+    **`floor_committed`**
 
-   variables:
-     dispatch: { dims: [snapshot, generator], bounds: { lower: 0 } }
-     on: { dims: [snapshot, generator], where: committable, domain: binary }
+    ```math
+    \mathit{dispatch}_{t,g} \ge \mathrm{min\_output}_{g} \cdot \mathit{on}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{committable}_{g}
+    ```
 
-   expressions:
-     available:
-       dims: [snapshot, generator]
-       cases:
-         committed:
-           when: committable
-           expression: capacity * on
-       otherwise: capacity
+    **`ceiling_committed`**
 
-   constraints:
-     ceiling:
-       dims: [snapshot, generator]
-       expression: dispatch <= available
-   ```
+    ```math
+    \mathit{dispatch}_{t,g} \le \mathrm{capacity}_{g} \cdot \mathit{on}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{committable}_{g}
+    ```
 
-   `otherwise:` takes every coordinate the cases leave.
+Here the variable's `bounds:` limit a non-committable generator to
+`capacity`. To give the other regime a rule of its own, write a third block
+under `where: "NOT committable"`.
 
-4. **Check it** with `python -m mathspec check model.yaml`. A pair of masks
-   that can both hold, or a case with no `otherwise:`, is refused there with
-   the rewrite named.
+## Vary a quantity with `cases:`
 
-What a `where:` means is under [absence](../reference/language/absence.md);
-what a `cases:` block accepts is under
-[named expressions](../reference/language/named.md#cases).
+Sometimes the regime changes a quantity, not a rule. Then name the quantity
+with [`cases:`](../reference/language/named.md#cases), and write the rule once
+against it:
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+
+parameters:
+  capacity: { dims: [generator] }
+  committable: { dims: [generator], dtype: bool }
+
+variables:
+  dispatch: { dims: [snapshot, generator], bounds: { lower: 0 } }
+  on: { dims: [snapshot, generator], where: committable, domain: binary }
+
+expressions:
+  available:
+    dims: [snapshot, generator]
+    cases:
+      committed:
+        when: committable
+        expression: capacity * on
+    otherwise: capacity
+
+constraints:
+  ceiling:
+    dims: [snapshot, generator]
+    expression: dispatch <= available
+```
+
+`otherwise:` takes every coordinate that the cases leave.
+
+## Check the file
+
+```bash
+python -m mathspec check model.yaml
+```
+
+The check refuses two masks that can both hold, and a `cases:` block with no
+`otherwise:`. The message names the rewrite.

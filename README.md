@@ -181,7 +181,7 @@ ms.to_typst(spec)
 
 A [symbol table](docs/reference/typeset.md#symbol-tables) gives the names their
 conventional spelling, as in the folded block.
-[Print a model as math](docs/howto/print.md) does the same from a shell.
+[Print the math](docs/howto/print.md) does the same from a shell.
 
 ## Documentation
 

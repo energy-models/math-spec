@@ -30,4 +30,4 @@ that order, and everything indexed by the dimension is matched to its members
 by label.
 
 Whether to declare a column of data as a dimension, a relation or a parameter
-is decided in [declare a column of data](../../howto/declare-a-column.md).
+is decided in [map your data](../../howto/declare-a-column.md).

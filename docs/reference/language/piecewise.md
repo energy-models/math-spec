@@ -120,7 +120,7 @@ piecewise:
       - [op_cost, bp_y, ">="] # cost bounded below by the curve
 ```
 
-Where the number of links is data, write the formulation out ([a curve by hand](../../howto/curve-by-hand.md)).
+Where the number of links is data, write the formulation out ([write a curve by hand](../../howto/curve-by-hand.md)).
 
 ## `sos`
 
@@ -166,7 +166,7 @@ expansion writes that the file already declares is refused at load too.
 
 Writing a formulation out replaces the block with the variables and constraints
 it states. [`Spec.expand()`](../api.md#mathspec.Spec.expand) is the
-call, and [see what a curve or a set expands to](../../howto/see-an-expansion.md)
+call, and [expand curves and sets](../../howto/see-an-expansion.md)
 shows a model before and after.
 
 - **Every name written out starts with the name of the block.** The weights of

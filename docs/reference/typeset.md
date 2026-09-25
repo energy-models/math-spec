@@ -23,7 +23,7 @@ prints the program: the one a spec holds, or the one it was handed.
 From a shell, `python -m mathspec latex model.yaml` prints the same, and
 `typst` or `markdown` in place of `latex` picks the format.
 
-[Print a model as math](../howto/print.md) is the recipe, and
+[Print the math](../howto/print.md) is the recipe, and
 [every operator as math](language/operators.md#every-operator-as-math) shows
 what each operator prints.
 
@@ -47,7 +47,7 @@ a flag. The [Python API](api.md#typesetting) gives each signature.
 - A `piecewise:` block prints as one line: the curve it states, over the frame
   it states one curve per coordinate of. To print its rows, print
   [`spec.expand()`](api.md#mathspec.Spec.expand) or pass `--expand`
-  ([see an expansion](../howto/see-an-expansion.md)).
+  ([expand curves and sets](../howto/see-an-expansion.md)).
 - An [`assumptions:`](language/assumptions.md) entry prints under an
   **Assumptions** heading, last, beside what each curve assumes of its
   breakpoints. A model that assumes nothing of its data prints no such

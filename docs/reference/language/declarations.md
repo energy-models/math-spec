@@ -78,7 +78,7 @@ refused, with `null` named as the rewrite.
 A bound is a name or a number: `upper: capacity` is accepted,
 and `upper: -rating` is refused. Ship the negated column as data.
 
-Equal bounds pin a variable ([fix a quantity](../../howto/pin-a-variable.md)).
+Equal bounds pin a variable ([pin a variable](../../howto/pin-a-variable.md)).
 A pinned variable is still a variable.
 
 ## `constraints`
@@ -116,7 +116,7 @@ numbers and parameters alone is refused at load.
 that use it.
 
 Two regimes of one rule are two blocks, each under its own `where:`
-([state a rule that differs by regime](../../howto/regimes.md)).
+([vary a rule by regime](../../howto/regimes.md)).
 
 ## `objective`
 

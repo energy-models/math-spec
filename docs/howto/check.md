@@ -3,50 +3,59 @@ SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Check a model without data
+# Check a model
 
-Refuse a broken model file before any data or solver is involved, on your
-machine and in CI.
+Find the errors in a model file before you attach data or start a solver. The
+check reads the file alone, so it runs in seconds on your machine and in CI.
 
-1. **Run the check on one file.**
+## Check one file
 
-   ```bash
-   python -m mathspec check model.yaml
-   ```
+```bash
+python -m mathspec check model.yaml
+```
 
-   A refusal prints its message on stderr and exits with status 1:
+The result is one of three:
 
-   ```text
-   variables.p: unknown key 'boundz' in a variable declaration. Did you mean 'bounds'?
-   ```
+- **Nothing printed, exit status 0.** The model is correct.
+- **Advice on stdout, exit status 0.** The model loads, but something in it is
+  probably not what you meant:
 
-   Advice prints on stdout and exits with status 0. A model the language
-   accepts with nothing to advise prints nothing.
+  ```text
+  Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is open, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.
+  Give it a finite bounds.lower, or the constraint that was meant to define it.
+  ```
 
-   ```text
-   Variable 'slack' makes this model unbounded: no constraint names it, and bounds.lower is open, which is the direction a +slack term improves a minimize objective in. No data can change that, so the solve would answer `unbounded` and name nothing.
-   Give it a finite bounds.lower, or the constraint that was meant to define it.
-   ```
+- **An error on stderr, exit status 1.** The language refuses the file. The
+  message names the fix:
 
-2. **Run it over every model in CI.** The exit status is the gate, so a shell
-   loop is the whole job:
+  ```text
+  variables.p: unknown key 'boundz' in a variable declaration. Did you mean 'bounds'?
+  ```
 
-   ```bash
-   for model in models/*.yaml; do python -m mathspec check "$model" || exit 1; done
-   ```
+## Check every model in CI
 
-3. **Ask from Python** where the check is one step of a longer script.
-   [`to_spec`](../reference/api.md#loading) raises a `MathSpecError` for
-   anything the language refuses, and [`advice`](../reference/api.md#advice)
-   returns what it would print:
+The exit status is the gate. A shell loop is the whole job:
 
-   ```python
-   import mathspec as ms
+```bash
+for model in models/*.yaml; do python -m mathspec check "$model" || exit 1; done
+```
 
-   for note in ms.advice('model.yaml'):
-       print(note)
-   ```
+## Check from Python
 
-**Without Python**, the JSON schema checks the file's structure and nothing
-inside an `expression:` or `where:` string
-([editor completion and offline checking](installation.md#editor-completion-and-offline-checking)).
+Use this where the check is one step of a longer script.
+[`to_spec`](../reference/api.md#loading) raises a `MathSpecError` for anything
+the language refuses. [`advice`](../reference/api.md#advice) returns the advice
+that the command line prints:
+
+```python
+import mathspec as ms
+
+for note in ms.advice('model.yaml'):
+    print(note)
+```
+
+## Check without Python
+
+The JSON schema checks the structure of a file, but not the math inside an
+`expression:` or `where:` string. See
+[editor completion and offline checking](installation.md#editor-completion-and-offline-checking).

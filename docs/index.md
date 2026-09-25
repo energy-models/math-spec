@@ -185,9 +185,9 @@ call.
 - [The language](reference/language/index.md): what a file may contain, and
   what it means.
 - [Examples](examples/index.md): whole models, each beside the math it prints.
-- [Print a model as math](howto/print.md): LaTeX, Typst or Markdown, from the
+- [Print the math](howto/print.md): LaTeX, Typst or Markdown, from the
   file alone.
-- [Check a model without data](howto/check.md): on your machine and in CI.
+- [Check a model](howto/check.md): with no data, on your machine and in CI.
 - [Reading a spec and its program](reference/reading.md): for whoever writes an engine
   or a renderer.
 
