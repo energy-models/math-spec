@@ -58,6 +58,7 @@ nav:
           - Errors and limits: reference/language/errors.md
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
+      - Python API: reference/api.md
       - Glossary: reference/glossary.md
       - Examples:
           - examples/index.md
@@ -76,7 +77,6 @@ nav:
   - Development:
       - Building on math-spec:
           - Reading a loaded model: reference/reading.md
-          - Python API: reference/api.md
           - The file and the program: about/file-and-program.md
           - What counts as language: about/what-counts-as-language.md
       - Contributing:
