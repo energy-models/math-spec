@@ -8,12 +8,9 @@ Three commands, each run from the repository root::
 
     python -m tools.pypsa_split groups             # what forces declarations into one file
     python -m tools.pypsa_split split OUT          # write the topic fragments into OUT
-    python -m tools.pypsa_split check OUT [--share]  # load each fragment, merge, compare canonical forms
+    python -m tools.pypsa_split check OUT          # load each fragment, merge, compare canonical forms
 
-``--share`` lets fragments declare one parameter or expression if the
-declarations are the same, as `merge` allows for a dimension. Without it,
-`merge` refuses the split. The flag patches `mathspec.composition` in this
-process only.
+A fragment reads what another topic declares under `given:`.
 """
 
 from __future__ import annotations
@@ -25,13 +22,16 @@ import itertools
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from mathspec import composition, to_spec
+from mathspec import merge, to_spec
 from mathspec.canonical import canonical_yaml
 from mathspec.errors import LanguageError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 SOURCE = Path('examples/pypsa.yaml')
 SECTIONS = ('dimensions', 'relations', 'parameters', 'variables', 'expressions', 'constraints', 'assumptions')
@@ -160,12 +160,11 @@ def groups(source: Source, shareable: tuple[str, ...]) -> list[list[Key]]:
     return sorted(joined.values(), key=len, reverse=True)
 
 
-def fragments(source: Source) -> dict[str, str]:
-    """Each topic's fragment as YAML text: what it owns, the frame it uses, what it reads under `given:`, and copies.
+def fragments(source: Source, frames: Mapping[str, tuple[str, ...]]) -> dict[str, str]:
+    """Each topic's fragment as YAML text: what it owns, the frame it uses, and what it reads under `given:`.
 
-    A parameter or expression a fragment reads from another topic is copied in,
-    with everything it reads in turn, because `given:` takes only variables and
-    constraints.
+    *frames* holds the frame of every named expression, which a given
+    expression states and a definition does not write.
     """
     owned: dict[str, set[Key]] = collections.defaultdict(set)
     for key in source.blocks:
@@ -181,48 +180,54 @@ def fragments(source: Source) -> dict[str, str]:
 
     written = {}
     for name in sorted(owned):
-        included, given, seen = set(owned[name]), set(), set()
-        todo = [*included, *(source.key(n) for n in set().union(*map(source.names_in, terms[name])))]
-        while todo:
-            key = todo.pop()
-            if key in seen:
-                continue
-            seen.add(key)
-            if key[0] == 'variables' and key not in owned[name]:
-                given.add(key[1])
-                todo += [source.key(n) for n in source.names_in(source.data['variables'][key[1]]['dims'])]
-            else:
-                included.add(key)
-                todo += [source.key(n) for n in source.reads[key]]
-        written[name] = _written(source, included, given, terms[name])
+        mine = owned[name]
+        read = set().union(*(source.reads[key] for key in mine), *map(source.names_in, terms[name]))
+        given = {source.key(n) for n in read if source.key(n)[0] not in FRAME and source.key(n) not in mine}
+        stated = {
+            **{n: source.data[s][n]['dims'] for s, n in given if s in ('parameters', 'variables')},
+            **{n: list(frames[n]) for s, n in given if s == 'expressions'},
+        }
+        frame_reads = read | set().union(*(source.names_in(dims) for dims in stated.values()))
+        frame = {source.key(n) for n in frame_reads if source.key(n)[0] in FRAME}
+        frame |= {source.key(n) for key in list(frame) for n in source.reads[key]}
+        written[name] = _written(source, mine | frame, given, stated, terms[name])
     return written
 
 
-def _written(source: Source, included: set[Key], given: set[str], terms: list[str]) -> str:
+def _written(
+    source: Source, included: set[Key], given: set[Key], stated: Mapping[str, list[str]], terms: list[str]
+) -> str:
     """One fragment as YAML text, its sections and declarations in the order of the source file."""
     parts = [HEADER]
     for section in SECTIONS:
         if keys := [key for key in source.blocks if key[0] == section and key in included]:
             parts.append(f'{section}:\n' + '\n'.join(source.blocks[key] for key in keys) + '\n')
         if section == 'variables' and given:
-            frames = {
-                name: {k: v for k, v in source.data['variables'][name].items() if k in ('dims', 'domain')}
-                for name in sorted(given)
-            }
-            parts.append(yaml.safe_dump({'given': {'variables': frames}}, default_flow_style=None, sort_keys=False))
+            parts.append('given:\n' + ''.join(_given(source, kind, given, stated) for kind in GIVEN_KINDS))
     if terms:
         parts.append('objective:\n  sense: minimize\n  expression: >-\n    ' + '\n    + '.join(terms) + '\n')
     return '\n'.join(parts)
 
 
-def share_parameters_and_expressions() -> None:
-    """Let `merge` take one parameter or expression from several fragments that declare it the same way."""
-    shared = ('parameters', 'expressions')
-    composition.SHARED_SECTIONS = (*composition.SHARED_SECTIONS, *shared)
-    composition.OWNED_SECTIONS = tuple(s for s in composition.OWNED_SECTIONS if s not in shared)
+#: The kinds a fragment reads under `given:`, and the fields of the source
+#: declaration each restates beside the frame.
+GIVEN_KINDS = {'parameters': ('dtype',), 'variables': ('domain',), 'expressions': ()}
 
 
-def check(folder: Path, *, share: bool) -> int:
+def _given(source: Source, kind: str, given: set[Key], stated: Mapping[str, list[str]]) -> str:
+    """One kind of a fragment's `given:` block, an entry per line in source order."""
+    names = [n for s, n in source.blocks if s == kind and (s, n) in given]
+    if not names:
+        return ''
+    lines = [f'  {kind}:']
+    for n in names:
+        fields = {'dims': stated[n]} | {f: source.data[kind][n][f] for f in GIVEN_KINDS[kind] if f in source.data[kind][n]}
+        spelled = ', '.join(f'{k}: [{", ".join(v)}]' if isinstance(v, list) else f'{k}: {v}' for k, v in fields.items())
+        lines.append(f'    {n}: {{ {spelled} }}')
+    return '\n'.join(lines) + '\n'
+
+
+def check(folder: Path) -> int:
     """Load each fragment in *folder*, merge them, and print the canonical diff against `examples/pypsa.yaml`."""
     paths = {path.stem: path for path in sorted(folder.glob('*.yaml'))}
     failed = 0
@@ -233,11 +238,9 @@ def check(folder: Path, *, share: bool) -> int:
             failed += 1
             print(f'{name} does not load alone: {e}')
     print(f'{len(paths) - failed}/{len(paths)} fragments load alone')
-    if share:
-        share_parameters_and_expressions()
     whole = to_spec(SOURCE)
     try:
-        merged = composition.merge(paths, description=whole.description)
+        merged = merge(paths, description=whole.description)
     except LanguageError as e:
         print(f'merge refuses the fragments: {e}')
         return 1
@@ -257,7 +260,6 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser('split').add_argument('out', type=Path)
     checked = commands.add_parser('check')
     checked.add_argument('folder', type=Path)
-    checked.add_argument('--share', action='store_true')
     args = parser.parse_args(argv)
 
     source = Source()
@@ -274,11 +276,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == 'split':
         args.out.mkdir(parents=True, exist_ok=True)
-        for name, text in fragments(source).items():
+        frames = {name: e.dims for name, e in to_spec(SOURCE).program.expressions.items()}
+        for name, text in fragments(source, frames).items():
             (args.out / f'{name}.yaml').write_text(text)
             print(f'{name:20} {len(text.splitlines()):5} lines')
         return 0
-    return check(args.folder, share=args.share)
+    return check(args.folder)
 
 
 if __name__ == '__main__':
