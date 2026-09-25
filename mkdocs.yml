@@ -94,11 +94,7 @@ nav:
       - Proofs of concept:
           - Every construct, as math: reference/notation.md
           - PyPSA in one file: examples/pypsa.md
-          - PyPSA, the quadratic class: examples/pypsa_quadratic.md
           - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md
-          - PyPSA, the lossy lines: examples/pypsa_losses.md
-          - PyPSA, the two-stage class: examples/pypsa_stochastic.md
-          - PyPSA, the multi-period class: examples/pypsa_multi_period.md
 
 theme:
   palette:
@@ -209,7 +205,7 @@ markdown_extensions:
       permalink: "#"
       toc_depth: 3
       # GitHub's slug rules, not mkdocs'. Every page here is read in both
-      # places and they cross-link by anchor — `pypsa_losses.md#rung-13
+      # places and they cross-link by anchor — `pypsa.md#rung-13
       # --transmission-losses`, whose double hyphen is an em dash GitHub
       # drops. The default slugifier collapses that to one, so such a link
       # would 404 on the site while working in the repository. Same file,

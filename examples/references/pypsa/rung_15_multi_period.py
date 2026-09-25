@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Rung 15: two investment periods — build years, lifetimes, period weights and a carrier's growth limit, stated by `pypsa_multi_period.yaml`."""
+"""Rung 15: two investment periods — build years, lifetimes, period weights and a carrier's growth limit."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from datetime import datetime
 
 import pandas as pd
 
-MODEL = 'pypsa_multi_period.yaml'
 OPTIMIZE = {'multi_investment_periods': True}
 
 

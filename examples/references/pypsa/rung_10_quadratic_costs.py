@@ -1,11 +1,8 @@
-"""Rung 10: quadratic costs — a marginal cost quadratic in output, stated by `pypsa_quadratic.yaml`."""
+"""Rung 10: quadratic costs — a marginal cost quadratic in output."""
 
 from __future__ import annotations
 
 import spine
-
-#: This rung binds a file of its own.
-MODEL = 'pypsa_quadratic.yaml'
 
 
 def build():

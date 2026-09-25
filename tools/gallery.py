@@ -67,11 +67,7 @@ COMPOSED = {
 #: the declaration's own description.
 DECLARED = {
     'pypsa.md': ROOT / 'examples' / 'pypsa.yaml',
-    'pypsa_quadratic.md': ROOT / 'examples' / 'pypsa_quadratic.yaml',
     'pypsa_linearized_uc.md': ROOT / 'examples' / 'pypsa_linearized_uc.yaml',
-    'pypsa_losses.md': ROOT / 'examples' / 'pypsa_losses.yaml',
-    'pypsa_stochastic.md': ROOT / 'examples' / 'pypsa_stochastic.yaml',
-    'pypsa_multi_period.md': ROOT / 'examples' / 'pypsa_multi_period.yaml',
 }
 
 #: One PyPSA reference network per rung, run out of band with the versions
@@ -156,15 +152,26 @@ def declaration(text: str, section: str, name: str | None = None) -> str:
     return textwrap.dedent('\n'.join(lines[i:j])).rstrip()
 
 
-def _stands_for(name: str, description: str | None) -> str:
-    """The other side's name for a declaration — the backticked opening of its description."""
-    found = re.match(r'`([^`]+)`', description or '')
-    if found is None:
+def _names_for(name: str, description: str | None) -> list[str]:
+    """Every other-side name a declaration stands for: the backticked tokens before the ` — ` of its description.
+
+    One declaration answers to one PyPSA name as a rule; a block whose rows PyPSA
+    names differently by mode lists them all before the dash, the first canonical.
+    """
+    text = description or ''
+    head = text.split(' — ', 1)[0] if ' — ' in text else (re.match(r'`[^`]+`', text) or [''])[0]
+    names = re.findall(r'`([^`]+)`', head)
+    if not names:
         msg = (
             f'{name}: a declaration on a declared page opens its description with the name it stands for, in backticks'
         )
         raise ValueError(msg)
-    return found.group(1)
+    return names
+
+
+def _stands_for(name: str, description: str | None) -> str:
+    """The other side's canonical name for a declaration — the backticked opening of its description."""
+    return _names_for(name, description)[0]
 
 
 def declared_block(path: Path) -> str:
@@ -203,13 +210,25 @@ def _script(name: str) -> str:
     return f'`{name}.py`\n\n```python\n{(REFERENCES / f"{name}.py").read_text().strip()}\n```'
 
 
+def _banner(recorded: dict) -> str:
+    """What PyPSA solved the rung to; for a rung that records a PyPSA bug, also what the file intends and the issue."""
+    pypsa = f'`pypsa {recorded["pypsa"]}`'
+    if 'diverges' not in recorded:
+        return f"> ✔ {pypsa} solves this rung's network at objective `{recorded['objective']}`, {sum(recorded['rows'].values())} rows."
+    diverges = recorded['diverges']
+    issue = f'[PyPSA/PyPSA#{diverges["issue"]}](https://github.com/PyPSA/PyPSA/issues/{diverges["issue"]})'
+    gives = (
+        f"raises `{diverges['raises']}` on this rung's network"
+        if 'raises' in diverges
+        else f"solves this rung's network at objective `{diverges['objective']}`, {sum(recorded['rows'].values())} rows"
+    )
+    return f'> ✘ {pypsa} {gives}, {issue}. The intended objective is `{recorded["objective"]}`.'
+
+
 def reference_block(stem: str) -> str:
     """A rung's oracle: the recorded solve, then the PyPSA script that builds its network."""
-    recorded = RECORDED[stem]
-    rows = sum(recorded['rows'].values())
     return (
-        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's network at objective "
-        f'`{recorded["objective"]}`, {rows} rows.\n'
+        f'{_banner(RECORDED[stem])}\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>The network, as PyPSA code</summary>\n'
