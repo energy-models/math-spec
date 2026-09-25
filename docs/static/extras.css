@@ -4,52 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* --- Syntax highlighting: Monokai Light + Monokai Dark ---
- *
- * Light = darkened-Monokai variant (dark hues on light bg for readability);
- * Dark = classic Monokai. YAML is what most of this site's code blocks are,
- * so the string and key colours are the ones worth checking after an edit.
- */
-
-:root,
-[data-md-color-scheme="default"] {
-  --md-code-fg-color: #272822;
-  --md-code-bg-color: #fafafa;
-
-  --md-code-hl-keyword-color: #d11f72; /* darkened pink */
-  --md-code-hl-string-color: #998800; /* mustard yellow */
-  --md-code-hl-number-color: #6f42c1; /* purple */
-  --md-code-hl-function-color: #4d8d04; /* green */
-  --md-code-hl-comment-color: #75715e; /* olive-gray */
-  --md-code-hl-name-color: #272822; /* default text */
-  --md-code-hl-operator-color: #d11f72; /* pink */
-  --md-code-hl-punctuation-color: #272822;
-  --md-code-hl-constant-color: #6f42c1; /* purple — None, True, False */
-  --md-code-hl-special-color: #4d8d04; /* green — decorators */
-  --md-code-hl-variable-color: #d35400; /* burnt orange */
-  --md-code-hl-generic-color: #272822;
-}
-
-[data-md-color-scheme="slate"] {
-  --md-code-fg-color: #f8f8f2;
-  /* Derived from slate body bg hsla(var(--md-hue), 15%, 14%, 1):
-     same hue, less saturated (6%), brighter (18%). Subtle slate hint, mostly gray. */
-  --md-code-bg-color: hsla(var(--md-hue), 6%, 18%, 1);
-
-  --md-code-hl-keyword-color: #f92672; /* hot pink */
-  --md-code-hl-string-color: #e6db74; /* yellow */
-  --md-code-hl-number-color: #ae81ff; /* purple */
-  --md-code-hl-function-color: #a6e22e; /* green */
-  --md-code-hl-comment-color: #75715e; /* olive-gray */
-  --md-code-hl-name-color: #f8f8f2; /* default text */
-  --md-code-hl-operator-color: #f92672; /* pink */
-  --md-code-hl-punctuation-color: #f8f8f2;
-  --md-code-hl-constant-color: #ae81ff; /* purple — None, True, False */
-  --md-code-hl-special-color: #a6e22e; /* green — decorators */
-  --md-code-hl-variable-color: #fd971f; /* orange */
-  --md-code-hl-generic-color: #f8f8f2;
-}
-
 /* --- Palette: one sky hue, as primary and accent ---
  * In the modern variant the primary colour paints links, the primary button and
  * the progress bar; the accent paints hover, focus and the active navigation
@@ -223,44 +177,10 @@
   }
 }
 
-/* --- Wide display math --------------------------------------------------
- * The typesetter does not line-break, and that is deliberate: where a spec's
- * constraint wraps is a formatting decision this project does not make for the
- * reader. But a wide equation still has to be *reachable*. Material gives
- * `mjx-container` no overflow handling of its own — only `margin: 0` — so on a
- * narrow column the right-hand side was clipped with nothing to scroll: on the
- * notation reference at phone width, 32 of 55 equations ended mid-`∀`.
- *
- * So this is the wide-content rule already applied to tables, applied to the
- * one other thing on this site that is wider than its column. The wrapper is
- * arithmatex's own, and a block; inline math keeps the `span` and wraps with
- * the sentence around it.
- */
-.md-typeset div.arithmatex {
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* Room under the equation so the scrollbar does not sit on a subscript. */
-  padding-bottom: 0.4rem;
-}
-
-/* Centred while it fits, left-aligned once it does not. Centring an
-   overflowing box pushes its left edge out of reach — `scrollLeft` stops at 0
-   — so the equation would lose its opening rather than its tail. */
-.md-typeset div.arithmatex > mjx-container {
-  display: inline-block;
-  min-width: 100%;
-}
-
 /* --- Python API --- */
 
 /* API indentation. */
 div.doc-contents:not(.first) {
   padding-left: 25px;
-  border-left: 4px solid rgba(230, 230, 230);
-}
-
-/* Allow tables to be horizontally scrollable. The notation reference and the
-   ten-rules table are both wider than the column on a narrow screen. */
-.md-typeset__scrollwrap {
-  overflow-x: auto;
+  border-left: 4px solid var(--md-default-fg-color--lightest);
 }
