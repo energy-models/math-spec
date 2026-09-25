@@ -129,6 +129,12 @@ parameters:
     description: one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
     dims: [scenario, generator]
     dtype: int
+  Generator_p_init:
+    description: >-
+      the output a unit brought into the horizon — PyPSA's `p_init`, read
+      only where the unit came in running; no value means it is unknown, so
+      the unit carries no ramp row at the first snapshot
+    dims: [scenario, generator]
   Generator_must_stay_up:
     description: >-
       true while the up time a unit brought into the horizon still binds —
@@ -270,6 +276,12 @@ parameters:
     description: one where the link was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
     dims: [scenario, link]
     dtype: int
+  Link_p_init:
+    description: >-
+      the flow a link brought into the horizon — PyPSA's `p_init`, read
+      only where the link came in running; no value means it is unknown, so
+      the link carries no ramp row at the first snapshot
+    dims: [scenario, link]
   Link_must_stay_up:
     description: >-
       true while the up time a link brought into the horizon still binds —
@@ -426,6 +438,12 @@ parameters:
     description: one where the process was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
     dims: [scenario, process]
     dtype: int
+  Process_p_init:
+    description: >-
+      the internal power a process brought into the horizon — PyPSA's `p_init`, read
+      only where the process came in running; no value means it is unknown, so
+      the process carries no ramp row at the first snapshot
+    dims: [scenario, process]
   Process_must_stay_up:
     description: >-
       true while the up time a process brought into the horizon still binds —
@@ -1597,12 +1615,12 @@ expressions:
     otherwise: shift(Generator_status, along=snapshot, offset=1)
   Generator_previous_p:
     description: >-
-      the output a generator carries into a snapshot — nothing at the start of
-      the horizon, which is why a unit that came in running carries no ramp row
-      there
+      the output a generator carries into a snapshot — at the first, the
+      `p_init` it brought in where it came in running and nothing where it
+      came in off; the previous snapshot's after that
     dims: [scenario, snapshot, generator]
     cases:
-      opening: { when: "position(snapshot) == 0", expression: 0 }
+      opening: { when: "position(snapshot) == 0", expression: Generator_status_initial * Generator_p_init }
     otherwise: shift(Generator_p, along=snapshot, offset=1)
   Generator_p_nom_effective:
     description: the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise
@@ -1694,12 +1712,12 @@ expressions:
     otherwise: shift(Link_status, along=snapshot, offset=1)
   Link_previous_p:
     description: >-
-      the flow a link carries into a snapshot — nothing at the start of
-      the horizon, which is why a link that came in running carries no ramp row
-      there
+      the flow a link carries into a snapshot — at the first, the
+      `p_init` it brought in where it came in running and nothing where it
+      came in off; the previous snapshot's after that
     dims: [scenario, snapshot, link]
     cases:
-      opening: { when: "position(snapshot) == 0", expression: 0 }
+      opening: { when: "position(snapshot) == 0", expression: Link_status_initial * Link_p_init }
     otherwise: shift(Link_p, along=snapshot, offset=1)
   Link_ramp_up_rate:
     description: >-
@@ -1785,12 +1803,12 @@ expressions:
     otherwise: shift(Process_status, along=snapshot, offset=1)
   Process_previous_p:
     description: >-
-      the internal power a process carries into a snapshot — nothing at the start of
-      the horizon, which is why a process that came in running carries no ramp row
-      there
+      the internal power a process carries into a snapshot — at the first, the
+      `p_init` it brought in where it came in running and nothing where it
+      came in off; the previous snapshot's after that
     dims: [scenario, snapshot, process]
     cases:
-      opening: { when: "position(snapshot) == 0", expression: 0 }
+      opening: { when: "position(snapshot) == 0", expression: Process_status_initial * Process_p_init }
     otherwise: shift(Process_p, along=snapshot, offset=1)
   Process_ramp_up_rate:
     description: >-
@@ -2318,7 +2336,7 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_status_initial == 0 OR Generator_p_init)))
       AND Generator_active
     expression: >-
       Generator_p - Generator_previous_p <=
@@ -2333,7 +2351,7 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_status_initial == 0 OR Generator_p_init)))
       AND Generator_active
     expression: >-
       Generator_p - Generator_previous_p <=
@@ -2348,7 +2366,7 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_status_initial == 0 OR Generator_p_init)))
       AND Generator_active
     expression: >-
       Generator_previous_p - Generator_p <=
@@ -2363,7 +2381,7 @@ constraints:
     where: >-
       Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
       AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Generator_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_status_initial == 0 OR Generator_p_init)))
       AND Generator_active
     expression: >-
       Generator_previous_p - Generator_p <=
@@ -2588,7 +2606,7 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
       AND Link_active
     expression: >-
       Link_p - Link_previous_p <=
@@ -2603,7 +2621,7 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_up OR Link_ramp_limit_start_up)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
       AND Link_active
     expression: >-
       Link_p - Link_previous_p <=
@@ -2618,7 +2636,7 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
       AND Link_active
     expression: >-
       Link_previous_p - Link_p <=
@@ -2633,7 +2651,7 @@ constraints:
     where: >-
       Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0)
       AND (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Link_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
       AND Link_active
     expression: >-
       Link_previous_p - Link_p <=
@@ -2858,7 +2876,7 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_status_initial == 0 OR Process_p_init)))
       AND Process_active
     expression: >-
       Process_p - Process_previous_p <=
@@ -2873,7 +2891,7 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_up OR Process_ramp_limit_start_up)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_status_initial == 0 OR Process_p_init)))
       AND Process_active
     expression: >-
       Process_p - Process_previous_p <=
@@ -2888,7 +2906,7 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_status_initial == 0 OR Process_p_init)))
       AND Process_active
     expression: >-
       Process_previous_p - Process_p <=
@@ -2903,7 +2921,7 @@ constraints:
     where: >-
       Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)
       AND (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND Process_status_initial == 0))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_status_initial == 0 OR Process_p_init)))
       AND Process_active
     expression: >-
       Process_previous_p - Process_p <=
@@ -3297,13 +3315,14 @@ constraints:
       `Generator-p-ramp_limit_up` — a generator raises output no faster than
       its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A unit that came into the
-      horizon running brought an unknown output, so it carries no row at the
-      first snapshot, nor at the start of a later investment period — nor does any unit a big M releases instead
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the output it brought in, and no unit carries one at
+      the start of a later investment period — nor does any unit a big M releases instead
     dims: [scenario, snapshot, generator]
     where: >-
       (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
       AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_committable AND Generator_status_initial == 0)))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_status_initial == 0 OR Generator_p_init)))
       AND Generator_active
     expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
   Generator_p_ramp_limit_down:
@@ -3311,13 +3330,14 @@ constraints:
       `Generator-p-ramp_limit_down` — a generator lowers output no faster than
       its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A unit that came into the
-      horizon running brought an unknown output, so it carries no row at the
-      first snapshot, nor at the start of a later investment period — nor does any unit a big M releases instead
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the output it brought in, and no unit carries one at
+      the start of a later investment period — nor does any unit a big M releases instead
     dims: [scenario, snapshot, generator]
     where: >-
       (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
       AND NOT (Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0))
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_committable AND Generator_status_initial == 0)))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Generator_status_initial == 0 OR Generator_p_init)))
       AND Generator_active
     expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
   Link_p_ramp_limit_up:
@@ -3325,13 +3345,14 @@ constraints:
       `Link-p-ramp_limit_up` — a link raises flow no faster than
       its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A link that came into the
-      horizon running brought an unknown flow, so it carries no row at the
-      first snapshot, nor at the start of a later investment period — nor does any link a big M releases instead
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the flow it brought in, and no link carries one at
+      the start of a later investment period — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
     where: >-
       (Link_ramp_limit_up OR Link_ramp_limit_start_up)
       AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_committable AND Link_status_initial == 0)))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
       AND Link_active
     expression: Link_p - Link_previous_p <= Link_ramp_up_allowance
   Link_p_ramp_limit_down:
@@ -3339,13 +3360,14 @@ constraints:
       `Link-p-ramp_limit_down` — a link lowers flow no faster than
       its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A link that came into the
-      horizon running brought an unknown flow, so it carries no row at the
-      first snapshot, nor at the start of a later investment period — nor does any link a big M releases instead
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the flow it brought in, and no link carries one at
+      the start of a later investment period — nor does any link a big M releases instead
     dims: [scenario, snapshot, link]
     where: >-
       (Link_ramp_limit_down OR Link_ramp_limit_shut_down)
       AND NOT (Link_committable AND Link_p_nom_extendable AND NOT (Link_p_nom_mod > 0))
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_committable AND Link_status_initial == 0)))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Link_status_initial == 0 OR Link_p_init)))
       AND Link_active
     expression: Link_previous_p - Link_p <= Link_ramp_down_allowance
   Process_p_ramp_limit_up:
@@ -3353,13 +3375,14 @@ constraints:
       `Process-p-ramp_limit_up` — a process raises internal power no faster than
       its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A process that came into the
-      horizon running brought an unknown internal power, so it carries no row at the
-      first snapshot, nor at the start of a later investment period — nor does any process a big M releases instead
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the internal power it brought in, and no process carries one at
+      the start of a later investment period — nor does any process a big M releases instead
     dims: [scenario, snapshot, process]
     where: >-
       (Process_ramp_limit_up OR Process_ramp_limit_start_up)
       AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_committable AND Process_status_initial == 0)))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_status_initial == 0 OR Process_p_init)))
       AND Process_active
     expression: Process_p - Process_previous_p <= Process_ramp_up_allowance
   Process_p_ramp_limit_down:
@@ -3367,13 +3390,14 @@ constraints:
       `Process-p-ramp_limit_down` — a process lowers internal power no faster than
       its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A process that came into the
-      horizon running brought an unknown internal power, so it carries no row at the
-      first snapshot, nor at the start of a later investment period — nor does any process a big M releases instead
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the internal power it brought in, and no process carries one at
+      the start of a later investment period — nor does any process a big M releases instead
     dims: [scenario, snapshot, process]
     where: >-
       (Process_ramp_limit_down OR Process_ramp_limit_shut_down)
       AND NOT (Process_committable AND Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0))
-      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_committable AND Process_status_initial == 0)))
+      AND (position(snapshot, by=snapshot_period, within=period) > 0 OR (position(snapshot) == 0 AND (Process_status_initial == 0 OR Process_p_init)))
       AND Process_active
     expression: Process_previous_p - Process_p <= Process_ramp_down_allowance
   StorageUnit_ext_p_dispatch_lower:
@@ -3906,6 +3930,39 @@ assumptions:
       (`global_constraints.py:66-68`). The spec cannot tell a network with
       one scenario from one with none, so it refuses only where there is
       more than one scenario
+  Generator_came_in_running_unless_committable:
+    holds: "Generator_status_initial == 1"
+    where: "NOT Generator_committable AND (Generator_ramp_limit_up OR Generator_ramp_limit_down)"
+    description: >-
+      PyPSA reads `up_time_before` of a unit that is not committable in its
+      ramp rows. Where it is zero, PyPSA builds a row at the first snapshot
+      with nothing carried in, and caps the unit there at zero, or at its
+      start-up ramp where another unit of the component is committable with a
+      fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
+      the attribute as read only for a committable unit and does not check
+      it. The spec does not state that row, so it refuses the data
+  Link_came_in_running_unless_committable:
+    holds: "Link_status_initial == 1"
+    where: "NOT Link_committable AND (Link_ramp_limit_up OR Link_ramp_limit_down)"
+    description: >-
+      PyPSA reads `up_time_before` of a link that is not committable in its
+      ramp rows. Where it is zero, PyPSA builds a row at the first snapshot
+      with nothing carried in, and caps the link there at zero, or at its
+      start-up ramp where another link of the component is committable with a
+      fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
+      the attribute as read only for a committable link and does not check
+      it. The spec does not state that row, so it refuses the data
+  Process_came_in_running_unless_committable:
+    holds: "Process_status_initial == 1"
+    where: "NOT Process_committable AND (Process_ramp_limit_up OR Process_ramp_limit_down)"
+    description: >-
+      PyPSA reads `up_time_before` of a process that is not committable in its
+      ramp rows. Where it is zero, PyPSA builds a row at the first snapshot
+      with nothing carried in, and caps the process there at zero, or at its
+      start-up ramp where another process of the component is committable with a
+      fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
+      the attribute as read only for a committable process and does not check
+      it. The spec does not state that row, so it refuses the data
 
 objective:
   sense: minimize
