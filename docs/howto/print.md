@@ -8,8 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 Turn a model file into the math a paper would print, from the file alone, and
 keep the document current as the file changes.
 
-1. **Print Markdown first** and read it. It is the quickest way to see that
-   the YAML says what you meant:
+1. **Print Markdown first** and read it:
 
    ```bash
    python -m math_spec markdown model.yaml
@@ -47,9 +46,7 @@ keep the document current as the file changes.
    `notation: typst` or none. Without `--standalone` the output is a fragment
    to `\input` or `#include` into a paper.
 
-4. **Print the rows a solver holds** with `--expand`, where the model states a
-   curve or a set and the reader wants the formulation rather than the
-   construct:
+4. **Print the rows a curve or a set states** with `--expand`:
 
    ```bash
    python -m math_spec markdown model.yaml --expand
@@ -65,6 +62,5 @@ keep the document current as the file changes.
    	python -m math_spec latex $< --symbols model.symbols.yaml --standalone -o $@
    ```
 
-The options each renderer takes, what a symbol table may say, and how one
-declaration is printed on its own are under
-[typeset the math](../reference/typeset.md).
+[Typeset the math](../reference/typeset.md) lists every option and what a
+symbol table may say.
