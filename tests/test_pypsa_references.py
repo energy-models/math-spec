@@ -19,7 +19,7 @@ import pytest
 
 from mathspec import to_spec
 from tools import gallery
-from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
+from tools.gallery import DECLARED, RECORDED, REFERENCES, _names_for, _stands_for
 
 RUNGS = sorted(path.stem for path in REFERENCES.glob('rung_*.py'))
 SCRIPT = REFERENCES / 'reference.py'
@@ -28,8 +28,12 @@ PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 SPECS = {page: to_spec(path) for page, path in DECLARED.items()}
 MODELS = list(SPECS.values())
 BASE = SPECS['pypsa.md']
-ROWS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.constraints.items()}
-COLUMNS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.variables.items()}
+ROWS_DECLARED = {
+    n for m in MODELS for name, block in m.constraints.items() for n in _names_for(name, block.description)
+}
+COLUMNS_DECLARED = {
+    n for m in MODELS for name, block in m.variables.items() for n in _names_for(name, block.description)
+}
 #: The five GlobalConstraint formulas open with their *type* — PyPSA names
 #: those rows after each row's own label, so they are matched through the
 #: recorded type and sense instead of by name.
@@ -144,9 +148,9 @@ def test_the_spine_weightings_are_generic():
         assert 1.0 not in values, f'{name} carries a 1.0 — the identity a missing factor hides behind'
 
 
-@pytest.mark.parametrize('row', sorted(row for row in RECORDED_ROWS if row.startswith('GlobalConstraint-')), ids=str)
-def test_a_global_constraint_row_has_a_block_of_its_recorded_type_and_sense(row: str):
-    gc = GC_RECORDED[row.removeprefix('GlobalConstraint-')]
+@pytest.mark.parametrize('label', sorted(GC_RECORDED), ids=str)
+def test_a_global_constraint_row_has_a_block_of_its_recorded_type_and_sense(label: str):
+    gc = GC_RECORDED[label]
     matching = [
         name
         for m in MODELS

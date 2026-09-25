@@ -16,7 +16,8 @@ A rung is a `rung_*.py` beside this file whose `build()` returns the network:
 the spine (`spine.py`) plus that rung's own `n.add` calls, data inline, so
 the PyPSA model under review is the script itself. A rung stated by a file of
 its own names it as `MODEL`; one that needs `n.optimize` keywords names them
-as `OPTIMIZE`. PyPSA is not a dependency
+as `OPTIMIZE`; one that names `BRANCH_OUTAGES` is solved by
+`n.optimize.optimize_security_constrained` over them. PyPSA is not a dependency
 of this project; this script pins the versions the recorded numbers are from,
 and the `PyPSA references` workflow runs `--check` on every change.
 """
@@ -67,7 +68,13 @@ def record(n: pypsa.Network) -> dict[str, object]:
 
 def solved(rung: str) -> dict[str, object]:
     n = build(rung)
-    status, condition = n.optimize(solver_name='highs', **keywords(rung))
+    outages = getattr(importlib.import_module(rung), 'BRANCH_OUTAGES', None)
+    if outages is None:
+        status, condition = n.optimize(solver_name='highs', **keywords(rung))
+    else:
+        status, condition = n.optimize.optimize_security_constrained(
+            solver_name='highs', branch_outages=outages, **keywords(rung)
+        )
     assert status == 'ok', f'{rung}: HiGHS did not solve — {status} / {condition}'
     return record(n)
 
