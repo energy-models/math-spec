@@ -337,8 +337,10 @@ PY
 ## 9. Mechanics
 
 - **A new page needs a nav entry in `mkdocs.yml`.** The docs build is
-  `--strict`, so a page without one fails it, as do a dead cross-link and a
-  stale anchor.
+  `--strict`, so a dead cross-link and a stale anchor fail it. A page with no
+  nav entry does not fail the build — zensical validates links and leaves
+  navigation alone — so `pixi run test` is what reports it, in
+  `tests/test_docs.py`.
 - **A new page carries the SPDX header** — `math-spec contributors`,
   `CC-BY-4.0` — in an HTML comment at the top, or as YAML comments inside the
   front matter where the page has one, as `docs/index.md` does. `reuse lint`

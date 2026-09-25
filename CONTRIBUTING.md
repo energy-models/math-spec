@@ -71,8 +71,9 @@ math-spec, contributing, or a proof of concept. The rules each kind has to meet,
 bar, are in
 [the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
 Every page needs a `nav:` entry in `mkdocs.yml`, links inside `docs/` are
-relative, and a link outside it is the full GitHub URL; `pixi run docs-build`
-is `--strict` and refuses the rest.
+relative, and a link outside it is the full GitHub URL. `pixi run docs-build`
+is `--strict` and refuses a dead link or a stale anchor; `pixi run test` is
+what refuses a page with no nav entry.
 
 ### Commit messages
 

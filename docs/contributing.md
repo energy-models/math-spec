@@ -45,11 +45,12 @@ the same checks and the rest of the gate by hand:
 
 ## Documentation
 
-The pages under `docs/` are Markdown, built by [MkDocs](https://www.mkdocs.org/)
-with the [Material](https://squidfunk.github.io/mkdocs-material/) theme. The
-build is strict: a page with no `nav` entry in `mkdocs.yml`, a dead link or a
-stale anchor fails it. `pixi run docs-serve` builds the site and serves it at
-<http://127.0.0.1:8000>, rebuilding when a page changes.
+The pages under `docs/` are Markdown, built by
+[Zensical](https://zensical.org/) from `mkdocs.yml`. The build is strict: a
+dead link or a stale anchor fails it. A page with no `nav` entry does not fail
+the build, and `pixi run test` is what reports it. `pixi run docs-serve` builds
+the site and serves it at <http://127.0.0.1:8000>, rebuilding when a page
+changes.
 
 ??? question "I have updated the README.md"
 

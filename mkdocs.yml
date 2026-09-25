@@ -66,7 +66,7 @@ nav:
           - One construct per model: examples/operators.md
   - About:
       - The limits: about/limits.md
-      - Changelog: CHANGELOG.md
+      - Changelog: changelog.md
   # Everything a model writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a
   # renderer, a checker), whoever changes math-spec itself, and the proofs of
@@ -91,9 +91,6 @@ nav:
           - PyPSA, the multi-period class: examples/pypsa_multi_period.md
 
 theme:
-  name: material
-  language: en
-
   palette:
     # Dark first = default for new visitors (no auto/system-pref entry).
     # Icon represents the CURRENT scheme — moon when active is dark,
@@ -102,26 +99,26 @@ theme:
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-4
+        icon: lucide/moon
         name: Switch to light mode
     - scheme: default
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-7
+        icon: lucide/sun
         name: Switch to dark mode
-
-  font:
-    text: Roboto
-    code: JetBrains Mono
 
   icon:
     repo: fontawesome/brands/github
 
   features:
     - header.autohide
-    # navigation.instant left off — MathJax fails to re-typeset on
-    # no-math → math swaps, and no documented reset recipe fixes it.
+    # `docs/static/mathjax.js` subscribes to `document$` and re-typesets, which
+    # is what makes this safe: instant navigation swaps the document without a
+    # reload, so a page reached from one with no math would otherwise render
+    # every equation as literal text.
+    - navigation.instant
+    - navigation.instant.progress
     - navigation.tracking
     - navigation.tabs
     - navigation.tabs.sticky
@@ -130,7 +127,6 @@ theme:
     - navigation.top
     - navigation.footer
     - toc.follow
-    - search.suggest
     - search.highlight
     - search.share
     - content.code.copy
@@ -149,8 +145,6 @@ site_dir: .docs
 markdown_extensions:
   - admonition
   - attr_list
-  - def_list
-  - footnotes
   - md_in_html
   # A list that starts at 5 renders from 5, as it does on GitHub.
   - sane_lists
@@ -164,19 +158,16 @@ markdown_extensions:
       generic: true
   - pymdownx.superfences:
       custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
         # A ```math fence is how GitHub takes block math verbatim, and is what
         # this project's own typesetter prints. Arithmatex reads `$$…$$`, so
         # the fence hands it over — indented inside a tab or a list included,
         # which is why this is superfences' job and not a hook's regex.
         - name: math
           class: arithmatex
-          format: !!python/object/apply:pymdownx.arithmatex.arithmatex_fenced_format { kwds: { which: generic } }
+          format: { object: pymdownx.arithmatex.arithmatex_fenced_format, kwds: { which: generic } }
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: zensical.extensions.emoji.twemoji
+      emoji_generator: zensical.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -184,7 +175,17 @@ markdown_extensions:
   # No `style_plain_text`: it makes every plain inline code span render as
   # shell, and most of the ones here are YAML keys and Python names.
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  # `check_paths` so a renamed include fails the build rather than rendering
+  # as nothing. `docs/index.md` pulls sections of the README through this, and
+  # `docs/changelog.md` is the whole of CHANGELOG.md.
+  - pymdownx.snippets:
+      check_paths: true
+  # The other half of the math, beside the `arithmatex` entry above: the
+  # verbatim `$`…`$` pair the typesetter prints for GitHub, rewritten into the
+  # `$…$` arithmatex reads. It is a preprocessor rather than a hook because
+  # zensical has no hooks, and because the suite can then load it without a
+  # site.
+  - tools.mdx_github_math
   - pymdownx.tabbed:
       alternate_style: true
   - toc:
@@ -196,9 +197,7 @@ markdown_extensions:
       # drops. The default slugifier collapses that to one, so such a link
       # would 404 on the site while working in the repository. Same file,
       # same anchor, both renderings.
-      slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
-hooks:
-  - docs/static/hooks.py
+      slugify: { object: pymdownx.slugs.slugify, kwds: { case: lower } }
 plugins:
   - search
   - autorefs
