@@ -14,7 +14,7 @@ import pytest
 from math_spec import to_spec
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from math_spec.program import Multiply, Named, Parameter, Sum, Translate, Variable
+from math_spec.program import Axis, Multiply, Named, Parameter, Sum, Translate, Variable
 from math_spec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, comparison_of, expression_of, schema_of
 
@@ -127,7 +127,7 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():
     ns = Namespace(schema(expressions={'gen_cost': 'p * cost'}))
     resolved = expression_of('sum(gen_cost, over=generator)', ns, 'e')
-    assert resolved == Sum(Named('gen_cost', Multiply(Variable('p'), Parameter('cost'))), ('generator',)), (
+    assert resolved == Sum(Named('gen_cost', Multiply(Variable('p'), Parameter('cost'))), (Axis('generator'),)), (
         'the body is inlined resolved and the name kept, for the typesetter to define it once'
     )
     assert isinstance(resolved, Sum)

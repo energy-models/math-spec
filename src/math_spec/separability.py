@@ -98,22 +98,21 @@ def separabilities(program: Program) -> dict[str, Separability]:
             if isinstance(node, Cases):
                 masks.extend(region.when for region in node.regions)
             elif isinstance(node, Sum):
-                join = node.operand.columns if isinstance(node.operand, Join) and node.operand.columns.axes else None
-                grouped = dict(zip(join.axes, join.dropped_dims, strict=True)) if join is not None else {}
-                for name in node.over:
-                    if join is not None and name in grouped:
+                for axis in node.over:
+                    if axis.column is not None:
+                        assert isinstance(node.operand, Join), 'a join axis is opened by the join the sum stands over'
                         report(
                             'coupled',
-                            grouped[name],
+                            axis.dimension,
                             label,
-                            f'groups {grouped[name]} into {", ".join(join.added_dims)} — window that dimension instead, or cut only at the group edges',
+                            f'groups {axis.dimension} into {", ".join(node.operand.columns.added_dims)} — window that dimension instead, or cut only at the group edges',
                         )
                     elif reductions_couple:
                         report(
                             'coupled',
-                            name,
+                            axis.dimension,
                             label,
-                            f'sums over {name} — a rolling sum_back(window=n) windows, a total over the horizon does not',
+                            f'sums over {axis.dimension} — a rolling sum_back(window=n) windows, a total over the horizon does not',
                         )
             elif isinstance(node, Join) and not node.columns.axes:
                 for dimension in node.columns.dropped_dims:

@@ -22,8 +22,10 @@ from math_spec.program import (
     Add,
     And,
     Assumption,
+    Axis,
     BooleanLiteral,
     Cases,
+    Column,
     Constant,
     CountComparison,
     DimensionComparison,
@@ -138,13 +140,13 @@ def test_program_structure(dispatch_program):
     ((cname, c),) = dispatch_program.constraints.items()
     assert cname == 'power_balance'
     assert c.dims == ('snapshot',), 'the frame is the dims, in the order the file wrote it'
-    assert c.lhs == Sum(Variable('dispatch'), ('generator',))
+    assert c.lhs == Sum(Variable('dispatch'), (Axis('generator'),))
     assert c.sense == '==', "the comparison crosses as the file's own operator, untranslated"
     assert c.rhs == Parameter('load')
 
     assert dispatch_program.objective.sense == 'minimize', "the program carries the language's spelling, untranslated"
     assert dispatch_program.objective.expression == Sum(
-        Multiply(Variable('dispatch'), Parameter('cost')), ('generator', 'snapshot')
+        Multiply(Variable('dispatch'), Parameter('cost')), (Axis('generator'), Axis('snapshot'))
     ), 'the objective carries the sum the file wrote, over the dims it named none of'
 
 
@@ -566,11 +568,15 @@ def test_a_power_resolves_to_a_node_of_its_own(dispatch_schema):
 @pytest.mark.parametrize(
     ('expression', 'expected'),
     [
-        pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-sums-away-every-dim-the-operand-carries'),
-        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-sums-away-the-dim-it-names'),
+        pytest.param(
+            'sum(q)',
+            Sum(Variable('q'), (Axis('g'), Axis('h'))),
+            id='a-bare-sum-sums-away-every-dim-the-operand-carries',
+        ),
+        pytest.param('sum(q, over=h)', Sum(Variable('q'), (Axis('h'),)), id='an-over-sums-away-the-dim-it-names'),
         pytest.param(
             'sum(p, over=g, by=lk[h])',
-            Sum(Join(Variable('p'), LK_JOIN), ('lk.g',)),
+            Sum(Join(Variable('p'), LK_JOIN), (Axis('g', Column('lk', 'g')),)),
             id='a-grouped-sum-is-a-sum-over-the-axis-its-join-opens',
         ),
         pytest.param(
@@ -709,7 +715,7 @@ def test_a_relation_lowers_with_the_join_each_call_names():
     assert program.relations == {'zone_of': declared}, 'the relation sits once in the program, under its name'
     zonal = program.constraints['zonal'].lhs
     columns = JoinColumns('zone_of', declared, ('generator', 'snapshot'), ('zone', 'snapshot'))
-    assert zonal == Sum(Join(Variable('p'), columns), ('zone_of.generator',)), (
+    assert zonal == Sum(Join(Variable('p'), columns), (Axis('generator', Column('zone_of', 'generator')),)), (
         'a grouped sum is a sum over a join: the join names the column over the over= dim and the unnamed key '
         'column as joined on, the by= column and that key column as grouped by, and the sum stands over the axis '
         'the join opens for the column it drops'
@@ -725,7 +731,7 @@ def test_a_relation_lowers_with_the_join_each_call_names():
     )
     assert program.constraints['history'].lhs == Sum(
         Join(Variable('p'), JoinColumns('zone_of', declared, ('snapshot', 'generator'), ('zone', 'generator'))),
-        ('zone_of.snapshot',),
+        (Axis('snapshot', Column('zone_of', 'snapshot')),),
     ), 'the same table joined on its other key column'
     priced = program.constraints['priced'].rhs
     assert priced == Join(
@@ -762,7 +768,7 @@ def test_a_divisor_under_a_join_is_still_named():
     looked_up = Join(quotient, JoinColumns('component_of', component_of, ('component',), ('flow',)))
 
     assert parameters_of(looked_up) == frozenset({'rate'}), 'the walk descends through `Join`'
-    assert parameters_of(Sum(looked_up, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
+    assert parameters_of(Sum(looked_up, (Axis('flow'),))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
 def test_a_divisor_under_a_power_is_still_named():

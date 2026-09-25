@@ -44,6 +44,7 @@ from math_spec.operators import (
 )
 from math_spec.program import (
     Add,
+    Axis,
     Constant,
     Divide,
     Dual,
@@ -295,14 +296,14 @@ class ExpressionResolver:
             if over is None:
                 return self._bare_sum(operand)
             assert not isinstance(over, ColumnsNode), 'over=relation[column] is read only beside by='
-            return Sum(operand, over)
+            return Sum(operand, tuple(Axis(d) for d in over))
         assert over is not None, 'the call shape requires over= beside by='
         grouping = self._grouping(columns, over)
         if grouping is None:
             return None
         join, plain = grouping
         grouped = Sum(Join(operand, join), join.axes)
-        return Sum(grouped, plain) if plain else grouped
+        return Sum(grouped, tuple(Axis(d) for d in plain)) if plain else grouped
 
     def _at(self, operand: Expression, columns: ColumnsNode) -> Expression | None:
         """``at(x, by=relation[column])``: *operand* read at the value of *columns* each row of the relation holds."""
@@ -311,7 +312,7 @@ class ExpressionResolver:
         except DimensionError as e:
             self.errors.append(str(e))
             return None
-        join = self.lookup(columns, inner)
+        join = self.lookup(columns, frozenset(axis.dimension for axis in inner))
         return None if join is None else Join(operand, join)
 
     def _translation(
@@ -356,7 +357,7 @@ class ExpressionResolver:
                 f'scalar. Drop the sum.'
             )
             return None
-        return Sum(operand, tuple(sorted(inner)))
+        return Sum(operand, tuple(sorted(inner, key=str)))
 
     def _edge_fits(self, operand: Expression, offset: int | str, *, wrap: bool, fill: float | None) -> bool:
         """What a ``shift``'s ``edge=`` may say, and where saying nothing is an answer.

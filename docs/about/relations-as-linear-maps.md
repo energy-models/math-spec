@@ -133,9 +133,10 @@ $`x`$ over generators and $`y`$ over buses,
 
 which is why the program lowers `at` to a `Join` node and `sum(by=)` to the
 same `Join` under a `Sum`. The join keeps the column it sums away as an axis
-named for the relation's column, `gen_zone.generator`, and the `Sum` stands
-over that axis. So a map into its own dimension, which drops and adds one
-dimension, still has two axes between the join and the sum. A bare relation has
+of its own, `Axis('generator', Column('gen_zone', 'generator'))`: it runs over
+`generator` and stands for the relation's column. The `Sum` stands over that
+axis. So a map into its own dimension, which drops and adds one dimension,
+still has two axes between the join and the sum. A bare relation has
 the same matrix without the functional claim. A column of $`M`$ may hold several
 ones, so the sum fans out and no group is one row. That is why `at` through a bare relation is refused.
 

@@ -39,8 +39,10 @@ __all__ = [
     'Add',
     'And',
     'Assumption',
+    'Axis',
     'BooleanLiteral',
     'Cases',
+    'Column',
     'Connective',
     'Constant',
     'ConstraintDeclaration',
@@ -242,18 +244,49 @@ class Divide:
 
 
 @dataclass(frozen=True)
-class Sum:
-    """Sum ``operand`` over the named dims, removing them from the result.
+class Column:
+    """One column of a relation: the relation's name, and the column's name in its declaration."""
 
-    A name in ``over`` is a dimension, or one of the axes a :class:`Join`
-    under it opens (:attr:`JoinColumns.axes`): ``sum(x, over=a,
-    by=relation[b])`` lowers to a ``Sum`` over a ``Join``, over the axis of
-    each column the join does not group by. The join is the join, and this node is the
-    group-by that follows it.
+    relation: str
+    name: str
+
+    def __str__(self) -> str:
+        """The column as a file writes it, ``relation[column]``."""
+        return f'{self.relation}[{self.name}]'
+
+
+@dataclass(frozen=True)
+class Axis:
+    """A position in a frame: the dimension whose labels it runs over, and the relation column it stands for.
+
+    A declared dimension is the axis ``Axis(dimension)``. A :class:`Join`
+    opens ``Axis(dimension, column)`` for each column it drops, so a column
+    dropped and a column added over one dimension are two axes of one frame.
+    Two axes are equal where both fields are, so a frame holds a dimension's
+    own axis at most once however many join axes run over the same labels.
+    """
+
+    dimension: str
+    column: Column | None = None
+
+    def __str__(self) -> str:
+        """The dimension's name, or the column's ``relation[column]`` for a join's axis."""
+        return self.dimension if self.column is None else str(self.column)
+
+
+@dataclass(frozen=True)
+class Sum:
+    """Sum ``operand`` over the axes in ``over``, removing them from the result.
+
+    An axis in ``over`` is a dimension's own, or one a :class:`Join` under it
+    opens (:attr:`JoinColumns.axes`): ``sum(x, over=a, by=relation[b])``
+    lowers to a ``Sum`` over a ``Join``, over the axis of each column the join
+    does not group by. The join is the join, and this node is the group-by
+    that follows it.
     """
 
     operand: Expression
-    over: tuple[str, ...]
+    over: tuple[Axis, ...]
 
 
 @dataclass(frozen=True)
@@ -262,9 +295,9 @@ class Join:
 
     The operand carries every dim joined on. The result has the operand's
     dims, less the dims joined on, plus the dims grouped by, plus one axis
-    per column joined on and not grouped by (:attr:`JoinColumns.axes`), named
-    for the relation's column and not for its dimension. So a column dropped
-    and a column added over one dimension stay two axes. A :class:`Sum` over
+    per column joined on and not grouped by (:attr:`JoinColumns.axes`), which
+    stands for the relation's column and runs over its dimension. So a column
+    dropped and a column added over one dimension stay two axes. A :class:`Sum` over
     those axes is the group-by that follows the join, which is how
     ``sum(x, over=a, by=relation[b])`` lowers. Where the grouped columns
     hold the relation's whole key, they determine every other column, the
@@ -536,16 +569,17 @@ class JoinColumns:
         return set(self.relation.key) <= set(self.grouped)
 
     @property
-    def axes(self) -> tuple[str, ...]:
-        """The axis the join opens for each column it drops, ``relation.column``, empty where each group is one row.
+    def axes(self) -> tuple[Axis, ...]:
+        """The axis the join opens for each column it drops, empty where each group is one row.
 
-        A dimension's name holds no dot, so an axis never meets one. A column
-        the grouped columns determine opens none: in a lookup they hold the
-        key, and the key determines every column.
+        Each runs over the column's dimension and stands for the column, so it
+        never equals that dimension's own axis. A column the grouped columns
+        determine opens none: in a lookup they hold the key, and the key
+        determines every column.
         """
         if self.one_row_per_group:
             return ()
-        return tuple(f'{self.name}.{role}' for role in self.dropped)
+        return tuple(Axis(self.dim(role), Column(self.name, role)) for role in self.dropped)
 
 
 @dataclass(frozen=True)

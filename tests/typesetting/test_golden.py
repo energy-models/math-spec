@@ -150,11 +150,11 @@ def _rendered_trees() -> Iterator[object]:
 
 #: A dataclass the walk steps *through* rather than renders: a region has no
 #: branch of its own — its ``when`` and ``value`` do — the columns a join
-#: names and the relation it reads are the facts a node carries rather than
-#: nodes, and a ``Mask`` is the wrapper a leaf carries a predicate in. None is a
+#: names, the axes a sum is over and the relation it reads are the facts a
+#: node carries rather than nodes, and a ``Mask`` is the wrapper a leaf carries a predicate in. None is a
 #: member of any node union, so they are subtracted from what the tree walk
 #: finds rather than added to what the vocabulary declares.
-CARRIERS = {'Region', 'JoinColumns', 'Mask', 'Partition', 'RelationDeclaration'}
+CARRIERS = {'Axis', 'Column', 'Region', 'JoinColumns', 'Mask', 'Partition', 'RelationDeclaration'}
 
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():

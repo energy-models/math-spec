@@ -403,7 +403,7 @@ class Walk:
             return self._grouped_sum(node.operand, ctx)
         memberships = []
         inner = ctx
-        for d in self._sorted(frozenset(node.over)):
+        for d in self._sorted(frozenset(axis.dimension for axis in node.over)):
             dummy, inner = inner.reducing(d)
             memberships.append(self._membership(d, dummy))
         domain = self.format.joined(memberships, '')

@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
+from math_spec.dimensions import DimensionError, _check_where_dims, dims_of, frame_of
 from math_spec.errors import SchemaError
-from math_spec.program import Join, Mask, RelationPairComparison, Sum
+from math_spec.program import Axis, Column, Join, Mask, RelationPairComparison, Sum
 from math_spec.resolution import Namespace
 from math_spec.validation import to_spec
 from tests.fixtures import expression_of, override, schema_of, where_of
@@ -67,7 +67,7 @@ def _schema(**overrides) -> Spec:
     return schema_of(BASE, **overrides)
 
 
-def _dims(expr: str) -> frozenset[str]:
+def _dims(expr: str) -> frozenset[Axis]:
     s = _schema()
     return dims_of(expression_of(expr, Namespace(s), 't'), s, 't')
 
@@ -194,10 +194,10 @@ def namespace() -> Namespace:
     ],
 )
 def test_dim_inference(expr, expected):
-    assert _dims(expr) == expected
+    assert _dims(expr) == frame_of(expected)
 
 
-def _dims_with(expr: str, **overrides) -> frozenset[str]:
+def _dims_with(expr: str, **overrides) -> frozenset[Axis]:
     s = _schema(**overrides)
     return dims_of(expression_of(expr, Namespace(s), 't'), s, 't')
 
@@ -219,7 +219,7 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
 )
 def test_a_bare_relation_is_summed_between_its_key_columns(expr, expected):
     """A bare relation holds no value column, so the column a sum groups by is a key column."""
-    assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == expected
+    assert _dims_with(expr, **{'relations.connection': {'key': ['generator', 'bus']}}) == frame_of(expected)
 
 
 def test_a_lookup_carries_the_whole_key_and_what_the_operand_brings_beside_it():
@@ -229,42 +229,50 @@ def test_a_lookup_carries_the_whole_key_and_what_the_operand_brings_beside_it():
     operand's `snapshot` is neither joined on nor part of the key, and the
     result keeps it.
     """
-    assert _dims('at(zone_load, by=gen_bz[zone])') == {'generator', 'snapshot'}
+    assert _dims('at(zone_load, by=gen_bz[zone])') == frame_of({'generator', 'snapshot'})
 
 
 def test_a_join_opens_an_axis_for_the_column_it_drops_and_the_sum_over_it_closes_it():
     """A map into its own dimension drops and adds one dimension, so the join names the dropped column for the relation.
 
     Named for its dimension, the column the join drops and the column it
-    groups by are one name, and the sum over the join takes away the dim the
-    row keeps.
+    groups by were one name, and the sum over the join took away the dim the
+    row keeps. The dropped column's axis runs over `snapshot` and stands for
+    `rep_of[snapshot]`, so it is not the dimension's own axis.
     """
     s = _schema()
     node = expression_of('sum(p, over=snapshot, by=rep_of[rep])', Namespace(s), 't')
     assert isinstance(node, Sum) and isinstance(node.operand, Join)
-    assert node.over == ('rep_of.snapshot',), 'the sum stands over the axis the join opens'
-    assert dims_of(node.operand, s, 't') == {'generator', 'snapshot', 'rep_of.snapshot'}, (
+    opened = Axis('snapshot', Column('rep_of', 'snapshot'))
+    assert node.over == (opened,), 'the sum stands over the axis the join opens'
+    assert dims_of(node.operand, s, 't') == frame_of({'generator', 'snapshot'}) | {opened}, (
         'the join keeps the dropped column beside the dimension it groups by'
     )
-    assert dims_of(node, s, 't') == {'generator', 'snapshot'}, 'and the sum over it leaves the frame the row keeps'
+    assert dims_of(node, s, 't') == frame_of({'generator', 'snapshot'}), (
+        'and the sum over it leaves the frame the row keeps'
+    )
 
 
 def test_a_sum_joins_on_a_key_column_and_a_value_column_together():
     """The columns a sum joins on and sums away are not one kind: it needs one key column, and may name a value column beside it."""
-    assert _dims('sum(p * load, over=[generator, bus], by=gen_bz[zone])') == {'snapshot', 'zone'}
+    assert _dims('sum(p * load, over=[generator, bus], by=gen_bz[zone])') == frame_of({'snapshot', 'zone'})
 
 
 def test_a_dual_carries_the_constraints_own_frame():
     """`dual(c)` is a row dual at every coordinate of the constraint's declared `dims`."""
     s = _schema()
-    assert _dims_with('dual(balance)') == frozenset(s.constraints['balance'].dims) == {'snapshot', 'bus'}
+    assert _dims_with('dual(balance)') == frame_of(s.constraints['balance'].dims) == frame_of({'snapshot', 'bus'})
 
 
 def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
     """Constraints sit outside the flat namespace, so only `dual()` reads the constraint store — a bare name never does, even one a constraint shares (#74)."""
     shadowing = {'variables.balance': {'dims': ['snapshot'], 'bounds': {'lower': 0}}}
-    assert _dims_with('balance', **shadowing) == {'snapshot'}, 'a bare name resolves to the variable of that name'
-    assert _dims_with('dual(balance)', **shadowing) == {'snapshot', 'bus'}, 'dual() alone reaches the constraint'
+    assert _dims_with('balance', **shadowing) == frame_of({'snapshot'}), (
+        'a bare name resolves to the variable of that name'
+    )
+    assert _dims_with('dual(balance)', **shadowing) == frame_of({'snapshot', 'bus'}), (
+        'dual() alone reaches the constraint'
+    )
 
 
 @pytest.mark.parametrize(
@@ -414,7 +422,7 @@ def test_a_lookup_joins_on_the_key_columns_the_operand_carries_and_the_read_does
     call names only the column it reads now, so the key's `snapshot` arrives
     and the result is `load` read at `rep(t, g)` for every `(t, g)`.
     """
-    assert _dims_with(expr, **{'relations.gen_zone': relation}) == frozenset(expected), (
+    assert _dims_with(expr, **{'relations.gen_zone': relation}) == frame_of(expected), (
         'the frame is the operand less the dim read, plus the key'
     )
 
@@ -424,7 +432,7 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
     piecewise epigraph, which multiplies a per-segment slope by a per-snapshot
     variable on purpose. The guard is the constraint rule below: the *frame*
     has to declare the result."""
-    assert _dims('cost + load') == {'generator', 'snapshot', 'bus'}, (
+    assert _dims('cost + load') == frame_of({'generator', 'snapshot', 'bus'}), (
         'a binary operator unions its two sides rather than requiring one to contain the other'
     )
 
