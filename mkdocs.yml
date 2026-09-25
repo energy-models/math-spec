@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
-site_name: "math-spec"
+site_name: "mathspec"
 site_description: The language an optimisation model is written in — YAML math, checked before any data is bound, and printable as the math it means
-site_url: https://math-spec.readthedocs.io/en/latest/
-repo_url: https://github.com/energy-models/math-spec
-repo_name: energy-models/math-spec
+site_url: https://mathspec.readthedocs.io/en/latest/
+repo_url: https://github.com/energy-models/mathspec
+repo_name: energy-models/mathspec
 edit_uri: edit/main/docs/
 strict: true
 
@@ -66,15 +66,16 @@ nav:
           - One construct per model: examples/operators.md
   - About:
       - The limits: about/limits.md
-      - Changelog: CHANGELOG.md
+      - Versions: about/versions.md
+      - Changelog: changelog.md
   # Everything a model writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a
-  # renderer, a checker), whoever changes math-spec itself, and the proofs of
+  # renderer, a checker), whoever changes mathspec itself, and the proofs of
   # concept: the notation page, which renders the typesetting test model, and
   # the PyPSA pages. The PyPSA pages stay in `docs/examples/`, where
   # `tools/gallery.py` writes them.
   - Development:
-      - Building on math-spec:
+      - Building on mathspec:
           - Reading a spec and its program: reference/reading.md
           - Program API: reference/program.md
           - What counts as language: about/what-counts-as-language.md
@@ -91,9 +92,6 @@ nav:
           - PyPSA, the multi-period class: examples/pypsa_multi_period.md
 
 theme:
-  name: material
-  language: en
-
   palette:
     # Dark first = default for new visitors (no auto/system-pref entry).
     # Icon represents the CURRENT scheme — moon when active is dark,
@@ -102,26 +100,26 @@ theme:
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-4
+        icon: lucide/moon
         name: Switch to light mode
     - scheme: default
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-7
+        icon: lucide/sun
         name: Switch to dark mode
-
-  font:
-    text: Roboto
-    code: JetBrains Mono
 
   icon:
     repo: fontawesome/brands/github
 
   features:
     - header.autohide
-    # navigation.instant left off — MathJax fails to re-typeset on
-    # no-math → math swaps, and no documented reset recipe fixes it.
+    # `docs/static/mathjax.js` subscribes to `document$` and re-typesets, which
+    # is what makes this safe: instant navigation swaps the document without a
+    # reload, so a page reached from one with no math would otherwise render
+    # every equation as literal text.
+    - navigation.instant
+    - navigation.instant.progress
     - navigation.tracking
     - navigation.tabs
     - navigation.tabs.sticky
@@ -130,7 +128,6 @@ theme:
     - navigation.top
     - navigation.footer
     - toc.follow
-    - search.suggest
     - search.highlight
     - search.share
     - content.code.copy
@@ -142,15 +139,13 @@ theme:
 # visible to a reader of the site, not only to a reader of the repository.
 copyright: >
   The documentation is licensed
-  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSES/CC-BY-4.0.txt">CC-BY-4.0</a>;
+  <a href="https://github.com/energy-models/mathspec/blob/main/LICENSES/CC-BY-4.0.txt">CC-BY-4.0</a>;
   the code is
-  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSE">MIT</a>.
+  <a href="https://github.com/energy-models/mathspec/blob/main/LICENSE">MIT</a>.
 site_dir: .docs
 markdown_extensions:
   - admonition
   - attr_list
-  - def_list
-  - footnotes
   - md_in_html
   # A list that starts at 5 renders from 5, as it does on GitHub.
   - sane_lists
@@ -164,19 +159,16 @@ markdown_extensions:
       generic: true
   - pymdownx.superfences:
       custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
         # A ```math fence is how GitHub takes block math verbatim, and is what
         # this project's own typesetter prints. Arithmatex reads `$$…$$`, so
         # the fence hands it over — indented inside a tab or a list included,
         # which is why this is superfences' job and not a hook's regex.
         - name: math
           class: arithmatex
-          format: !!python/object/apply:pymdownx.arithmatex.arithmatex_fenced_format { kwds: { which: generic } }
+          format: { object: pymdownx.arithmatex.arithmatex_fenced_format, kwds: { which: generic } }
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: zensical.extensions.emoji.twemoji
+      emoji_generator: zensical.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -184,7 +176,17 @@ markdown_extensions:
   # No `style_plain_text`: it makes every plain inline code span render as
   # shell, and most of the ones here are YAML keys and Python names.
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  # `check_paths` so a renamed include fails the build rather than rendering
+  # as nothing. `docs/index.md` pulls sections of the README through this, and
+  # `docs/changelog.md` is the whole of CHANGELOG.md.
+  - pymdownx.snippets:
+      check_paths: true
+  # The other half of the math, beside the `arithmatex` entry above: the
+  # verbatim `$`…`$` pair the typesetter prints for GitHub, rewritten into the
+  # `$…$` arithmatex reads. It is a preprocessor rather than a hook because
+  # zensical has no hooks, and because the suite can then load it without a
+  # site.
+  - tools.mdx_github_math
   - pymdownx.tabbed:
       alternate_style: true
   - toc:
@@ -196,9 +198,7 @@ markdown_extensions:
       # drops. The default slugifier collapses that to one, so such a link
       # would 404 on the site while working in the repository. Same file,
       # same anchor, both renderings.
-      slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
-hooks:
-  - docs/static/hooks.py
+      slugify: { object: pymdownx.slugs.slugify, kwds: { case: lower } }
 plugins:
   - search
   - autorefs
@@ -220,7 +220,7 @@ plugins:
             show_signature_annotations: false
           paths: [src]
 watch:
-  - src/math_spec
+  - src/mathspec
   - README.md
   - CHANGELOG.md
 extra_css:
@@ -231,8 +231,8 @@ extra_javascript:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/energy-models/math-spec
-      name: math-spec on GitHub
+      link: https://github.com/energy-models/mathspec
+      name: mathspec on GitHub
     - icon: simple/pypi
-      link: https://pypi.org/project/math-spec/
-      name: math-spec on PyPI
+      link: https://pypi.org/project/mathspec/
+      name: mathspec on PyPI

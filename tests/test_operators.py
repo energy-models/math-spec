@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from math_spec.operators import AMOUNTS, BUILTINS
+from mathspec.operators import AMOUNTS, BUILTINS
 
 
 def test_the_amount_words_cover_every_operator_taking_an_amount():

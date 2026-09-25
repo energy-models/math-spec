@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import LanguageError
-from math_spec.degree import calls_dual, check_binary, check_expression
-from math_spec.program import carries_variable
-from math_spec.resolution import Namespace
+from mathspec import LanguageError
+from mathspec.degree import calls_dual, check_binary, check_expression
+from mathspec.program import carries_variable
+from mathspec.resolution import Namespace
 from tests.fixtures import SMALL_MODEL, expression_of, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)

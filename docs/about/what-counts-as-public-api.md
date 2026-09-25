@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -32,7 +32,7 @@ diff, the typesetter prints it, and an engine in another language reads it.
   talks about a file the language accepts, and changes nothing.
 - **Nothing is written out unasked.** A `piecewise:` or `sos:` block stays the
   block until a caller calls
-  [`spec.expand()`](../reference/api.md#math_spec.Spec.expand).
+  [`spec.expand()`](../reference/api.md#mathspec.Spec.expand).
 
 What a solver or file format can take, how the numbers attach to the names, and
 which solver runs are each engine's to decide

@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: Changelog
+
+# A feat, fix, perf, refactor, docs or revert PR adds its line under
+# `## Upcoming version` in CHANGELOG.md, so the release notes exist before the
+# release PR is written. The label `no changelog` opts a PR out, and a skipped
+# job counts as passed. See RELEASING.md.
+
+on:
+  pull_request:
+    # `edited` re-runs it when the title changes the type, and `labeled` and
+    # `unlabeled` when the opt-out label comes or goes.
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  line:
+    name: Changelog line
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no changelog') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The base branch's changelog is what a new line is told apart from.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the PR adds the line it owes
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git show "origin/${BASE_REF}:CHANGELOG.md" > "${RUNNER_TEMP}/base.md"
+          python3 -m tools.changelog entry "$PR_TITLE" "${RUNNER_TEMP}/base.md"

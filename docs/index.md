@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: math-spec contributors
+# SPDX-FileCopyrightText: mathspec contributors
 # SPDX-License-Identifier: CC-BY-4.0
 hide:
   - navigation
@@ -8,7 +8,7 @@ hide:
 
 <div class="hero" markdown>
 
-# math-spec
+# mathspec
 
 **Write an optimisation model as a YAML file. Check it and print it as math,
 with no data and no solver.**
@@ -138,7 +138,7 @@ call.
 === "How"
 
     ```python
-    import math_spec as ms
+    import mathspec as ms
 
     symbols = {
         'notation': 'latex',
@@ -168,8 +168,8 @@ call.
     a document that compiles, rather than a fragment to `\input`:
 
     ```bash
-    python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml
-    python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
+    python -m mathspec latex dispatch.yaml --symbols dispatch.symbols.yaml
+    python -m mathspec typst dispatch.yaml --standalone -o dispatch.typ
     ```
 
     [Typeset the math](reference/typeset.md) documents the three functions, their

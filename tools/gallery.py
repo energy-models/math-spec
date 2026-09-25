@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,8 +19,8 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import to_spec
-from math_spec.typesetting import to_markdown
+from mathspec import to_spec
+from mathspec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
 from tools.notation import equations

@@ -1,15 +1,10 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
-# release-please writes this file and prettier reformats what it writes: `*`
-# bullets become `-`, and the blank line it leaves under each release heading is
-# removed. So every release landed a diff that `fail_on_changes` rejected, and
-# main went red on the release commit itself with nothing a contributor could
-# have done differently.
-#
-# The generator wins. Nobody edits this file by hand, so the formatting is not
-# anyone's to prefer.
+# The releases up to 0.0.0-alpha.127 keep the formatting release-please wrote,
+# and prettier would rewrite every one of them. A released entry is not
+# rewritten.
 CHANGELOG.md
 
 # `tools/gallery.py` writes the body of these pages: the model, verbatim, and
@@ -18,8 +13,8 @@ CHANGELOG.md
 # the committed file could never satisfy both, and `tests/test_docs.py` compares
 # it to the generator byte for byte.
 #
-# Same rule as CHANGELOG.md above: the generator wins where nobody edits by
-# hand. `index.md` is not listed — it carries no generated block.
+# The generator wins where nobody edits by hand. `index.md` is not listed — it
+# carries no generated block.
 docs/examples/dispatch.md
 docs/examples/commitment.md
 docs/examples/operators.md

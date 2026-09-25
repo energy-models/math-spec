@@ -1,12 +1,12 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # Your first model
 
 In this lesson you write a least-cost dispatch model one block at a time, check
-it, and print it as math. [Install math-spec](howto/installation.md) first.
+it, and print it as math. [Install mathspec](howto/installation.md) first.
 
 ## Dimensions
 
@@ -24,7 +24,7 @@ dimensions:
 Check the file:
 
 ```bash
-python -m math_spec check dispatch.yaml
+python -m mathspec check dispatch.yaml
 ```
 
 The check accepts the file, and advises that nothing uses the dimensions yet:
@@ -58,7 +58,7 @@ variables:
 Print the math. `--no-legend` leaves out the tables of symbols:
 
 ```bash
-python -m math_spec markdown --no-legend dispatch.yaml
+python -m mathspec markdown --no-legend dispatch.yaml
 ```
 
 !!! example "Rendered output"
@@ -142,7 +142,7 @@ Change `loads` back to `load`.
 Print the whole model:
 
 ```bash
-python -m math_spec markdown dispatch.yaml
+python -m mathspec markdown dispatch.yaml
 ```
 
 !!! example "Rendered output"

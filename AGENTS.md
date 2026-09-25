@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -39,19 +39,23 @@ To learn what the project _is_, read [docs/](docs/index.md), and
   </details>
   ```
 
-- **No compatibility promise on the `0.0.0-alphaN` stream.** Rename, move or
-  delete. No alias, deprecation cycle, `legacy_` path, or hand-written message
-  for the old spelling. A test asserting the old behaviour is not a blocker;
-  say in the PR where its coverage moved.
-- **A breaking marker in the PR title is refused** by the
-  `Conventional commit subject` check. Describe the break in the PR body.
+- **No compatibility promise before 1.0.** Rename, move or delete. No alias,
+  deprecation cycle, `legacy_` path, or hand-written message for the old
+  spelling. A test asserting the old behaviour is not a blocker; say in the PR
+  where its coverage moved. A release that breaks a file or an import raises
+  the minor version, and its notes name the break.
+- **Every `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its
+  title under `## Upcoming version` in `CHANGELOG.md`**, with a link to the PR.
+  The label `no changelog` opts one out; only the user sets it.
+  A version heading on top of that file releases on merge
+  ([RELEASING.md](RELEASING.md)), so write one only when told to cut a release.
 - **Never edit a generated file by hand.** Regenerate it and read the diff.
   Generated files are the schema, the golden typesetter output, and the pages
   in the `GENERATED` table of `tests/test_docs.py`, which include the README
   and `docs/index.md`. A new generator lands with a row in that table.
 
   ```bash
-  pixi run python -m tools.schema              # schema/math-spec.schema.json
+  pixi run python -m tools.schema              # schema/mathspec.schema.json
   pixi run python -m tests.typesetting.golden  # tests/typesetting/golden/*.out
   ```
 
@@ -129,7 +133,8 @@ To learn what the project _is_, read [docs/](docs/index.md), and
 
 ## Commit messages and PR titles
 
-The PR title is the changelog line. It names the outcome, as a complete
+The PR title is also the line the PR adds to `CHANGELOG.md` by hand; nothing
+writes the changelog on merge. The title names the outcome, as a complete
 lower-case sentence a changelog reader can follow. Not an activity, not a
 mechanism, not `AST`, `dim` or `a pass`.
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,10 +15,10 @@ from typing import get_args
 
 import pytest
 
-from math_spec.errors import LanguageError, SchemaError
-from math_spec.model import Curvature
-from math_spec.piecewise import expand_piecewise
-from math_spec.program import Assumption, Variable, assumption_message
+from mathspec.errors import LanguageError, SchemaError
+from mathspec.model import Curvature
+from mathspec.piecewise import expand_piecewise
+from mathspec.program import Assumption, Variable, assumption_message
 from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency

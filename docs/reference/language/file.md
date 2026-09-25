@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -37,7 +37,8 @@ description: Least-cost dispatch of a generator fleet against an hourly load.
 ## `version`
 
 The language version the file is written against. It is optional, and it
-defaults to `0`, the one version this release knows.
+defaults to `0`, the one version this release knows. It is not the package
+version ([versions](../../about/versions.md)).
 
 ```yaml
 version: 0
@@ -46,8 +47,8 @@ version: 0
 A version this release does not know is a load error:
 
 ```text
-model declares version 1, and math_spec 0.0.1a75 understands [0].
-Upgrade math_spec, or write the version this file actually targets.
+version: model declares version 1, and mathspec 0.0.0a127 understands [0].
+Upgrade mathspec, or write the version this file actually targets.
 ```
 
 ## Unknown keys

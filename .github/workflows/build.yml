@@ -1,15 +1,16 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
 name: Build
+# Builds and checks the wheel on every pull request and push to main, and for
+# release.yml, which calls it after tagging and publishes what it uploads.
 on:
   pull_request:
   push:
     branches:
       - main
-    tags:
-      - "*"
+  workflow_call:
 
 jobs:
   build:
@@ -51,33 +52,3 @@ jobs:
         with:
           name: artifact
           path: dist/*
-
-  release:
-    name: Publish package
-    # Off, and not by a variable. `math-spec` is not registered on PyPI and
-    # nothing here should reach it yet; the previous condition was the tag alone,
-    # so any tag would have attempted an upload and failed on a missing trusted
-    # publisher. A repository variable would have been the wrong switch — anyone
-    # can set one, with no review. Turning this back on takes a pull request.
-    #
-    # To publish: register the project, configure a trusted publisher pointing at
-    # this workflow and the `pypi` environment, then restore the tag condition.
-    #
-    # Kept rather than deleted so the pinned action SHAs stay under dependabot;
-    # a job restored from git history comes back with whatever was current then.
-    #
-    # GitHub releases do not pass through here — release-please cuts those from
-    # the tag in release.yml, and they are unaffected either way.
-    if: false
-    needs: [build]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    environment: pypi
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: artifact
-          path: dist
-      - name: Publish package on PyPi
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

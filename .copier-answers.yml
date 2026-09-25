@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: CC0-1.0
 
@@ -22,6 +22,6 @@ license: MIT
 minimal_python_version: py312
 project_short_description: YAML math specification and AST parsing for multi-dimensional
   linear programming problems
-project_slug: math-spec
+project_slug: mathspec
 repository_owner: energy-models
 use_devcontainer: false

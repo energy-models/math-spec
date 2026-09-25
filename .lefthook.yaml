@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: CC0-1.0
 
@@ -25,7 +25,7 @@ pre-commit:
             run: pixi {run} ruff format --force-exclude
           # No {staged_files}: pyrefly reads `project-includes` from
           # pyproject.toml, and a whole-project check is what CI runs. Feeding
-          # it a subset would type-check src/math_spec against whatever
+          # it a subset would type-check src/mathspec against whatever
           # happened to be staged.
           - name: pyrefly
             glob: "*.{py,pyi}"

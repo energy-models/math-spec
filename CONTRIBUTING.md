@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -9,31 +9,31 @@ We're glad you're reading this; we welcome all contributors!
 
 Some of the resources to look at if you're interested in contributing:
 
-- Look at open issues tagged with ["help wanted"](https://github.com/energy-models/math-spec/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) and ["good first issue"](https://github.com/energy-models/math-spec/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-- Look at the [contributing guide in our documentation](https://energy-models.github.io/math-spec/contributing)
+- Look at open issues tagged with ["help wanted"](https://github.com/energy-models/mathspec/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) and ["good first issue"](https://github.com/energy-models/mathspec/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- Look at the [contributing guide in our documentation](https://mathspec.readthedocs.io/en/latest/contributing/)
 
 ## Licensing
 
-Copyright (c) 2026 math-spec contributors.
-By contributing to math-spec, i.e. through opening a pull request, you represent that your contributions are your own original work and that you have the right to license them, and you agree that your contributions are licensed under the .
+Copyright (c) 2026 mathspec contributors.
+By contributing to mathspec, i.e. through opening a pull request, you represent that your contributions are your own original work and that you have the right to license them, and you agree that your contributions are licensed under the .
 
 ## Reporting bugs and requesting features
 
-You can open an issue on GitHub to report bugs or request new math-spec features.
+You can open an issue on GitHub to report bugs or request new mathspec features.
 Follow these links to submit your issue:
 
-- [Report bugs or other problems while running math-spec](https://github.com/energy-models/math-spec/issues/new?template=BUG-REPORT.yml).
+- [Report bugs or other problems while running mathspec](https://github.com/energy-models/mathspec/issues/new?template=BUG-REPORT.yml).
   If reporting an error, please include a full traceback in your issue.
 
-- [Request features that math-spec does not already include](https://github.com/energy-models/math-spec/issues/new?template=FEATURE-REQUEST.yml).
+- [Request features that mathspec does not already include](https://github.com/energy-models/mathspec/issues/new?template=FEATURE-REQUEST.yml).
 
-- [Report missing or inconsistent information in our documentation](https://github.com/energy-models/math-spec/issues/new?template=DOCS.yml).
+- [Report missing or inconsistent information in our documentation](https://github.com/energy-models/mathspec/issues/new?template=DOCS.yml).
 
-- [Any other issue](https://github.com/energy-models/math-spec/issues/new).
+- [Any other issue](https://github.com/energy-models/mathspec/issues/new).
 
 ## Submitting changes
 
-Look at the [development guide in our documentation](https://energy-models.github.io/math-spec/contributing) for information on how to get set up for development.
+Look at the [development guide in our documentation](https://mathspec.readthedocs.io/en/latest/contributing/) for information on how to get set up for development.
 
 <!--- the "--8<--" html comments define what part of this file to add to the index page of the documentation -->
 <!--- --8<-- [start:docs] -->
@@ -45,7 +45,7 @@ To contribute changes:
 1. Test your changes using `pixi run test`, or `pixi run ci` for everything CI will check.
 1. Commit your changes to the feature branch (you should have `pre-commit` installed to ensure your code is correctly formatted when you commit changes).
 1. Push the branch to GitHub (`git push origin new-fix-or-feature`).
-1. On GitHub, create a new [pull request](https://github.com/energy-models/math-spec/pull/new/main) from the feature branch.
+1. On GitHub, create a new [pull request](https://github.com/energy-models/mathspec/pull/new/main) from the feature branch.
 
 When you contribute for the first time, ensure your reviewer [adds you as a contributor](https://allcontributors.org/en/bot/)!
 
@@ -53,7 +53,8 @@ When you contribute for the first time, ensure your reviewer [adds you as a cont
 
 Before submitting a pull request, check whether you have:
 
-- Written the PR title as a conventional commit subject (see below) — this, not a hand-written entry, is what appears in `CHANGELOG.md`.
+- Written the PR title as a conventional commit subject (see below).
+- Added its line under `## Upcoming version` in `CHANGELOG.md` by hand, if the PR is a `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` (see below).
 - Added or updated documentation for your changes (see [The docs](#the-docs)).
 - Added tests if you implemented new functionality.
 
@@ -67,18 +68,18 @@ how-to guide (`docs/howto/`), reference (`docs/reference/`, and the model pages
 in `docs/examples/`) or explanation (`docs/about/`) — the four kinds of
 [Diátaxis](https://diataxis.fr) — and one page is one kind. A page a model
 writer does not need goes under Development in the nav: building on
-math-spec, contributing, or a proof of concept. The rules each kind has to meet, and the sentence-level
+mathspec, contributing, or a proof of concept. The rules each kind has to meet, and the sentence-level
 bar, are in
-[the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
+[the docs-writing skill](https://github.com/energy-models/mathspec/blob/main/.claude/skills/docs-writing/SKILL.md).
 Every page needs a `nav:` entry in `mkdocs.yml`, links inside `docs/` are
-relative, and a link outside it is the full GitHub URL; `pixi run docs-build`
-is `--strict` and refuses the rest.
+relative, and a link outside it is the full GitHub URL. `pixi run docs-build`
+is `--strict` and refuses a dead link or a stale anchor; `pixi run test` is
+what refuses a page with no nav entry.
 
 ### Commit messages
 
-Merges are squashed, and the resulting subject on `main` is what
-[release-please](https://github.com/googleapis/release-please) reads to build
-the changelog. So the **PR title** must be a
+Merges are squashed, so the **PR title** becomes the commit on `main`. Write it
+so it also works as the line you add to `CHANGELOG.md` by hand. It must be a
 [conventional commit](https://www.conventionalcommits.org) subject:
 
 ```text
@@ -89,16 +90,13 @@ fix(parser): where clauses with a trailing comma
 docs: describe the two expression tiers
 ```
 
-Types are `feat`, `fix`, `perf`, `refactor`, `docs` and `revert`, which appear
-in the changelog, and `chore`, `test`, `ci`, `build` and `style`, which are
-hidden. A subject the parser cannot read is not an error — the entry
-simply never appears — so the `Conventional commit subject` check enforces the
-format on every pull request.
-
-While the version is pinned to the alpha stream, a breaking marker (`!`, or a
-`BREAKING CHANGE:` footer) is refused, because it moves the base version rather
-than the alpha counter. Describe the break in the PR body instead. See
-[RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
+A `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its title,
+with a link to the PR, under `## Upcoming version` in `CHANGELOG.md`. A
+`chore`, `test`, `ci`, `build` or `style` PR adds no line. The
+`Conventional commit subject` check enforces the format on every pull request,
+and the `Changelog line` check enforces the line. The label `no changelog`
+opts a PR out of the second.
+See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph
 or bullet list covering what changed and its impact.
@@ -120,17 +118,16 @@ When adding docstrings, we request you use the [Google docstring style](https://
 
 ## Releases
 
-Nothing here is done by hand. release-please opens a release PR from the
-conventional-commit subjects on `main`; merging it tags the release, and the tag
-is what builds and publishes the package. While the project is on the alpha
-stream that release PR is merged automatically, so every merge to `main` cuts a
-version.
+A release is a PR that renames `## Upcoming version` in `CHANGELOG.md` to the
+version and the day, such as `## 0.1.0 (2026-10-01)`, and edits the section
+into the release notes. Merging it tags the release, opens the GitHub release
+and publishes the package to PyPI.
 
 The version is never written down in the source tree — it comes from the git
-tag at build time, and `math_spec.__version__` reads it back from the installed
+tag at build time, and `mathspec.__version__` reads it back from the installed
 package metadata.
 
-See [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md) for the full pipeline, the alpha-stream rules,
-and the one-time repository setup it still needs.
+See [RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md) for the steps, what to do when one
+fails, and the one-time repository setup.
 
 <!--- --8<-- [end:docs] -->

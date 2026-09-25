@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -9,19 +9,18 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
-# The base for a clone with no reachable tag, which is every clone until
-# release-please cuts the first one — the remote carries no tags today. Without
+# The base for a clone with no reachable tag, such as a shallow clone. Without
 # it hatch-vcs starts from 0.1 and builds `0.1.devN`; with it, `0.0.1.devN`.
 # Neither is a release and neither is published, but the second does not claim
-# a minor version the project has not reached. Shallow clones keep needing it.
+# a minor version the project has not reached.
 fallback-version = "0.0.0"
 
 [tool.hatch.build.targets.sdist]
 only-include = ["src", "README.md", "LICENSE", "LICENSES"]
 
 [project]
-name = "math-spec"
-description = "YAML math specification and AST parsing for multi-dimensional linear programming problems"
+name = "mathspec"
+description = "Write an optimisation model as a YAML file. Check it and print it as math, with no data and no solver."
 authors = [
   { name = "Felix Bumann", email = "117816358+FBumann@users.noreply.github.com" },
   { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },
@@ -30,7 +29,17 @@ authors = [
 dynamic = ["version"]
 license = "MIT"
 license-files = ["LICENSE"]
+keywords = [
+  "optimisation",
+  "linear programming",
+  "energy system modelling",
+  "yaml",
+  "latex",
+]
 classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Mathematics",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -39,7 +48,7 @@ classifiers = [
 requires-python = ">=3.12"
 readme = "README.md"
 dependencies = [
-  # The schema: `Model` is a pydantic model and `schema/math-spec.schema.json`
+  # The schema: `Model` is a pydantic model and `schema/mathspec.schema.json`
   # is its `model_json_schema()`. 2.1 is where a validator's own exception
   # reaches `ctx['error']` as the object rather than its str, which
   # `errors.schema_error` unwraps to keep the documented class; 2.0 flattens
@@ -52,7 +61,10 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/energy-models/math-spec"
+Documentation = "https://mathspec.readthedocs.io"
+Repository = "https://github.com/energy-models/mathspec"
+Issues = "https://github.com/energy-models/mathspec/issues"
+Changelog = "https://github.com/energy-models/mathspec/blob/main/CHANGELOG.md"
 
 [project.scripts]
 
@@ -64,7 +76,7 @@ repository = "https://github.com/energy-models/math-spec"
 # Carried from specsolve, which is where every file under src/ was written and
 # formatted. Adopting it wholesale means the extraction reformats nothing; the
 # alternative was a 43-file diff over quote style, on a tree nobody has reviewed
-# in this repo yet. `target-version` is the one change: math-spec's floor.
+# in this repo yet. `target-version` is the one change: mathspec's floor.
 target-version = "py312"
 line-length = 120
 
@@ -115,7 +127,7 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
   "T20",
   "D",
 ] # likewise a generator, and only reachable as a command
-"src/math_spec/_where_parser.py" = [
+"src/mathspec/_where_parser.py" = [
   "N806",
 ] # grammar tokens (NOT/AND/OR) are named after keywords
 "docs/static/hooks.py" = ["PERF401", "RUF015", "D"]
@@ -140,7 +152,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # Check against the *lowest* supported interpreter, so syntax and stdlib
 # additions newer than the floor are caught here rather than by a CI leg.
 python-version = "3.12"
-project-includes = ["src/math_spec"]
+project-includes = ["src/mathspec"]
 preset = "strict"
 # A callable taking `*args: Any, **kwargs: Any` otherwise matches every
 # signature, which is how a parse action or a validator with the wrong shape
@@ -192,8 +204,8 @@ branch = true
 source = ["src/"]
 
 [tool.typos.files]
-# release-please writes CHANGELOG.md, and its abbreviated commit hashes are not
-# words: `30589ba` was read as `ba`, a misspelling of `by`.
+# The release-please history in CHANGELOG.md carries abbreviated commit hashes,
+# which are not words: `30589ba` was read as `ba`, a misspelling of `by`.
 extend-exclude = ["CHANGELOG.md"]
 
 [tool.typos.default.extend-words]
@@ -207,12 +219,6 @@ wher = "wher"
 generatr = "generatr"
 missable = "missable"
 unparseable = "unparseable"
-# `NAMEs` in scripts/setup-release-app.sh is a placeholder plus a plural, in a
-# comment from the wizard template that is not ours to reword. typos splits it
-# into `NAM` + `Es`, calls `NAM` a misspelling of `NAME`, and rewrites the line
-# to `NAMEEs` — which is not a word either. The key is the token it objects to,
-# not the text on the page.
-NAM = "NAM"
 # `fom` is PyPSA's `fom_cost` — fixed operation and maintenance — quoted by name
 # in docs/about/pypsa.md, not a misspelling of "from".
 fom = "fom"

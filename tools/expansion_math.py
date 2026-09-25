@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -18,8 +18,8 @@ from __future__ import annotations
 import re
 import textwrap
 
-from math_spec import to_spec
-from math_spec.typesetting import to_markdown
+from mathspec import to_spec
+from mathspec.typesetting import to_markdown
 from tools._page import ROOT, splice
 from tools._page import main as page_main
 

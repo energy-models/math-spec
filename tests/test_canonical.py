@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,9 +19,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import math_spec as ms
-from math_spec.__main__ import main
-from math_spec._expression_parser import (
+import mathspec as ms
+from mathspec.__main__ import main
+from mathspec._expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
     FunctionCallNode,
@@ -31,11 +31,11 @@ from math_spec._expression_parser import (
     operand,
     parse_expression,
 )
-from math_spec.canonical import _factors, _signed_terms, canonical_text, laid_out, normalised
+from mathspec.canonical import _factors, _signed_terms, canonical_text, laid_out, normalised
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override
 
 if TYPE_CHECKING:
-    from math_spec._expression_parser import ArithmeticNode, ParsedNode
+    from mathspec._expression_parser import ArithmeticNode, ParsedNode
 
 #: Every model in the repository, the operator probes included. The symbol
 #: tables under `examples/symbols/` are not models and do not load as one.

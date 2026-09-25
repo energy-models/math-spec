@@ -1,23 +1,52 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # Changelog
 
-Written by [release-please](https://github.com/googleapis/release-please) from
-the conventional-commit subjects that land on `main` — see RELEASING.md. Do not
-write an entry by hand; the next release lands above whatever you put at the
-top. A released entry is never rewritten, so one that is wrong is corrected in
-place.
+Each pull request adds its line under `## Upcoming version`. A release pull
+request renames that heading to the version and the day, such as
+`## 0.1.0 (2026-10-01)`, and edits the section into the release notes. Merging
+it releases that version ([RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md)).
 
-New releases are inserted directly below this paragraph, so nothing may sit
-between it and the first `##` heading. The Keep a Changelog skeleton that used
-to live here — a hand-maintained `## Unreleased` block, and a comment
-documenting the heading format — is what broke 0.0.0-alpha.1: that comment
-contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
-`##` it finds, and so the entire release landed inside the comment and rendered
-nowhere.
+## Upcoming version
+
+- feat(language): two files that mean the same model write one text ([#530](https://github.com/energy-models/mathspec/pull/530))
+
+## 0.1.0 (2026-09-25)
+
+🎉 mathspec is officially on PyPI!
+
+```bash
+pip install mathspec
+```
+
+## 0.1.0rc1 (2026-09-25)
+
+The release candidate for 0.1.0, the first release on PyPI:
+`pip install mathspec==0.1.0rc1`. The package installs, imports and runs as
+`mathspec` since 0.0.0-alpha.127
+([#702](https://github.com/energy-models/mathspec/pull/702)). The
+`0.0.0-alpha.N` releases below were tags and GitHub releases only.
+
+- docs: a page says how the package version and the language version of a model file relate ([#711](https://github.com/energy-models/mathspec/pull/711))
+- docs: the installation page and the PyPI project page say `pip install mathspec`, and the README's links resolve on PyPI ([#707](https://github.com/energy-models/mathspec/pull/707))
+- docs: every link to the documentation points at mathspec.readthedocs.io ([#706](https://github.com/energy-models/mathspec/pull/706))
+
+## [0.0.0-alpha.127](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.126...v0.0.0-alpha.127) (2026-09-25)
+
+
+### Refactoring
+
+* the package installs, imports and runs as mathspec, rather than math-spec and math_spec ([#702](https://github.com/energy-models/mathspec/issues/702)) ([f9151af](https://github.com/energy-models/mathspec/commit/f9151af9d5977f8288fb64a12779b61597f12371))
+
+## [0.0.0-alpha.126](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.125...v0.0.0-alpha.126) (2026-09-25)
+
+
+### Documentation
+
+* the site is built by zensical, and its API reference is the public surface rather than every module ([#568](https://github.com/energy-models/mathspec/issues/568)) ([64eb268](https://github.com/energy-models/mathspec/commit/64eb26894dcd5444f1cd65c7035abe4f5ccec252))
 
 ## [0.0.0-alpha.125](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.124...v0.0.0-alpha.125) (2026-09-25)
 

@@ -1,27 +1,27 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # Python API
 
-This page documents every name that `import math_spec` exports, grouped by
+This page documents every name that `import mathspec` exports, grouped by
 task.
 
 <!-- prettier-ignore-start -->
 
 ## Loading
 
-The module `math_spec.program` holds the classes a `Program` is made of. The
+The module `mathspec.program` holds the classes a `Program` is made of. The
 [Program API](program.md) documents them.
 
-::: math_spec.to_spec
+::: mathspec.to_spec
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.Spec
+::: mathspec.Spec
     options:
       show_root_heading: true
       show_root_toc_entry: true
@@ -29,43 +29,43 @@ The module `math_spec.program` holds the classes a `Program` is made of. The
 
 ## Typesetting
 
-::: math_spec.to_latex
+::: mathspec.to_latex
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.to_typst
+::: mathspec.to_typst
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.to_markdown
+::: mathspec.to_markdown
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.typeset
+::: mathspec.typeset
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.typeset_declaration
+::: mathspec.typeset_declaration
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.FORMATS
+::: mathspec.FORMATS
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.SymbolTable
+::: mathspec.SymbolTable
     options:
       show_root_heading: true
       show_root_toc_entry: true
@@ -73,19 +73,19 @@ The module `math_spec.program` holds the classes a `Program` is made of. The
 
 ## Advice
 
-::: math_spec.advice
+::: mathspec.advice
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.Advice
+::: mathspec.Advice
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.AdviceKind
+::: mathspec.AdviceKind
     options:
       show_root_heading: true
       show_root_toc_entry: true
@@ -93,25 +93,25 @@ The module `math_spec.program` holds the classes a `Program` is made of. The
 
 ## Errors
 
-::: math_spec.MathSpecError
+::: mathspec.MathSpecError
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.LanguageError
+::: mathspec.LanguageError
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.SchemaError
+::: mathspec.SchemaError
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.DimensionError
+::: mathspec.DimensionError
     options:
       show_root_heading: true
       show_root_toc_entry: true
@@ -119,13 +119,13 @@ The module `math_spec.program` holds the classes a `Program` is made of. The
 
 ## Names
 
-::: math_spec.BUILTIN_NAMES
+::: mathspec.BUILTIN_NAMES
     options:
       show_root_heading: true
       show_root_toc_entry: true
       heading_level: 3
 
-::: math_spec.did_you_mean
+::: mathspec.did_you_mean
     options:
       show_root_heading: true
       show_root_toc_entry: true

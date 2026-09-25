@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,10 +15,10 @@ from typing import get_args
 
 import pytest
 
-from math_spec import LanguageError, Spec, to_spec
-from math_spec._where_parser import parse_where
-from math_spec.exclusivity import overlapping
-from math_spec.program import (
+from mathspec import LanguageError, Spec, to_spec
+from mathspec._where_parser import parse_where
+from mathspec.exclusivity import overlapping
+from mathspec.program import (
     Add,
     And,
     Assumption,
@@ -61,7 +61,7 @@ from math_spec.program import (
     walk_regions,
     where_children,
 )
-from math_spec.resolution import Namespace
+from mathspec.resolution import Namespace
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, override, schema_of, where_of
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'

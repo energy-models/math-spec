@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: math-spec contributors
+SPDX-FileCopyrightText: mathspec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -25,7 +25,7 @@ Check for typos, or ensure 'p_charge' is declared.
 ## What `advice` warns about
 
 `ms.advice(model)` returns a tuple of `ms.Advice`, one per warning, and
-`python -m math_spec check model.yaml` prints them. Advice is a warning: the file
+`python -m mathspec check model.yaml` prints them. Advice is a warning: the file
 loads.
 
 | `kind`          | The file has…                                                                                                     | The advice says…                                                      |

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from math_spec.__main__ import main as render
+from mathspec.__main__ import main as render
 from tools._page import ROOT, sidecar_for
 
 #: Every model the repository has; `examples/*.yaml` is not recursive, and a glob that narrows is a gate that stops testing.
