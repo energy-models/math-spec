@@ -24,7 +24,6 @@ from mathspec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, r
 from mathspec.program import (
     Assumption,
     BooleanLiteral,
-    Cases,
     Constant,
     ConstraintDeclaration,
     DimensionDeclaration,
@@ -231,9 +230,10 @@ def lower(schema: Spec) -> Program:
 
 
 def _frame_of(name: str, entry: Named, schema: Spec) -> tuple[str, ...]:
-    """The dims an entry is read over, in declaration order: declared for a cased entry, the body's for a plain one."""
-    if isinstance(entry.body, Cases):
-        return tuple(schema.expressions[name].dims or ())
+    """The dims an entry is read over: the ``dims:`` it declares, as written, else the body's in declaration order."""
+    declared = schema.expressions[name].dims
+    if declared is not None:
+        return tuple(declared)
     carried = dims_of(entry.body, schema, f"Named expression '{name}'")
     return tuple(d for d in schema.dimensions if d in carried)
 
