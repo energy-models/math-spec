@@ -72,12 +72,11 @@ nav:
   # renderer, a checker), whoever changes math-spec itself, and the proofs of
   # concept: the notation page, which renders the typesetting test model, and
   # the PyPSA pages. The PyPSA pages stay in `docs/examples/`, where
-  # `tools/gallery.py` writes them. `docs/static/hooks.py` appends one page per module under
-  # `src/math_spec/` to Contributing, as `Modules`.
+  # `tools/gallery.py` writes them.
   - Development:
       - Building on math-spec:
-          - Reading a loaded model: reference/reading.md
-          - The file and the program: about/file-and-program.md
+          - Reading a spec and its program: reference/reading.md
+          - Program API: reference/program.md
           - What counts as language: about/what-counts-as-language.md
       - Contributing:
           - contributing.md

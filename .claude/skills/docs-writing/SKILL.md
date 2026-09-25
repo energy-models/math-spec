@@ -101,10 +101,10 @@ section, saying why a reader would open it.
 
 **The Python API is rendered from the docstrings.**
 `docs/reference/api.md` holds one `:::` entry per name in `math_spec.__all__`,
-and mkdocstrings renders each from its docstring. `docs/static/hooks.py`
-renders one page per module under `src/math_spec/`, and puts them in the
-Contributing group of the Development section as `Modules`. The prose of both is the docstring rules in
-`AGENTS.md`.
+for a model writer. `docs/reference/program.md` renders `math_spec.program`,
+for whoever builds on the program. mkdocstrings renders both from the
+docstrings, so their prose is the docstring rules in `AGENTS.md`. No other
+module gets a page: an internal module is read in the source.
 
 Mixing kinds is the most common failure. Rationale inside a reference section
 makes the rules unskimmable, and rules inside an explanation page make the
@@ -117,7 +117,7 @@ prints from it. What a consumer does with a spec — the data it attaches, how i
 solves, what it reads back — is that consumer's page, not this tree's
 ([what counts as language](../../../docs/about/what-counts-as-language.md)).
 A rule about a consumer says only what the file guarantees it
-([reading a loaded model](../../../docs/reference/reading.md)).
+([reading a spec and its program](../../../docs/reference/reading.md)).
 
 Answer the two questions before starting. If a page needs two kinds, it is
 two sections with two headings, or two pages.

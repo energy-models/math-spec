@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Reading a loaded model
+# Reading a spec and its program
 
 This page is for whoever writes an engine that builds models, a renderer, or a
 checker. A tool reads the model through two objects, `Spec` and `Program`.
@@ -14,9 +14,21 @@ A `Spec` holds the file as written: its `macros:`, its descriptions, and a
 `piecewise:` block as one block. A `Program` holds the model the file builds:
 every macro expanded, every name typed, every operator resolved to a node, and
 every dimension and degree rule already checked. A curve stays one curve there
-until [`spec.expand()`](#formulations-written-out) writes it out.
-[The file and the program](../about/file-and-program.md) says why the two are
-split, and which tool reads which.
+until [`spec.expand()`](#formulations-written-out) writes it out. The
+[Program API](program.md) documents every class a program holds.
+
+Each tool reads the object that holds what it needs:
+
+| Tool                       | Reads                                       |
+| -------------------------- | ------------------------------------------- |
+| The typesetter             | `spec.program`, or a `Program` handed to it |
+| `advice`                   | `spec.program`                              |
+| An engine that builds rows | the program of an expansion                 |
+| A tool that rewrites files | the `Spec`, which alone holds the text      |
+
+The program keeps each curve as the one declaration the file states, so the
+typesetter and `advice` read the model the author wrote. A program does not
+hold its spec: a tool handed a bare `Program` has the model, not the file.
 
 The curve below [expands](language/piecewise.md) into a weight per breakpoint,
 a convexity row and one row per link:

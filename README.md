@@ -272,8 +272,8 @@ ms.to_typst(spec)  # compiles without a TeX toolchain
 A [symbol table](docs/reference/typeset.md#symbol-tables) gives the names their
 conventional spelling, as in the first folded block.
 [Print a model as math](docs/howto/print.md) does the same from a shell.
-`to_spec` returns a `Spec`, and `spec.program` the model it builds
-([reading a loaded model](docs/reference/reading.md#spec-and-program)).
+`to_spec` returns a `Spec`, and `spec.program` its `Program`
+([reading a spec and its program](docs/reference/reading.md#spec-and-program)).
 
 ## Documentation
 

@@ -183,7 +183,7 @@ call.
 - [Print a model as math](howto/print.md): LaTeX, Typst or Markdown, from the
   file alone.
 - [Check a model without data](howto/check.md): on your machine and in CI.
-- [Reading a loaded model](reference/reading.md): for whoever writes an engine
+- [Reading a spec and its program](reference/reading.md): for whoever writes an engine
   or a renderer.
 
 ## Install it
