@@ -8,7 +8,11 @@ description: >-
   starts and its stops are shares in [0, 1] rather than binaries — a domain is
   the model's, not the data's — and four rows PyPSA adds only under the
   keyword tighten the relaxation where a unit's start and stop cost the same.
-  `examples/pypsa.yaml` stays the integer one.
+  The surface is generators, links and loads with a fixed build, in one
+  scenario, every asset active in every snapshot, and only a generator
+  committable. `examples/pypsa.yaml` stays the integer one, and states the
+  rest: a committable link or process, an extendable build, scenarios and
+  `active`.
 
 dimensions:
   snapshot:
@@ -47,6 +51,11 @@ parameters:
   Generator_marginal_cost:
     description: cost of one unit of output
     dims: [snapshot, generator]
+  Generator_sign:
+    description: >-
+      the sign output enters its bus's balance with — PyPSA's `sign`, `1`
+      unless given, `-1` for a unit that draws power
+    dims: [generator]
   Link_p_nom:
     description: nominal power
     dims: [link]
@@ -68,16 +77,21 @@ parameters:
   Load_p_set:
     description: demand
     dims: [snapshot, load]
+  Load_sign:
+    description: >-
+      the sign a load's demand enters its bus's balance with — PyPSA's
+      `sign`, `-1` unless given, `1` for a load that feeds its bus
+    dims: [load]
   Generator_committable:
     description: whether output is gated by an on/off status decision
     dims: [generator]
     dtype: bool
   Generator_ramp_limit_up:
-    description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
-    dims: [generator]
+    description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [snapshot, generator]
   Generator_ramp_limit_down:
-    description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
-    dims: [generator]
+    description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [snapshot, generator]
   Generator_ramp_limit_start_up:
     description: most output in the snapshot a unit starts, per unit of nominal power
     dims: [generator]
@@ -96,6 +110,12 @@ parameters:
     description: one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
     dims: [generator]
     dtype: int
+  Generator_p_init:
+    description: >-
+      the output a unit brought into the horizon — PyPSA's `p_init`, read
+      only where the unit came in running; no value means it is unknown, so
+      the unit carries no ramp row at the first snapshot
+    dims: [generator]
   Generator_must_stay_up:
     description: >-
       true while the up time a unit brought into the horizon still binds —
@@ -257,18 +277,18 @@ expressions:
     otherwise: shift(Generator_status, along=snapshot, offset=1)
   Generator_previous_p:
     description: >-
-      the output a generator carries into a snapshot — nothing at the start of
-      the horizon, which is why a unit that came in running carries no ramp row
-      there
+      the output a generator carries into a snapshot — at the first, the
+      `p_init` it brought in where it came in running and nothing where it
+      came in off; the previous snapshot's after that
     dims: [snapshot, generator]
     cases:
-      opening: { when: "position(snapshot) == 0", expression: 0 }
+      opening: { when: "position(snapshot) == 0", expression: Generator_status_initial * Generator_p_init }
     otherwise: shift(Generator_p, along=snapshot, offset=1)
   Generator_ramp_up_rate:
     description: >-
       the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [generator]
+    dims: [snapshot, generator]
     cases:
       given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
     otherwise: 1
@@ -276,7 +296,7 @@ expressions:
     description: >-
       the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [generator]
+    dims: [snapshot, generator]
     cases:
       given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
     otherwise: 1
@@ -296,6 +316,34 @@ expressions:
     cases:
       given: { when: Generator_ramp_limit_shut_down, expression: Generator_ramp_limit_shut_down }
     otherwise: 1
+  Generator_ramp_up_allowance:
+    description: >-
+      how far a generator may raise output between two snapshots — its ramp
+      limit of the build while it stays on, plus its start-up ramp in the
+      snapshot it turns on
+    dims: [snapshot, generator]
+    cases:
+      committed:
+        when: Generator_committable
+        expression: >-
+          Generator_ramp_up_rate * Generator_p_nom * Generator_previous_status
+          + Generator_start_up_rate * Generator_p_nom
+          * (Generator_status - Generator_previous_status)
+    otherwise: Generator_ramp_up_rate * Generator_p_nom
+  Generator_ramp_down_allowance:
+    description: >-
+      how far a generator may lower output between two snapshots — its ramp
+      limit of the build while it stays on, plus its shut-down ramp in the
+      snapshot it turns off
+    dims: [snapshot, generator]
+    cases:
+      committed:
+        when: Generator_committable
+        expression: >-
+          Generator_ramp_down_rate * Generator_p_nom * Generator_status
+          + Generator_shut_down_rate * Generator_p_nom
+          * (Generator_previous_status - Generator_status)
+    otherwise: Generator_ramp_down_rate * Generator_p_nom
 
 constraints:
   Generator_fix_p_lower:
@@ -320,13 +368,14 @@ constraints:
     description: >-
       `Bus-nodal_balance` — what is generated at a bus, less what the links
       take away, plus what arrives over them after losses, meets the load
-      there
+      there. Each generator and load term enters with its component's `sign`
+      (`constraints.py:1428-1429`, `:1538`)
     dims: [snapshot, bus]
     expression: >-
-      sum(Generator_p, by=Generator_bus, over=generator, into=bus)
+      sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
       - sum(Link_p, by=Link_bus0, over=link, into=bus)
       + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
-      == sum(Load_p_set, by=Load_bus, over=load, into=bus)
+      == -sum(Load_sign * Load_p_set, by=Load_bus, over=load, into=bus)
   Generator_com_p_lower:
     description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
     dims: [snapshot, generator]
@@ -377,36 +426,28 @@ constraints:
     expression: Generator_status == 0
   Generator_p_ramp_limit_up:
     description: >-
-      `Generator-p-ramp_limit_up` — a committed unit raises output no faster
-      than its limit while it was already on, and no further than its
+      `Generator-p-ramp_limit_up` — a generator raises output no faster than
+      its ramp limit of the build, and a committed one no further than its
       start-up ramp in the snapshot it turns on. A unit that came into the
-      horizon running brought an unknown output, so it carries no row at the
-      first snapshot
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the output it brought in
     dims: [snapshot, generator]
     where: >-
-      Generator_committable AND (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
-      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
-    expression: >-
-      Generator_p - Generator_previous_p <=
-      Generator_ramp_up_rate * Generator_p_nom * Generator_previous_status
-      + Generator_start_up_rate * Generator_p_nom
-      * (Generator_status - Generator_previous_status)
+      (Generator_ramp_limit_up OR Generator_ramp_limit_start_up)
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0 OR Generator_p_init)
+    expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
   Generator_p_ramp_limit_down:
     description: >-
-      `Generator-p-ramp_limit_down` — a committed unit lowers output no
-      faster than its limit while it stays on, and no further than its
+      `Generator-p-ramp_limit_down` — a generator lowers output no faster than
+      its ramp limit of the build, and a committed one no further than its
       shut-down ramp in the snapshot it turns off. A unit that came into the
-      horizon running brought an unknown output, so it carries no row at the
-      first snapshot
+      horizon running carries a row at the first snapshot only where its
+      `p_init` gives the output it brought in
     dims: [snapshot, generator]
     where: >-
-      Generator_committable AND (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
-      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
-    expression: >-
-      Generator_previous_p - Generator_p <=
-      Generator_ramp_down_rate * Generator_p_nom * Generator_status
-      + Generator_shut_down_rate * Generator_p_nom
-      * (Generator_previous_status - Generator_status)
+      (Generator_ramp_limit_down OR Generator_ramp_limit_shut_down)
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0 OR Generator_p_init)
+    expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
   Generator_status_p_fixed_upper:
     description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
     dims: [snapshot, generator]
@@ -465,8 +506,8 @@ constraints:
     where: Generator_committable AND Generator_partly_tightened
     expression: >-
       shift(Generator_p, along=snapshot, offset=1)
-      - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
-      - (Generator_p_max_pu * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
+      - Generator_shut_down_rate * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
+      - (Generator_p_max_pu * Generator_p_nom - Generator_shut_down_rate * Generator_p_nom)
       * (Generator_status - Generator_start_up) <= 0
   Generator_com_p_current:
     description: "`Generator-com-p-current` — output fits the share on, and the share starting up only up to the start-up ramp"
@@ -474,16 +515,16 @@ constraints:
     where: Generator_committable AND Generator_partly_tightened AND position(snapshot) > 0
     expression: >-
       Generator_p - Generator_p_max_pu * Generator_p_nom * Generator_status
-      + (Generator_p_max_pu * Generator_p_nom - Generator_ramp_limit_start_up * Generator_p_nom) * Generator_start_up <= 0
+      + (Generator_p_max_pu * Generator_p_nom - Generator_start_up_rate * Generator_p_nom) * Generator_start_up <= 0
   Generator_com_partly_start_up:
     description: "`Generator-com-partly-start-up` — raising output while a share is starting up is bounded by the ramp of the share on and the start-up ramp of the share coming on"
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_partly_tightened
     expression: >-
       Generator_p - shift(Generator_p, along=snapshot, offset=1)
-      - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom) * Generator_status
+      - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_up_rate * Generator_p_nom) * Generator_status
       + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
-      + (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom - Generator_ramp_limit_start_up * Generator_p_nom)
+      + (Generator_p_min_pu * Generator_p_nom + Generator_ramp_up_rate * Generator_p_nom - Generator_start_up_rate * Generator_p_nom)
       * Generator_start_up <= 0
   Generator_com_partly_shut_down:
     description: "`Generator-com-partly-shut-down` — lowering output while a share is shutting down is bounded likewise, by the shut-down ramp"
@@ -491,9 +532,9 @@ constraints:
     where: Generator_committable AND Generator_partly_tightened
     expression: >-
       shift(Generator_p, along=snapshot, offset=1) - Generator_p
-      - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
-      + (Generator_ramp_limit_shut_down * Generator_p_nom - Generator_ramp_limit_down * Generator_p_nom) * Generator_status
-      - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_down * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
+      - Generator_shut_down_rate * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
+      + (Generator_shut_down_rate * Generator_p_nom - Generator_ramp_down_rate * Generator_p_nom) * Generator_status
+      - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_down_rate * Generator_p_nom - Generator_shut_down_rate * Generator_p_nom)
       * Generator_start_up <= 0
 
 objective:
@@ -507,6 +548,17 @@ objective:
     + sum(Generator_shut_down * Generator_shut_down_cost)
 
 assumptions:
+  Generator_came_in_running_unless_committable:
+    holds: "Generator_status_initial == 1"
+    where: "NOT Generator_committable AND (Generator_ramp_limit_up OR Generator_ramp_limit_down)"
+    description: >-
+      PyPSA reads `up_time_before` of a unit that is not committable in its
+      ramp rows. Where it is zero, PyPSA builds a row at the first snapshot
+      with nothing carried in, and caps the unit there at zero, or at its
+      start-up ramp where another unit of the component is committable with a
+      fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
+      the attribute as read only for a committable unit and does not check
+      it. The spec does not state that row, so it refuses the data
   Generator_maintenance_events_positive:
     holds: "Generator_maintenance_events > 0"
     where: "Generator_maintainable"

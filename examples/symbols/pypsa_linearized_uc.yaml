@@ -57,3 +57,8 @@ names:
   Generator_maintenance: '\mu'
   Generator_maintenance_start: '\mu^{\mathrm{up}}'
   Generator_maintenance_status: '\mu^{u}'
+  Generator_sign: '\mathrm{sgn}'
+  Load_sign: '\mathrm{sgn}^{\mathrm{load}}'
+  Generator_p_init: '\mathrm{p}^{0}'
+  Generator_ramp_up_allowance: '\Delta^{+}'
+  Generator_ramp_down_allowance: '\Delta^{-}'
