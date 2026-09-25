@@ -57,6 +57,12 @@ The version comes from the git tag. `pyproject.toml` declares
 changelog heading, the tag and the wheel carry one number. The release workflow
 checks that the wheel it publishes has that number.
 
+The language version, the `version:` key of a model file, is a separate
+number ([versions](https://mathspec.readthedocs.io/en/latest/about/versions/)).
+`SUPPORTED_VERSIONS` in `src/mathspec/model.py` is the set a release reads. A
+pull request that changes that set says so in its changelog line, so that the
+release notes name the language versions the release starts or stops reading.
+
 Do not push a version tag by hand. The release workflow only acts on a heading
 with no tag, so a hand-made tag makes its heading history before anything is
 published.
