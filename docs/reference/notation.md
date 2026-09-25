@@ -124,6 +124,7 @@ parameters:
 | $`\mathrm{spend}^{\mathrm{cap}}`$ | `spend_cap` over $`\mathcal{G}`$ |
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
+| $`\mathit{net}`$ | `net` over $`\mathcal{T}`$ — what a snapshot spills, less what it lacks |
 | $`\mathit{marginal\_price}`$ | `marginal_price` over $`\mathcal{T} \times \mathcal{B}`$ |
 | $`\mathrm{startup\_cost}`$ | `startup_cost` over $`\mathcal{T} \times \mathcal{G}`$ — what starting a unit in this snapshot costs, which the horizon's edge changes |
 
@@ -630,6 +631,21 @@ constraints:
 \mathit{spend}_{t} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
 ```
 
+#### Signed sum substituted into a plus
+
+names the signed sum on the right of a plus: inlined, it prints as `- spill + slack`, not `+ -spill + slack`
+
+```yaml
+constraints:
+  netted:
+    dims: [snapshot, bus]
+    expression: sum(p, by=gen_bus, over=generator, into=bus) + net == load
+```
+
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{net}_{t} = \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+```
+
 #### Cased expression in a constraint
 
 names the cased expression: its symbol prints here, its block once below
@@ -657,6 +673,20 @@ expressions:
 
 ```math
 \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}
+```
+
+#### Plain expression that is a signed sum
+
+a plain expression whose body is a sum that opens with a minus
+
+```yaml
+expressions:
+  net:
+    expression: -spill + slack
+```
+
+```math
+\mathit{net}_{t} = -\mathit{spill}_{t} + \mathit{slack}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### Expression defined by cases

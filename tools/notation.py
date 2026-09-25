@@ -102,8 +102,10 @@ FAMILIES: dict[str, dict[str, str]] = {
     },
     'Named expressions': {
         'budgeted': 'Plain expression in a constraint',
+        'netted': 'Signed sum substituted into a plus',
         'starts': 'Cased expression in a constraint',
         'spend': 'Plain named expression',
+        'net': 'Plain expression that is a signed sum',
         'startup_cost': 'Expression defined by cases',
         'spend_cap': 'Data-only expression',
         'capped': 'Named expression in a condition',
