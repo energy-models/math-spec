@@ -15,10 +15,6 @@ A degree-2 product has a second rule: **at most one factor may be a sum of
 terms**. ``sum(x, over=i) * sum(y, over=j)`` is a cross join whose size the
 file states nowhere. Factors carrying *different dims* are not that: ``x[i] *
 y[j]`` broadcasts.
-
-A divisor's **shape** is decided here too: a quotient is multiplication by one
-reciprocal factor, so a divisor that adds is refused at load, where the message
-can name the rewrite.
 """
 
 from __future__ import annotations
@@ -41,17 +37,6 @@ from math_spec.program import (
 )
 
 
-def _adds(node: Expression) -> bool:
-    """Whether *node* adds anywhere inside it.
-
-    Anywhere, not only at its head: every operator over a variable-free
-    expression maps over its parts rather than folding them, so an addition
-    under a ``sum`` or a product reaches the quotient as two factors just as
-    one at the top does.
-    """
-    return any(isinstance(found, Add) for found in walk(node))
-
-
 def check_binary(node: Multiply | Divide | Power, context: str, *, ceiling: int) -> None:
     """Check that *node* stays inside the degree its position allows.
 
@@ -65,29 +50,18 @@ def check_binary(node: Multiply | Divide | Power, context: str, *, ceiling: int)
         LanguageError: A product of two variable-carrying factors where the
             position allows only degree 1 or where both factors are sums of
             terms, a power over anything carrying a variable, a divisor carrying
-            a variable or adding.
+            a variable.
     """
     where = f'{context}: ' if context else ''
     if isinstance(node, Power):
         if carries_variable(node):
             raise LanguageError(_a_variable_under_a_power_message(where))
-        if _adds(node.base) or _adds(node.exponent):
-            raise LanguageError(
-                f'{where}a base and an exponent must each be a single Constant/Parameter factor, '
-                f'not a sum — addition does not distribute over `**`, so `(1 + rate) ** period` is '
-                f'refused where `growth ** period` is not. Declare the factor itself as a parameter.'
-            )
         return
     if isinstance(node, Divide):
         if carries_variable(node.divisor):
             raise LanguageError(
                 f'{where}the divisor contains variables, which is not affine. '
                 f'Divide by a parameter, or precompute the reciprocal as one.'
-            )
-        if _adds(node.divisor):
-            raise LanguageError(
-                f'{where}a divisor must be a single Constant/Parameter factor, '
-                f'not a sum — rewrite as multiplication by a precomputed parameter'
             )
         return
     if not (carries_variable(node.left) and carries_variable(node.right)):

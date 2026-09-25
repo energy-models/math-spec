@@ -39,8 +39,8 @@ parameters:
   CVaR_omega:
     description: PyPSA's `risk_preference['omega']` — the share of the operating cost priced at the tail rather than in expectation
     dims: []
-  CVaR_inv_tail:
-    description: PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor
+  CVaR_alpha:
+    description: PyPSA's `risk_preference['alpha']` — the confidence level; the tail holds the other `1 - alpha` of the probability
     dims: []
   snapshot_weightings_objective:
     description: PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost
@@ -209,7 +209,7 @@ constraints:
   CVaR_def:
     description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
     dims: []
-    expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+    expression: CVaR_theta + 1 / (1 - CVaR_alpha) * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
 
 objective:
   sense: minimize

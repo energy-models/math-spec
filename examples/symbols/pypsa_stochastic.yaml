@@ -33,7 +33,7 @@ names:
   Generator_capital_cost: '\mathrm{c}^{\mathrm{cap}}'
   scenario_weight: '\pi'
   CVaR_omega: '\omega'
-  CVaR_inv_tail: '\mathrm{v}'
+  CVaR_alpha: '\alpha'
   CVaR_a: a
   CVaR_theta: '\theta'
   CVaR: "CVaR"
