@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 
 # `typesetting/` — the model, printed
 
-This package is a consumer of the program. It builds no model and binds no
+This package is a consumer of the program. It builds no model and attaches no
 data. It walks a program, the one a loaded `Spec` holds or one handed to it,
 and prints it.
 

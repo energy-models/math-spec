@@ -7,15 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## What `to_spec` checks
 
-`to_spec` binds no data. Before it returns a `Spec`, it parses the file,
+`to_spec` attaches no data. Before it returns a `Spec`, it parses the file,
 resolves every name, checks every dimension rule and every degree, and reads
 every `where` string and every macro template, including the templates that
-nothing calls. A `piecewise:` block is checked as written, against every rule
-its expansion would be held to, and stays a block.
-
-Anything the language refuses is refused there, so a repository of models
-validates in CI with no data and no solver. An array that does not bind, or a
-solver exception, comes from the tool that builds and solves the model.
+nothing calls. A `piecewise:` block is checked against every rule its expansion
+would be held to. Anything the language refuses is refused there.
 
 Every message names what went wrong and what to do about it:
 
@@ -40,7 +36,7 @@ loads.
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and
-bounds.lower is -inf, which is the direction a +slack term improves a minimize
+bounds.lower is open, which is the direction a +slack term improves a minimize
 objective in. No data can change that, so the solve would answer `unbounded`
 and name nothing.
 Give it a finite bounds.lower, or the constraint that was meant to define it.
@@ -52,34 +48,16 @@ variable with no constraint row.
 
 ## Which error you get
 
-|                  |                                                                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `MathSpecError`  | The root. Everything below is an instance of it                                                                                  |
-| `LanguageError`  | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
-| `SchemaError`    | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
-| `DimensionError` | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
+| Class            | Subclass of     |                                                                                                                                  |
+| ---------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `MathSpecError`  | `ValueError`    | The root                                                                                                                         |
+| `LanguageError`  | `MathSpecError` | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
+| `SchemaError`    | `LanguageError` | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
+| `DimensionError` | `LanguageError` | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
 
-Every one of these is reproducible from the YAML alone. An engine that binds
-numbers or calls a solver adds its own errors below `MathSpecError`.
+Every one of these is reproducible from the YAML alone.
 
 ## What the language will not express
 
-Each of these was asked for and refused, and [the limits](../../about/limits.md)
-gives the reasons.
-
-| Not in the language                                                            | Instead                                                                                                                                                             |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `variable * variable` in a bound or a `piecewise:` link                        | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed)) |
-| `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or constrain a variable to equal the reduction                                                                                          |
-| degree 3 (`x * y * z`)                                                         | A variable constrained to equal one product, multiplied by the third                                                                                                |
-| `**` with a variable in it                                                     | `x * x` for a square. Over variable-free operands `**` is in the language                                                                                           |
-| arithmetic in `bounds:`                                                        | A name or a number. Ship the derived column as data                                                                                                                 |
-| time-series processing (resample, cluster, interpolate, align), file IO, units | Data preparation. Pass a parameter                                                                                                                                  |
-| indicator constraints                                                          | `sos:` is where that landed ([piecewise](piecewise.md#sos))                                                                                                         |
-| multi-objective                                                                | There is one `objective:` block. Weight the goals into one expression                                                                                               |
-| arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation                                                                                                                                                    |
-| filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
-
-The language has no escape hatch. Math it cannot express is a gap in the
-language, and a gap closes as a macro, a primitive or a formulation
-([the limits](../../about/limits.md)).
+What the language refuses, and what to write instead, is in
+[the limits](../../about/limits.md#deliberate-non-primitives).

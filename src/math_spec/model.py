@@ -139,7 +139,7 @@ class RelationBlock(_StrictBlock):
 
     Each side is a dimension, a list of them, or a mapping of column name to
     dimension where two columns share one. ``key:`` is the claim the language
-    checks at bind: one row per key tuple, so every ``values:`` column is a
+    checks when the data is attached: one row per key tuple, so every ``values:`` column is a
     function of it. A relation with no ``values:`` is **bare** — every column is
     in its key, a row is its own identity, and nothing reads it::
 
@@ -152,8 +152,8 @@ class RelationBlock(_StrictBlock):
 
     An operator reads the table in the direction the call names
     (``over=``, ``into=``), joining on the other key columns; the
-    declaration fixes no direction. The map itself is data, and arrives at bind
-    time under the relation's name, one column per role.
+    declaration fixes no direction. The map itself is data, and arrives with the rest of it,
+    under the relation's name, one column per role.
     """
 
     _label: ClassVar[str] = 'a relation declaration'
@@ -195,7 +195,7 @@ class DimensionBlock(_StrictBlock):
 
     A dimension is an axis and nothing else: it declares that the axis exists
     and what its coordinates are typed as, never which coordinates there are —
-    those are data, and arrive at bind time. The maps its members carry — a
+    those are data, and arrive when the data is attached. The maps its members carry — a
     generator's bus, a snapshot's period — are top-level ``relations:``
     (:class:`RelationBlock`), keyed by their own name.
     """
@@ -217,16 +217,17 @@ class ParameterBlock(_StrictBlock):
 
 
 class BoundsBlock(_StrictBlock):
-    """Variable bounds — each side is a number or parameter name.
+    """Variable bounds — each side is a finite number, a parameter name, or ``None`` where it is open.
 
     An omitted bound leaves the variable unbounded on that side, not
-    implicitly non-negative.
+    implicitly non-negative. An infinity is refused: an open side is ``null``,
+    and the other infinity leaves no value at all.
     """
 
     _label: ClassVar[str] = 'a bounds block'
 
-    lower: float | str = float('-inf')
-    upper: float | str = float('inf')
+    lower: float | str | None = None
+    upper: float | str | None = None
 
     @field_validator('lower', 'upper', mode='before')
     @classmethod
@@ -236,6 +237,12 @@ class BoundsBlock(_StrictBlock):
             raise ValueError(msg)
         if isinstance(v, float) and math.isnan(v):
             msg = f'bounds.{info.field_name} is nan, which no value compares to. Write a number, or omit the bound.'
+            raise ValueError(msg)
+        if isinstance(v, float | int) and math.isinf(v):
+            msg = (
+                f'bounds.{info.field_name} is {v}, and a bound is finite. An open side is null: '
+                f'write {info.field_name}: null, or leave it out.'
+            )
             raise ValueError(msg)
         return v
 
@@ -501,7 +508,7 @@ class AssumptionBlock(_StrictBlock):
             where: "p_min"
             description: a unit with no minimum is unconstrained below
 
-    The language decides nothing about the numbers, so the consumer binding
+    The language decides nothing about the numbers, so the consumer attaching
     the data checks it, and refuses the data where it does not hold.
     """
 
@@ -732,10 +739,8 @@ def _without_absence(value: object) -> object:
 
 
 def _is_absent(value: object) -> bool:
-    """Whether *value* is a null or an infinite bound."""
-    if value is None:
-        return True
-    return isinstance(value, float) and math.isinf(value)
+    """Whether *value* is a null."""
+    return value is None
 
 
 class Spec(_StrictBlock):
@@ -750,7 +755,7 @@ class Spec(_StrictBlock):
     The API is the twelve declaration sections plus ``version`` and
     ``description``, three ways back out — :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads, :meth:`expand` for the
-    same math with its formulations written out — and :attr:`program`, the
+    model with its formulations written out as plain rows — and :attr:`program`, the
     model typed, which every reader after load walks. Everything else on this
     class is pydantic's, not a contract this package keeps.
     """
@@ -845,7 +850,7 @@ class Spec(_StrictBlock):
 
     @model_serializer(mode='wrap')
     def _drop_absence(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Absence is not serialised: a null, an infinite bound, a mapping that stripping emptied, a section declaring nothing.
+        """Absence is not serialised: a null, a mapping that stripping emptied, a section declaring nothing.
 
         An empty list stays, being a value rather than an absence (``dims:
         []`` is a scalar). On the serializer so that ``model_dump``,
@@ -867,11 +872,13 @@ class Spec(_StrictBlock):
         """This model with its formulations written out as plain variables and constraints.
 
         A formulation states rows rather than being one — ``piecewise:`` states
-        a curve, ``sos:`` states which members of a family may be nonzero — and
-        expanding one writes those rows under names prefixed with the block's
-        own, then drops the block. The math is the same afterwards, and so is
-        the data that binds it: neither a set nor a curve emits a parameter,
-        and a curve's rows sit on ``where`` predicates over the file's own.
+        a curve, ``sos:`` states which members of a family may be nonzero.
+        Expanding one writes those rows under names prefixed with the block's
+        own, and drops the block. The result is a different model: it declares
+        more variables and constraints, so it does not compare equal to this
+        one. It declares the same dimensions and parameters, so the same data
+        attaches to both. Nothing is cached, so a second call builds the
+        expansion again.
 
         Args:
             kinds: Which formulations to write out — ``'piecewise'``,
@@ -881,9 +888,10 @@ class Spec(_StrictBlock):
                 curve.
 
         Returns:
-            The model those blocks wrote out, or this one where it declares
-            none of them. It is a model like any other: :meth:`to_yaml` writes
-            it, and the file binds the same data as the one it came from.
+            The model with those blocks written out, or this same object where
+            it declares none of them, so an expansion asked for the same kinds
+            again returns itself. It is a model like any other: :meth:`to_yaml`
+            writes it, and :attr:`program` holds its rows.
 
         Raises:
             ValueError: *kinds* names something that is not a formulation.

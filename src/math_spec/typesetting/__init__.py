@@ -115,7 +115,7 @@ def typeset(
 
     Args:
         model: Anything :func:`math_spec.to_spec` accepts, or a
-            :class:`~math_spec.program.Program`. A loaded model or a program
+            :class:`~math_spec.program.Program`. A ``Spec`` or a ``Program``
             is rendered as it stands, so printing one model in several formats
             reads and checks the file once rather than once per format, and a
             curve prints as the curve it states. Pass ``spec.expand()`` for the rows a solver holds

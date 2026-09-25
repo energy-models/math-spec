@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""`Spec.expand`: what it takes, what comes back, and what still binds it.
+"""`Spec.expand`: what it takes, what comes back, and what data still attaches to it.
 
 The kinds are a closed pair and the result is a plain `Spec`, so the claims here
 are about the verb rather than about either formulation — those are in
@@ -122,7 +122,7 @@ def test_an_expansion_declares_exactly_the_parameters_the_file_declared():
     schema = schema_of(MASKED)
     expanded = schema.expand()
 
-    assert expanded.parameters == schema.parameters, 'a curve emits no parameter, so the same data binds both'
+    assert expanded.parameters == schema.parameters, 'a curve emits no parameter, so the same data attaches to both'
     assert schema_of(expanded.to_yaml()).to_dict() == expanded.to_dict(), (
         'the expansion is a file like any other, and loading it back changes nothing'
     )
@@ -161,3 +161,18 @@ def test_the_same_sources_bind_a_model_and_its_expansion(model):
     written_out = set(spec.expand().program.parameters)
 
     assert written_out == supplied, 'writing a formulation out asks for data the model it came from did not'
+
+
+def test_an_expansion_is_a_different_model_and_has_nothing_left_to_write_out():
+    """What `expand()` returns: a new model, which a second expansion hands back unchanged."""
+    spec = schema_of(CURVE)
+    expanded = spec.expand()
+
+    assert expanded != spec, 'the expansion declares more rows, so it is a different model'
+    assert expanded.expand() is expanded, 'an expansion has no formulation left, so it comes back as itself'
+
+
+def test_a_model_with_no_formulation_expands_to_itself():
+    spec = schema_of(DISPATCH_MODEL)
+
+    assert spec.expand() is spec, 'nothing to write out returns the same object, not a copy'

@@ -10,7 +10,8 @@
 The source is ``tests/typesetting/golden/model.yaml``, the one model that
 carries every construct — ``tests/typesetting/test_golden.py`` holds it to the
 language, and this tool emits a row for every declaration in it. The fixture's
-own case-label comments become the captions.
+own case-label comments become the captions; :data:`FAMILIES` gives each row
+its heading and its place on the page.
 """
 
 from __future__ import annotations
@@ -39,33 +40,135 @@ MODEL = ROOT / 'tests' / 'typesetting' / 'golden' / 'model.yaml'
 #: saying what a method is for reads against a model that had a reason to
 #: choose it.
 PIECEWISE = {
-    'adjacency': ROOT / 'examples' / 'ports' / 'transport_pwl.yaml',
-    'sos2': ROOT / 'examples' / 'sos.yaml',
-    'convex': ROOT / 'examples' / 'piecewise.yaml',
-    'lp': ROOT / 'examples' / 'piecewise_lp.yaml',
+    'adjacency': ('Adjacency method', ROOT / 'examples' / 'ports' / 'transport_pwl.yaml'),
+    'sos2': ('SOS2 method', ROOT / 'examples' / 'sos.yaml'),
+    'convex': ('Convex method', ROOT / 'examples' / 'piecewise.yaml'),
+    'lp': ('LP method', ROOT / 'examples' / 'piecewise_lp.yaml'),
 }
 BEGIN, END = '<!-- notation:begin -->', '<!-- notation:end -->'
 
-#: The blocks that declare math, in the order the page walks them, and the
-#: heading each gets. ``dimensions``, ``relations`` and ``parameters`` are absent
-#: on purpose: they declare no equation, and what they print is the legend,
-#: which the page shows once as a legend rather than a row at a time.
-SECTIONS = {
-    'objective': 'The objective',
-    'constraints': 'Constraints',
-    'expressions': 'Definitions',
-    'variables': 'Variable domains',
-    'piecewise': 'Curves',
-    'sos': 'Sets carried to the solver',
-    'assumptions': 'What the data has to satisfy',
+#: The blocks of the fixture that declare math. ``dimensions``, ``relations``
+#: and ``parameters`` are absent on purpose: they declare no equation, and what
+#: they print is the legend, which the page shows once rather than a row at a
+#: time.
+BLOCKS = ('objective', 'constraints', 'expressions', 'variables', 'piecewise', 'sos', 'assumptions')
+
+#: The page's sections in the order of the language reference, and in each the
+#: fixture's declarations under the construct they show. The declaration name
+#: is the fixture's and no reader searches for it, so it stays in the YAML and
+#: the heading names the construct. Within a section the order is the file's
+#: wherever a caption reads against the row above it ("its adjoint", "the same
+#: window"). Every declaration of the fixture is here exactly once, or the
+#: tool refuses to write the page.
+FAMILIES: dict[str, dict[str, str]] = {
+    'Variable domains': {
+        'p': 'Lower and upper bounds',
+        'spill': 'Lower bound only',
+        'slack': 'Upper bound only',
+        'theta': 'Unbounded variable',
+        'on': 'Binary domain',
+        'units': 'Bounded integer domain',
+        'spare': 'Unbounded integer domain',
+        'reserve': 'Scalar variable',
+        'headroom': 'Scalar variable with a condition',
+        'weight': 'Variable in a special ordered set',
+        'fuel': 'Second axis of a curve',
+        'heat': 'Third axis of a curve',
+        'op_cost': 'Variable bounded by a curve',
+        'warm': 'Binary variable with a condition',
+    },
+    'Objective': {
+        'objective': 'Products and powers in the objective',
+    },
+    'Relations': {
+        'balance': 'Sum through a relation',
+        'total': 'Sum over every dimension',
+        'pullback': '`at` through a relation',
+        'grouped_once': 'Sum into two value columns',
+        'pulled_back_once': '`at` through two value columns',
+        'within_bus': 'Shift within one value column',
+        'relational': 'Sum through a bare relation',
+        'connected': 'Bare relation as a condition',
+        'representative': 'Map into its own dimension',
+        'zonal': 'Sum through a two-key map',
+        'zonal_history': 'Sum over the other key of a two-key map',
+        'zonal_membership': 'Sum between the two keys of a map',
+        'zonal_pullback': '`at` through a two-key map',
+    },
+    'Arithmetic and literals': {
+        'arithmetic': 'Signs, division and number literals',
+        'efficiency': 'Greek parameter name',
+        'ceiling': 'Infinity literal',
+    },
+    'Named expressions': {
+        'budgeted': 'Plain expression in a constraint',
+        'starts': 'Cased expression in a constraint',
+        'spend': 'Plain named expression',
+        'startup_cost': 'Expression defined by cases',
+        'spend_cap': 'Data-only expression',
+        'capped': 'Named expression in a condition',
+        'lcoe': 'Reported expression',
+        'marginal_price': 'Dual of a constraint',
+    },
+    'Shifts': {
+        'ramp': 'Cyclic and acyclic shift',
+        'edges': 'Filled and forward shifts',
+        'ahead': 'Cyclic forward shift',
+        'composed': 'Composed shifts',
+        'uncomposed': 'Nested shifts that do not compose',
+        'crossed': 'Shift along two dimensions',
+        'lead_time': 'Shift by a parameter offset',
+        'in_season': 'Cyclic shift within a group',
+        'held_in_season': 'Filled shift within a group',
+    },
+    'Trailing windows': {
+        'window': 'Window of fixed width',
+        'history': 'Window with a parameter width',
+        'seasonal_window': 'Window within a group',
+    },
+    'Piecewise curves': {},
+    'Special ordered sets': {
+        'adjacent': 'Special ordered set of type 2',
+    },
+    'Assumptions': {
+        'bounds_do_not_cross': 'Two parameters compared',
+        'efficiency_is_a_fraction': 'Connective in an assumption',
+        'lead_times_are_short': 'Parameter compared to a literal',
+        'zones_agree': 'Two relations compared',
+        'budget_covers_the_peak': 'Reduction in an assumption',
+        'ramps_are_gentle': 'Shift in an assumption',
+        'flexible_units_have_headroom': 'Assumption with a boolean condition',
+        'northern_demand_is_real': 'Assumption with a relation condition',
+    },
+    'Where conditions': {
+        'scalar': 'Parameter as a condition',
+        'running': 'Variable and label conditions',
+        'first': 'Position in a dimension',
+        'last': 'Position counted from the end',
+        'northern': 'Relation compared to a label',
+        'always': 'Constant true condition',
+        'redundant': 'Constant true inside a condition',
+        'never': 'Constant false condition',
+        'margin': 'Comparison of two expressions',
+        'ramped': 'Shift and pullback in a condition',
+        'covered': 'Reduction in a scalar condition',
+        'counted': 'Count over a dimension',
+        'counted_here': 'Count along a dimension of the frame',
+        'run_start': 'Predicate at the previous coordinate',
+        'zoned': 'Predicate through a relation',
+    },
 }
+
+#: Declarations whose caption says nothing its heading does not, so the page
+#: prints the heading alone.
+NAMED_BY_HEADING = frozenset({'spill', 'slack', 'theta', 'balance'})
 
 
 class Declaration:
-    """One block of the fixture: its name, its YAML, and the caption beside it."""
+    """One block of the fixture: its name, the block it sits in, its YAML, and the caption beside it."""
 
-    def __init__(self, name: str, lines: list[str], caption: str) -> None:
-        self.name, self.lines, self.caption = name, lines, caption
+    def __init__(self, name: str, block: str, lines: list[str], caption: str) -> None:
+        self.name, self.block, self.lines, self.caption = name, block, lines, caption
 
     def field(self, key: str) -> str:
         """One scalar the block declares — ``''`` where it declares no such key."""
@@ -76,15 +179,16 @@ class Declaration:
 
     @property
     def yaml(self) -> str:
-        """The block as written, dedented, with the caption comment removed.
+        """The declaration under the key of its block, with the caption comment removed.
 
-        Dedented because a fragment is read on its own: two spaces of leading
-        indent are what the block's position in the file costs it, and every
-        line of every row would carry them.
+        The key is kept because the heading names the construct rather than
+        the block, and a section mixes blocks: the fragment is where a reader
+        sees whether the row is a constraint, an expression or a variable.
         """
-        kept = [line.removeprefix('  ') for line in self.lines if not _described(line, self.lines)]
-        body = '\n'.join(kept)
-        return re.sub(r'[ ]+#[^\n]*', '', body, count=1) if self.caption else body
+        kept = [line for line in self.lines if not _described(line, self.lines)]
+        kept[0] = re.sub(r'[ ]+#.*$', '', kept[0])
+        key = [] if self.block == 'objective' else [f'{self.block}:']
+        return '\n'.join([*key, *kept])
 
 
 def _described(line: str, lines: list[str]) -> bool:
@@ -111,14 +215,14 @@ def declarations(text: str) -> dict[str, list[Declaration]]:
     Scanned rather than parsed by a YAML reader: the comments are the captions,
     and a reader that keeps them is a dependency this repo does not have.
     """
-    found: dict[str, list[Declaration]] = {section: [] for section in SECTIONS}
+    found: dict[str, list[Declaration]] = {section: [] for section in BLOCKS}
     section, current = None, None
     for line in text.splitlines():
         if match := re.match(r'^(\w+):', line):
-            section = match[1] if match[1] in SECTIONS else None
+            section = match[1] if match[1] in BLOCKS else None
             current = None
             if section == 'objective':
-                current = Declaration('objective', [], _caption(line))
+                current = Declaration('objective', section, [line], _caption(line))
                 found[section].append(current)
             continue
         if section is None:
@@ -129,7 +233,7 @@ def declarations(text: str) -> dict[str, list[Declaration]]:
                 current.lines.append(line)
             continue
         if match := re.match(r'^  (\w+):', line):
-            current = Declaration(match[1], [line], _caption(line))
+            current = Declaration(match[1], section, [line], _caption(line))
             found[section].append(current)
         elif current is not None and line.strip():
             current.lines.append(line)
@@ -187,10 +291,10 @@ def preamble(text: str) -> str:
 
 
 def block() -> str:
-    """The page's generated half: the legend, then every declaration in turn."""
+    """The page's generated half: the legend, then every construct in its family."""
     rendered = to_markdown(MODEL, numbered=False)
     parts = [
-        '### The legend',
+        '### Legend',
         'A dimension, a relation and a parameter declare no equation; what they '
         'print is the legend every model opens with.',
         f'```yaml\n{preamble(MODEL.read_text())}\n```',
@@ -198,10 +302,21 @@ def block() -> str:
     ]
     printed = equations(rendered)
     written = equations(to_markdown(to_spec(MODEL).expand('sos'), numbered=False))
-    for section, title in SECTIONS.items():
-        parts.append(f'### {title}')
-        found = declarations(MODEL.read_text())[section]
-        if section == 'piecewise':
+    found = {
+        one.name: one
+        for section, ones in declarations(MODEL.read_text()).items()
+        if section != 'piecewise'
+        for one in ones
+    }
+    placed = [name for rows in FAMILIES.values() for name in rows]
+    twice = sorted({name for name in placed if placed.count(name) > 1})
+    assert set(placed) == set(found) and not twice, (
+        f'every declaration of the fixture has one heading in FAMILIES: missing '
+        f'{sorted(set(found) - set(placed))}, not in the fixture {sorted(set(placed) - set(found))}, twice {twice}'
+    )
+    for family, rows in FAMILIES.items():
+        parts.append(f'### {family}')
+        if family == 'Piecewise curves':
             parts.append(
                 'A curve prints as the curve it states, over the frame the block builds one per coordinate of, '
                 'and its expansion prints the rows that curve stands for. One row per `method:`, each from the '
@@ -209,15 +324,22 @@ def block() -> str:
             )
             parts += _curves()
             continue
-        if section == 'sos':
+        if family == 'Special ordered sets':
             parts.append(
                 'A set prints beside the variable it restricts, because it restricts that variable rather than '
                 'adding a row of its own. Under it are the rows it is written out as.'
             )
-            parts += [f'{_row(one, printed)}\n\n{_written_out(one.name, written)}' for one in found]
+            parts += [
+                f'{_row(found[name], heading, printed)}\n\n{_written_out(name, written)}'
+                for name, heading in rows.items()
+            ]
             continue
-        parts += [_row(one, printed) for one in found]
-    return '\n\n'.join(parts)
+        parts += [_row(found[name], heading, printed) for name, heading in rows.items()]
+    page = '\n\n'.join(parts)
+    headings = re.findall(r'^#{3,4} (.+)$', page, re.MULTILINE)
+    shared = sorted({heading for heading in headings if headings.count(heading) > 1})
+    assert not shared, f'two sections share a heading, so one anchor is lost: {shared}'
+    return page
 
 
 def _curves() -> list[str]:
@@ -228,7 +350,7 @@ def _curves() -> list[str]:
     ``sos2`` keeps the set and for ``adjacency`` is the binaries that set states.
     """
     rows = []
-    for method, source in PIECEWISE.items():
+    for method, (heading, source) in PIECEWISE.items():
         table = sidecar_for(source)
         spec = to_spec(source)
         stated = equations(to_markdown(spec, symbols=table, numbered=False))
@@ -240,12 +362,12 @@ def _curves() -> list[str]:
         ]
         assert found, f'{source.name} declares no piecewise block with method: {method}'
         for block in found:
-            row = _row(block, stated)
-            caption = (
-                f'**`method: {method}`** \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
-            )
+            row = _row(block, heading, stated)
+            caption = f'`method: {method}` \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
             derived = [math for label, math in stated.items() if label.startswith(f'{block.name} ')]
-            assumed = '\n\n'.join(['What the method assumes of the numbers bound to it:', *derived]) if derived else ''
+            assumed = (
+                '\n\n'.join(['What the method assumes of the numbers attached to it:', *derived]) if derived else ''
+            )
             rows.append(
                 row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1)
                 + f'\n\n{_written_out(block.name, written)}'
@@ -286,12 +408,13 @@ def _table_shown(table: Path | None) -> str:
     )
 
 
-def _row(declaration: Declaration, printed: dict[str, str]) -> str:
-    """One construct: what it says, what it is for, and what it prints."""
-    caption = f'{declaration.caption}\n\n' if declaration.caption else ''
+def _row(declaration: Declaration, heading: str, printed: dict[str, str]) -> str:
+    """One construct: what it is called, what it is for, what it says, and what it prints."""
+    shown = declaration.caption and declaration.name not in NAMED_BY_HEADING
+    caption = f'{declaration.caption}\n\n' if shown else ''
     assert declaration.name in printed, f'{declaration.name} declares math and the walk printed none of it'
     math = printed[declaration.name]
-    return f'#### `{declaration.name}`\n\n{caption}```yaml\n{declaration.yaml}\n```\n\n{math}'
+    return f'#### {heading}\n\n{caption}```yaml\n{declaration.yaml}\n```\n\n{math}'
 
 
 def rendered_page(page: str) -> str:
