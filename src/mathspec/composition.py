@@ -76,7 +76,6 @@ What a patch may say, and what is refused:
 
 from __future__ import annotations
 
-import difflib
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import TYPE_CHECKING, cast, get_args, get_origin
@@ -237,6 +236,13 @@ def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, o
     for name, sections in read.items():
         for key, block in _mapping(sections.get(section)).items():
             if key in merged:
+                author = _author_of(read, section, key)
+                if section == 'expressions' and (target := _adds(read[author], key) or _adds(sections, key)):
+                    raise LanguageError(
+                        f"fragments '{author}' and '{name}' both declare the expression {key!r}, which a fragment "
+                        f'adds to {target!r} as a term. A term shares one namespace with every named expression: '
+                        f"name each fragment's term apart, such as after its component."
+                    )
                 hint = (
                     " If one fragment adds to the other's definition, write what it adds as `term:` under "
                     '`given: expressions:`.'
@@ -244,13 +250,19 @@ def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, o
                     else ''
                 )
                 raise LanguageError(
-                    f"fragments '{_author_of(read, section, key)}' and '{name}' both declare the "
+                    f"fragments '{author}' and '{name}' both declare the "
                     f'{_singular(section)} {key!r}. Two of the same kind of thing are two rows of a dimension '
                     f'rather than two fragments: merge the fragment once, and let the data carry both. '
                     f'Different math under one spelling is a rename: call one of them something else.{hint}'
                 )
             merged[key] = block
     return merged
+
+
+def _adds(sections: Mapping[str, object], key: str) -> str | None:
+    """The name one fragment adds *key* to as a term, or ``None`` where it adds no term by that name."""
+    given = _mapping(_mapping(sections.get('given')).get('expressions'))
+    return next((target for target, entry in given.items() if _mapping(entry).get('term') == key), None)
 
 
 def _agreed_readings(asked: Mapping[str, dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -341,7 +353,8 @@ def _landed(
     A term adds to a name another file has: a definition under
     ``expressions:``, a reading under ``given:`` with no term of its own, or a
     use in its math. Terms alone would define a name nothing asked for, which
-    is what a mistyped name looks like, so the refusal names the near miss.
+    is what a mistyped name looks like, so the refusal names the near miss
+    among the names a term could land on, which a term is not.
     """
     if key in defined:
         return
@@ -361,9 +374,15 @@ def _landed(
             *_mapping(_mapping(sections.get('given')).get('expressions')),
         )
     } - {key}
+    terms = {
+        _mapping(entry).get('term')
+        for sections in read.values()
+        for entry in _mapping(_mapping(sections.get('given')).get('expressions')).values()
+    }
+    known -= terms
     spelled = ', '.join(f"'{name}'" for name in contributors[:-1])
     who = f"fragments {spelled} and '{contributors[-1]}' add" if spelled else f"fragment '{contributors[0]}' adds"
-    near = ''.join(f" Did you mean '{name}'?" for name in difflib.get_close_matches(key, sorted(known), n=1))
+    near = f' {hint}' if (hint := did_you_mean(key, known, listing=False)) else ''
     raise LanguageError(
         f'{who} a term to {key!r}, which no fragment defines, reads or uses. A term adds to a name another '
         f"file has: define it under 'expressions:', read it under 'given: expressions:', or fix the spelling.{near}"
