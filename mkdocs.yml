@@ -127,12 +127,14 @@ theme:
     - navigation.indexes
     - navigation.top
     - navigation.footer
+    - navigation.path
     - toc.follow
     - search.highlight
     - search.share
     - content.code.copy
     - content.code.select
     - content.tabs.link
+    - content.tooltips
     - content.action.edit
 
 # The prose licence, on every page — CC-BY asks for attribution, so it has to be
