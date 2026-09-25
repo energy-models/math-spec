@@ -308,33 +308,34 @@
   margin-left: 0.5rem;
 }
 
-/* Benefit cards: the README bullet's icon and bold lead-in become the card's
- * heading, since the README cannot carry card markup. */
+/* Benefit cards: the README bullet's bold lead-in is the card's title, and its
+ * one link covers the whole card, since the README cannot carry card markup. */
 .md-typeset .landing .grid.cards {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
 }
 
 .md-typeset .landing .grid.cards > ul > li {
-  border-top: 0.2rem solid var(--md-accent-fg-color);
+  position: relative;
+  color: var(--md-default-fg-color--light);
 }
 
-.md-typeset .landing .grid.cards > ul > li > .twemoji:first-child {
+.md-typeset .landing .grid.cards > ul > li > strong:first-child {
   display: block;
-  width: 2.4rem;
-  height: 2.4rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.3rem;
+  color: var(--md-default-fg-color);
+  font-size: 0.9rem;
 }
 
-.md-typeset .landing .grid.cards > ul > li > strong:first-of-type {
+.md-typeset .landing .grid.cards > ul > li > a:last-child {
   display: block;
-  font-size: 1.05rem;
-  margin-bottom: 0.4rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+  margin-top: 0.6rem;
+  font-weight: 700;
 }
 
-.md-typeset .landing .grid.cards > ul > li:hover {
-  transform: translateY(-0.15rem);
+.md-typeset .landing .grid.cards > ul > li > a:last-child::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 /* Grid card hover lift — small polish */
@@ -342,8 +343,7 @@
 .md-typeset .grid > .card {
   transition:
     border-color 125ms,
-    box-shadow 125ms,
-    transform 125ms;
+    box-shadow 125ms;
 }
 
 .md-typeset .grid.cards > ul > li:hover,
