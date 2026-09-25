@@ -113,7 +113,7 @@ compose as `override(merge({…}), {…})`.
 | a `description` on a shared dimension or relation | it is prose rather than a claim, and the first fragment's wording is carried             |
 | any other declaration                             | one fragment declares it, and a second is refused                                        |
 | an entry under `given:`                           | it is checked against the fragment that introduces the name, then folded into it         |
-| a given expression                                | its frame is checked against the frame the definition's body carries                     |
+| a given expression                                | the definition's body carries no dimension the reader's `dims` do not name               |
 | a given entry no fragment introduces              | it stays under `given:` until a host model provides it                                   |
 | `objective`                                       | the terms are summed in fragment-name order, each in parentheses, and the senses agree   |
 | `version`                                         | every fragment is written against the same one                                           |

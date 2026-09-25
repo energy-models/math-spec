@@ -231,10 +231,13 @@ mask is built before any variable exists. A name declared under both
 given expression under _Given_.
 
 [`merge`](../../howto/compose.md#a-library-of-components) folds a given
-expression into the definition of another fragment, and refuses one whose
-frame is not the frame the body carries. The composed model holds the body to
-the rules of every place this file reads it: a square of a given expression
-that is quadratic is refused once folded.
+expression into the definition of another fragment. The `dims` are an upper
+bound: a body that carries a dimension they do not name is refused. A body over
+fewer dimensions is folded, and the composed model decides: it refuses a row
+that would repeat across the missing dimension, and accepts one where another
+term carries it. The composed model holds the body to the rules of every place
+this file reads it: a square of a given expression that is quadratic is
+refused once folded.
 
 ## `constraints`
 

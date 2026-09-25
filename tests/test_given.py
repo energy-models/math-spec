@@ -510,12 +510,39 @@ def test_merging_folds_a_given_expression_into_its_definition():
     assert composed.program.expressions['injection'].in_math, 'the balance reads the definition once folded'
 
 
-def test_a_given_expression_over_another_frame_is_refused():
-    """The introducer's frame is what the body carries, so it is read off the composed program."""
+def test_a_definition_over_a_dimension_the_reader_does_not_state_is_refused():
+    """The reader's frame bounds what it reads, so a body carrying more is a disagreement `merge` names."""
     narrow = {**BALANCE, 'given': {'expressions': {'injection': {'dims': ['bus']}}}}
     narrow = {**narrow, 'constraints': {'balance': {'dims': ['bus'], 'expression': 'injection == 0'}}}
     with pytest.raises(LanguageError, match=r"'balance' reads the given expression 'injection' over \['bus'\]"):
         merge({'balance': narrow, 'injector': INJECTOR})
+
+
+#: An injector whose output does not vary by snapshot: its injection is over `bus` alone.
+FLAT_INJECTOR = {
+    'dimensions': {'bus': {'dtype': 'str'}, 'generator': {'dtype': 'str'}},
+    'relations': {'gen_bus': {'key': 'generator', 'values': 'bus'}},
+    'variables': {'gen_p': {'dims': ['generator'], 'bounds': {'lower': 0}}},
+    'expressions': {'injection': {'expression': 'sum(gen_p, by=gen_bus, over=generator, into=bus)'}},
+    'objective': {'sense': 'minimize', 'expression': 'sum(gen_p)'},
+}
+
+
+def test_a_definition_over_fewer_dimensions_merges_where_the_row_carries_the_rest():
+    """The reader's `dims` is an upper bound: a row that carries `snapshot` through another term is sound."""
+    demand = {
+        **BALANCE,
+        'parameters': {'demand': {'dims': ['snapshot', 'bus']}},
+        'constraints': {'balance': {'dims': ['snapshot', 'bus'], 'expression': 'injection == demand'}},
+    }
+    composed = merge({'balance': demand, 'injector': FLAT_INJECTOR})
+    assert composed.program.expressions['injection'].dims == ('bus',)
+
+
+def test_the_composed_load_refuses_a_row_a_narrower_definition_repeats():
+    """With nothing else carrying `snapshot`, the row would repeat per snapshot, which the composed model refuses."""
+    with pytest.raises(LanguageError, match='repeated across'):
+        merge({'balance': BALANCE, 'injector': FLAT_INJECTOR})
 
 
 def test_a_given_expression_a_sibling_introduces_as_a_variable_is_refused():
