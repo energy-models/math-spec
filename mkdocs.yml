@@ -28,11 +28,12 @@ nav:
   # Arranged by what a page is for — tutorial, how-to guide, reference,
   # explanation (https://diataxis.fr). `.claude/skills/docs-writing/SKILL.md`
   # says how one kind is told from another, and the folders under `docs/`
-  # follow the same split. There is no tutorial yet; the first one opens a
-  # `Tutorials:` section here, above the how-to guides. The model pages are
-  # reference in their own form and sit at the end of the Reference section,
-  # after the pages a reader looks things up in. The Development section, last,
-  # is outside the four kinds.
+  # follow the same split. The model pages are reference in their own form
+  # and sit at the end of the Reference section, after the pages a reader
+  # looks things up in. The Development section, last, is outside the four
+  # kinds.
+  - Tutorials:
+      - Your first model: first-model.md
   - How-to guides:
       - Installation: howto/installation.md
       - Check a model without data: howto/check.md
