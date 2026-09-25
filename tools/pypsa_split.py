@@ -10,14 +10,15 @@ Run from the repository root::
     python -m tools.pypsa_split check OUT   # load each fragment, merge them, compare
 
 A fragment reads what another topic declares under `given:`. A row or a named
-expression that sums one term per component (a hub) becomes an additive
-expression, and each component defines its own share of it, so a new
-component is one new fragment.
+expression that sums one term per component (a hub) becomes a sum: one
+fragment marks the name `additive: true` on its `given:` entry, and each
+component declares its own term under the name, so a new component is one
+new fragment.
 
 `check` compares twice. The merged fragments against the one file with its
-hubs written as additive expressions, in the canonical form. And that file
-against `examples/pypsa.yaml`, row by row: every hub substituted back where it
-is read, and every term of a row moved to one side.
+hubs written as sums, in the canonical form. And that file against
+`examples/pypsa.yaml`, row by row: every hub substituted back where it is read,
+and every term of a row moved to one side.
 """
 
 from __future__ import annotations
@@ -110,7 +111,7 @@ HUB_ROWS = {
     ),
 }
 
-#: The named expressions that sum a term per component, each made additive.
+#: The named expressions that sum a term per component, each made a sum.
 HUB_EXPRESSIONS = (
     'scenario_opex',
     'Carrier_additions',
@@ -120,6 +121,10 @@ HUB_EXPRESSIONS = (
     'transmission_volume_expansion',
     'transmission_expansion_cost',
 )
+
+#: The fragment that marks a sum: the reader where a model without it is never
+#: wanted, so leaving it out collides, and `core` where the reader may go.
+SUM_HOME = {'Bus_injection': 'network', 'Cycle_angle_sum': 'power_flow'}
 
 Key = tuple[str, str]
 Term = tuple[str, 'ArithmeticNode']
@@ -212,7 +217,7 @@ def _entry(block: object) -> dict[str, Any]:
 
 
 class Model:
-    """`examples/pypsa.yaml` with every hub written as an additive expression, and each hub's terms by topic."""
+    """`examples/pypsa.yaml` with every hub written as a sum, and each hub's terms by topic."""
 
     def __init__(self, path: Path = SOURCE) -> None:
         text = path.read_text()
@@ -220,22 +225,24 @@ class Model:
         self.data: dict[str, Any] = copy.deepcopy(self.original)
         self.blocks = _sliced(text)
         self.generated: set[Key] = set()
-        for row, (name, description) in HUB_ROWS.items():
+        for row, (name, _) in HUB_ROWS.items():
             block = self.data['constraints'][row]
             compared = parse_expression(block['expression'])
             assert isinstance(compared, ComparisonNode), f'{row} is a comparison'
             assert compared.op == '==', f'{row} is a balance'
             terms = [*_signed_terms(compared.left), *_signed_terms(compared.right, '-')]
-            self.data['expressions'][name] = {
-                'additive': True,
-                'description': description,
-                'expression': _written(terms),
-            }
+            self.data['expressions'][name] = {'expression': _written(terms)}
             self.data['constraints'][row] = {**block, 'expression': f'{name} == 0'}
             self.generated |= {('constraints', row), ('expressions', name)}
+        said = dict(HUB_ROWS.values())
         for name in HUB_EXPRESSIONS:
-            self.data['expressions'][name] = {'additive': True, **_entry(self.data['expressions'][name])}
+            entry = _entry(self.data['expressions'][name])
+            said[name] = entry.pop('description', None)
+            self.data['expressions'][name] = entry
             self.generated.add(('expressions', name))
+        frames = self.frames()
+        self.sums = {name: {'dims': list(frames[name]), 'additive': True, 'description': said[name]} for name in said}
+        self.data.setdefault('given', {})['expressions'] = {name: dict(entry) for name, entry in self.sums.items()}
         self.kind = {n: s for s in SECTIONS if s not in ('constraints', 'assumptions') for n in self.data.get(s, {})}
         self.shares: dict[str, dict[str, list[Term]]] = {}
         for name in (*(n for n, _ in HUB_ROWS.values()), *HUB_EXPRESSIONS):
@@ -261,8 +268,12 @@ class Model:
         return [*self.blocks, *sorted(k for k in self.generated if k not in self.blocks)]
 
     def frames(self) -> dict[str, tuple[str, ...]]:
-        """The frame of every named expression, read off the one file with its hubs made additive."""
+        """The frame of every named expression, read off the one file with its hubs rewritten."""
         return {name: e.dims for name, e in to_spec(self.data).program.expressions.items()}
+
+    def home(self, name: str) -> str:
+        """The fragment that marks the sum *name*."""
+        return SUM_HOME.get(name, 'core')
 
 
 # ---------------------------------------------------------------------------
@@ -279,15 +290,18 @@ def fragments(model: Model) -> dict[str, str]:
             owned[topic(key[1])].add(key)
     sharing = {t for by_topic in model.shares.values() for t in by_topic}
     terms = _objective_terms(model)
+    homes = {model.home(hub) for hub in model.sums}
 
     written = {}
-    for name in sorted({*owned, *sharing, *terms}):
+    for name in sorted({*owned, *sharing, *terms, *homes}):
         mine = owned[name]
         my_shares = {hub: by_topic[name] for hub, by_topic in model.shares.items() if name in by_topic}
+        marks = {hub for hub in model.sums if model.home(hub) == name}
         read = set().union(
             *(model.names_in(model.data[s][n]) for s, n in mine),
             *(model.names_in(_written(t)) for t in my_shares.values()),
             *map(model.names_in, terms[name]),
+            marks,
         )
         defined = mine | {('expressions', hub) for hub in my_shares}
         given = {model.key(n) for n in read if model.key(n)[0] not in FRAME and model.key(n) not in defined}
@@ -298,7 +312,7 @@ def fragments(model: Model) -> dict[str, str]:
         frame_reads = read | set().union(*(model.names_in(dims) for dims in stated.values()))
         frame = {model.key(n) for n in frame_reads if model.key(n)[0] in FRAME}
         frame |= {model.key(n) for key in list(frame) for n in model.names_in(model.data[key[0]][key[1]])}
-        written[name] = _fragment(model, mine | frame, my_shares, given, stated, terms[name])
+        written[name] = _fragment(model, mine | frame, my_shares, given, stated, terms[name], marks)
     return written
 
 
@@ -349,17 +363,18 @@ def _fragment(
     given: set[Key],
     stated: Mapping[str, list[str]],
     terms: list[str],
+    marks: set[str],
 ) -> str:
     """One fragment as YAML text, its sections and declarations in the order of the source file."""
     parts = [HEADER]
     for section in SECTIONS:
         blocks = [_block(model, key) for key in model.keys if key[0] == section and key in included]
         if section == 'expressions':
-            blocks += [_share(model, hub, share) for hub, share in shares.items()]
+            blocks += [_share(hub, share) for hub, share in shares.items()]
         if blocks:
             parts.append(f'{section}:\n' + '\n'.join(blocks) + '\n')
         if section == 'variables' and given:
-            parts.append('given:\n' + ''.join(_given(model, kind, given, stated) for kind in GIVEN_KINDS))
+            parts.append('given:\n' + ''.join(_given(model, kind, given, stated, marks) for kind in GIVEN_KINDS))
     if terms:
         objective = model.data['objective']
         said = f'  description: >-\n    {objective["description"]}\n' if 'CVaR_omega' in ''.join(terms) else ''
@@ -368,10 +383,12 @@ def _fragment(
     return '\n'.join(parts)
 
 
-def _share(model: Model, hub: str, terms: list[Term]) -> str:
-    """One topic's share of a hub, under the hub's name, with the hub's description."""
-    description = model.data['expressions'][hub].get('description')
-    return _dumped(hub, {'additive': True, 'description': description, 'expression': _written(terms)})
+def _share(hub: str, terms: list[Term]) -> str:
+    """One topic's term of a hub: an ordinary named expression under the hub's name."""
+    written = _written(terms)
+    if '\n' in written or len(written) > 80:
+        return _dumped(hub, {'expression': written})
+    return f'  {hub}: {written}'
 
 
 #: The kinds a fragment reads under `given:`, and the fields of the source
@@ -379,13 +396,16 @@ def _share(model: Model, hub: str, terms: list[Term]) -> str:
 GIVEN_KINDS = {'parameters': ('dtype',), 'variables': ('domain',), 'expressions': ()}
 
 
-def _given(model: Model, kind: str, given: set[Key], stated: Mapping[str, list[str]]) -> str:
-    """One kind of a fragment's `given:` block, an entry per line in source order."""
+def _given(model: Model, kind: str, given: set[Key], stated: Mapping[str, list[str]], marks: set[str]) -> str:
+    """One kind of a fragment's `given:` block, an entry per line in source order, a marked sum with its prose."""
     names = [n for s, n in model.keys if s == kind and (s, n) in given]
     if not names:
         return ''
     lines = [f'  {kind}:']
     for n in names:
+        if kind == 'expressions' and n in marks:
+            lines.append(_dumped(n, model.sums[n]).replace('\n', '\n  ').replace(f'  {n}:', f'    {n}:', 1))
+            continue
         extra = {f: _entry(model.data[kind][n])[f] for f in GIVEN_KINDS[kind] if f in _entry(model.data[kind][n])}
         fields = {'dims': stated[n], **extra}
         spelled = ', '.join(f'{k}: [{", ".join(v)}]' if isinstance(v, list) else f'{k}: {v}' for k, v in fields.items())
@@ -421,7 +441,8 @@ def same_rows(original: Mapping[str, Any], rewritten: Mapping[str, Any]) -> list
 
     The declarations other than rows and named expressions are compared in the
     canonical form. A named expression is compared term by term, and one
-    *original* does not declare has to be one of the hubs.
+    *original* does not declare has to be one of the hubs. A hub's description
+    is read off its marked `given:` entry, where the rewrite moves it.
     """
     before, after = (canonical_dict(to_spec(dict(model))) for model in (original, rewritten))
     faults = [
@@ -431,7 +452,7 @@ def same_rows(original: Mapping[str, Any], rewritten: Mapping[str, Any]) -> list
     ]
     added = set(after['expressions']) - set(before['expressions'])
     faults += [f'{name} is new and is not a hub' for name in added - {n for n, _ in HUB_ROWS.values()}]
-    bodies = {name: parse_expression(after['expressions'][name]['expression']) for name in added}
+    bodies = {name: parse_expression(_entry(after['expressions'][name])['expression']) for name in added}
 
     def compared(label: str, one: Mapping[str, Any], two: Mapping[str, Any]) -> None:
         beside = [{k: v for k, v in side.items() if k not in ('expression', 'additive')} for side in (one, two)]
@@ -444,8 +465,11 @@ def same_rows(original: Mapping[str, Any], rewritten: Mapping[str, Any]) -> list
         faults.append('the constraints are not the same names')
     for name in before['constraints'].keys() & after['constraints'].keys():
         compared(f'constraint {name}', before['constraints'][name], after['constraints'][name])
+    sums = after.get('given', {}).get('expressions', {})
     for name, entry in before['expressions'].items():
         one, two = _entry(entry), _entry(after['expressions'][name])
+        if name in sums and sums[name].get('description'):
+            two['description'] = sums[name]['description']
         if 'expression' in one:
             compared(f'expression {name}', one, two)
         elif one != two:
@@ -476,7 +500,7 @@ def check(folder: Path) -> int:
     diff = list(difflib.unified_diff(one, composed, 'one file', 'merged', lineterm=''))
     print('\n'.join(diff) if diff else 'the merged fragments and the one file have one canonical form')
     faults = same_rows(model.original, model.data)
-    print('\n'.join(faults) if faults else f'the one file with additive hubs states the rows of {SOURCE}')
+    print('\n'.join(faults) if faults else f'the one file with its hubs as sums states the rows of {SOURCE}')
     return 1 if diff or failed or faults else 0
 
 

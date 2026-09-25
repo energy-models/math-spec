@@ -47,10 +47,4 @@ expressions:
     cases:
       active: { when: Load_active, expression: Load_sign * Load_p_set }
     otherwise: 0
-  Bus_injection:
-    additive: true
-    description: >-
-      what every component puts into a bus, less what it takes out of it;
-      PyPSA writes each term into the balance, and a load on its right-hand
-      side
-    expression: sum(Load_demand, by=Load_bus, over=load, into=bus)
+  Bus_injection: sum(Load_demand, by=Load_bus, over=load, into=bus)

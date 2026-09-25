@@ -205,38 +205,16 @@ expressions:
         expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap', by=snapshot_period, within=period)
     otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0, by=snapshot_period, within=period)
   Bus_injection:
-    additive: true
-    description: >-
-      what every component puts into a bus, less what it takes out of it;
-      PyPSA writes each term into the balance, and a load on its right-hand
-      side
     expression: >-
       sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
   scenario_opex:
-    additive: true
-    description: >-
-      what a future costs to run — every operating term, weighted by the
-      snapshot's hours and its period, before the scenario's own weight; a
-      start and a stop cost what they cost, unweighted, as PyPSA adds them
-      (`optimize.py:414-429`)
     expression: >-
       sum(sum(((Process_p * Process_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
       + sum(sum((((Process_p * Process_p) * Process_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
   Carrier_additions:
-    additive: true
-    description: >-
-      what a carrier adds in a period — every extendable component of that
-      carrier, counting each build in the first period it stands in. Like
-      PyPSA, it sums only the components that carry a carrier attribute, so a
-      transformer, which has none, counts in no carrier
     expression: >-
       sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
-  tech_capacity_expansion:
-    additive: true
-    description: >-
-      what a `tech_capacity_expansion_limit` row totals — the chosen build of
-      the row's carrier-and-bus set
-    expression: sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
+  tech_capacity_expansion: sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
 
 constraints:
   Process_fix_p_lower:

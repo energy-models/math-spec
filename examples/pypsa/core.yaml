@@ -13,6 +13,8 @@ dimensions:
   period:
     description: investment periods — PyPSA's `investment_periods`
     dtype: int
+  carrier:
+    description: energy carriers, what a growth limit is set per
 
 relations:
   snapshot_period:
@@ -66,6 +68,59 @@ parameters:
       on a row that names a period without it (`global_constraints.py:375`)
     dims: [scenario, global_constraint, snapshot]
     dtype: bool
+
+given:
+  expressions:
+    primary_energy:
+      dims: [scenario, global_constraint]
+      additive: true
+      description: >-
+        what a `primary_energy` row totals — weighted generator energy over the
+        snapshots it counts, less the charge left in weighted storage at the
+        close; the initial charge it is compared against is folded into the
+        row's constant
+    operational_limit:
+      dims: [scenario, global_constraint]
+      additive: true
+      description: >-
+        what an `operational_limit` row totals — the weighted energy its
+        generators deliver over the snapshots it counts, plus what its
+        non-cyclic storage draws down; the initial charge it draws from is
+        folded into the row's constant
+    transmission_volume_expansion:
+      dims: [scenario, global_constraint]
+      additive: true
+      description: >-
+        what a `transmission_volume_expansion_limit` row totals — length times
+        the chosen build of the row's branches
+    transmission_expansion_cost:
+      dims: [scenario, global_constraint]
+      additive: true
+      description: >-
+        what a `transmission_expansion_cost_limit` row totals — capital cost
+        times the chosen build of the row's branches
+    tech_capacity_expansion:
+      dims: [global_constraint]
+      additive: true
+      description: >-
+        what a `tech_capacity_expansion_limit` row totals — the chosen build of
+        the row's carrier-and-bus set
+    scenario_opex:
+      dims: [scenario]
+      additive: true
+      description: >-
+        what a future costs to run — every operating term, weighted by the
+        snapshot's hours and its period, before the scenario's own weight; a
+        start and a stop cost what they cost, unweighted, as PyPSA adds them
+        (`optimize.py:414-429`)
+    Carrier_additions:
+      dims: [period, carrier]
+      additive: true
+      description: >-
+        what a carrier adds in a period — every extendable component of that
+        carrier, counting each build in the first period it stands in. Like
+        PyPSA, it sums only the components that carry a carrier attribute, so a
+        transformer, which has none, counts in no carrier
 
 expressions:
   GlobalConstraint_energy_weight:

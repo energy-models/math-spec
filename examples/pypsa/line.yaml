@@ -165,49 +165,18 @@ expressions:
       standing: { when: Line_active, expression: Line_s }
     otherwise: 0
   Bus_injection:
-    additive: true
-    description: >-
-      what every component puts into a bus, less what it takes out of it;
-      PyPSA writes each term into the balance, and a load on its right-hand
-      side
     expression: >-
       -sum(Line_s, by=Line_bus0, over=line, into=bus)
       + sum(Line_s, by=Line_bus1, over=line, into=bus)
       - (0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus))
       - (0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus))
-  Cycle_angle_sum:
-    additive: true
-    description: >-
-      the voltage angle differences around a cycle: every branch flow times
-      its cycle weight, and every transformer phase shift
-    expression: sum(Line_s * Line_cycle_weight, over=line)
+  Cycle_angle_sum: sum(Line_s * Line_cycle_weight, over=line)
   Carrier_additions:
-    additive: true
-    description: >-
-      what a carrier adds in a period — every extendable component of that
-      carrier, counting each build in the first period it stands in. Like
-      PyPSA, it sums only the components that carry a carrier attribute, so a
-      transformer, which has none, counts in no carrier
     expression: >-
       sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
-  tech_capacity_expansion:
-    additive: true
-    description: >-
-      what a `tech_capacity_expansion_limit` row totals — the chosen build of
-      the row's carrier-and-bus set
-    expression: sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
-  transmission_volume_expansion:
-    additive: true
-    description: >-
-      what a `transmission_volume_expansion_limit` row totals — length times
-      the chosen build of the row's branches
-    expression: sum(Line_s_nom_ext * Line_volume_weight, over=line)
-  transmission_expansion_cost:
-    additive: true
-    description: >-
-      what a `transmission_expansion_cost_limit` row totals — capital cost
-      times the chosen build of the row's branches
-    expression: sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+  tech_capacity_expansion: sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
+  transmission_volume_expansion: sum(Line_s_nom_ext * Line_volume_weight, over=line)
+  transmission_expansion_cost: sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
 
 constraints:
   Line_fix_s_lower:

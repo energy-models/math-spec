@@ -176,56 +176,21 @@ expressions:
     cases:
       modular_build: { when: Generator_p_nom_extendable AND Generator_p_nom_mod > 0, expression: Generator_p_nom_mod }
     otherwise: Generator_p_nom
-  Bus_injection:
-    additive: true
-    description: >-
-      what every component puts into a bus, less what it takes out of it;
-      PyPSA writes each term into the balance, and a load on its right-hand
-      side
-    expression: sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
+  Bus_injection: sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
   scenario_opex:
-    additive: true
-    description: >-
-      what a future costs to run — every operating term, weighted by the
-      snapshot's hours and its period, before the scenario's own weight; a
-      start and a stop cost what they cost, unweighted, as PyPSA adds them
-      (`optimize.py:414-429`)
     expression: >-
       sum(sum(((Generator_p * Generator_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
       + sum(sum((((Generator_p * Generator_p) * Generator_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
   Carrier_additions:
-    additive: true
-    description: >-
-      what a carrier adds in a period — every extendable component of that
-      carrier, counting each build in the first period it stands in. Like
-      PyPSA, it sums only the components that carry a carrier attribute, so a
-      transformer, which has none, counts in no carrier
     expression: >-
       sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
   primary_energy:
-    additive: true
-    description: >-
-      what a `primary_energy` row totals — weighted generator energy over the
-      snapshots it counts, less the charge left in weighted storage at the
-      close; the initial charge it is compared against is folded into the
-      row's constant
     expression: >-
       sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_primary_energy_weight, over=snapshot), over=generator)
   operational_limit:
-    additive: true
-    description: >-
-      what an `operational_limit` row totals — the weighted energy its
-      generators deliver over the snapshots it counts, plus what its
-      non-cyclic storage draws down; the initial charge it draws from is
-      folded into the row's constant
     expression: >-
       sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_operational_limit_weight, over=snapshot), over=generator)
-  tech_capacity_expansion:
-    additive: true
-    description: >-
-      what a `tech_capacity_expansion_limit` row totals — the chosen build of
-      the row's carrier-and-bus set
-    expression: sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+  tech_capacity_expansion: sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
 
 constraints:
   Generator_fix_p_lower:

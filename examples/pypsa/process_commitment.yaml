@@ -120,12 +120,6 @@ expressions:
       opening: { when: "position(snapshot) == 0", expression: Process_status_initial }
     otherwise: shift(Process_status, along=snapshot, offset=1)
   scenario_opex:
-    additive: true
-    description: >-
-      what a future costs to run — every operating term, weighted by the
-      snapshot's hours and its period, before the scenario's own weight; a
-      start and a stop cost what they cost, unweighted, as PyPSA adds them
-      (`optimize.py:414-429`)
     expression: >-
       sum(sum(((Process_status * Process_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
       + sum(sum(Process_start_up * Process_start_up_cost, over=process), over=snapshot)

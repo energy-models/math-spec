@@ -173,21 +173,12 @@ expressions:
       standing: { when: Transformer_active, expression: Transformer_s }
     otherwise: 0
   Bus_injection:
-    additive: true
-    description: >-
-      what every component puts into a bus, less what it takes out of it;
-      PyPSA writes each term into the balance, and a load on its right-hand
-      side
     expression: >-
       -sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
       + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
       - (0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus))
       - (0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus))
   Cycle_angle_sum:
-    additive: true
-    description: >-
-      the voltage angle differences around a cycle: every branch flow times
-      its cycle weight, and every transformer phase shift
     expression: >-
       sum(Transformer_s * Transformer_cycle_weight, over=transformer)
       + sum(Transformer_phase_shift_weight, over=transformer)

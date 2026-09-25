@@ -13,7 +13,12 @@ dimensions:
 
 given:
   expressions:
-    Cycle_angle_sum: { dims: [scenario, snapshot, cycle] }
+    Cycle_angle_sum:
+      dims: [scenario, snapshot, cycle]
+      additive: true
+      description: >-
+        the voltage angle differences around a cycle: every branch flow times
+        its cycle weight, and every transformer phase shift
 
 constraints:
   Kirchhoff_Voltage_Law:

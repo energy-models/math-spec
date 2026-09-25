@@ -207,9 +207,16 @@ def _canonical_links(links: list[list[object]]) -> list[list[object]]:
     return [[canonical_text(cast('str', link[0])), *link[1:]] for link in links]
 
 
-def _sorted_blocks(section: dict[str, object]) -> dict[str, object]:
-    """One section's declarations sorted by name, each with its expressions in the normal form."""
-    return {name: _canonical_block(block) for name, block in sorted(section.items())}
+def _sorted_blocks(section: dict[str, object], *, bare_is_expression: bool = False) -> dict[str, object]:
+    """One section's declarations sorted by name, each with its expressions in the normal form.
+
+    A named expression written on one line serialises back as a bare string,
+    which is the expression itself, so *bare_is_expression* normalises it too.
+    """
+    return {
+        name: canonical_text(block) if bare_is_expression and isinstance(block, str) else _canonical_block(block)
+        for name, block in sorted(section.items())
+    }
 
 
 def canonical_dict(spec: Spec) -> dict[str, object]:
@@ -235,7 +242,7 @@ def canonical_dict(spec: Spec) -> dict[str, object]:
         if section == 'given' and isinstance(value, dict):
             built[section] = {kind: _sorted_blocks(entries) for kind, entries in sorted(value.items())}
         elif isinstance(value, dict) and section != 'objective':
-            built[section] = _sorted_blocks(value)
+            built[section] = _sorted_blocks(value, bare_is_expression=section == 'expressions')
         else:
             built[section] = _canonical_block(value)
     piecewise = built.get('piecewise')
