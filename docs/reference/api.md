@@ -13,7 +13,7 @@ task.
 ## Loading
 
 The module `math_spec.program` holds the node and declaration classes of a
-loaded model. [Reading a loaded model](reading.md) documents them.
+loaded model. The [Program API](program.md) documents them.
 
 ::: math_spec.to_spec
     options:
