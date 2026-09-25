@@ -33,7 +33,7 @@ Sign = Literal['+', '-']
 #: plain data. A link is the odd one: it serialises back to the ``[expression,
 #: values]`` list the file wrote, so its expression is a position rather than a
 #: key.
-_EXPRESSION_KEYS = ('expression', 'otherwise', 'template')
+_EXPRESSION_KEYS = ('expression', 'otherwise', 'template', 'term')
 
 
 def _signed(sign: Sign, node: ArithmeticNode) -> tuple[Sign, ArithmeticNode]:

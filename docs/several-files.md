@@ -13,7 +13,7 @@ other files. Do [your first spec](first-spec.md) first.
 
 Make a file `network.yaml`. It balances every bus, and it reads the injection
 at a bus under [`given:`](reference/language/declarations.md#given) rather
-than defining it. `additive: true` says that other files add terms to it:
+than defining it:
 
 ```yaml title="network.yaml"
 description: Every bus is balanced in every snapshot.
@@ -26,7 +26,6 @@ given:
   expressions:
     injection:
       dims: [snapshot, bus]
-      additive: true
       description: what the components put into a bus, less what they take out
 
 constraints:
@@ -41,16 +40,17 @@ Check the file:
 python -m mathspec check network.yaml
 ```
 
-The check accepts it, and notes that no file has added a term yet:
+The check accepts it, and notes the expression it reads:
 
 ```text
-expression 'injection' is a sum other files add terms to, and this file adds none: merge() sums the term every fragment declares under the name. Until one does, the program reads it and does not build it.
+expression 'injection' is read here and declared elsewhere: the model this one is layered onto provides it. A consumer checks that it does, on the same frame, and refuses the program where it does not. A fragment is composed instead: merge() folds this declaration into the one a sibling introduces.
 ```
 
 ## The generators
 
-Make a file `generators.yaml`. Its term of the injection is an ordinary named
-expression under the same name:
+Make a file `generators.yaml`. It reads the injection too, and it says what it
+puts in: a [`term:`](reference/language/declarations.md#a-term-a-file-adds)
+on the entry.
 
 ```yaml title="generators.yaml"
 description: A generator fleet, each unit on one bus.
@@ -73,19 +73,64 @@ variables:
     dims: [snapshot, generator]
     bounds: { lower: 0, upper: capacity }
 
-expressions:
-  injection: sum(dispatch, by=gen_bus, over=generator, into=bus)
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      term: sum(dispatch, by=gen_bus, over=generator, into=bus)
 
 objective:
   sense: minimize
   expression: sum(dispatch * cost)
 ```
 
-Check the file. The check prints nothing and exits with status 0:
+Check the file:
 
 ```bash
 python -m mathspec check generators.yaml
 ```
+
+The check accepts it, and notes the term:
+
+```text
+expression 'injection' is read here and declared elsewhere, and this file adds a term to it: merge() sums the term with what the other files declare under the name. Until then, the program reads it and does not build it.
+```
+
+Print the math of the file on its own:
+
+```python
+import mathspec as ms
+
+print(ms.to_markdown('generators.yaml', legend=False))
+```
+
+The term prints after dots, which stand for what the other files put in:
+
+!!! example "Rendered output"
+
+    A generator fleet, each unit on one bus.
+
+    #### Objective
+
+    ```math
+    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g}
+    ```
+
+    #### Definitions
+
+    **`injection`**
+
+    ```math
+    \mathit{injection}_{t,b} = \cdots + \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathit{dispatch}_{t,g} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
+
+    #### Variable domains
+
+    **`dispatch`**
+
+    ```math
+    0 \le \mathit{dispatch}_{t,g} \le \mathrm{capacity}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
 
 ## The loads
 
@@ -101,14 +146,23 @@ dimensions:
 parameters:
   demand: { dims: [snapshot, bus], description: demand to be met }
 
-expressions:
-  injection: -demand
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      term: -demand
 ```
 
-Check the file. The check prints nothing and exits with status 0:
+Check the file:
 
 ```bash
 python -m mathspec check loads.yaml
+```
+
+The check accepts it, with the same note:
+
+```text
+expression 'injection' is read here and declared elsewhere, and this file adds a term to it: merge() sums the term with what the other files declare under the name. Until then, the program reads it and does not build it.
 ```
 
 ## Merge the files
@@ -116,8 +170,6 @@ python -m mathspec check loads.yaml
 Merge the three files in Python. Each name is what an error calls that file:
 
 ```python
-import mathspec as ms
-
 spec = ms.merge({'network': 'network.yaml', 'generators': 'generators.yaml', 'loads': 'loads.yaml'})
 print(spec.expressions['injection'].expression)
 ```
@@ -188,8 +240,11 @@ variables:
     dims: [snapshot, bus]
     bounds: { lower: 0, upper: import_limit }
 
-expressions:
-  injection: imported
+given:
+  expressions:
+    injection:
+      dims: [snapshot, bus]
+      term: imported
 
 objective:
   sense: minimize
@@ -281,14 +336,17 @@ False
 Merge the generators and the loads without the network:
 
 ```python
-ms.merge({'generators': 'generators.yaml', 'loads': 'loads.yaml'})
+spec = ms.merge({'generators': 'generators.yaml', 'loads': 'loads.yaml'})
+print(spec.expressions['injection'].expression)
+print(sorted(spec.constraints))
 ```
 
-`merge` refuses it. Without the file that marks `injection` as a sum, the two
-terms are two definitions of one name:
+`merge` accepts it. The two terms still sum to a definition, and no
+constraint reads it, because the balance is the network's:
 
 ```text
-fragments 'generators' and 'loads' both declare the expression 'injection'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the fragment once, and let the data carry both. Different math under one spelling is a rename: call one of them something else. If each fragment adds a term to one sum, mark the name `additive: true` on a `given: expressions:` entry in the file that reads it.
+(sum(dispatch, by=gen_bus, over=generator, into=bus)) + (-demand)
+[]
 ```
 
 ## Where to next

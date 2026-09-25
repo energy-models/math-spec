@@ -334,17 +334,17 @@ class GivenExpressionBlock(_StrictBlock):
     body is the definer's, and the composed spec holds the body to the rules
     of every place this file reads it.
 
-    ``additive: true`` says the name is a sum other files add terms to. Each
-    of them declares its term as an ordinary named expression under the name,
-    and [`merge`][mathspec.composition.merge] sums the terms. A file that marks
-    the name may declare a term of its own too, and then reads the sum so far.
+    ``term:`` is what this file adds to the name. It is one expression, read
+    over at most the frame, and [`merge`][mathspec.composition.merge] sums it
+    with the definition another file writes and the terms other files add.
+    The file itself reads the name as the whole sum, alone and composed.
     """
 
     _label: ClassVar[str] = 'a given expression declaration'
 
     dims: list[str]
-    #: Whether the name is a sum other files add terms to.
-    additive: bool = False
+    #: The term this file adds to the name, or ``None`` where it only reads it.
+    term: str | None = None
     description: str | None = None
 
 
@@ -995,15 +995,6 @@ class Spec(_StrictBlock):
         """
         _ = self.program
         return self
-
-
-def defined_sums(schema: Spec) -> frozenset[str]:
-    """The names *schema* marks ``additive`` under ``given: expressions:`` and declares a term of itself.
-
-    Such a name is defined in the file, and reads as the sum so far: it is not
-    a name the file reads from elsewhere, so it joins no given group.
-    """
-    return frozenset(name for name, g in schema.given.expressions.items() if g.additive and name in schema.expressions)
 
 
 def _formulations(asked: tuple[str, ...]) -> tuple[Formulation, ...]:

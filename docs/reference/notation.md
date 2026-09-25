@@ -117,6 +117,12 @@ parameters:
 | $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ |
 | $`\mathit{warm}`$ | `warm` over $`\mathcal{T} \times \mathcal{G}`$ |
 
+#### Given
+
+| Symbol | Meaning |
+|---|---|
+| $`\mathit{withdrawal}`$ | `withdrawal` over $`\mathcal{T} \times \mathcal{G}`$, an expression this file adds a term to |
+
 #### Definitions
 
 | Symbol | Meaning |

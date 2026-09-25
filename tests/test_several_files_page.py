@@ -93,4 +93,4 @@ def test_every_python_step_prints_what_the_page_shows(folder):
         else:
             assert printed.getvalue().strip() == (expected or '').strip(), f'step {index} printed otherwise'
         ran += 1
-    assert ran == 5, 'every Python block on the page ran'
+    assert ran == 6, 'every Python block on the page ran'

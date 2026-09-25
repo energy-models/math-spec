@@ -71,9 +71,12 @@ def test_check_prints_nothing_for_a_clean_file(capsys):
 def test_check_accepts_the_model_that_carries_every_construct(capsys):
     """The golden model exercises every operator and every edge policy, so
     `check` accepting it is the claim that the whole language loads through
-    one door — and that none of it draws advice."""
+    one door — and that only the term it adds to another file's name draws advice."""
     assert front.main(['check', str(golden.MODEL)]) == 0, 'the whole language loads'
-    assert capsys.readouterr() == ('', ''), 'no advice, no output'
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert out.startswith("expression 'withdrawal' is read here and declared elsewhere, and this file adds a term")
+    assert out.count('\n') == 1, 'one note, one line, and nothing else on the model draws advice'
 
 
 def test_check_reads_a_curve_as_written(capsys):

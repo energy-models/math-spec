@@ -52,18 +52,18 @@ def _given(program: Program) -> list[Advice]:
 
     A note rather than a refusal: the file is a spec somebody meant, and only
     the consumer can tell whether the model it is layered onto provides the
-    name. A sum other files add terms to is completed by `merge` rather than
-    by a host, so its note says that instead.
+    name. An expression this file adds a term to is completed by `merge`
+    rather than by a host, so its note says that instead.
     """
+    given = program.given
     return [
-        Advice('given', name, _sum_note(name) if getattr(block, 'additive', False) else _given_note(kind, name))
-        for kind, group in (
-            ('parameter', program.given.parameters),
-            ('variable', program.given.variables),
-            ('expression', program.given.expressions),
-            ('row family', program.given.constraints),
-        )
-        for name, block in group.items()
+        *(Advice('given', name, _given_note('parameter', name)) for name in given.parameters),
+        *(Advice('given', name, _given_note('variable', name)) for name in given.variables),
+        *(
+            Advice('given', name, _term_note(name) if block.term is not None else _given_note('expression', name))
+            for name, block in given.expressions.items()
+        ),
+        *(Advice('given', name, _given_note('row family', name)) for name in given.constraints),
     ]
 
 
@@ -76,11 +76,11 @@ def _given_note(kind: str, name: str) -> str:
     )
 
 
-def _sum_note(name: str) -> str:
+def _term_note(name: str) -> str:
     return (
-        f"expression '{name}' is a sum other files add terms to, and this file adds none: merge() sums the "
-        f'term every fragment declares under the name. Until one does, the program reads it and does not '
-        f'build it.'
+        f"expression '{name}' is read here and declared elsewhere, and this file adds a term to it: merge() "
+        f'sums the term with what the other files declare under the name. Until then, the program reads it '
+        f'and does not build it.'
     )
 
 

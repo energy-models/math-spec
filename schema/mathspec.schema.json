@@ -342,13 +342,8 @@
     },
     "GivenExpressionBlock": {
       "additionalProperties": false,
-      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed spec holds the body to the rules\nof every place this file reads it.\n\n``additive: true`` says the name is a sum other files add terms to. Each\nof them declares its term as an ordinary named expression under the name,\nand [`merge`][mathspec.composition.merge] sums the terms. A file that marks\nthe name may declare a term of its own too, and then reads the sum so far.",
+      "description": "A named expression this file reads and another file defines.\n\nThe frame is all this file states. This file reads the name as a quantity\nover that frame, affine in the columns, as it reads a given variable: the\nbody is the definer's, and the composed spec holds the body to the rules\nof every place this file reads it.\n\n``term:`` is what this file adds to the name. It is one expression, read\nover at most the frame, and [`merge`][mathspec.composition.merge] sums it\nwith the definition another file writes and the terms other files add.\nThe file itself reads the name as the whole sum, alone and composed.",
       "properties": {
-        "additive": {
-          "default": false,
-          "title": "Additive",
-          "type": "boolean"
-        },
         "description": {
           "anyOf": [
             {
@@ -367,6 +362,18 @@
           },
           "title": "Dims",
           "type": "array"
+        },
+        "term": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Term"
         }
       },
       "required": [

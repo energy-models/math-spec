@@ -40,6 +40,7 @@ from mathspec.program import (
     PiecewiseDeclaration,
     Program,
     SosDeclaration,
+    Variable,
     VariableDeclaration,
     VariableDefined,
     walk,
@@ -52,7 +53,6 @@ from mathspec.resolution import (
     resolve_expression_text,
     resolve_where_text,
 )
-from mathspec.spec import defined_sums
 from mathspec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
@@ -124,6 +124,22 @@ def lower(schema: Spec) -> Program:
         errors.extend(refusals)
         if node is not None:
             entries[ename] = node
+
+    terms: dict[str, Expression] = {}
+    for gname, gdef in schema.given.expressions.items():
+        if gdef.term is None:
+            continue
+        context = f"Given expression '{gname}'"
+        term = resolve_expression_text(gdef.term, ns, context, errors, ceiling=2)
+        if term is None:
+            continue
+        if any(isinstance(node, Variable) and node.name == gname for node in walk(term)):
+            errors.append(
+                f"{context}: its term reads '{gname}', the sum the term adds to, so the sum would define itself. "
+                f'A term is what this file puts in: write it in what this file declares.'
+            )
+            continue
+        terms[gname] = term
 
     variables = {}
     for vname, vdef in schema.variables.items():
@@ -198,7 +214,6 @@ def lower(schema: Spec) -> Program:
             assert assumption is not None and not errors, 'what a method assumes is stated in the language'
             assumptions[aname] = assumption
 
-    sums = defined_sums(schema)
     program = Program(
         parameters={
             name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype, pdef.description)
@@ -222,8 +237,7 @@ def lower(schema: Spec) -> Program:
                 entry.body,
                 _frame_of(name, entry, schema),
                 in_math=name in in_math,
-                description=schema.expressions[name].description
-                or (schema.given.expressions[name].description if name in sums else None),
+                description=schema.expressions[name].description,
             )
             for name, entry in entries.items()
         },
@@ -239,9 +253,8 @@ def lower(schema: Spec) -> Program:
                 name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
             },
             expressions={
-                name: GivenDeclaration(tuple(g.dims), g.description, additive=g.additive)
+                name: GivenDeclaration(tuple(g.dims), g.description, term=terms.get(name))
                 for name, g in schema.given.expressions.items()
-                if name not in sums
             },
         ),
         description=schema.description,

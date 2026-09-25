@@ -622,8 +622,10 @@ class GivenDeclaration:
 
     dims: tuple[str, ...]
     description: str | None = None
-    #: A given expression marked as a sum other files add terms to.
-    additive: bool = False
+    #: The term this program adds to a given expression, or ``None`` where it
+    #: only reads the name. Resolved in this program's namespace, and read
+    #: over at most ``dims``.
+    term: Expression | None = None
 
 
 @dataclass(frozen=True)

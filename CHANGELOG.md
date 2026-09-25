@@ -14,7 +14,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 - docs: the site follows the reader's light or dark setting, and a page shows where it sits in the navigation ([#727](https://github.com/energy-models/mathspec/pull/727))
 - feat(language): a spec is composed from files that each state part of it, and patched with files that each change part of it ([#732](https://github.com/energy-models/mathspec/pull/732))
-- refactor(language): the sum flag lives on the given entry alone, and a definition carries none ([#734](https://github.com/energy-models/mathspec/pull/734))
+- feat(language): a file adds a term to an expression another file defines, under `given:` ([#734](https://github.com/energy-models/mathspec/pull/734))
 - feat(language): two files that state the same spec write one text, and `canonical --check` fails a file that is not in it ([#731](https://github.com/energy-models/mathspec/pull/731))
 
 ## 0.2.0 (2026-09-25)

@@ -138,6 +138,12 @@ piecewise:
       - [p, bp_x]
       - [heat, bp_heat, "<="]
 
+given:
+  expressions:
+    withdrawal: # a term this file adds to a name another file defines, which prints after dots
+      dims: [snapshot, generator]
+      term: -eta
+
 expressions:
   spend_cap: cost * 2 # a data-only entry, so a where may compare it
   spend: # a plain named expression: its symbol prints where it is used, its body once as a definition

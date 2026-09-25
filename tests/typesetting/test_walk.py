@@ -533,7 +533,7 @@ def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
     schema = to_spec(golden.MODEL)
-    computed = set(schema.variables) | chosen_expressions(schema.program)
+    computed = set(schema.variables) | set(schema.given.expressions) | chosen_expressions(schema.program)
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= computed, (
         f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '

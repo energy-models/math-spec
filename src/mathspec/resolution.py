@@ -46,7 +46,6 @@ from mathspec.program import (
     RelationDeclaration,
     carries_variable,
 )
-from mathspec.spec import defined_sums
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -87,9 +86,7 @@ class Namespace:
         #: dim-checked against, since macros, named expressions and the dim
         #: rules read declarations the flat listing below does not carry.
         self.schema = schema
-        defined = defined_sums(schema)
-        given = {name: g for name, g in schema.given.expressions.items() if name not in defined}
-        variables = {**schema.variables, **schema.given.variables, **given}
+        variables = {**schema.variables, **schema.given.variables, **schema.given.expressions}
         parameters = {**schema.parameters, **schema.given.parameters}
         #: Every name an expression reads as a column: the variables, and the
         #: given expressions, whose bodies another file holds.
