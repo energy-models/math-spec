@@ -388,7 +388,8 @@ def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object
     """Every fragment's objective summed, each term in parentheses, or ``None`` where none declares one.
 
     The terms are summed in the fragments' name order, so the order they were
-    passed in does not reach the expression. The senses have to agree: a sum has
+    passed in does not reach the expression. The first description in that
+    order is carried, as a shared dimension's is. The senses have to agree: a sum has
     one sense, and negating the odd one out would be this function deciding what
     a model means.
     """
@@ -403,9 +404,13 @@ def _summed_objective(read: Mapping[str, dict[str, object]]) -> dict[str, object
             f'one objective and one sense, so write every fragment against the same one: negate the terms '
             f'of the odd one out rather than its sense.'
         )
-    terms = [objective['expression'] for _, objective in sorted(declared.items())]
+    ordered = [objective for _, objective in sorted(declared.items())]
+    terms = [objective['expression'] for objective in ordered]
     joined = terms[0] if len(terms) == 1 else ' + '.join(f'({term})' for term in terms)
-    return {'sense': next(iter(senses.values())), 'expression': joined}
+    summed: dict[str, object] = {'sense': next(iter(senses.values())), 'expression': joined}
+    if description := next((o['description'] for o in ordered if o.get('description')), None):
+        summed['description'] = description
+    return summed
 
 
 def override(

@@ -178,6 +178,15 @@ def test_the_objectives_are_summed_each_term_parenthesised():
     )
 
 
+def test_a_composed_objective_keeps_the_first_description_a_fragment_gives_it():
+    """Prose, as on a shared dimension: the first fragment's wording is carried, and none is lost."""
+    said = {**SUPPLY, 'objective': {**SUPPLY['objective'], 'description': 'what running the fleet costs'}}
+    priced = {**DEMAND, 'objective': {'sense': 'minimize', 'expression': 'sum(dem_load) * 2'}}
+    composed = merge({'surface': SURFACE, 'supply': said, 'demand': priced})
+    assert composed.objective is not None
+    assert composed.objective.description == 'what running the fleet costs'
+
+
 def test_one_fragment_s_objective_is_carried_as_it_was_written():
     objective = merge(LIBRARY).objective
     assert objective is not None

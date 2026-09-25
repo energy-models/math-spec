@@ -107,18 +107,18 @@ compose as `override(merge({…}), {…})`.
 
 ## What a fragment may share
 
-| The entry                                                    | What happens                                                                             |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| a dimension or a relation                                    | every fragment may declare it, and the ones that do say the same thing about it          |
-| a `description` on a shared dimension or relation            | it is prose rather than a claim, and the first fragment's wording is carried             |
-| any other declaration                                        | one fragment declares it, and a second is refused                                        |
-| an entry under `given:`                                      | it is checked against the fragment that introduces the name, then folded into it         |
-| a given expression                                           | its frame is checked against the frame the definition's body carries                     |
-| a given entry no fragment introduces                         | it stays under `given:` until a host model provides it                                   |
-| `objective`                                                  | the terms are summed in fragment-name order, each in parentheses, and the senses agree   |
-| an expression each fragment that defines it marks `additive` | the bodies are summed in fragment-name order, each in parentheses                        |
-| `version`                                                    | every fragment is written against the same one                                           |
-| `description` at the top of a fragment                       | it is about the fragment and is not carried. Pass the composed model's as `description=` |
+| The entry                                                    | What happens                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| a dimension or a relation                                    | every fragment may declare it, and the ones that do say the same thing about it                                          |
+| a `description` on a shared dimension or relation            | it is prose rather than a claim, and the first fragment's wording is carried                                             |
+| any other declaration                                        | one fragment declares it, and a second is refused                                                                        |
+| an entry under `given:`                                      | it is checked against the fragment that introduces the name, then folded into it                                         |
+| a given expression                                           | its frame is checked against the frame the definition's body carries                                                     |
+| a given entry no fragment introduces                         | it stays under `given:` until a host model provides it                                                                   |
+| `objective`                                                  | the terms are summed in fragment-name order, each in parentheses, and the senses agree. The first description is carried |
+| an expression each fragment that defines it marks `additive` | the bodies are summed in fragment-name order, each in parentheses                                                        |
+| `version`                                                    | every fragment is written against the same one                                                                           |
+| `description` at the top of a fragment                       | it is about the fragment and is not carried. Pass the composed model's as `description=`                                 |
 
 ## A name two fragments declare
 
