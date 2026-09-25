@@ -12,7 +12,12 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
-- refactor: the package installs, imports and runs as mathspec, rather than math-spec and math_spec ([#702](https://github.com/energy-models/mathspec/pull/702))
+## [0.0.0-alpha.127](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.126...v0.0.0-alpha.127) (2026-09-25)
+
+
+### Refactoring
+
+* the package installs, imports and runs as mathspec, rather than math-spec and math_spec ([#702](https://github.com/energy-models/mathspec/issues/702)) ([f9151af](https://github.com/energy-models/mathspec/commit/f9151af9d5977f8288fb64a12779b61597f12371))
 
 ## [0.0.0-alpha.126](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.125...v0.0.0-alpha.126) (2026-09-25)
 
