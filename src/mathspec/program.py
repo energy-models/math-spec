@@ -713,6 +713,8 @@ class ExpressionDeclaration:
     dims: tuple[str, ...]
     in_math: bool
     description: str | None = None
+    #: One share of a sum other files add terms to, as the file marks it.
+    additive: bool = False
 
 
 @dataclass(frozen=True)

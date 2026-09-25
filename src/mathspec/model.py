@@ -463,6 +463,9 @@ class ExpressionBlock(_StrictBlock):
     cases: Annotated[dict[str, ExpressionCase], Field(min_length=1)] = {}
     #: The value wherever no case's ``when`` holds, printed as the last row.
     otherwise: Expression | None = None
+    #: One share of a sum: :func:`~math_spec.composition.merge` adds the shares
+    #: every fragment defines under this name.
+    additive: bool = False
     description: str | None = None
 
     @model_validator(mode='before')
@@ -505,6 +508,13 @@ class ExpressionBlock(_StrictBlock):
                 'are none here. A value that holds everywhere is a plain `expression:`.'
             )
             raise ValueError(msg)
+        if self.additive and self.cases:
+            msg = (
+                '`additive: true` takes one `expression:`, and this has `cases:`. The shares are summed '
+                'as written, and a region belongs inside one share: write the share as its own '
+                'expression with a `cases:` entry, and add that name.'
+            )
+            raise ValueError(msg)
         return self
 
     @classmethod
@@ -523,9 +533,14 @@ class ExpressionBlock(_StrictBlock):
             written['otherwise'] = self.otherwise
             return written
         assert self.expression is not None
-        if self.description is None:
+        if self.description is None and not self.additive:
             return self.expression
-        return {'expression': self.expression, 'description': self.description}
+        written = {'expression': self.expression}
+        if self.additive:
+            written['additive'] = True
+        if self.description is not None:
+            written['description'] = self.description
+        return written
 
 
 class AssumptionBlock(_StrictBlock):

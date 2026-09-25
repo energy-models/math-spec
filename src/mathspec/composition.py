@@ -21,6 +21,10 @@ What :func:`merge` does with each section:
   both named.
 * **The objectives are summed**, each term in parentheses, in the fragments'
   name order, and the senses have to agree.
+* **An additive expression is summed the same way.** A named expression every
+  fragment that defines it marks ``additive: true`` is the sum of their
+  bodies. A fragment that defines one share and reads the name is refused: on
+  its own it reads its share, and composed it would read the sum.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
   A given expression is checked against the frame its definition's body
@@ -150,6 +154,8 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
     for section in OWNED_SECTIONS:
         if claimed := _claimed(read, section):
             merged[section] = claimed
+    if summed := _summed_shares(read, loaded):
+        merged['expressions'] = {**_mapping(merged.get('expressions')), **summed}
     if given := _folded(read, merged, _frames(loaded)):
         merged['given'] = given
     if (objective := _summed_objective(read)) is not None:
@@ -213,10 +219,15 @@ def _claims(block: object) -> object:
 
 
 def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, object]:
-    """One block of owned declarations, a name claimed twice being the refusal."""
+    """One block of owned declarations, a name claimed twice being the refusal.
+
+    An additive expression is left to :func:`_summed_shares`.
+    """
     merged: dict[str, object] = {}
     for name, sections in read.items():
         for key, block in _mapping(sections.get(section)).items():
+            if section == 'expressions' and _is_share(block):
+                continue
             if key in merged:
                 raise LanguageError(
                     f"fragments '{_author_of(read, section, key)}' and '{name}' both declare the "
@@ -228,16 +239,63 @@ def _claimed(read: Mapping[str, dict[str, object]], section: str) -> dict[str, o
     return merged
 
 
+def _is_share(block: object) -> bool:
+    """Whether an ``expressions:`` entry, as ``to_dict`` wrote it, is one share of an additive sum."""
+    return isinstance(block, dict) and bool(block.get('additive'))
+
+
+def _summed_shares(read: Mapping[str, dict[str, object]], loaded: Mapping[str, Spec]) -> dict[str, object]:
+    """Every additive expression, its shares summed in the fragments' name order, each in parentheses.
+
+    One share is carried as written. A name one fragment adds to and another
+    defines whole is refused, and so is a fragment that adds a share and reads
+    the name, since on its own that fragment reads its share and not the sum.
+    """
+    shares: dict[str, dict[str, dict[str, object]]] = {}
+    for name, sections in sorted(read.items()):
+        for key, block in _mapping(sections.get('expressions')).items():
+            if _is_share(block):
+                shares.setdefault(key, {})[name] = cast('dict[str, object]', block)
+    summed: dict[str, object] = {}
+    for key, by_fragment in shares.items():
+        for name, sections in read.items():
+            if name not in by_fragment and key in _mapping(sections.get('expressions')):
+                raise LanguageError(
+                    f"fragment '{name}' defines {key!r} whole, where '{next(iter(by_fragment))}' adds a share "
+                    f'to it. An additive expression is a sum every fragment adds to: mark the definition in '
+                    f"'{name}' `additive: true`, or give one of the two a name of its own."
+                )
+        if len(by_fragment) > 1:
+            for name in by_fragment:
+                if loaded[name].program.expressions[key].in_math:
+                    raise LanguageError(
+                        f"fragment '{name}' adds a share to {key!r} and reads it. On its own the fragment reads "
+                        f'its share, and composed it would read the sum of every share: read the sum in a '
+                        f"fragment that adds nothing to it, under 'given: expressions:'."
+                    )
+        blocks = list(by_fragment.values())
+        bodies = [cast('str', block['expression']) for block in blocks]
+        summed[key] = {
+            **blocks[0],
+            'expression': bodies[0] if len(bodies) == 1 else ' + '.join(f'({body})' for body in bodies),
+            'description': next((block['description'] for block in blocks if block.get('description')), None),
+        }
+    return summed
+
+
 def _frames(loaded: Mapping[str, Spec]) -> dict[str, tuple[str, ...]]:
     """The frame of every named expression the fragments define, as each fragment's own program reads it.
 
     A definition writes no frame: its body carries one. The body is the same
     text in the composition, so the frame the fragment reads is the one a
-    given declaration is checked against.
+    given declaration is checked against. The shares of an additive expression
+    broadcast into their sum, so its frame is the union of theirs.
     """
-    return {
-        name: declaration.dims for spec in loaded.values() for name, declaration in spec.program.expressions.items()
-    }
+    frames: dict[str, tuple[str, ...]] = {}
+    for spec in loaded.values():
+        for name, declaration in spec.program.expressions.items():
+            frames[name] = tuple(dict.fromkeys((*frames.get(name, ()), *declaration.dims)))
+    return frames
 
 
 def _folded(
