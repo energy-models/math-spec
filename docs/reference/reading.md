@@ -169,6 +169,9 @@ reads and does not build ([given](language/declarations.md#given)). Every
 other group is a build instruction. These four are names to look up in the
 model this one is layered onto. An expression reads a given expression as a
 `Variable` of that name, over the frame under `program.given.expressions`.
+A given expression with `additive` set is a sum other files add terms to.
+Where the file also declares a term of it, the name is a definition with
+`additive` set under `program.expressions`, and not a given name.
 
 ```python
 layer = to_spec(

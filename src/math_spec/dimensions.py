@@ -292,6 +292,16 @@ def check_schema(schema: Spec, program: Program) -> None:
                 _check_where_dims(region.when, frame, context)
             _check_value_dims(region.value, schema, frame, context)
 
+    for ename, sum_entry in schema.given.expressions.items():
+        if not (sum_entry.additive and ename in program.expressions):
+            continue
+        if extra := sorted(set(program.expressions[ename].dims) - set(sum_entry.dims)):
+            raise DimensionError(
+                f"Named expression '{ename}' carries {extra}, which the sum it adds a term to does not: "
+                f"its `given:` entry states {sum_entry.dims}. Add {extra} to the entry's dims, or leave "
+                f'them out of the term.'
+            )
+
     for cname, constraint in program.constraints.items():
         frame = frozenset(constraint.dims)
         context = f"Constraint '{cname}'"

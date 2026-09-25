@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from math_spec.dimensions import check_schema, dims_of
 from math_spec.errors import SchemaError, prefixed
 from math_spec.expansion import expand, parse_template
+from math_spec.model import defined_sums
 from math_spec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, resolve_links
 from math_spec.program import (
     Assumption,
@@ -197,6 +198,7 @@ def lower(schema: Spec) -> Program:
             assert assumption is not None and not errors, 'what a method assumes is stated in the language'
             assumptions[aname] = assumption
 
+    sums = defined_sums(schema)
     program = Program(
         parameters={
             name: ParameterDeclaration(tuple(pdef.dims), pdef.dtype, pdef.description)
@@ -220,8 +222,9 @@ def lower(schema: Spec) -> Program:
                 entry.body,
                 _frame_of(name, entry, schema),
                 in_math=name in in_math,
-                description=schema.expressions[name].description,
-                additive=schema.expressions[name].additive,
+                description=schema.expressions[name].description
+                or (schema.given.expressions[name].description if name in sums else None),
+                additive=name in sums,
             )
             for name, entry in entries.items()
         },
@@ -237,7 +240,9 @@ def lower(schema: Spec) -> Program:
                 name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
             },
             expressions={
-                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.expressions.items()
+                name: GivenDeclaration(tuple(g.dims), g.description, additive=g.additive)
+                for name, g in schema.given.expressions.items()
+                if name not in sums
             },
         ),
         description=schema.description,

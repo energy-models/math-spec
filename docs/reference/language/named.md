@@ -109,42 +109,6 @@ masked variable.
 
 `cases:` is not accepted inside a `macros:` template.
 
-## `additive`
-
-`additive: true` marks a named expression as one share of a sum. Each fragment
-that adds to the sum defines its own share under the same name.
-
-```yaml
-dimensions:
-  snapshot: { dtype: int }
-  bus: { dtype: str }
-  generator: { dtype: str }
-relations:
-  gen_bus: { key: generator, values: bus }
-variables:
-  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
-expressions:
-  injection:
-    additive: true
-    expression: sum(gen_p, by=gen_bus, over=generator, into=bus)
-    description: what the components put into a bus
-```
-
-| Field      |                                                 |                 |
-| ---------- | ----------------------------------------------- | --------------- |
-| `additive` | `true` where other files add terms to this name | default `false` |
-
-In one file, the expression is its body. `additive: true` takes a plain
-`expression:`, and is refused with `cases:`.
-[`merge`](../../howto/compose.md#a-library-of-components) sums the shares of
-every fragment, each in parentheses, in fragment-name order, and keeps
-`additive: true` on the sum. It refuses a name one fragment adds to and another
-defines without the flag, and a fragment that adds a share and also reads the
-name. A fragment reads the sum under
-[`given: expressions`](declarations.md#given-expressions). The typeset legend
-lists an additive expression under _Definitions_, as a sum other files add
-terms to.
-
 ## Reported expressions
 
 A named expression is either **in the math** or **reported**. The objective
