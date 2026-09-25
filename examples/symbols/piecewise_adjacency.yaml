@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The sidecar symbol table for `examples/piecewise_adjacency.yaml`, the same
+# one `piecewise.yaml` carries plus the segment binary this method adds. Papers
+# write the convex-combination weight as lambda and the binary that admits a
+# segment as z, and the adjacency row names both in one line.
+notation: latex
+
+names:
+  cost_curve_lam: "\\lambda"
+  cost_curve_seg: "z"
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"

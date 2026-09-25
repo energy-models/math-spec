@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  Least-cost dispatch where each generator's cost curve is piecewise-linear in
-  its output, expanded into a lambda formulation.
+  The same least-cost dispatch as `piecewise.yaml`, with a cost curve that is
+  not convex. The weights need binaries to hold them on one segment, which is
+  what the default method builds.
 
 dimensions:
   snapshot:
@@ -47,14 +48,15 @@ variables:
 piecewise:
   cost_curve:
     description: >-
-      cost read off the generator's curve — convex, so the weights need no
-      binaries to keep them on one segment
+      cost read off the generator's curve. The curve bends both ways, so
+      nothing but the restriction keeps the weights on one segment: a binary
+      per segment picks the one they may sit on
     along: bp
     dims: [snapshot, generator]
     links:
       dispatch: [dispatch, bp_x]
       op_cost: [op_cost, bp_y]
-    method: convex
+    method: adjacency
 
 constraints:
   balance:

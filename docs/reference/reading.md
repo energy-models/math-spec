@@ -49,10 +49,11 @@ variables:
     bounds: { lower: 0 }
 piecewise:
   curve:
-    over: bp
+    along: bp
+    dims: [generator]
     links:
-      - [p, bp_x]
-      - [cost, bp_y, ">="]
+      p: [p, bp_x]
+      cost: [cost, bp_y, ">="]
     method: convex
 assumptions:
   cost_is_never_negative:
@@ -76,7 +77,7 @@ sorted(program.constraints)  # ['target']
 sorted(program.piecewise)  # ['curve']
 
 rows = spec.expand('piecewise').program
-sorted(rows.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(rows.constraints)  # ['curve_convexity', 'curve_cost', 'curve_p', 'target']
 sorted(rows.variables)  # ['cost', 'curve_lam', 'p']
 ```
 

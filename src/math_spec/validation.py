@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from pathlib import Path
 
+    from math_spec.model import PiecewiseBlock, PiecewiseLink
     from math_spec.program import Program
 
 
@@ -66,16 +67,38 @@ def to_spec(model: str | Path | Mapping[str, object] | Spec) -> Spec:
 
 
 def emitted_name_errors(schema: Spec, program: Program) -> list[str]:
-    """Every name a set or curve of *program* would write out that *schema* already declares.
+    """Every name a set or curve of *program* would write out that *schema* declares, or another one writes too.
 
     Read off the program rather than the file, since what a curve writes is
     decided by the curve as lowered — its links, its method, its mask.
     """
-    by_block = [
+    emitters = [
         *((f"Sos '{name}'", EmittedSet.of(name, block.sos_type).by_kind) for name, block in program.sos.items()),
         *((f"piecewise '{name}'", EmittedCurve.of(name, curve).by_kind) for name, curve in program.piecewise.items()),
     ]
-    return [error for context, by_kind in by_block for error in _collisions(schema, context, by_kind)]
+    errors = [
+        f"piecewise '{name}': link '{row.removeprefix(f'{name}_')}' names its row '{row}', which the block "
+        f'already writes for itself. Rename the link.'
+        for name, curve in program.piecewise.items()
+        for row in EmittedCurve.of(name, curve).reused
+    ]
+    for context, by_kind in emitters:
+        errors.extend(_collisions(schema, context, by_kind))
+    errors.extend(_shared(emitters))
+    return errors
+
+
+def _shared(emitters: Iterable[tuple[str, Iterable[tuple[str, Iterable[str]]]]]) -> Iterator[str]:
+    """The refusal for each name two expansions both write, since the second would overwrite the first."""
+    first: dict[tuple[str, str], str] = {}
+    for context, by_kind in emitters:
+        for kind, names in by_kind:
+            for one in names:
+                if (owner := first.setdefault((kind, one), context)) != context:
+                    yield (
+                        f"{context}: its expansion writes {kind} '{one}', which {owner} also writes. Rename one of "
+                        f'the blocks, or the link whose row it is.'
+                    )
 
 
 def reference_errors(schema: Spec) -> list[str]:
@@ -273,47 +296,65 @@ def _sos_bounds(schema: Spec) -> Iterator[str]:
 
 
 def _piecewise_references(schema: Spec) -> Iterator[str]:
-    """A curve runs along a declared dimension through numeric values parameters carrying it, gated by a binary, masked by a bool."""
-    for name, pw in schema.piecewise.items():
+    """Every declaration a block names by key exists and has the shape the block needs.
+
+    The breakpoint dim, the frame ``dims:`` states, each link's values
+    parameter, and the gate. What a link's expression, its walk and the
+    where carry is resolution's to say, and whether the pieces fit together
+    is decided as the block is lowered
+    (:func:`math_spec.piecewise.declaration_of`).
+    """
+    for name, block in schema.piecewise.items():
         context = f"piecewise '{name}'"
-        if pw.over not in schema.dimensions:
-            yield undeclared_dimension('piecewise', name, pw.over)
+        if block.along not in schema.dimensions:
+            yield undeclared_dimension('piecewise', name, block.along)
             continue
-        for i, link in enumerate(pw.links):
-            if link.values not in schema.parameters:
-                yield f"{context}: link {i} values references undeclared parameter '{link.values}'"
-            elif (dtype := schema.parameters[link.values].dtype) not in NUMERIC_DTYPES:
+        for d in block.dims:
+            if d not in schema.dimensions:
+                yield undeclared_dimension('piecewise', name, d)
+            elif d == block.along:
                 yield (
-                    f"{context}: link {i} values parameter '{link.values}' is declared dtype: {dtype}, and a "
-                    f'breakpoint is a number. Declare it dtype: float or int.'
+                    f"{context}: dims carries '{block.along}', the breakpoint dim. The frame is what the block "
+                    f'builds one curve per, and every curve runs along the breakpoints — drop it from dims:.'
                 )
-            elif pw.over not in schema.parameters[link.values].dims:
-                yield (
-                    f"{context}: link {i} values parameter '{link.values}' must carry dim "
-                    f"'{pw.over}' (has {schema.parameters[link.values].dims})"
-                )
-        if (activity := pw.activity) is not None:
-            if activity not in schema.variables:
-                yield (
-                    f"{context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "
-                    f'declare it, or drop activity: for weights that sum to 1.'
-                )
-            elif schema.variables[activity].domain != 'binary':
-                yield f"{context}: activity variable '{activity}' must be binary"
-        if (points := pw.points) is None or pw.nominated is not None:
+        if len(set(block.dims)) != len(block.dims):
+            yield f'{context}: dims repeats a dimension: {block.dims}'
+        for key, link in block.links.items():
+            yield from _piecewise_link_shape(schema, name, block, key, link)
+        if (activity := block.activity) is None:
             continue
-        if points not in schema.parameters:
-            yield f"{context}: points references undeclared parameter '{points}'"
-        elif (dtype := schema.parameters[points].dtype) != 'bool':
+        if activity not in schema.variables:
             yield (
-                f"{context}: points parameter '{points}' is {dtype}, and a mask is a bool parameter — one "
-                f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
+                f"{context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "
+                f'declare it, or drop activity: for weights that sum to 1.'
             )
-        elif pw.over not in schema.parameters[points].dims:
+        elif schema.variables[activity].domain != 'binary':
+            yield f"{context}: activity variable '{activity}' must be binary"
+        elif stray := [d for d in schema.variables[activity].dims if d not in block.dims]:
             yield (
-                f"{context}: points parameter '{points}' must carry dim '{pw.over}' — "
-                f'it says how far each curve runs along it (has {schema.parameters[points].dims})'
+                f"{context}: activity '{activity}' carries {stray}, which dims {block.dims} does not. The gate "
+                f'switches the curve of one coordinate of dims:, and a gate varying along {stray} would need a '
+                f'curve per coordinate of it — add {stray} to dims:, or gate with a variable over dims:.'
             )
+
+
+def _piecewise_link_shape(
+    schema: Spec, name: str, block: PiecewiseBlock, key: str, link: PiecewiseLink
+) -> Iterator[str]:
+    """One link's values parameter exists as the link needs it."""
+    context = f"piecewise '{name}' link '{key}'"
+    if link.values not in schema.parameters:
+        yield f"{context}: values references undeclared parameter '{link.values}'"
+    elif (dtype := schema.parameters[link.values].dtype) not in NUMERIC_DTYPES:
+        yield (
+            f"{context}: values parameter '{link.values}' is declared dtype: {dtype}, and a breakpoint is a "
+            f'number. Declare it dtype: float or int.'
+        )
+    elif block.along not in schema.parameters[link.values].dims:
+        yield (
+            f"{context}: values parameter '{link.values}' must carry dim "
+            f"'{block.along}' (has {schema.parameters[link.values].dims})"
+        )
 
 
 def _collisions(schema: Spec, context: str, by_kind: Iterable[tuple[str, Iterable[str]]]) -> Iterator[str]:

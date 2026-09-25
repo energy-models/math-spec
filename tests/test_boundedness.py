@@ -106,7 +106,9 @@ def test_a_named_constant_coefficient_carries_its_sign(objective, side):
                 'dimensions.bp': {'dtype': 'int'},
                 'parameters.bp_x': {'dims': ['bp']},
                 'parameters.bp_y': {'dims': ['bp']},
-                'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bp_x'], ['w', 'bp_y']]}},
+                'piecewise': {
+                    'curve': {'along': 'bp', 'dims': ['g'], 'links': {'v': ['v', 'bp_x'], 'w': ['w', 'bp_y']}}
+                },
             },
             id='carried-by-a-curve',
         ),

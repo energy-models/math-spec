@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The sidecar symbol table for `examples/piecewise_coupling.yaml`. The weights
+# are named after the block that declared them, which reads well in the file
+# and badly in an equation that carries the name twice with a relation applied
+# to its first index. Papers write the convex-combination weight as lambda.
+
+notation: latex
+
+names:
+  operating_point_lam: "\\lambda"
+  bp_rate: "\\mathrm{r}"

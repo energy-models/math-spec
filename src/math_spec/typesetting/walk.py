@@ -63,8 +63,8 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable, Mapping
 
-    from math_spec._expression_parser import BinaryOperator
-    from math_spec.program import PiecewiseDeclaration, Program, SosDeclaration
+    from math_spec._expression_parser import BinaryOperator, ComparisonOperator
+    from math_spec.program import Link, PiecewiseDeclaration, Program, SosDeclaration
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -98,6 +98,10 @@ _PREDICATES: dict[PredicateOperator, OperatorName] = {
     '<': 'lt',
     '>': 'gt',
 }
+
+#: What a link's sign leaves between its expression and the curve's coordinate:
+#: nothing where it is pinned, a half-line where the curve bounds it.
+_HALF_LINES: dict[ComparisonOperator, OperatorName] = {'==': 'origin', '>=': 'nonnegative', '<=': 'nonpositive'}
 
 
 #: Edge policy -> the operator pair that renders it, backward then forward —
@@ -850,31 +854,76 @@ class Walk:
         return Line(label=name, left=left, right=right, condition=self._quantifier(frame, self._condition(ctx, where)))
 
     def _piecewise(self, name: str) -> Line:
-        """One ``piecewise:`` block as the curve it states, over the frame it states one per coordinate of.
+        """One ``piecewise:`` block as the curve it states, over the ``dims:`` it states one per coordinate of.
 
         The links' expressions are a point, and the block says that point lies
         on the piecewise-linear locus through the breakpoints. A bounded link
-        states one side of the locus instead, so there the locus prints as the
-        function of the pinned link that it is and the link's own sign says
-        which side.
+        states one side of the locus instead. Beside one pinned link the locus
+        prints as the function of it that it is, and the bounded link's own
+        sign says which side; beside more, the point lies on the locus plus
+        the cone the signs span, ``{0}`` for a pinned coordinate and a
+        half-line for a bounded one.
         """
         block = self.program.piecewise[name]
-        links = [link.expression for link in block.links]
         frame = list(block.frame)
-        ctx = self._context([*frame, block.over])
-        locus = self._locus(block, ctx)
-        bounded = next((i for i, link in enumerate(block.links) if link.sign != '=='), None)
-        if bounded is None:
-            left = self._tuple([self._expression(node, ctx) for node in links])
-            right = f'{self._op("in")} {locus}'
+        ctx = self._context([*frame, block.along])
+        points, values = zip(*(self._link(link, ctx) for link in block.links), strict=True)
+        locus = self._locus(block, list(values), block.where if block.ragged else None, ctx)
+        bounded = [i for i, link in enumerate(block.links) if link.sign != '==']
+        if not bounded:
+            left, right = self._tuple(list(points)), f'{self._op("in")} {locus}'
+        elif len(block.links) == 2:
+            (i,) = bounded
+            left = points[i]
+            right = f'{self._op(_PREDICATES[block.links[i].sign])} {self.format.apply(locus, points[1 - i])}'
         else:
-            pinned = links[1 - bounded]
-            left = self._expression(links[bounded], ctx)
-            sign = self._op(_PREDICATES[block.links[bounded].sign])
-            right = f'{sign} {self.format.apply(locus, self._expression(pinned, ctx))}'
-        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, ''))
+            cone = self.format.joined([self._op(_HALF_LINES[link.sign]) for link in block.links], self._op('times'))
+            left, right = self._tuple(list(points)), f'{self._op("in")} {locus} {self._op("plus")} {cone}'
+        condition = '' if block.ragged else self._condition(ctx, block.where)
+        return Line(label=name, left=left, right=right, condition=self._quantifier(frame, condition))
 
-    def _locus(self, block: PiecewiseDeclaration, ctx: _Context) -> str:
+    def _link(self, link: Link, ctx: _Context) -> tuple[str, str]:
+        """One link's point coordinate and its breakpoints, each a family where the link walks a relation.
+
+        A walked link is one coordinate per fine index that maps to the curve's
+        own, so it prints as the family over those, which is what ties them to
+        the one curve rather than to a curve each.
+        """
+        dims = list(self.program.parameters[link.values].dims)
+        if not link.walks:
+            return self._expression(link.expression, ctx), ctx.indexed(self.symbols.name[link.values], dims)
+        domain, inner = self._walked(link, ctx)
+        return (
+            self.format.subscript(self.format.parenthesise(self._expression(link.expression, inner)), [domain]),
+            self.format.subscript(
+                self.format.parenthesise(inner.indexed(self.symbols.name[link.values], dims)), [domain]
+            ),
+        )
+
+    def _walked(self, link: Link, ctx: _Context) -> tuple[str, _Context]:
+        """The fine indices a walked link's family runs over, and the context its members read under.
+
+        The members are every produced index whose row in the relation reads
+        the curve's own coordinate at the consumed columns.
+        """
+        assert link.by is not None
+        relation = self.program.relations[link.by]
+        roles = dict(relation.columns)
+        dummies: dict[str, str] = {}
+        inner = ctx
+        for column in link.into:
+            dummies[column], inner = inner.reducing(roles[column])
+        at = {c: dummies.get(c) or ctx.subscript(roles[c]) for c in roles}
+        fixed = [c for c in relation.values if c in at]
+        conditions = (
+            [f'{self._relation_read(link.by, at, c)} {self._op("equal")} {at[c]}' for c in fixed]
+            if fixed
+            else [self._relation_row(link.by, at)]
+        )
+        members = self.format.joined([self._membership(roles[c], dummies[c]) for c in link.into], '')
+        return f'{members} {self._op("such_that")} {self.format.joined(conditions, self._op("and"))}', inner
+
+    def _locus(self, block: PiecewiseDeclaration, values: list[str], admitted: Mask | None, ctx: _Context) -> str:
         """The set the links lie on: the curve through the breakpoints, or the hull ``convex`` relaxes it onto.
 
         A gate multiplies it, which is what gating a curve does — the weights
@@ -882,30 +931,21 @@ class Walk:
         curve where it is 1.
         """
         operator = self._op('hull' if block.method == 'convex' else 'curve')
-        through = self.format.subscript(operator, [self._breakpoints(block, ctx)])
-        values = self.format.joined(
-            [
-                ctx.indexed(self.symbols.name[link.values], list(self.program.parameters[link.values].dims))
-                for link in block.links
-            ],
-            '',
-        )
-        locus = self.format.apply(through, values)
+        through = self.format.subscript(operator, [self._breakpoints(block, admitted, ctx)])
+        locus = self.format.apply(through, self.format.joined(values, ''))
         gate = self._gate(block, ctx)
         return f'{gate} {self._op("cdot")} {locus}' if gate else locus
 
-    def _breakpoints(self, block: PiecewiseDeclaration, ctx: _Context) -> str:
-        """Which breakpoints the curve runs through: every one of the dimension, or the ones ``points:`` admits.
+    def _breakpoints(self, block: PiecewiseDeclaration, admitted: Mask | None, ctx: _Context) -> str:
+        """Which breakpoints the curve runs through: every one of the dimension, or the ones a ragged ``where:`` admits.
 
-        A ``points:`` naming a boolean parameter reads as the flag it is, and
-        one naming a values parameter as the rows that parameter has, which is
-        the same reading a ``where`` gives either of them.
+        A ``where:`` over the frame alone prints on the quantifier instead,
+        because it says which curves exist rather than how far each runs.
         """
-        over = self._membership(block.over)
-        if block.points is None:
+        over = self._membership(block.along)
+        if admitted is None:
             return over
-        admitted = ParameterDefined(block.points, tuple(self.program.parameters[block.points].dims))
-        return f'{over} {self._op("such_that")} {self._predicate(admitted, ctx)}'
+        return f'{over} {self._op("such_that")} {self._predicate(admitted.root, ctx)}'
 
     def _gate(self, block: PiecewiseDeclaration, ctx: _Context) -> str:
         """The factor an ``activity:`` puts on the locus, or ``''`` where the block has none.

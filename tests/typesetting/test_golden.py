@@ -146,6 +146,8 @@ def _rendered_trees() -> Iterator[object]:
         yield program.expressions[name].expression
     for curve in program.piecewise.values():
         yield from (link.expression for link in curve.links)
+        if curve.where is not None:
+            yield curve.where.root
 
 
 #: A dataclass the walk steps *through* rather than renders: a region has no

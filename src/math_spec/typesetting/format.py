@@ -58,6 +58,9 @@ OperatorName = Literal[
     'sos_set',
     'curve',
     'hull',
+    'origin',
+    'nonnegative',
+    'nonpositive',
     'position',
     'dual',
     'minimize',
@@ -69,7 +72,8 @@ OperatorName = Literal[
 #: so no format can be missing one. ``such_that`` is the colon in
 #: "∀ t ∈ T : condition", ``times`` sits between sets in the legend,
 #: ``maps_to`` is the → in a coordinate map, ``curve`` and ``hull`` are the two
-#: sets a ``piecewise:`` block states its links lie on, and the three
+#: sets a ``piecewise:`` block states its links lie on, ``origin``,
+#: ``nonnegative`` and ``nonpositive`` the cone its signs add to them, and the three
 #: translations are three models: plain leaves the vacated position absent,
 #: ``cyclic_*`` wraps, ``edge_*`` fills it with the value it carries as a
 #: subscript.
@@ -104,6 +108,9 @@ OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'sos_set': (r'\mathrm{SOS}', 'upright("SOS")'),
     'curve': (r'\mathrm{pwl}', 'upright("pwl")'),
     'hull': (r'\mathrm{conv}', 'upright("conv")'),
+    'origin': (r'\{0\}', '{0}'),
+    'nonnegative': (r'\mathbb{R}_{\ge 0}', 'RR_(>= 0)'),
+    'nonpositive': (r'\mathbb{R}_{\le 0}', 'RR_(<= 0)'),
     'position': (r'\mathrm{pos}', 'upright("pos")'),
     'dual': (r'\lambda', 'lambda'),
     'minimize': (r'\min', 'min'),

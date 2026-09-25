@@ -676,13 +676,32 @@ class ExpressionDeclaration:
 class Link:
     """One link of a ``piecewise:`` block: an expression tied to the breakpoints a values parameter holds.
 
-    ``sign`` is ``'=='`` where the link is pinned to the curve, and one side
-    of it where the link is bounded by the curve instead.
+    ``name`` is the link's key in the block, and ``<block>_<name>`` is the row
+    the expansion writes for it. ``sign`` is ``'=='`` where the link is pinned
+    to the curve, and one side of it where the link is bounded by the curve
+    instead. A link that walks a relation reads the curve's weights through
+    it, as ``at`` reads an array: ``by`` names the relation, ``over`` the
+    columns it consumes and ``into`` the ones it produces. ``dims`` is the row
+    the link builds — the block's frame, or, for a walked link, that frame
+    with the consumed dims replaced by the produced ones — and ``reads`` says
+    whether that row reads the block's ``where`` through the relation, which
+    it does when the mask carries every dim the walk consumes or joins on.
     """
 
+    name: str
     expression: Expression
     values: str
+    dims: tuple[str, ...]
     sign: ConstraintSense = '=='
+    by: str | None = None
+    over: tuple[str, ...] = ()
+    into: tuple[str, ...] = ()
+    reads: bool = False
+
+    @property
+    def walks(self) -> bool:
+        """Whether the link reads the curve's weights through a relation, rather than on the block's own frame."""
+        return self.by is not None
 
 
 @dataclass(frozen=True)
@@ -696,29 +715,32 @@ class PiecewiseDeclaration:
     consumer building rows takes the expanded model.
 
     Attributes:
-        over: The breakpoint dimension.
-        links: The links, in the order the file wrote them.
+        along: The dimension each curve runs along.
+        links: The links, in the order the file wrote them, each with the row
+            it builds.
         method: How the weights are restricted.
+        frame: The ``dims:`` the block builds one curve per coordinate of, in
+            the order the file wrote them.
+        where: Which coordinates of ``frame`` have a curve — and, where it
+            reads ``along`` too, how far each runs — or ``None`` where every
+            coordinate has a whole curve.
         activity: The binary the weights sum to, or ``None`` where they sum
             to 1.
-        points: The parameter saying how far each curve runs, or ``None``.
-        frame: The dimensions the block builds one curve per coordinate of,
-            in declaration order.
         description: What the file wrote under ``description:``, or ``None``.
     """
 
-    over: str
+    along: str
     links: tuple[Link, ...]
     method: PiecewiseMethod
     frame: tuple[str, ...]
+    where: Mask | None = None
     activity: str | None = None
-    points: str | None = None
     description: str | None = None
 
     @property
-    def nominated(self) -> str | None:
-        """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
-        return self.points if self.points in {link.values for link in self.links} else None
+    def ragged(self) -> bool:
+        """Whether ``where`` reads ``along``, and so says how far each curve runs rather than only which exist."""
+        return self.where is not None and self.along in self.where.dims
 
     @property
     def curve(self) -> tuple[Link, Link]:
