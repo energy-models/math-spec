@@ -15,7 +15,9 @@ Each pull request adds one line under `## Upcoming version` at the top of
 `refactor`, `docs` or `revert` pull request adds a line. A `chore`, `test`,
 `ci`, `build` or `style` pull request adds none. The `Changelog line` check
 fails a pull request that owes a line and adds none. The label `no changelog`
-opts it out, for a change no reader of the changelog needs to hear about.
+opts it out, for a change no reader of the changelog needs to hear about. The
+check runs on a push, a label change and a title change, and not on an edit to
+the description.
 
 ```markdown
 ## Upcoming version

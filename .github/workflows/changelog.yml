@@ -6,17 +6,23 @@ name: Changelog
 
 # A feat, fix, perf, refactor, docs or revert PR adds its line under
 # `## Upcoming version` in CHANGELOG.md, so the release notes exist before the
-# release PR is written. The label `no changelog` opts a PR out, and a skipped
-# job counts as passed. See RELEASING.md.
+# release PR is written. The label `no changelog` opts a PR out. See
+# RELEASING.md.
+#
+# An edit to the PR description changes nothing this reads, so `edited` is not
+# a trigger. A title edit can change the type, so pr-title.yml re-runs this
+# check when the title changes, and this reads the title and the labels live
+# rather than from the event, so a re-run sees them as they are now. The job
+# never skips: a skipped required check counts as passed, and would hide an
+# earlier failure.
 
 on:
   pull_request:
-    # `edited` re-runs it when the title changes the type, and `labeled` and
-    # `unlabeled` when the opt-out label comes or goes.
-    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: changelog-${{ github.event.pull_request.number }}
@@ -25,7 +31,6 @@ concurrency:
 jobs:
   line:
     name: Changelog line
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no changelog') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -37,9 +42,16 @@ jobs:
 
       - name: Check the PR adds the line it owes
         env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
+          title=$(gh api "repos/${REPO}/pulls/${NUMBER}" --jq '.title')
+          if gh api "repos/${REPO}/pulls/${NUMBER}" --jq '.labels[].name' | grep -qx 'no changelog'; then
+            echo "opted out by the label 'no changelog'"
+            exit 0
+          fi
           git show "origin/${BASE_REF}:CHANGELOG.md" > "${RUNNER_TEMP}/base.md"
-          python3 -m tools.changelog entry "$PR_TITLE" "${RUNNER_TEMP}/base.md"
+          python3 -m tools.changelog entry "$title" "${RUNNER_TEMP}/base.md"
