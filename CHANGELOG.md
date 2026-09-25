@@ -12,10 +12,11 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
-## 0.1.0 (2026-09-25)
+## 0.1.0rc1 (2026-09-25)
 
-The first release on PyPI: `pip install mathspec`. The package installs,
-imports and runs as `mathspec` since 0.0.0-alpha.127
+The release candidate for 0.1.0, the first release on PyPI:
+`pip install mathspec==0.1.0rc1`. The package installs, imports and runs as
+`mathspec` since 0.0.0-alpha.127
 ([#702](https://github.com/energy-models/mathspec/pull/702)). The
 `0.0.0-alpha.N` releases below were tags and GitHub releases only.
 
