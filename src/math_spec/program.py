@@ -21,7 +21,7 @@ one: ``docs/reference/reading.md``.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import dataclass, fields, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, assert_never
 
@@ -599,8 +599,11 @@ class ParameterDeclaration:
 class VariableDeclaration:
     dims: tuple[str, ...]
     where: Mask | None = None
-    lower: Expression = field(default_factory=lambda: Constant(float('-inf')))
-    upper: Expression = field(default_factory=lambda: Constant(float('inf')))
+    #: A number or a parameter, or ``None`` where that side is open. What stands
+    #: for an open side in a solve is the consumer's to choose.
+    lower: Expression | None = None
+    #: As :attr:`lower`, for the other side.
+    upper: Expression | None = None
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
     description: str | None = None

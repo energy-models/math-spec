@@ -19,6 +19,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.124](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.123...v0.0.0-alpha.124) (2026-09-24)
+
+
+### Features
+
+* **language:** a bound is null where it is open, never infinite, in the file and in the program ([#689](https://github.com/energy-models/mathspec/issues/689)) ([8df92d0](https://github.com/energy-models/mathspec/commit/8df92d08422bfbb973f604306419da05dd34e550))
+
 ## [0.0.0-alpha.123](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.122...v0.0.0-alpha.123) (2026-09-24)
 
 

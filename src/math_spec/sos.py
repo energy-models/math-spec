@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 Coefficients = tuple[float | str | None, float | str | None]
 
 
-def coefficients(domain: str, lower: float | str, upper: float | str) -> Coefficients:
+def coefficients(domain: str, lower: float | str | None, upper: float | str | None) -> Coefficients:
     """What a member's two linking rows multiply its binary by, ``None`` on a side the model leaves open.
 
     The 0 and 1 a binary's domain fixes, which no bounds block carries;
@@ -39,9 +39,9 @@ def coefficients(domain: str, lower: float | str, upper: float | str) -> Coeffic
     does not cap, and one above it is a looser row than the bound already
     states.
     """
-    fixed = domain == 'binary'
-    below = 0.0 if fixed else (None if lower == float('-inf') else lower)
-    return below, (1.0 if fixed else (None if upper == float('inf') else upper))
+    if domain == 'binary':
+        return 0.0, 1.0
+    return lower, upper
 
 
 @dataclass(frozen=True)
@@ -141,13 +141,11 @@ def _scaled(factor: float | str, picked: str) -> str:
 
 def _coefficients(member: dict[str, object]) -> tuple[float | str, float | str]:
     """The two coefficients as an expression writes them, read off the member."""
-    bounds: dict[str, object] = {'lower': float('-inf'), 'upper': float('inf')}
     declared = member.get('bounds')
     assert declared is None or isinstance(declared, dict), 'a validated model carries a bounds block as a mapping'
-    bounds.update(declared or {})
-    lower, upper = bounds['lower'], bounds['upper']
-    assert isinstance(lower, float | str) and isinstance(upper, float | str), (
-        'a bound is a number or the name of a parameter'
+    lower, upper = (declared.get('lower'), declared.get('upper')) if declared else (None, None)
+    assert isinstance(lower, float | str | None) and isinstance(upper, float | str | None), (
+        'a bound is a number, the name of a parameter, or open'
     )
     below, above = coefficients(str(member.get('domain', 'continuous')), lower, upper)
     assert below is not None and above is not None, 'a set with a side left open is refused at load'

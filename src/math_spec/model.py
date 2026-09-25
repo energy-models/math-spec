@@ -217,16 +217,17 @@ class ParameterBlock(_StrictBlock):
 
 
 class BoundsBlock(_StrictBlock):
-    """Variable bounds — each side is a number or parameter name.
+    """Variable bounds — each side is a finite number, a parameter name, or ``None`` where it is open.
 
     An omitted bound leaves the variable unbounded on that side, not
-    implicitly non-negative.
+    implicitly non-negative. An infinity is refused: an open side is ``null``,
+    and the other infinity leaves no value at all.
     """
 
     _label: ClassVar[str] = 'a bounds block'
 
-    lower: float | str = float('-inf')
-    upper: float | str = float('inf')
+    lower: float | str | None = None
+    upper: float | str | None = None
 
     @field_validator('lower', 'upper', mode='before')
     @classmethod
@@ -236,6 +237,12 @@ class BoundsBlock(_StrictBlock):
             raise ValueError(msg)
         if isinstance(v, float) and math.isnan(v):
             msg = f'bounds.{info.field_name} is nan, which no value compares to. Write a number, or omit the bound.'
+            raise ValueError(msg)
+        if isinstance(v, float | int) and math.isinf(v):
+            msg = (
+                f'bounds.{info.field_name} is {v}, and a bound is finite. An open side is null: '
+                f'write {info.field_name}: null, or leave it out.'
+            )
             raise ValueError(msg)
         return v
 
@@ -689,10 +696,8 @@ def _without_absence(value: object) -> object:
 
 
 def _is_absent(value: object) -> bool:
-    """Whether *value* is a null or an infinite bound."""
-    if value is None:
-        return True
-    return isinstance(value, float) and math.isinf(value)
+    """Whether *value* is a null."""
+    return value is None
 
 
 class Spec(_StrictBlock):
@@ -798,7 +803,7 @@ class Spec(_StrictBlock):
 
     @model_serializer(mode='wrap')
     def _drop_absence(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Absence is not serialised: a null, an infinite bound, a mapping that stripping emptied, a section declaring nothing.
+        """Absence is not serialised: a null, a mapping that stripping emptied, a section declaring nothing.
 
         An empty list stays, being a value rather than an absence (``dims:
         []`` is a scalar). On the serializer so that ``model_dump``,

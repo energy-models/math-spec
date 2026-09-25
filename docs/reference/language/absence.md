@@ -40,7 +40,7 @@ in a `where`.
 Where no such value exists, loading is refused. There are four such positions:
 a divisor, a `bounds:` entry, the whole constant side of a comparison, and a
 [`piecewise:`](piecewise.md) breakpoint. For a bound only where the data has
-one, supply `inf` elsewhere or mask the variable.
+one, supply the bound in the data, where `inf` is a value, or mask the variable.
 
 ## How absence travels
 
