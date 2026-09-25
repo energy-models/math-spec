@@ -98,6 +98,14 @@ holds no curve:
 sorted(rows.piecewise)  # []
 ```
 
+Each parameter and relation says what its table must carry, as `coverage`.
+Under `total` the engine refuses a missing row and names the coordinate. Under
+`masked` it reads a missing row as the value that contributes nothing. A
+parameter a curve reads has `coverage` `None` on the program of the file,
+because the block owns its shape. The expansion's program declares it `masked`
+where the curve has `points:`
+([coverage](language/declarations.md#coverage)).
+
 ## What the data has to satisfy
 
 `program.assumptions` maps a name to an `Assumption`: each entry the file

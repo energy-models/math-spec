@@ -28,11 +28,12 @@ The **key** is the combination of dimensions that is unique per row:
 what that row determines: its bus. With no `values:`, the key is every column,
 and the table is a **bare relation**.
 
-| Field         |                                                                  |                |
-| ------------- | ---------------------------------------------------------------- | -------------- |
-| `key`         | required. The columns that identify a row                        |                |
-| `values`      | the columns the key determines. Omitted, the key is every column | default none   |
-| `description` | free text                                                        | default `null` |
+| Field         |                                                                  |                 |
+| ------------- | ---------------------------------------------------------------- | --------------- |
+| `key`         | required. The columns that identify a row                        |                 |
+| `values`      | the columns the key determines. Omitted, the key is every column | default none    |
+| `coverage`    | `total`, `masked`: whether every key coordinate has a row        | default `total` |
+| `description` | free text                                                        | default `null`  |
 
 A column is named after its dimension. Where two columns share a dimension, the
 mapping form names them: `{bus0: bus, bus1: bus}`.
@@ -62,11 +63,29 @@ column per declared column, named after it.
   is attached.
 - **Every value is a label of its dimension.** A value that matches none is
   refused.
-- **A partial map is the rows it has.** A generator in no row sits on no bus,
-  which is [absence](absence.md).
+- **A `total` relation has a row for every key coordinate.** A generator the
+  table leaves out is refused when the data is attached, and the refusal names
+  it.
+  With no `values:`, the claim is over every combination of the key's
+  dimensions.
+- **A `masked` relation is the rows it has.** A generator in no row sits on no
+  bus, which is [absence](absence.md): its terms land in no group.
 - **A null in any column is refused.**
 - **Row order carries nothing.** The order is the
   [dimension's](dimensions.md).
+
+A generator on no bus and a port nobody wired look the same in the data, so
+`coverage:` says which was meant:
+
+```yaml
+dimensions:
+  generator: { dtype: str }
+  bus: { dtype: str }
+  line: { dtype: str }
+relations:
+  gen_bus: { key: generator, values: bus } # total: every generator is on a bus
+  line_to: { key: line, values: bus, coverage: masked } # an open end is meant
+```
 
 ## How a relation is used
 

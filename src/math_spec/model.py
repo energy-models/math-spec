@@ -30,6 +30,7 @@ from pydantic import (
 from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
 from math_spec.program import (
+    Coverage,
     DimensionDtype,
     ObjectiveSense,
     ParameterDtype,
@@ -134,7 +135,25 @@ def side_columns(written: str | list[str] | dict[str, str] | None) -> tuple[tupl
     return tuple((d, d) for d in ((written,) if isinstance(written, str) else written))
 
 
-class RelationBlock(_StrictBlock):
+class _CoveredBlock(_StrictBlock):
+    """A declaration whose table may say whether it must be complete.
+
+    ``coverage`` is ``None`` where the file writes none rather than defaulting
+    eagerly: the refusal on a curve's parameters has to know whether the *file*
+    spoke, and a round trip through :meth:`Spec.to_dict` writes back what was
+    written. Everything that only wants the reading asks
+    :attr:`coverage_or_default`.
+    """
+
+    coverage: Coverage | None = None
+
+    @property
+    def coverage_or_default(self) -> Coverage:
+        """What the table must carry: what the file wrote, or ``total`` where it wrote nothing."""
+        return self.coverage or 'total'
+
+
+class RelationBlock(_CoveredBlock):
     """A named relation between dimensions: the columns a row is keyed by, and the columns that key determines.
 
     Each side is a dimension, a list of them, or a mapping of column name to
@@ -206,7 +225,7 @@ class DimensionBlock(_StrictBlock):
     description: str | None = None
 
 
-class ParameterBlock(_StrictBlock):
+class ParameterBlock(_CoveredBlock):
     """A declared parameter with dims and dtype."""
 
     _label: ClassVar[str] = 'a parameter declaration'
@@ -581,6 +600,15 @@ class PiecewiseBlock(_StrictBlock):
     def nominated(self) -> str | None:
         """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
         return self.points if self.points in {link.values for link in self.links} else None
+
+    @property
+    def consumes(self) -> frozenset[str]:
+        """The parameters the block reads: each link's values, and the ``points:`` mask.
+
+        The block owns the shape of every one of them, so ``coverage:`` is
+        refused on them at load and lowering reports none.
+        """
+        return frozenset({link.values for link in self.links} | ({self.points} if self.points else set()))
 
     @property
     def curve(self) -> tuple[PiecewiseLink, PiecewiseLink]:
