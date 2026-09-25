@@ -12,7 +12,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
-- docs: the README shows no conda-forge badge, because mathspec is not on conda-forge ([#PR](https://github.com/energy-models/mathspec/pull/PR))
+- docs: the README shows no conda-forge badge, because mathspec is not on conda-forge ([#715](https://github.com/energy-models/mathspec/pull/715))
 
 ## 0.1.0 (2026-09-25)
 
