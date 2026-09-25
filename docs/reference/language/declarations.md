@@ -131,7 +131,7 @@ so a composed library carries none of them. The folded declaration is the
 introducer's, and what the reader states has to say the same or less.
 
 Where nothing in this language introduces the column, the program carries the
-declaration for a consumer to bind
+declaration until a host model provides it
 ([what a program does not build](../reading.md#what-a-program-does-not-build)).
 
 ### `given: constraints`

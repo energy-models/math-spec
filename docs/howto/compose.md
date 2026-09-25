@@ -113,7 +113,7 @@ file, and the two compose as `override(merge({…}), {…})`.
 | a `description` on a shared dimension or relation           | it is prose rather than a claim, and the first fragment's wording is carried              |
 | any other declaration                                       | one fragment declares it, and a second is refused                                         |
 | an entry under `given: variables:` or `given: constraints:` | it is checked against the fragment that introduces the name, then folded into it          |
-| a given entry no fragment introduces                        | it stays under `given:` for a consumer to bind                                            |
+| a given entry no fragment introduces                        | it stays under `given:` until a host model provides it                                    |
 | `objective`                                                 | the terms are summed in fragment-name order, each in parentheses, and the senses agree    |
 | `version`                                                   | the fragments that write one say the same one, and a composition nothing pins writes none |
 | `description` at the top of a fragment                      | it is about the fragment and is not carried. Pass the composed model's as `description=`  |

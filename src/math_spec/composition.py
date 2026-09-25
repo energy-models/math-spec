@@ -25,7 +25,7 @@ What :func:`merge` does with each section:
   name, once the reader is checked to say the same as the introducer or less.
   Two fragments that both only read a name have to read it the same way, and a
   fragment that declares a name and reads it as well is refused. What no
-  fragment introduces stays under ``given:`` for a consumer to bind.
+  fragment introduces stays under ``given:`` until a host model provides it.
 
 A patch says only what it changes, because declarations are laid over a field
 at a time::

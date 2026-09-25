@@ -8,7 +8,7 @@ A fragment reads a column the file beside it introduces, and `merge` folds the
 two together, so the composed model carries no trace of the reading. A layer
 reads a column, or the dual of a row family, that a model outside the language
 holds, so there is nothing to fold into and the program carries the name for a
-consumer to bind. What both need is that the file stands on its own: it loads,
+host model to provide. What both need is that the file stands on its own: it loads,
 it lowers, and it prints as math, without the thing that owns what it reads.
 """
 
@@ -88,11 +88,15 @@ def test_the_given_column_prints_under_its_own_heading():
 
 
 def test_a_program_carries_the_column_it_reads_apart_from_the_ones_it_builds():
-    """The distinction a builder needs: create this column, or bind it to one the host already holds."""
+    """The distinction a builder needs: create this column, or use the one the host model provides."""
     program = to_spec(SUPPLY).program
     assert sorted(program.variables) == ['gen_p'], 'a build reads this group and creates a column for each'
-    assert sorted(program.given.variables) == ['flow'], 'and binds each of these to a column it is given'
-    assert program.given.variables['flow'].dims == ('snapshot', 'port'), 'the frame is what a binder checks'
+    assert sorted(program.given.variables) == ['flow'], (
+        'and uses, for each of these, the column the host model provides'
+    )
+    assert program.given.variables['flow'].dims == ('snapshot', 'port'), (
+        'the frame is what a consumer checks against the host'
+    )
 
 
 def test_what_a_program_reads_is_sealed_like_what_it_builds():
@@ -240,7 +244,9 @@ def test_a_dual_may_name_a_row_family_this_file_does_not_build():
 def test_the_program_carries_the_row_family_a_consumer_binds():
     program = to_spec(LAYER).program
     assert sorted(program.given.constraints) == ['balance']
-    assert program.given.constraints['balance'].dims == ('snapshot', 'bus'), 'the frame is what a binder checks'
+    assert program.given.constraints['balance'].dims == ('snapshot', 'bus'), (
+        'the frame is what a consumer checks against the host'
+    )
 
 
 def test_the_dual_takes_its_frame_from_the_given_declaration():
@@ -293,7 +299,7 @@ def test_merging_folds_a_row_family_into_the_file_that_builds_it():
     assert 'given' not in composed
     program = to_spec(composed).program
     assert sorted(program.constraints) == ['balance', 'cap']
-    assert not program.given.constraints, 'nothing is left for a consumer to bind'
+    assert not program.given.constraints, 'nothing is left for a host model to provide'
 
 
 def test_the_advice_names_every_declaration_a_consumer_has_to_bind():
