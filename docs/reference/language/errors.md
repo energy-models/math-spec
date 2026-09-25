@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## What `to_spec` checks
 
-`to_spec` binds no data. Before it returns a `Spec`, it parses the file,
+`to_spec` attaches no data. Before it returns a `Spec`, it parses the file,
 resolves every name, checks every dimension rule and every degree, and reads
 every `where` string and every macro template, including the templates that
 nothing calls. A `piecewise:` block is checked against every rule its expansion

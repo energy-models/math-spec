@@ -49,7 +49,7 @@ A [reported expression](named.md#reported-expressions) is not held to these.
 
 `**` needs a base and an exponent that both carry no variable and neither of
 which adds. `growth ** period` is allowed, and `(1 + rate) ** period` is
-refused: bind the factor itself as a parameter. Write `x * x` for a square.
+refused: declare the factor itself as a parameter. Write `x * x` for a square.
 
 ## Name resolution
 
@@ -77,7 +77,7 @@ an assumption may share a variable's name.
 
 ## How dimensions combine
 
-The dimension set of every expression is known before any data binds:
+The dimension set of every expression is known before any data is attached:
 
 | Node                             | Dim set                           | Error                                                                            |
 | -------------------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
@@ -296,7 +296,7 @@ constraints:
     expression: soc == soc_initial
 ```
 
-A position that no coordinate occupies is an error when the data binds.
+A position that no coordinate occupies is an error when the data is attached.
 
 `by=` counts inside each group a [partition](relations.md#partitions) makes, so
 each period gets one seeded row:

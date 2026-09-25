@@ -5,9 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Assumptions
 
-`assumptions:` states what the model expects of the data it is bound to. The
+`assumptions:` states what the model expects of the data attached to it. The
 language types each predicate and prints it in the
-[typeset document](../typeset.md). The consumer that binds the numbers runs it.
+[typeset document](../typeset.md). The consumer that attaches the numbers runs it.
 
 ```yaml
 dimensions:

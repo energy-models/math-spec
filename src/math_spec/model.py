@@ -139,7 +139,7 @@ class RelationBlock(_StrictBlock):
 
     Each side is a dimension, a list of them, or a mapping of column name to
     dimension where two columns share one. ``key:`` is the claim the language
-    checks at bind: one row per key tuple, so every ``values:`` column is a
+    checks when the data is attached: one row per key tuple, so every ``values:`` column is a
     function of it. A relation with no ``values:`` is **bare** — every column is
     in its key, a row is its own identity, and nothing reads it::
 
@@ -152,8 +152,8 @@ class RelationBlock(_StrictBlock):
 
     An operator reads the table in the direction the call names
     (``over=``, ``into=``), joining on the other key columns; the
-    declaration fixes no direction. The map itself is data, and arrives at bind
-    time under the relation's name, one column per role.
+    declaration fixes no direction. The map itself is data, and arrives with the rest of it,
+    under the relation's name, one column per role.
     """
 
     _label: ClassVar[str] = 'a relation declaration'
@@ -195,7 +195,7 @@ class DimensionBlock(_StrictBlock):
 
     A dimension is an axis and nothing else: it declares that the axis exists
     and what its coordinates are typed as, never which coordinates there are —
-    those are data, and arrive at bind time. The maps its members carry — a
+    those are data, and arrive when the data is attached. The maps its members carry — a
     generator's bus, a snapshot's period — are top-level ``relations:``
     (:class:`RelationBlock`), keyed by their own name.
     """
@@ -465,7 +465,7 @@ class AssumptionBlock(_StrictBlock):
             where: "p_min"
             description: a unit with no minimum is unconstrained below
 
-    The language decides nothing about the numbers, so the consumer binding
+    The language decides nothing about the numbers, so the consumer attaching
     the data checks it, and refuses the data where it does not hold.
     """
 
@@ -828,7 +828,7 @@ class Spec(_StrictBlock):
         a curve, ``sos:`` states which members of a family may be nonzero — and
         expanding one writes those rows under names prefixed with the block's
         own, then drops the block. The math is the same afterwards, and so is
-        the data that binds it: neither a set nor a curve emits a parameter,
+        the data attached to it: neither a set nor a curve emits a parameter,
         and a curve's rows sit on ``where`` predicates over the file's own.
 
         Args:
@@ -841,7 +841,7 @@ class Spec(_StrictBlock):
         Returns:
             The model those blocks wrote out, or this one where it declares
             none of them. It is a model like any other: :meth:`to_yaml` writes
-            it, and the file binds the same data as the one it came from.
+            it, and the same data attaches to it as to the one it came from.
 
         Raises:
             ValueError: *kinds* names something that is not a formulation.

@@ -431,11 +431,11 @@ def children(expression: Expression) -> tuple[Expression, ...]:
 class RelationDeclaration:
     """One declared relation: a table over its ``columns``, single-valued per ``key``.
 
-    ``columns`` binds each role to its dimension in the order the table
+    ``columns`` maps each role to its dimension in the order the table
     carries them, the key's roles first; ``key`` is the roles a row is
     identified by, and :attr:`values` the rest — every role is a key role for
     a bare relation, which is one with no value columns. Every value is
-    checked at bind to be a label of its column's dimension, and the table to
+    checked when the data is attached to be a label of its column's dimension, and the table to
     have one row per key tuple — which keeps a mistyped label from silently
     dropping its terms in the join that places them, and is what lets ``at``
     read one value.
@@ -474,7 +474,7 @@ class Direction:
     The declaration fixes no direction; the call does, and this is the one it
     named. ``name`` is the relation's, as :attr:`Program.relations` keys it.
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
-    ``relation``, which binds every role to its dimension and names the key.
+    ``relation``, which maps every role to its dimension and names the key.
     ``joined`` is the key roles the call did not name (every role, for a bare
     relation): the join keys on them, and a value role left unnamed is not
     read.
@@ -487,7 +487,7 @@ class Direction:
     joined: tuple[str, ...]
 
     def dim(self, role: str) -> str:
-        """The dimension *role* is bound to."""
+        """The dimension *role* ranges over."""
         return self.relation.dim(role)
 
     @property
@@ -509,7 +509,7 @@ class Partition:
 
     ``name`` is the relation's, as :attr:`Program.relations` keys it.
     ``along``, ``group`` and ``joined`` are *roles* — column names of
-    ``relation``, which binds every role to its dimension and names the key.
+    ``relation``, which maps every role to its dimension and names the key.
     ``along`` is the one key column over the dimension stepped along, and
     the frame keeps it. ``group`` is the value columns ``within=`` named,
     read at the row's key. ``joined`` is the other key columns, whose
@@ -524,7 +524,7 @@ class Partition:
     joined: tuple[str, ...]
 
     def dim(self, role: str) -> str:
-        """The dimension *role* is bound to."""
+        """The dimension *role* ranges over."""
         return self.relation.dim(role)
 
     @property
@@ -555,7 +555,7 @@ class Assumption:
     ``predicate`` is true at every coordinate of its frame — the product of
     every dim the two masks name — that ``where`` admits, a missing row
     reading as false as it does in any mask. Nothing here is decidable at
-    load: both sides are the data's, which is why the consumer binding it
+    load: both sides are the data's, which is why the consumer attaching it
     checks.
     """
 
@@ -568,7 +568,7 @@ class Assumption:
 
 
 def assumption_message(name: str, assumption: Assumption) -> str:
-    """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
+    """The sentence a consumer raises when the data attached to *assumption*, called *name*, fails it.
 
     The language's own wording, so every consumer refuses in the same words;
     a consumer appends the coordinates it saw. Where the file wrote a
@@ -577,16 +577,16 @@ def assumption_message(name: str, assumption: Assumption) -> str:
     why the rule is there.
     """
     read = ', '.join(f"'{n}'" for n in sorted(assumption.predicate.names_read))
-    sentence = f"assumption '{name}' does not hold for the data bound to {read}"
+    sentence = f"assumption '{name}' does not hold for the data attached to {read}"
     return f'{sentence} — {assumption.description}' if assumption.description else sentence
 
 
 @dataclass(frozen=True)
 class ParameterDeclaration:
-    """Shape declaration; data is bound at execution time by name.
+    """Shape declaration; data is attached at execution time by name.
 
     ``dtype`` is what the declaration claims the values are, and a consumer
-    binding data refuses a column that is not it — so the *declaration* is
+    attaching data refuses a column that is not it — so the *declaration* is
     what is read, rather than whatever the column happens to hold.
     """
 
@@ -888,7 +888,7 @@ class Program:
     #: What the data has to satisfy for the answer to mean anything, by the
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
     #: what each ``piecewise:`` block's method assumes of its breakpoints. The
-    #: language decides none of it, so the consumer binding the data checks
+    #: language decides none of it, so the consumer attaching the data checks
     #: each and refuses with :func:`assumption_message`.
     assumptions: Mapping[str, Assumption] = Sealed({})
     #: Declared ``expressions:``, each saying whether the math reads it. None

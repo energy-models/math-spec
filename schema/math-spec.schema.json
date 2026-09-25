@@ -4,7 +4,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "What the model assumes of its data: a predicate every coordinate it is checked at has to satisfy.\n\nWritten in YAML as a bare where string, or as a mapping once it carries a\n``where:`` or a ``description:``, and serialised back to whichever form it\nwas written in::\n\n    assumptions:\n      efficiency_is_a_fraction: \"efficiency > 0 AND efficiency <= 1\"\n      bounds_do_not_cross:\n        holds: \"p_min <= p_max\"\n        where: \"p_min\"\n        description: a unit with no minimum is unconstrained below\n\nThe language decides nothing about the numbers, so the consumer binding\nthe data checks it, and refuses the data where it does not hold.",
+          "description": "What the model assumes of its data: a predicate every coordinate it is checked at has to satisfy.\n\nWritten in YAML as a bare where string, or as a mapping once it carries a\n``where:`` or a ``description:``, and serialised back to whichever form it\nwas written in::\n\n    assumptions:\n      efficiency_is_a_fraction: \"efficiency > 0 AND efficiency <= 1\"\n      bounds_do_not_cross:\n        holds: \"p_min <= p_max\"\n        where: \"p_min\"\n        description: a unit with no minimum is unconstrained below\n\nThe language decides nothing about the numbers, so the consumer attaching\nthe data checks it, and refuses the data where it does not hold.",
           "properties": {
             "description": {
               "anyOf": [
@@ -133,7 +133,7 @@
     },
     "DimensionBlock": {
       "additionalProperties": false,
-      "description": "A declared dimension, and the dtype its coordinates must be.\n\nA dimension is an axis and nothing else: it declares that the axis exists\nand what its coordinates are typed as, never which coordinates there are \u2014\nthose are data, and arrive at bind time. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``relations:``\n(:class:`RelationBlock`), keyed by their own name.",
+      "description": "A declared dimension, and the dtype its coordinates must be.\n\nA dimension is an axis and nothing else: it declares that the axis exists\nand what its coordinates are typed as, never which coordinates there are \u2014\nthose are data, and arrive when the data is attached. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``relations:``\n(:class:`RelationBlock`), keyed by their own name.",
       "properties": {
         "description": {
           "anyOf": [
@@ -504,7 +504,7 @@
     },
     "RelationBlock": {
       "additionalProperties": false,
-      "description": "A named relation between dimensions: the columns a row is keyed by, and the columns that key determines.\n\nEach side is a dimension, a list of them, or a mapping of column name to\ndimension where two columns share one. ``key:`` is the claim the language\nchecks at bind: one row per key tuple, so every ``values:`` column is a\nfunction of it. A relation with no ``values:`` is **bare** \u2014 every column is\nin its key, a row is its own identity, and nothing reads it::\n\n    relations:\n      gen_bus: {key: generator, values: bus}\n      gen_bt: {key: [generator], values: [bus, technology]}\n      zone_of: {key: [generator, period], values: zone}\n      ends: {key: line, values: {bus0: bus, bus1: bus}}\n      connection: {key: [generator, bus]}\n\nAn operator reads the table in the direction the call names\n(``over=``, ``into=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives at bind\ntime under the relation's name, one column per role.",
+      "description": "A named relation between dimensions: the columns a row is keyed by, and the columns that key determines.\n\nEach side is a dimension, a list of them, or a mapping of column name to\ndimension where two columns share one. ``key:`` is the claim the language\nchecks when the data is attached: one row per key tuple, so every ``values:`` column is a\nfunction of it. A relation with no ``values:`` is **bare** \u2014 every column is\nin its key, a row is its own identity, and nothing reads it::\n\n    relations:\n      gen_bus: {key: generator, values: bus}\n      gen_bt: {key: [generator], values: [bus, technology]}\n      zone_of: {key: [generator, period], values: zone}\n      ends: {key: line, values: {bus0: bus, bus1: bus}}\n      connection: {key: [generator, bus]}\n\nAn operator reads the table in the direction the call names\n(``over=``, ``into=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives with the rest of it,\nunder the relation's name, one column per role.",
       "properties": {
         "description": {
           "anyOf": [
