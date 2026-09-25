@@ -12,6 +12,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+- feat(cli): `canonical --check` fails a model file that is not in the canonical form, and `--write` rewrites it ([#718](https://github.com/energy-models/mathspec/pull/718))
 - feat(language): two files that mean the same model write one text ([#530](https://github.com/energy-models/mathspec/pull/530))
 
 ## 0.1.0 (2026-09-25)
