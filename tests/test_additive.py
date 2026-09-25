@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: math-spec Contributors
+# SPDX-FileCopyrightText: mathspec Contributors
 #
 # SPDX-License-Identifier: MIT
 
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import FORMATS, LanguageError, merge, override, to_markdown, to_spec, typeset
+from mathspec import FORMATS, LanguageError, merge, override, to_markdown, to_spec, typeset
 
 DIMS = {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}}
 
