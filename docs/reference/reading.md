@@ -215,5 +215,5 @@ about whether the windowed answer equals the whole-horizon answer.
 that data as a file. Both round-trip, so `to_spec(spec.to_dict()) == spec`.
 
 `to_yaml()` writes every value and omits every absence. `domain: continuous` is
-written out. A `null`, an infinite bound and an empty section are left out.
+written out. A `null` and an empty section are left out.
 `dims: []` is written, because it says the declaration is a scalar.

@@ -35,7 +35,7 @@ loads.
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and
-bounds.lower is -inf, which is the direction a +slack term improves a minimize
+bounds.lower is open, which is the direction a +slack term improves a minimize
 objective in. No data can change that, so the solve would answer `unbounded`
 and name nothing.
 Give it a finite bounds.lower, or the constraint that was meant to define it.
