@@ -39,7 +39,7 @@ kept as one declaration.
 - **The program keeps the model the author wrote.** A curve is one declaration
   to print and one to explain. Its rows are one formulation of it, so the rows
   are a second model, which a caller asks for with
-  [`spec.expand()`](../reference/api.md#math_spec.Spec.expand).
+  [`spec.expand()`](../reference/reading.md#formulations-written-out).
 - **The spec keeps the text.** A tool that rewrites a model needs the file as
   written: `to_yaml()` writes it back, and `expand()` rewrites it. A tree does
   not give the text back.
