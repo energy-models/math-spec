@@ -18,24 +18,24 @@ from typing import get_args
 import pytest
 
 from mathspec import AdviceKind, advice, to_spec
-from tests.fixtures import SMALL_MODEL, override, raw_of
+from tests.fixtures import SMALL_MODEL, raw_of, varied
 
 EXAMPLES = Path(__file__).resolve().parents[1] / 'examples'
 
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
-TARGET_ONLY = override(
+TARGET_ONLY = varied(
     SMALL_MODEL,
     variables={'p': {'dims': ['g']}},
     objective={'sense': 'minimize', 'expression': 'sum(p * c)'},
 )
 
 #: The same with the relation gone, so nothing reaches ``h`` at all.
-UNREACHED = override(TARGET_ONLY, relations={})
+UNREACHED = varied(TARGET_ONLY, relations={})
 
 #: A curve on ``p``, so the program of the file as written carries a block and
 #: the program of its expansion carries the rows. The objective drives ``p``
 #: down unopposed by anything but the curve.
-CURVED = override(
+CURVED = varied(
     UNREACHED,
     objective={'sense': 'minimize', 'expression': 'sum(p)'},
     dimensions={'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}, 'bp': {'dtype': 'int'}},
@@ -63,14 +63,14 @@ def test_a_dimension_nothing_reaches_is_named():
     ],
 )
 def test_a_dimension_something_reaches_is_in_use(patch):
-    assert not advice(override(TARGET_ONLY, **patch)), (
+    assert not advice(varied(TARGET_ONLY, **patch)), (
         'a dimension a relation targets, a declaration indexes or a grouping lands on is in use'
     )
 
 
 #: A model with one note of each kind: nothing reaches `h`, and `p` is driven
 #: down by the objective with an open lower bound and no constraint on it.
-BOTH_KINDS = override(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': None}})
+BOTH_KINDS = varied(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': None}})
 
 
 def test_both_kinds_of_note_come_through_the_one_door():
@@ -78,9 +78,29 @@ def test_both_kinds_of_note_come_through_the_one_door():
     assert [(n.kind, n.subject) for n in notes] == [('never-an-axis', 'h'), ('unbounded', 'p')], (
         'the never-an-axis advice comes first, then the unboundedness advice'
     )
-    assert {n.kind for n in notes} == set(get_args(AdviceKind)), (
-        'every kind a consumer can pin against is one this file produces'
-    )
+
+
+#: A model whose only note is the third kind: `flow` is a column this file
+#: reads and whatever it is layered onto builds. `p` is bounded on both sides
+#: and every dimension is indexed, so neither other pass has anything to say.
+READS_A_COLUMN = {
+    'dimensions': {'g': {'dtype': 'str'}},
+    'given': {'variables': {'flow': {'dims': ['g']}}},
+    'variables': {'p': {'dims': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
+    'constraints': {'tie': {'dims': ['g'], 'expression': 'p == flow'}},
+}
+
+
+def test_a_column_read_and_not_built_is_advised():
+    (note,) = advice(READS_A_COLUMN)
+    assert (note.kind, note.subject) == ('given', 'flow')
+    assert 'layered onto provides it' in str(note), 'the note says whose job the column is'
+    assert 'merge()' in str(note), 'and names the verb that folds the reading away where a sibling builds it'
+
+
+def test_every_kind_a_consumer_can_pin_against_is_produced_here():
+    kinds = {note.kind for note in (*advice(BOTH_KINDS), *advice(READS_A_COLUMN))}
+    assert kinds == set(get_args(AdviceKind)), 'every kind a consumer can pin against is one these fixtures produce'
 
 
 def _written(model: dict, tmp_path: Path) -> Path:
@@ -136,8 +156,8 @@ def test_every_shipped_formulation_gets_the_answer_its_expansion_gets(example):
     ignored. With the constraints gone and the cost maximized, the curve is
     all that holds ``op_cost``.
     """
-    raw = override(raw_of(EXAMPLES / f'{example}.yaml'), constraints={}, **{'objective.sense': 'maximize'})
-    assert [(n.kind, n.subject) for n in advice(override(raw, piecewise={}))] == [('unbounded', 'op_cost')], (
+    raw = varied(raw_of(EXAMPLES / f'{example}.yaml'), constraints={}, **{'objective.sense': 'maximize'})
+    assert [(n.kind, n.subject) for n in advice(varied(raw, piecewise={}))] == [('unbounded', 'op_cost')], (
         'without its curve nothing holds op_cost, so the answer below turns on reading the curve'
     )
     spec = to_spec(raw)

@@ -58,6 +58,8 @@ __all__ = [
     'ExpressionComparison',
     'ExpressionDeclaration',
     'Footprint',
+    'GivenDeclaration',
+    'GivenTargets',
     'GroupSum',
     'Link',
     'Mask',
@@ -610,6 +612,41 @@ class VariableDeclaration:
 
 
 @dataclass(frozen=True)
+class GivenDeclaration:
+    """A column or a row family this program reads and does not build.
+
+    The frame is the whole declaration. A consumer looks the name up in the
+    model this one is layered onto, checks the frame against what it finds,
+    and refuses a name the host does not provide.
+    """
+
+    dims: tuple[str, ...]
+    description: str | None = None
+
+
+@dataclass(frozen=True)
+class GivenTargets:
+    """What a program reads and does not build, by kind.
+
+    Both groups are empty in a program built from one whole model. Both are
+    sealed at construction, like every group of :class:`Program`.
+    """
+
+    #: Columns the host model provides, by name.
+    variables: Mapping[str, GivenDeclaration] = Sealed({})
+    #: Row families the host model provides, by name, read back after the solve.
+    constraints: Mapping[str, GivenDeclaration] = Sealed({})
+
+    def __post_init__(self) -> None:
+        for f in fields(self):
+            object.__setattr__(self, f.name, Sealed(getattr(self, f.name)))
+
+    def __bool__(self) -> bool:
+        """Whether the program reads anything it does not build."""
+        return bool(self.variables or self.constraints)
+
+
+@dataclass(frozen=True)
 class ConstraintDeclaration:
     """``lhs sense rhs`` for each coord combination of ``dims``.
 
@@ -897,6 +934,10 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    #: What this program reads and does not build (:class:`GivenTargets`). A
+    #: model it is layered onto provides each name; nothing here emits a
+    #: column or a row.
+    given: GivenTargets = GivenTargets()
     #: What the file as a whole is, as its ``description:`` says.
     description: str | None = None
 

@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# How `examples/library/` prints. The names are PyPSA's, so a fragment reads
+# beside `n.model`; these symbols are the ones `pypsa.yaml` uses. One table
+# serves every fragment, the model they compose and the variants laid over it.
+# Each page takes the cut of it that its own model declares, because a table
+# naming anything else is refused.
+notation: latex
+dimensions:
+  snapshot: { index: t, set: '\mathcal{T}' }
+  bus: { index: n, set: '\mathcal{N}' }
+  port: { index: j, set: '\mathcal{J}' }
+  generator: { index: g, set: '\mathcal{G}' }
+  load: { index: d, set: '\mathcal{D}' }
+names:
+  Port_p: f
+  Generator_p: p
+  Generator_p_nom: '\mathrm{p}^{\mathrm{nom}}'
+  Generator_marginal_cost: '\mathrm{c}'
+  Generator_p_min_pu: '\underline{\mathrm{p}}'
+  Generator_status: u
+  Load_p_set: '\mathrm{load}'

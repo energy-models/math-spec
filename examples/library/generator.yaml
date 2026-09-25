@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  PyPSA's `Generator`, wired to a port rather than straight to a bus, and cut
+  to what a dispatch model needs: a fixed build, no availability profile, no
+  ramp limits.
+dimensions:
+  snapshot: { dtype: datetime, description: dispatch periods }
+  port: { dtype: str, description: "the connections components make, one label per connection" }
+  generator: { dtype: str, description: "generating units, each on one port" }
+relations:
+  Generator_port: { key: generator, values: port }
+given:
+  variables:
+    Port_p:
+      dims: [snapshot, port]
+      description: the surface introduces this flow, and this file pins it at its own ports
+parameters:
+  Generator_p_nom: { dims: [generator], description: nominal power }
+  Generator_marginal_cost: { dims: [generator], description: cost of one unit of output }
+variables:
+  Generator_p:
+    dims: [snapshot, generator]
+    bounds: { lower: 0, upper: Generator_p_nom }
+    description: "`Generator-p` — what a generator produces in a snapshot"
+constraints:
+  Generator_injection:
+    description: >-
+      what a generator produces is what its port injects. No PyPSA row stands
+      for this: PyPSA writes the generator into the balance instead
+    dims: [snapshot, generator]
+    expression: at(Port_p, by=Generator_port, over=port, into=generator) == Generator_p
+objective:
+  sense: minimize
+  expression: sum(Generator_p * Generator_marginal_cost)

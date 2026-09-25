@@ -62,7 +62,7 @@ from mathspec.program import (
     where_children,
 )
 from mathspec.resolution import Namespace
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, override, schema_of, where_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, expanded, expression_of, schema_of, varied, where_of
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
@@ -71,7 +71,7 @@ CAPACITY_POSITIVE = ParameterComparison('capacity', '>', 0.0, ('generator',))
 
 #: One dimension, one parameter, one bounded variable and a scalar constraint:
 #: the smallest model that loads, for a claim about the plan's record rather
-#: than about the math in it. A test adds what it judges with :func:`override`.
+#: than about the math in it. A test adds what it judges with :func:`varied`.
 TINY = {
     'dimensions': {'g': {}},
     'parameters': {'cost': {'dims': ['g']}},
@@ -89,7 +89,7 @@ AT_BUS = RelationDeclaration((('g', 'g'), ('bus', 'bus')), ('g',))
 #: offset. Which node a construct becomes is mostly a claim about the dim it
 #: consumes and the dim it lands on, and stating that needs a third dimension
 #: and two relations over one of them.
-SHAPES_MODEL = override(
+SHAPES_MODEL = varied(
     SMALL_MODEL,
     **{
         'dimensions.z': {'dtype': 'str'},
@@ -152,7 +152,7 @@ def test_program_structure(dispatch_program):
 @pytest.mark.parametrize('sense', [pytest.param('minimize', id='minimize'), pytest.param('maximize', id='maximize')])
 def test_the_objective_sense_crosses_untranslated(sense: str):
     """One spelling from the file to the program, in both directions — each sink translates at its own edge."""
-    program = to_spec(override(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, over=g)'})).program
+    program = to_spec(varied(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, over=g)'})).program
     assert program.objective is not None
     assert program.objective.sense == sense, "the file's own word for the direction, unchanged"
 
@@ -290,7 +290,7 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
 def test_a_lowered_mask_answers_its_dims_conjuncts_and_atoms(variable, where, dims, conjuncts, atoms):
     """`Mask.dims` is read off the leaves, which carry their declarations' dims;
     `atoms` crosses the `OR` that `conjuncts` stops at."""
-    mask = to_spec(override(SMALL_MODEL, **{f'variables.{variable}.where': where})).program.variables[variable].where
+    mask = to_spec(varied(SMALL_MODEL, **{f'variables.{variable}.where': where})).program.variables[variable].where
 
     assert mask.dims == frozenset(dims)
     assert len(mask.conjuncts) == conjuncts, 'an OR is one conjunct, a leaf is one conjunct'
@@ -386,7 +386,7 @@ def test_an_unwritten_where_lowers_to_none_not_an_empty_mask():
 
 
 def test_a_constraint_where_is_a_mask_like_a_variable_s():
-    lowered = to_spec(override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})).program
+    lowered = to_spec(varied(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})).program
     (c,) = lowered.constraints.values()
 
     assert c.where == Mask(ParameterComparison('load', '>', 0.0, ('snapshot',)))
@@ -395,7 +395,7 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
 def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides():
     """The resolved tree holds the core syntax tree; the program holds the vocabulary a consumer reads, and every mask is rebuilt so."""
     program = to_spec(
-        override(
+        varied(
             SHAPES_MODEL,
             **{
                 'parameters.zc': {'dims': ['z']},
@@ -424,7 +424,7 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
 def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
     """A comparison of expressions inside a count is rebuilt too, so a program mask is program vocabulary throughout."""
     program = to_spec(
-        override(
+        varied(
             SHAPES_MODEL,
             **{'constraints.w': {'dims': ['g'], 'where': 'count(c <= 0.5 * k, over=g) >= 2', 'expression': 'p <= c'}},
         )
@@ -440,7 +440,7 @@ def test_a_predicate_a_leaf_carries_is_lowered_like_any_other_mask():
 def test_a_translated_predicate_keeps_what_it_reads_in_reach():
     """A walk that asks a mask what it names has to see through the translation, or the column is silently dropped."""
     program = to_spec(
-        override(
+        varied(
             SHAPES_MODEL,
             **{
                 'constraints.w': {
@@ -460,7 +460,7 @@ def test_a_translated_predicate_keeps_what_it_reads_in_reach():
 def test_a_predicate_read_through_a_relation_is_lowered_and_keeps_the_relation_in_reach():
     """The comparison under the read is rebuilt, and the relation is data the consumer attaches as well as the operand."""
     program = to_spec(
-        override(
+        varied(
             SHAPES_MODEL,
             **{
                 'parameters.zcap': {'dims': ['z']},
@@ -503,7 +503,7 @@ def test_assumptions_carry_the_file_s_entries_and_the_curves_behind_them():
 
 def test_an_assumption_lowers_both_of_its_masks():
     """The predicate and the ``where`` are rebuilt on program expressions, as every other mask is."""
-    program = to_spec(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}})).program
+    program = to_spec(varied(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= 0.5 * k', 'where': 'flag'}})).program
     assumption = program.assumptions['sound']
 
     assert assumption == Assumption(
@@ -523,7 +523,7 @@ def test_an_assumption_refuses_in_the_words_the_file_wrote():
     the sentence quotes it where the file wrote one.
     """
     reason = 'a shape with no room between its bounds cannot be cut'
-    program = to_spec(override(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= k', 'description': reason}})).program
+    program = to_spec(varied(SHAPES_MODEL, assumptions={'sound': {'holds': 'c <= k', 'description': reason}})).program
     assumption = program.assumptions['sound']
 
     assert assumption.description == reason, 'the program carries it, so a consumer needs no second read of the file'
@@ -536,7 +536,7 @@ def test_a_cased_side_reads_the_data_its_regions_are_decided_by():
     """`names_read` promised every parameter and relation the sides read, and dropped the
     `when:` of a cased entry: the walk descends a `Cases` by its values alone."""
     program = to_spec(
-        override(
+        varied(
             SHAPES_MODEL,
             **{
                 'expressions.e': {
@@ -809,7 +809,7 @@ def test_walk_is_the_node_column_of_walk_regions():
 def test_a_relation_is_declared_as_the_file_declares_it():
     """One group keyed by name, each entry its columns and its key, and nothing nested under a dimension."""
     program = to_spec(
-        override(
+        varied(
             TINY,
             dimensions={'g': {}, 'bus': {}, 'season': {}},
             relations={
@@ -843,7 +843,7 @@ def test_a_program_seals_its_declaration_groups(dispatch_program, group):
 def test_roots_are_the_trees_a_row_is_built_from():
     """`expressions` is the file's own section, which builds no row at all; the row-building trees are `roots`."""
     program = to_spec(
-        override(
+        varied(
             TINY,
             expressions={'spend': 'sum(cost, over=g)'},
             objective={'sense': 'minimize', 'expression': 'sum(p * cost, over=g)'},
@@ -864,7 +864,7 @@ def test_roots_are_the_trees_a_row_is_built_from():
 
 def _footprint_of(constraint: str, objective: str) -> Footprint:
     return to_spec(
-        override(
+        varied(
             TINY,
             constraints={'k': {'dims': ['g'], 'expression': constraint}},
             objective={'sense': 'minimize', 'expression': objective},
@@ -916,7 +916,7 @@ def test_the_footprint_is_walked_once_and_held(dispatch_program):
 
 def test_a_named_expression_is_not_in_the_footprint():
     """It builds no row, so counting it would answer wrongly about what is solved."""
-    program = to_spec(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'})).program
+    program = to_spec(varied(TINY, expressions={'spend': 'sum(p * cost, over=g)'})).program
 
     assert Parameter not in program.footprint.kinds, "the named expression's parameter reaches no row"
     assert Parameter in {type(n) for n in walk(program.expressions['spend'].expression)}, (
@@ -930,7 +930,7 @@ def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
     A dimension is read from whatever table carries it, so nothing downstream
     can infer what the column should have been.
     """
-    program = to_spec(override(TINY, **{'dimensions.t': {'dtype': 'int'}})).program
+    program = to_spec(varied(TINY, **{'dimensions.t': {'dtype': 'int'}})).program
 
     assert program.dimensions['t'].dtype == 'int', 'a declared dtype reaches the plan'
     assert program.dimensions['g'].dtype == 'str', "and the schema's default does too, rather than nothing"
@@ -1054,14 +1054,14 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
 )
 def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
     """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
-    program = to_spec(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch)).program
+    program = to_spec(varied(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch)).program
     assert program.expressions['spend'].in_math is in_math
 
 
 def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
     """The whole chain is in the math, not only the entry a row names: the constraint inlines `twice`, and `twice` inlines `spend`."""
     program = to_spec(
-        override(
+        varied(
             TINY,
             expressions={'spend': 'sum(p * cost, over=g)', 'twice': 'spend * 2'},
             **{'constraints.c.expression': 'twice >= 1'},
@@ -1076,7 +1076,7 @@ def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
 def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
     """A formal shadows the entry inside the template, so the row inlines the argument, not the same-named entry."""
     program = to_spec(
-        override(
+        varied(
             TINY,
             expressions={'spend': 'sum(p * cost, over=g)'},
             macros={'scaled': {'args': ['spend'], 'template': 'spend * 2'}},
@@ -1090,7 +1090,7 @@ def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
 
 def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
     """A dual is read after the solve, so an entry calling one is never in the math: it lowers to a Dual leaf and stays reported."""
-    program = to_spec(override(TINY, expressions={'shadow_price': 'dual(c)'})).program
+    program = to_spec(varied(TINY, expressions={'shadow_price': 'dual(c)'})).program
     declaration = program.expressions['shadow_price']
     assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
     assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'

@@ -14,6 +14,9 @@ Every model is a file under `examples/` in the repository.
   by region, so a single inequality covers both regimes.
 - [One construct per model](operators.md) declares each operator in the smallest
   file that can, and prints the equation beside it.
+- [A component library](library/index.md) is several files that compose into
+  one model. Each file reads the coupling surface and prints on its own, and the
+  composed page shows what `merge` returns.
 
 The PyPSA parity pages, from [PyPSA in one file](pypsa.md) on, are a proof of
 concept. They sit in the Development section.

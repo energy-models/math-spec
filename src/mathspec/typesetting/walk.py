@@ -329,7 +329,8 @@ class Walk:
             return ctx.indexed(self.symbols.name[node.name], list(self.program.parameters[node.name].dims)), _ATOM
 
         if isinstance(node, Variable):
-            return ctx.indexed(self.symbols.name[node.name], list(self.program.variables[node.name].dims)), _ATOM
+            frames = {**self.program.variables, **self.program.given.variables}
+            return ctx.indexed(self.symbols.name[node.name], list(frames[node.name].dims)), _ATOM
 
         if isinstance(node, Negate):
             text, precedence = self._arithmetic(node.operand, ctx)
@@ -364,7 +365,8 @@ class Walk:
 
     def _dual(self, node: Dual, ctx: _Context) -> str:
         """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
-        frame = self._sorted(frozenset(self.program.constraints[node.constraint].dims))
+        frames = {**self.program.constraints, **self.program.given.constraints}
+        frame = self._sorted(frozenset(frames[node.constraint].dims))
         return self.format.subscript(
             self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
         )

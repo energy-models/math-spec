@@ -70,10 +70,10 @@ def dims_of(node: Expression, schema: Spec, context: str) -> frozenset[str]:
         return frozenset(schema.parameters[node.name].dims)
 
     if isinstance(node, Variable):
-        return frozenset(schema.variables[node.name].dims)
+        return frozenset({**schema.variables, **schema.given.variables}[node.name].dims)
 
     if isinstance(node, Dual):
-        return frozenset(schema.constraints[node.constraint].dims)
+        return frozenset({**schema.constraints, **schema.given.constraints}[node.constraint].dims)
 
     if isinstance(node, Named):
         return _named_dims(node, schema, context)

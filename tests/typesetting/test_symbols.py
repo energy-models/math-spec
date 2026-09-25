@@ -13,7 +13,7 @@ import pytest
 from mathspec.errors import SchemaError
 from mathspec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
 from mathspec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, varied
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from mathspec.typesetting.format import Format
 
 
-WITH_MARGINAL_COST = override(
+WITH_MARGINAL_COST = varied(
     DISPATCH_MODEL,
     **{'parameters.marginal_cost': {'dims': ['generator']}, 'objective.expression': 'sum(p * marginal_cost)'},
 )
@@ -57,7 +57,7 @@ def test_the_table_prints_verbatim_and_the_rest_is_still_derived(render, symbols
         assert fragment in out
 
 
-DESCRIBED = override(
+DESCRIBED = varied(
     DISPATCH_MODEL,
     **{
         'dimensions.generator.description': 'dispatchable units',
@@ -97,7 +97,7 @@ def test_a_named_expression_has_a_legend_row_exactly_while_its_symbol_prints(nam
 
 #: The dispatch model with a curve on it, so one model has two readings and one
 #: table has to spell both.
-CURVED = override(
+CURVED = varied(
     DISPATCH_MODEL,
     **{
         'dimensions.bp': {'dtype': 'int'},
@@ -151,7 +151,7 @@ def test_a_table_spells_the_names_the_expansion_declares_and_no_other(patch):
     """A name any method could write counted as declared, so a table naming the
     chord of a curve that has none, or the curve's own set, was ignored rather
     than refused."""
-    spec = to_spec(override(CURVED, **patch))
+    spec = to_spec(varied(CURVED, **patch))
     written = _names(spec.expand()) - _names(spec)
     reserved = {
         'curve',

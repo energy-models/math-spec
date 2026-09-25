@@ -29,6 +29,8 @@ from mathspec.program import (
     ConstraintDeclaration,
     DimensionDeclaration,
     ExpressionDeclaration,
+    GivenDeclaration,
+    GivenTargets,
     Link,
     Mask,
     Named,
@@ -222,6 +224,14 @@ def lower(schema: Spec) -> Program:
             )
             for name, entry in entries.items()
         },
+        given=GivenTargets(
+            variables={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.variables.items()
+            },
+            constraints={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
+            },
+        ),
         description=schema.description,
     )
     if errors := emitted_name_errors(schema, program):

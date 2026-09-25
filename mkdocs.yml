@@ -42,6 +42,7 @@ nav:
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
       - Write a piecewise curve out by hand: howto/curve-by-hand.md
       - See what a curve or a set expands to: howto/see-an-expansion.md
+      - Compose a model from several files: howto/compose.md
   - Reference:
       - Language:
           - reference/language/index.md
@@ -64,6 +65,12 @@ nav:
           - Least-cost dispatch: examples/dispatch.md
           - Unit commitment: examples/commitment.md
           - One construct per model: examples/operators.md
+          - A component library:
+              - examples/library/index.md
+              - The coupling surface: examples/library/surface.md
+              - Generators: examples/library/generator.md
+              - Loads: examples/library/load.md
+              - The composed model: examples/library/composed.md
   - About:
       - The limits: about/limits.md
       - Versions: about/versions.md

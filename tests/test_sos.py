@@ -14,10 +14,10 @@ from __future__ import annotations
 import pytest
 
 from mathspec.errors import SchemaError
-from tests.fixtures import SMALL_MODEL, expanded, override, schema_of
+from tests.fixtures import SMALL_MODEL, expanded, schema_of, varied
 
 #: A set over a bounded member, which is the smallest model `expand('sos')` acts on.
-PICKED = override(
+PICKED = varied(
     SMALL_MODEL,
     **{
         'parameters.floor': {'dims': ['g']},
@@ -65,7 +65,7 @@ def test_an_unpicked_member_is_held_at_zero_from_the_sides_its_bounds_state(boun
     """A row multiplies by a bound rather than reading it, so a parameter needs no
     load-time knowledge of its value; and `x >= 0 * seg` is what the variable's own
     bound already says, so the second row is written only where it says more."""
-    schema = schema_of(override(PICKED, **{'variables.p.bounds': bounds}))
+    schema = schema_of(varied(PICKED, **{'variables.p.bounds': bounds}))
     expanded = schema.expand('sos')
 
     written = {name: c.expression for name, c in expanded.constraints.items() if name.startswith('pick_nonzero')}
@@ -78,19 +78,19 @@ def test_a_set_carries_no_coefficient_of_its_own():
     a solver taking the set natively ignored it either way. So the coefficient is the
     member's own bound and nothing else, and the key is not in the language."""
     with pytest.raises(SchemaError, match="unknown key 'bound' in a sos declaration"):
-        schema_of(override(PICKED, **{'sos.pick.bound': 500}))
+        schema_of(varied(PICKED, **{'sos.pick.bound': 500}))
 
 
 def test_a_coefficient_of_one_is_left_out_of_the_row_rather_than_printed():
     """A binary carries no bounds block, and its upper bound is 1 all the same — which multiplies nothing."""
-    schema = schema_of(override(PICKED, **{'variables.p': {'dims': ['g'], 'domain': 'binary'}}))
+    schema = schema_of(varied(PICKED, **{'variables.p': {'dims': ['g'], 'domain': 'binary'}}))
 
     assert schema.expand('sos').constraints['pick_nonzero'].expression == 'p <= (pick_seg)'
 
 
 def test_the_emitted_binary_carries_the_members_own_mask():
     """A member that does not exist is not in the set, so its binary is not there either."""
-    schema = schema_of(override(PICKED, **{'variables.p.where': 'flag'}))
+    schema = schema_of(varied(PICKED, **{'variables.p.where': 'flag'}))
 
     assert schema.expand('sos').variables['pick_seg'].where == 'flag'
 
@@ -104,7 +104,7 @@ def test_a_set_emits_no_parameter_so_the_same_sources_bind_both():
 def test_the_adjacency_method_is_the_sos2_curve_with_its_set_written_out():
     """The one spelling of the binaries, so the two methods cannot drift apart."""
     sos2 = schema_of(CURVE).expand().program
-    adjacency = expanded(override(CURVE, **{'piecewise.cost_curve.method': 'adjacency'}), 'piecewise').program
+    adjacency = expanded(varied(CURVE, **{'piecewise.cost_curve.method': 'adjacency'}), 'piecewise').program
 
     assert sos2.variables == adjacency.variables
     assert sos2.constraints == adjacency.constraints

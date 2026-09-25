@@ -5,8 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Parameters, variables, constraints and the objective
 
-These four blocks carry the math. Each takes an optional `description:`, free
-text that the [typeset](../typeset.md#descriptions) legend prints.
+These four blocks carry the math, and `given:` names what the math reads from
+another file. Each takes an optional `description:`, free text that the
+[typeset](../typeset.md#descriptions) legend prints.
 
 ## `parameters`
 
@@ -80,6 +81,87 @@ and `upper: -rating` is refused. Ship the negated column as data.
 
 Equal bounds pin a variable ([fix a quantity](../../howto/pin-a-variable.md)).
 A pinned variable is still a variable.
+
+## `given`
+
+`given:` holds what this file reads and does not build: columns under
+`variables:`, row families under `constraints:`. It takes those two keys and no
+other. A file with a `given:` block loads and prints on its own.
+
+### `given: variables`
+
+A given variable is a column this file reads and another file introduces.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_port: { key: generator, values: port }
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+given:
+  variables:
+    flow:
+      dims: [snapshot, port]
+      description: what a port puts into its bus
+constraints:
+  gen_injects:
+    dims: [snapshot, generator]
+    expression: at(flow, by=gen_port, over=port, into=generator) == gen_p
+```
+
+| Field         |                                                   |                      |
+| ------------- | ------------------------------------------------- | -------------------- |
+| `dims`        | required. The dimensions the column is indexed by |                      |
+| `domain`      | `continuous`, `integer` or `binary`               | default `continuous` |
+| `description` | free text                                         | default `null`       |
+
+There is no `bounds` and no `where`. The file that introduces the column owns
+both.
+
+An expression reads a given variable as it reads any other. A name declared
+under both `variables:` and `given: variables:` is refused. The typeset legend
+lists a given variable under _Given_, and prints no domain line for it.
+
+[`merge`](../../howto/compose.md#a-library-of-components) folds a given
+declaration into the declaration of another fragment that introduces the name,
+so a composed library carries none of them. The folded declaration is the
+introducer's, and what the reader states has to say the same or less.
+
+Where nothing in this language introduces the column, the program carries the
+declaration until a host model provides it
+([what a program does not build](../reading.md#what-a-program-does-not-build)).
+
+### `given: constraints`
+
+A given constraint is a row family that another model builds. This file reads
+its dual.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+given:
+  constraints:
+    balance:
+      dims: [snapshot, bus]
+      description: the host model clears each bus
+expressions:
+  price:
+    expression: dual(balance)
+```
+
+| Field         |                                                   |                |
+| ------------- | ------------------------------------------------- | -------------- |
+| `dims`        | required. The dimensions the row family runs over |                |
+| `description` | free text                                         | default `null` |
+
+There is no `expression` and no `sense`.
+`dual(name)` is the only place a given row family may be named, and the frame
+gives the reported expression its dimensions. A name declared under both
+`constraints:` and `given: constraints:` is refused.
 
 ## `constraints`
 

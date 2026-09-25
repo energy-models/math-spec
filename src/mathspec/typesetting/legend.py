@@ -133,7 +133,7 @@ class Legend:
         return self.format.operators[name]
 
     def glossaries(self, noticed: Noticed, defined: Iterable[str]) -> list[tuple[str, list[Entry]]]:
-        """The sets, parameters, variables and definitions, each with its symbol, its dims and its description.
+        """The sets, parameters, variables, given declarations and definitions, each with its symbol, its dims and its description.
 
         *defined* names the expressions that print under their own symbol, so
         a legend row stands exactly where a symbol does.
@@ -155,13 +155,33 @@ class Legend:
             self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.dims))}', block.description)
             for v, block in program.variables.items()
         ]
+        given = [
+            *(
+                self._entry(self.symbols.name[g], f'{fmt.mono(g)}{self._over(list(block.dims))}', block.description)
+                for g, block in program.given.variables.items()
+            ),
+            *(
+                self._entry(
+                    self.symbols.constraint[g],
+                    f'{fmt.mono(g)}{self._over(list(block.dims))}, a row family this file reads the dual of',
+                    block.description,
+                )
+                for g, block in program.given.constraints.items()
+            ),
+        ]
         shown = set(defined)
         definitions = [
             self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(list(block.dims))}', block.description)
             for e, block in program.expressions.items()
             if e in shown
         ]
-        groups = (('Sets', sets), ('Parameters', parameters), ('Variables', variables), ('Definitions', definitions))
+        groups = (
+            ('Sets', sets),
+            ('Parameters', parameters),
+            ('Variables', variables),
+            ('Given', given),
+            ('Definitions', definitions),
+        )
         return [(title, entries) for title, entries in groups if entries]
 
     def _entry(self, symbol: str, what: str, description: str | None) -> Entry:

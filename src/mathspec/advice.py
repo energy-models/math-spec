@@ -33,11 +33,32 @@ def advice(model: str | Path | Mapping[str, object] | Spec | Program) -> tuple[A
             expansion gets, with nothing expanded.
 
     Returns:
-        The never-an-axis advice in declaration order, then the unboundedness
-        advice; ``str()`` of each is its sentence.
+        The never-an-axis advice in declaration order, then one note per
+        declaration the program reads and does not build, then the
+        unboundedness advice; ``str()`` of each is its sentence.
     """
     program = model if isinstance(model, Program) else to_spec(model).program
-    return tuple(_never_an_axis(program) + unbounded_notes(program))
+    return tuple(_never_an_axis(program) + _given(program) + unbounded_notes(program))
+
+
+def _given(program: Program) -> list[Advice]:
+    """One note per declaration the program reads and does not build.
+
+    A note rather than a refusal: the file is a model somebody meant, and only
+    the consumer can tell whether a host model provides the name.
+    """
+    return [
+        Advice(
+            'given',
+            name,
+            f"{kind} '{name}' is read here and built elsewhere: the model this one is layered onto "
+            f'provides it. A consumer checks that it does, on the same frame, and refuses the program where '
+            f'it does not. A fragment is composed instead: merge() folds this declaration into the one a '
+            f'sibling introduces.',
+        )
+        for kind, group in (('variable', program.given.variables), ('row family', program.given.constraints))
+        for name in group
+    ]
 
 
 def _never_an_axis(program: Program) -> list[Advice]:
@@ -45,10 +66,18 @@ def _never_an_axis(program: Program) -> list[Advice]:
 
     A dimension a relation has a column over is reached: its members are the
     labels that column is checked against, and a ``where`` selects on them,
-    so it is in use even where nothing is indexed by it.
+    so it is in use even where nothing is indexed by it. A dimension only a
+    given declaration indexes is reached too: the column exists, in another
+    file.
     """
     reached: set[str] = set()
-    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
+    for declaration in (
+        *program.parameters.values(),
+        *program.variables.values(),
+        *program.constraints.values(),
+        *program.given.variables.values(),
+        *program.given.constraints.values(),
+    ):
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
     reached |= {dim for lk in program.relations.values() for dim in lk.dims}

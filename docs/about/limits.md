@@ -12,7 +12,7 @@ or keyword. For the rules a model itself has to obey, read
 
 ## How a new construct enters
 
-A request for something new is one of three kinds, and the kind decides what it
+A request for something new is one of four kinds, and the kind decides what it
 costs to add.
 
 - **A macro** is a template with arguments, written in the file under `macros:`.
@@ -28,8 +28,14 @@ costs to add.
   constraints and assumptions, and no parameter, so
   [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
   writes it out with the data the model already attaches.
+- **A declaration section** is a block of declarations of one kind, such as
+  `variables:` or `given:`. One enters where it states something no section
+  states, where a file decides it without data, and where the typesetter prints
+  it. `given:` entered on all three. No other section says that a column
+  belongs to another file, and that is what lets a component file load and
+  print on its own.
 
-A request that is none of the three is refused, and the
+A request that is none of the four is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
 instead.
 
@@ -104,5 +110,5 @@ instead.
 | `**` with a variable in the base or the exponent                         | the exponent would decide the degree, and `to_spec` reads no data                                                                          | `x * x` for a square. `**` over parameters and numbers is allowed                                                                                                                  |
 | Normalisation, `x / sum(x)`                                              | dividing by a variable is not a polynomial, and no solver takes it                                                                         | write the ratio as a constraint, or fix the denominator                                                                                                                            |
 | An `if`, a loop, or declarations that depend on the data                 | `to_spec` could no longer read the file without the data                                                                                   | `where:` masks and `dims:` dimensions. A tool may loop over models                                                                                                                 |
-| A Python API for building models                                         | the model is the file you review and diff                                                                                                  | YAML, or a `dict` with the same keys, merged before `to_spec`                                                                                                                      |
+| A Python API for building models                                         | the model is the file you review and diff                                                                                                  | YAML, or a `dict` with the same keys ([compose a model](../howto/compose.md))                                                                                                      |
 | A `where` comparing a relation column against the dimension it maps into | the relation already pairs the two, and a mask over the pair is the same fact in a bigger shape                                            | place the quantity with `sum(by=)`, or read it with `at(by=)` ([operators](../reference/language/operators.md#sum))                                                                |

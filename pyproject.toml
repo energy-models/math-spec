@@ -211,12 +211,13 @@ extend-exclude = ["CHANGELOG.md"]
 [tool.typos.default.extend-words]
 # Each of these is deliberate, and none is reachable by fixing a spelling.
 #
-# `wher` and `generatr` are misspellings *on purpose*: they are the input to the
-# did-you-mean suggester, so correcting them deletes the case. `missable` is the
+# `wher`, `generatr` and `balnce` are misspellings *on purpose*: they are the
+# input to the did-you-mean suggester, so correcting them deletes the case. `missable` is the
 # word the sentence wants — a coordinate that can go missing — and is not
 # "miscible". `unparseable` is the accepted variant and is the name of a test.
 wher = "wher"
 generatr = "generatr"
+balnce = "balnce"
 missable = "missable"
 unparseable = "unparseable"
 # `fom` is PyPSA's `fom_cost` — fixed operation and maintenance — quoted by name
