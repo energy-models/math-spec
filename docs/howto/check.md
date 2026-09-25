@@ -36,8 +36,9 @@ machine and in CI.
    ```
 
 3. **Ask from Python** where the check is one step of a longer script.
-   `to_spec` raises a `MathSpecError` for anything the language refuses, and
-   `advice` returns what it would print:
+   [`to_spec`](../reference/api.md#loading) raises a `MathSpecError` for
+   anything the language refuses, and [`advice`](../reference/api.md#advice)
+   returns what it would print:
 
    ```python
    import math_spec as ms
