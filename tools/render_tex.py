@@ -22,8 +22,10 @@ from tools._page import ROOT, sidecar_for
 #: Every spec the repository has; `examples/*.yaml` is not recursive, and a glob that narrows is a gate that stops testing.
 CORPUS = ('examples/**/*.yaml', 'tests/typesetting/golden/*.yaml')
 
-#: Inside that glob and not specs: the symbol tables `sidecar_for` looks up.
-NOT_MODELS = ('examples/symbols',)
+#: Inside that glob and not specs: the symbol tables `sidecar_for` looks up,
+#: and the patches a library's variants are written as, which `override` lays
+#: over a spec rather than anything loading them on their own.
+NOT_MODELS = ('examples/symbols', 'examples/library/variants')
 
 
 def models() -> list[Path]:

@@ -19,7 +19,7 @@ from mathspec.errors import LanguageError, SchemaError
 from mathspec.piecewise import expand_piecewise
 from mathspec.program import Assumption, Variable, assumption_message
 from mathspec.spec import Curvature
-from tests.fixtures import DISPATCH_MODEL, expanded, override, raw_of, schema_of
+from tests.fixtures import DISPATCH_MODEL, expanded, raw_of, schema_of, varied
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
 #: binaries and links is not something a smaller one can stand in for.
@@ -57,12 +57,12 @@ objective:
   sense: minimize
   expression: sum(op_cost, over=snapshot)
 """
-GATED = override(
+GATED = varied(
     raw_of(NONCONVEX_YAML),
     **{'variables.u': {'dims': ['snapshot'], 'domain': 'binary'}, 'piecewise.cost_curve.activity': 'u'},
 )
 #: The convex curve stated as its segment lines, plus a binary the method cannot gate on.
-LP = override(
+LP = varied(
     raw_of(NONCONVEX_YAML),
     **{
         'piecewise.cost_curve.method': 'lp',
@@ -71,9 +71,9 @@ LP = override(
     },
 )
 #: The ``lp`` curve masked by one of its own values-parameters, so every check a block can carry is on it.
-LP_MASKED = override(LP, **{'piecewise.cost_curve.points': 'bp_x'})
+LP_MASKED = varied(LP, **{'piecewise.cost_curve.points': 'bp_x'})
 #: Two dims in the frame, so the emitted ``dims`` has an order to get wrong.
-TWO_DIM = override(
+TWO_DIM = varied(
     raw_of(NONCONVEX_YAML),
     **{
         'dimensions.generator': {'dtype': 'str'},
@@ -504,7 +504,7 @@ def test_a_gate_that_is_not_a_variable_is_refused(activity, match):
 
 
 #: ``lp`` bounded the other way: the same curve read as its lower envelope.
-LP_CONCAVE = override(
+LP_CONCAVE = varied(
     raw_of(NONCONVEX_YAML),
     **{
         'piecewise.cost_curve.method': 'lp',
@@ -512,11 +512,11 @@ LP_CONCAVE = override(
     },
 )
 #: Both links pinned, so nothing says which way the weights are pushed.
-CONVEX = override(raw_of(NONCONVEX_YAML), **{'piecewise.cost_curve.method': 'convex'})
+CONVEX = varied(raw_of(NONCONVEX_YAML), **{'piecewise.cost_curve.method': 'convex'})
 #: The hull bounded below, which is the same relaxation ``lp`` states as its segment lines.
-CONVEX_BOUNDED = override(CONVEX, **{'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]})
+CONVEX_BOUNDED = varied(CONVEX, **{'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']]})
 #: The hull bounded above, so the binding side is the upper one.
-CONVEX_BOUNDED_BELOW = override(CONVEX, **{'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '<=']]})
+CONVEX_BOUNDED_BELOW = varied(CONVEX, **{'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '<=']]})
 
 
 #: Named so the completeness check below can read the answers back off them.
@@ -575,7 +575,7 @@ def test_a_masked_lp_curve_sits_its_rows_on_predicates_rather_than_on_parameters
 def test_a_file_supplied_mask_is_what_the_contiguity_condition_reads():
     """A ``points:`` naming a parameter the file declared is bound like any other, and the mask check names it."""
     program = expanded(
-        override(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'}),
+        varied(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'}),
         'piecewise',
     ).program
 
@@ -643,7 +643,7 @@ def test_a_curves_conditions_cannot_collide_with_a_written_assumption():
     with pytest.raises(
         SchemaError, match="writes assumption 'cost_curve_increasing', which this file already declares"
     ):
-        expanded(override(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}), 'piecewise')
+        expanded(varied(LP, assumptions={'cost_curve_increasing': 'bp_x > 0'}), 'piecewise')
 
 
 @pytest.mark.parametrize('suffix', ['increasing', 'curvature', 'breakpoints', 'contiguous'])

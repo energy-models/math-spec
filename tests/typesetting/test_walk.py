@@ -16,7 +16,7 @@ from mathspec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, ty
 from mathspec.typesetting.format import OPERATOR_NAMES
 from mathspec.typesetting.symbols import _derive_name_symbol, chosen_expressions, symbols_for
 from mathspec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, override
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, OPERATOR_PROBES, varied
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
 
@@ -55,7 +55,7 @@ def test_a_dimension_index_never_steals_a_letter_a_variable_owns(name: FormatNam
 @EVERY_FORMAT
 def test_a_where_lands_on_the_quantifier_not_in_the_equation(name: FormatName, fmt: Format):
     """A mask is row absence, so it belongs to the ∀ that names the rows."""
-    model = override(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})
+    model = varied(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})
     text = typeset(model, name, legend=False)
     forall, such_that = fmt.operators['forall'], fmt.operators['such_that']
     masked = [line for line in text.splitlines() if such_that in line]
@@ -252,7 +252,7 @@ def test_translations_that_disagree_at_the_edge_do_not_merge(name: FormatName, f
 @EVERY_FORMAT
 def test_a_negation_under_a_plus_is_the_subtraction_it_means(name: FormatName, fmt: Format):
     """`a + -b` is a spelling nobody uses, and the walk was printing it."""
-    model = override(DISPATCH_MODEL, **{'objective.expression': 'sum(p) + -sum(p)'})
+    model = varied(DISPATCH_MODEL, **{'objective.expression': 'sum(p) + -sum(p)'})
     text = typeset(model, name)
     assert f'{fmt.operators["plus"]} {fmt.operators["minus"]}' not in text, 'a plus over a negation is a subtraction'
     assert fmt.operators['minus'] in text, 'the subtraction it folded into should still print'
@@ -266,10 +266,10 @@ def test_a_mask_that_is_only_true_prints_no_condition(name: FormatName, fmt: For
     Nested it printed — `\\top \\wedge x` — while the program lowered the same
     mask to `x`: two readers of one file disagreeing about what it says.
     """
-    always = override(DISPATCH_MODEL, **{'constraints.balance.where': 'True'})
+    always = varied(DISPATCH_MODEL, **{'constraints.balance.where': 'True'})
     assert typeset(always, name) == typeset(DISPATCH_MODEL, name), 'a mask every row passes is no mask at all'
-    nested = override(DISPATCH_MODEL, **{'constraints.balance.where': 'True AND load > 0'})
-    plain = override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})
+    nested = varied(DISPATCH_MODEL, **{'constraints.balance.where': 'True AND load > 0'})
+    plain = varied(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})
     assert typeset(nested, name) == typeset(plain, name), 'a literal under a connective is folded before it prints'
 
 
@@ -383,7 +383,7 @@ def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(name: 
     dash in two of the three outputs and as three hyphens in the one whose
     whole promise is that it renders where it lands.
     """
-    described = override(DISPATCH_MODEL, **{'parameters.cost.description': 'marginal cost'})
+    described = varied(DISPATCH_MODEL, **{'parameters.cost.description': 'marginal cost'})
     text = typeset(described, name)
     assert f'{fmt.dash} marginal cost' in text
     if fmt is FORMATS['markdown']:
@@ -395,7 +395,7 @@ def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used
     """The file names the quantity, so the page does: a use prints the symbol
     and the body prints once under Definitions. A macro is sugar with no
     identity of its own, so it is expanded away either way."""
-    model = override(
+    model = varied(
         DISPATCH_MODEL,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
@@ -407,7 +407,7 @@ def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used
 @EVERY_FORMAT
 def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatName, fmt: Format):
     """What prints then is the math a backend builds, not the name it was spelled with."""
-    model = override(
+    model = varied(
         DISPATCH_MODEL,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
@@ -418,7 +418,7 @@ def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatNa
 
 @EVERY_FORMAT
 def test_an_invalid_model_is_refused_before_anything_renders(name: FormatName, fmt: Format):
-    broken = override(DISPATCH_MODEL, **{'objective.expression': 'p * nonexistent'})
+    broken = varied(DISPATCH_MODEL, **{'objective.expression': 'p * nonexistent'})
     with pytest.raises(LanguageError):
         typeset(broken, name)
 
@@ -428,7 +428,7 @@ def test_inlining_keeps_the_definition_of_an_entry_the_math_never_reads(name: Fo
     """Substitution has nowhere to put it: nothing in the objective or a
     constraint names it, so dropping its definition would drop the quantity
     from the page entirely."""
-    model = override(
+    model = varied(
         DISPATCH_MODEL,
         **{
             'expressions.supply': 'sum(p, over=generator)',
@@ -446,7 +446,7 @@ def test_a_dual_prints_the_constraint_symbol_not_a_same_named_variable(name: For
     """`dual(c)` subscripts λ from a map of its own, so a variable sharing the
     constraint's name — a legal collision, constraints sit outside the flat
     namespace (#74) — cannot lend the dual its italic letter."""
-    model = override(
+    model = varied(
         DISPATCH_MODEL,
         **{
             'variables.balance': {'dims': ['snapshot'], 'bounds': {'lower': 0}},
@@ -467,7 +467,7 @@ def test_an_entry_reading_a_dual_prints_italic(name: FormatName, fmt: Format):
     """Upright is what the model is given, and a shadow price is not: no data
     hands it over, the solve settles it — the same reason a variable is italic,
     though a dual carries no variable for `carries_variable` to find."""
-    model = override(DISPATCH_MODEL, **{'expressions.mp': 'dual(balance)'})
+    model = varied(DISPATCH_MODEL, **{'expressions.mp': 'dual(balance)'})
     assert fmt.subscript(fmt.italic('mp'), ['t']) in typeset(model, name, legend=False), (
         'the entry is read off the solution, so its own symbol is italic'
     )
@@ -509,14 +509,14 @@ def test_a_given_quantity_is_upright(name: str, expected: str):
     r"""Upright is what the data supplies, and it admits no exception — not for
     a single letter, and not for a Greek name, where an italic `\eta` that
     might be either is worse than an upright `\mathrm{eta}` that is one."""
-    assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX, given=True) == expected
+    assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX, upright=True) == expected
 
 
 @EVERY_FORMAT
 def test_a_name_that_is_a_greek_letter_prints_as_the_letter(name: FormatName, fmt: Format):
     """A variable called `theta` set as the italic word *theta* is the one
     derived symbol no paper would accept."""
-    model = override(DISPATCH_MODEL, **{'variables.theta': {'dims': ['snapshot']}})
+    model = varied(DISPATCH_MODEL, **{'variables.theta': {'dims': ['snapshot']}})
     assert fmt.greek('theta') in typeset(model, name)
 
 
@@ -572,7 +572,7 @@ def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(name: FormatName, fmt: 
     whether some unrelated dimension happened to share its prefix: declare a
     dimension named `tech` and `tech_cap` silently re-rendered.
     """
-    model = override(
+    model = varied(
         DISPATCH_MODEL,
         **{'dimensions.zone': {'dtype': 'str'}, 'parameters.zone_cap': {'dims': ['zone']}},
     )
@@ -628,16 +628,14 @@ def test_the_objective_shows_the_summations_the_file_wrote(name: FormatName, fmt
 @EVERY_FORMAT
 def test_two_sums_of_the_same_dims_stay_two_summations(name: FormatName, fmt: Format):
     """The file's structure survives to the page, even where it repeats itself."""
-    text = typeset(override(MIXED, **{'objective.expression': 'sum(p * cost) + sum(p * cost)'}), name, legend=False)
+    text = typeset(varied(MIXED, **{'objective.expression': 'sum(p * cost) + sum(p * cost)'}), name, legend=False)
     assert summations(text, fmt) == 2, 'two written sums are two summations'
 
 
 @EVERY_FORMAT
 def test_a_subtracted_summation_keeps_the_sign_outside_it(name: FormatName, fmt: Format):
     """The sign is applied to the whole reduction, and the bracket says so."""
-    text = typeset(
-        override(MIXED, **{'objective.expression': 'sum(p * cost) - sum(p_nom * capex)'}), name, legend=False
-    )
+    text = typeset(varied(MIXED, **{'objective.expression': 'sum(p * cost) - sum(p_nom * capex)'}), name, legend=False)
     opener = fmt.parenthesise('BODY').split('BODY')[0] + over_generators(fmt)
     assert f'{fmt.operators["minus"]} {opener}' in text
 
@@ -683,7 +681,7 @@ UNREAD = {
 
 def _grouped(dims: list[str], expression: str) -> str:
     """The constraint `c` over *dims*, as the one line of LaTeX it prints."""
-    model = override(UNREAD, **{'constraints.c': {'dims': dims, 'expression': expression}})
+    model = varied(UNREAD, **{'constraints.c': {'dims': dims, 'expression': expression}})
     return next(line for line in to_latex(model, legend=False).splitlines() if line.startswith(r'\text{c}'))
 
 
@@ -733,7 +731,7 @@ BUSES = {
 
 
 def _row(expression: str, where: str | None = None, **patch: object) -> str:
-    model = override(
+    model = varied(
         BUSES,
         **{'constraints.k': {'dims': ['snapshot', 'generator'], 'expression': expression, 'where': where}},
         **patch,
@@ -850,7 +848,7 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
 @EVERY_FORMAT
 def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: FormatName, fmt: Format):
     """`cost <= p_max / 2` on a quantifier renders each side as an expression, around the relation."""
-    model = override(DISPATCH_MODEL, **{'variables.p.where': 'cost <= p_max / 2'})
+    model = varied(DISPATCH_MODEL, **{'variables.p.where': 'cost <= p_max / 2'})
     text = typeset(model, name, legend=False)
     p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
     cost = fmt.subscript(fmt.upright('cost'), ['g'])
@@ -860,7 +858,7 @@ def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: Format
 @EVERY_FORMAT
 def test_a_count_prints_as_the_size_of_the_set_the_predicate_admits(name: FormatName, fmt: Format):
     """A count is a cardinality over a set by comprehension, which is how a paper writes one."""
-    model = override(DISPATCH_MODEL, **{'constraints.balance.where': 'count(p_max > 0, over=generator) >= 2'})
+    model = varied(DISPATCH_MODEL, **{'constraints.balance.where': 'count(p_max > 0, over=generator) >= 2'})
     text = typeset(model, name, legend=False)
     p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
     counted = fmt.set_of(
@@ -873,7 +871,7 @@ def test_a_count_prints_as_the_size_of_the_set_the_predicate_admits(name: Format
 @EVERY_FORMAT
 def test_a_translated_predicate_prints_at_the_index_it_reads(name: FormatName, fmt: Format):
     """The translation shows at the leaf, as it does for arithmetic — it emits no operator of its own."""
-    model = override(
+    model = varied(
         DISPATCH_MODEL, **{'constraints.balance.where': 'load AND NOT shift(load, along=snapshot, offset=1)'}
     )
     text = typeset(model, name, legend=False)
@@ -884,7 +882,7 @@ def test_a_translated_predicate_prints_at_the_index_it_reads(name: FormatName, f
 
 def test_a_count_along_a_dim_the_frame_carries_takes_a_primed_dummy():
     """The set's index would otherwise shadow the frame's, and the two stand for different coordinates."""
-    model = override(
+    model = varied(
         DISPATCH_MODEL,
         **{
             'constraints.balance': {
@@ -901,7 +899,7 @@ def test_a_count_along_a_dim_the_frame_carries_takes_a_primed_dummy():
 @EVERY_FORMAT
 def test_an_assumption_prints_under_its_own_heading(name: FormatName, fmt: Format):
     """What the data is held to prints with the math, because a reader checking it reads the same document."""
-    model = override(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
+    model = varied(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
     text = typeset(model, name, legend=False)
     section = text[text.index('Assumptions') :]
     assert fmt.subscript(fmt.upright('cost'), ['g']) in section
@@ -931,7 +929,7 @@ def test_a_curve_prints_what_its_method_assumes_of_the_breakpoints(name: FormatN
 
 def test_an_assumption_is_a_declaration_a_line_may_be_asked_for():
     """`typeset_declaration` prints one line for a name; an assumption is now one of the names it takes."""
-    model = override(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
+    model = varied(DISPATCH_MODEL, assumptions={'costs_are_positive': 'cost > 0'})
     assert typeset_declaration(model, 'costs_are_positive', 'latex') == (
         r'\mathrm{cost}_{g} > 0 \qquad \forall\, g \in \mathcal{G}'
     )
@@ -1007,12 +1005,12 @@ _CURVE = {
 )
 def test_a_curve_prints_as_the_curve_it_states(patch: dict[str, Any], expected: str):
     """The block, not the rows it stands for: `typeset(spec.expand())` prints those."""
-    assert expected in typeset_declaration(override(_CURVE, **patch), 'curve', 'latex')
+    assert expected in typeset_declaration(varied(_CURVE, **patch), 'curve', 'latex')
 
 
 def test_a_gate_that_does_not_exist_everywhere_prints_the_two_arms_the_expansion_writes_two_rows_for():
     """The one place the walk decides what the weights sum to, which the expansion decides again."""
-    spec = to_spec(override(_CURVE, **{'piecewise.curve.activity': 'warm'}))
+    spec = to_spec(varied(_CURVE, **{'piecewise.curve.activity': 'warm'}))
 
     rows = [name for name in spec.expand('piecewise').constraints if name.startswith('curve_convexity')]
     assert rows == ['curve_convexity', 'curve_convexity_ungated'], (
@@ -1026,7 +1024,7 @@ def test_a_gate_that_does_not_exist_everywhere_prints_the_two_arms_the_expansion
 
 def test_a_curve_prints_over_the_frame_its_expansion_builds_one_per_coordinate_of():
     """Two homes for one union, so the line's quantifier is held to the rows the expansion emits."""
-    model = override(
+    model = varied(
         _CURVE,
         **{
             'dimensions.generator': {'dtype': 'str'},
@@ -1056,7 +1054,7 @@ def test_the_expansion_prints_the_rows_the_block_states():
 @EVERY_FORMAT
 def test_a_set_is_labelled_by_the_block_that_declares_it(name: FormatName, fmt: Format):
     """The line was labelled ``<variable> sos``, a name the file never wrote, while every other line carries its key."""
-    picked = override(
+    picked = varied(
         DISPATCH_MODEL,
         **{
             'variables.p.bounds': {'lower': 0, 'upper': 10},

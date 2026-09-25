@@ -33,19 +33,20 @@ from mathspec._expression_parser import (
     parse_expression,
 )
 from mathspec.canonical import _factors, _signed_terms, canonical_text, laid_out, normalised
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, raw_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, raw_of, varied
 
 if TYPE_CHECKING:
     from mathspec._expression_parser import ArithmeticNode, ParsedNode
 
 #: Every spec in the repository, the operator probes included. The symbol
-#: tables under `examples/symbols/` are not specs and do not load as one.
-SPECS = [path for path in sorted(EXAMPLES.rglob('*.yaml')) if 'symbols' not in path.parts]
+#: tables under `examples/symbols/` and the patches under a `variants/` folder
+#: are not specs and do not load as one.
+SPECS = [path for path in sorted(EXAMPLES.rglob('*.yaml')) if not {'symbols', 'variants'} & set(path.parts)]
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
 
 
 def _dumped(**patch: object) -> str:
-    return ms.to_spec(override(DISPATCH_MODEL, **patch)).to_yaml(canonical=True)
+    return ms.to_spec(varied(DISPATCH_MODEL, **patch)).to_yaml(canonical=True)
 
 
 def test_two_files_that_mean_the_same_thing_write_the_same_text():
@@ -129,7 +130,7 @@ def test_a_sum_is_broken_one_term_to_a_line():
 
 def test_the_declarations_of_a_section_are_sorted_by_name():
     dumped = ms.to_spec(
-        override(DISPATCH_MODEL, **{'constraints.a_cap.dims': [], 'constraints.a_cap.expression': 'sum(p) >= 0'})
+        varied(DISPATCH_MODEL, **{'constraints.a_cap.dims': [], 'constraints.a_cap.expression': 'sum(p) >= 0'})
     ).to_yaml(canonical=True)
     assert dumped.index('a_cap:') < dumped.index('balance:'), 'a section reads in name order, not file order'
 
@@ -144,6 +145,7 @@ SECTIONS = [
     'relations',
     'parameters',
     'variables',
+    'given',
     'constraints',
     'objective',
     'expressions',
@@ -195,12 +197,12 @@ def test_every_section_is_sorted_by_name(path):
 def _commitment_with_its_cases_reversed() -> dict[str, object]:
     raw = raw_of(EXAMPLES / 'commitment.yaml')
     cases = raw['expressions']['previous_status']['cases']
-    return override(raw, **{'expressions.previous_status.cases': dict(reversed(cases.items()))})
+    return varied(raw, **{'expressions.previous_status.cases': dict(reversed(cases.items()))})
 
 
 def _piecewise_with_its_links_reversed() -> dict[str, object]:
     raw = raw_of(EXAMPLES / 'piecewise.yaml')
-    return override(raw, **{'piecewise.cost_curve.links': raw['piecewise']['cost_curve']['links'][::-1]})
+    return varied(raw, **{'piecewise.cost_curve.links': raw['piecewise']['cost_curve']['links'][::-1]})
 
 
 @pytest.mark.parametrize(
@@ -208,7 +210,7 @@ def _piecewise_with_its_links_reversed() -> dict[str, object]:
     [
         pytest.param(
             DISPATCH_MODEL,
-            override(DISPATCH_MODEL, **{'variables.p.dims': ['generator', 'snapshot']}),
+            varied(DISPATCH_MODEL, **{'variables.p.dims': ['generator', 'snapshot']}),
             id='a-declarations-dims',
         ),
         pytest.param(
@@ -222,8 +224,8 @@ def _piecewise_with_its_links_reversed() -> dict[str, object]:
             id='the-links-of-a-piecewise-block',
         ),
         pytest.param(
-            override(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 and cost > 0'}),
-            override(DISPATCH_MODEL, **{'variables.p.where': 'cost > 0 and p_max > 0'}),
+            varied(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 and cost > 0'}),
+            varied(DISPATCH_MODEL, **{'variables.p.where': 'cost > 0 and p_max > 0'}),
             id='the-predicates-of-a-where',
         ),
     ],
@@ -491,4 +493,17 @@ def test_a_named_expression_written_on_one_line_is_normalised_too():
     """`name: a + b` serialises back as a bare string, which the form passed through as written."""
     frame = {'dimensions': {'t': {'dtype': 'int'}}, 'variables': {'a': {'dims': ['t']}, 'b': {'dims': ['t']}}}
     one, other = ({**frame, 'expressions': {'total': text}} for text in ('a + b', 'b + a'))
+    assert ms.to_spec(one).to_yaml(canonical=True) == ms.to_spec(other).to_yaml(canonical=True)
+
+
+def test_the_names_a_file_reads_are_sorted_like_the_names_it_declares():
+    """`given:` nests its kinds one level below a section, so sorting the sections alone left them in file order."""
+    frame = {'dimensions': {'t': {'dtype': 'int'}}, 'constraints': {'c': {'dims': ['t'], 'expression': 'a + b >= 0'}}}
+    one, other = (
+        {**frame, 'given': {'variables': dict(entries)}}
+        for entries in (
+            [('a', {'dims': ['t']}), ('b', {'dims': ['t']})],
+            [('b', {'dims': ['t']}), ('a', {'dims': ['t']})],
+        )
+    )
     assert ms.to_spec(one).to_yaml(canonical=True) == ms.to_spec(other).to_yaml(canonical=True)
