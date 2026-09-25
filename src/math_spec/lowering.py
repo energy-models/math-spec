@@ -221,6 +221,7 @@ def lower(schema: Spec) -> Program:
                 _frame_of(name, entry, schema),
                 in_math=name in in_math,
                 description=schema.expressions[name].description,
+                additive=schema.expressions[name].additive,
             )
             for name, entry in entries.items()
         },

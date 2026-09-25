@@ -187,7 +187,12 @@ class Legend:
         ]
         shown = set(defined)
         definitions = [
-            self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(list(block.dims))}', block.description)
+            self._entry(
+                self.symbols.name[e],
+                f'{fmt.mono(e)}{self._over(list(block.dims))}'
+                + (', a sum other files add terms to' if block.additive else ''),
+                block.description,
+            )
             for e, block in program.expressions.items()
             if e in shown
         ]
