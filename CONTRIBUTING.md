@@ -53,7 +53,8 @@ When you contribute for the first time, ensure your reviewer [adds you as a cont
 
 Before submitting a pull request, check whether you have:
 
-- Written the PR title as a conventional commit subject (see below) — this, not a hand-written entry, is what appears in `CHANGELOG.md`.
+- Written the PR title as a conventional commit subject (see below).
+- Added its line under `## Upcoming version` in `CHANGELOG.md` by hand, if the PR is a `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` (see below).
 - Added or updated documentation for your changes (see [The docs](#the-docs)).
 - Added tests if you implemented new functionality.
 
@@ -77,8 +78,8 @@ what refuses a page with no nav entry.
 
 ### Commit messages
 
-Merges are squashed, so the **PR title** becomes the commit on `main`, and it
-is also the line the PR adds to `CHANGELOG.md`. It must be a
+Merges are squashed, so the **PR title** becomes the commit on `main`. Write it
+so it also works as the line you add to `CHANGELOG.md` by hand. It must be a
 [conventional commit](https://www.conventionalcommits.org) subject:
 
 ```text

@@ -4,9 +4,9 @@
 
 name: PR title
 
-# The squash subject becomes a commit on main, and the PR title is the line the
-# PR adds to CHANGELOG.md. Its type decides whether it adds one at all. See
-# RELEASING.md.
+# The squash subject becomes a commit on main. The PR adds its title to
+# CHANGELOG.md by hand, and its type decides whether it owes that line. Nothing
+# writes the changelog on merge. See RELEASING.md.
 #
 # Both the PR title and, when a PR has exactly one commit, that commit's own
 # title are validated: GitHub's default `squash_merge_commit_title` is

@@ -132,7 +132,8 @@ To learn what the project _is_, read [docs/](docs/index.md), and
 
 ## Commit messages and PR titles
 
-The PR title is the changelog line. It names the outcome, as a complete
+The PR title is also the line the PR adds to `CHANGELOG.md` by hand; nothing
+writes the changelog on merge. The title names the outcome, as a complete
 lower-case sentence a changelog reader can follow. Not an activity, not a
 mechanism, not `AST`, `dim` or `a pass`.
 
