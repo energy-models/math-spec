@@ -229,8 +229,9 @@ parameters:
     description: >-
       share of the flow that arrives at an output port, PyPSA's `efficiency`,
       `efficiency2`, … read long — negative where that port consumes rather
-      than delivers
-    dims: [scenario, link_output]
+      than delivers. Read at the snapshot the flow arrives, so a delayed port
+      delivers at its arrival snapshot's efficiency (`constraints.py:1522`)
+    dims: [scenario, snapshot, link_output]
   Link_output_delay:
     description: >-
       snapshots a port's delivery lags its link's flow — PyPSA's `delay`,
@@ -371,8 +372,10 @@ parameters:
       the energy a port draws or delivers per unit of internal power, PyPSA's
       `rate0`, `rate1`, … read long — negative where the port withdraws,
       positive where it injects; a link is a process whose `bus0` rate is minus
-      one and whose output rates are its efficiencies
-    dims: [scenario, process_output]
+      one and whose output rates are its efficiencies. Read at the snapshot the
+      transfer arrives, so a delayed port transfers at its arrival snapshot's
+      rate (`constraints.py:1522`)
+    dims: [scenario, snapshot, process_output]
   Process_output_delay:
     description: >-
       snapshots a port's transfer lags its process's internal power — PyPSA's
@@ -713,10 +716,10 @@ parameters:
     dims: [scenario, storage_unit]
   StorageUnit_efficiency_store:
     description: share of the power drawn from the bus that becomes charge
-    dims: [scenario, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_efficiency_dispatch:
     description: share of the charge drawn down that reaches the bus
-    dims: [scenario, storage_unit]
+    dims: [scenario, snapshot, storage_unit]
   StorageUnit_sign:
     description: >-
       the sign net dispatch enters its bus's balance with — PyPSA's `sign`,
@@ -965,12 +968,12 @@ parameters:
     dims: [transformer, outage]
   Transformer_phase_shift_weight:
     description: >-
-      a fixed transformer's phase shift in radians, signed by its orientation
-      in the cycle — a constant added to the cycle sum, data prep; zero for a
+      a fixed transformer's phase shift in radians at each snapshot, signed by
+      its orientation in the cycle — a constant added to the cycle sum, data prep; zero for a
       varying transformer, whose shift is a decision instead, so the constant and
       the variable term never both count a shift. A transformer with no shift or
       in no cycle has no row
-    dims: [transformer, cycle]
+    dims: [snapshot, transformer, cycle]
   Transformer_phase_shift_varying:
     description: >-
       whether a transformer's phase shift is a decision — PyPSA's
@@ -1050,9 +1053,9 @@ parameters:
   Generator_primary_energy_weight:
     description: >-
       the constrained attribute per unit of energy at the bus — the carrier's
-      `co2_emissions` over the generator's efficiency, data prep; a generator
+      `co2_emissions` over the generator's efficiency at the snapshot, data prep; a generator
       of an unweighted carrier has no row
-    dims: [scenario, global_constraint, generator]
+    dims: [scenario, global_constraint, snapshot, generator]
   StorageUnit_primary_energy_weight:
     description: the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row
     dims: [scenario, global_constraint, storage_unit]
@@ -1958,32 +1961,34 @@ expressions:
     otherwise: Store_retention * shift(Store_e, along=snapshot, offset=1)
   Link_output_arrival:
     description: >-
-      what a link delivers to an output port at a snapshot — its flow after the
-      port's efficiency, delayed by the port's `delay` within its investment
-      period; where the port is `cyclic_delay` the delayed flow wraps from the
-      period's end, and where it is not the flow still in transit at the
-      period's first snapshots is lost. A port that does not delay (`delay`
+      what a link delivers to an output port at a snapshot — its flow delayed
+      by the port's `delay` within its investment period, times the port's
+      efficiency at the snapshot the flow arrives; where the port is
+      `cyclic_delay` the delayed flow wraps from the period's end, and where it
+      is not the flow still in transit at the period's first snapshots is
+      lost. A port that does not delay (`delay`
       zero) delivers its flow unshifted, cyclic or not
     dims: [scenario, snapshot, link_output]
     cases:
       wrapping:
         when: Link_output_cyclic_delay
-        expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap', by=snapshot_period, within=period)
-    otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0, by=snapshot_period, within=period)
+        expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output), along=snapshot, offset=Link_output_delay, edge='wrap', by=snapshot_period, within=period) * Link_efficiency
+    otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output), along=snapshot, offset=Link_output_delay, edge=0, by=snapshot_period, within=period) * Link_efficiency
   Process_output_arrival:
     description: >-
       what a process transfers at a port at a snapshot — its internal power
-      times the port's rate, delayed by the port's `delay` within its
-      investment period; where the port is `cyclic_delay` the delayed transfer
-      wraps from the period's end, and where it is not the energy still in
-      transit at the period's first snapshots is lost. A port that does not
+      delayed by the port's `delay` within its investment period, times the
+      port's rate at the snapshot the transfer arrives; where the port is
+      `cyclic_delay` the delayed transfer wraps from the period's end, and
+      where it is not the energy still in transit at the period's first
+      snapshots is lost. A port that does not
       delay (`delay` zero) transfers at once, cyclic or not
     dims: [scenario, snapshot, process_output]
     cases:
       wrapping:
         when: Process_output_cyclic_delay
-        expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap', by=snapshot_period, within=period)
-    otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0, by=snapshot_period, within=period)
+        expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output), along=snapshot, offset=Process_output_delay, edge='wrap', by=snapshot_period, within=period) * Process_rate
+    otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output), along=snapshot, offset=Process_output_delay, edge=0, by=snapshot_period, within=period) * Process_rate
   GlobalConstraint_energy_weight:
     description: >-
       what one unit of power at a snapshot counts for in a row — the

@@ -70,7 +70,7 @@ parameters:
       share of the flow that arrives at an output port, PyPSA's `efficiency`,
       `efficiency2`, … read long — negative where that port consumes rather
       than delivers
-    dims: [link_output]
+    dims: [snapshot, link_output]
   Link_marginal_cost:
     description: cost of one unit of flow
     dims: [snapshot, link]
