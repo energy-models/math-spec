@@ -240,6 +240,11 @@ differ as models.
 spec.to_yaml(canonical=True) == to_spec(spec.to_yaml(canonical=True)).to_yaml(canonical=True)  # True
 ```
 
+- **The sections come in one order**, whatever order the file wrote them in:
+  `version`, `description`, `dimensions`, `relations`, `parameters`,
+  `variables`, `constraints`, `objective`, `expressions`, `macros`,
+  `piecewise`, `sos`, `assumptions`. The keys of a declaration also come in one
+  order.
 - **Declarations are sorted by name** within each section.
 - **Every expression is printed from its parsed tree**, so the spacing and the
   brackets are the printer's rather than the author's.
@@ -267,3 +272,5 @@ the original: a reprinted expression is a different string. Writing the form out
 again gives the same text, which is what the line above says.
 
 `python -m mathspec canonical model.yaml` writes it from a shell.
+[Compare two models](../howto/compare.md) shows how to diff two files in this
+form.

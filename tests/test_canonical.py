@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+import yaml
 
 import mathspec as ms
 from mathspec.__main__ import main
@@ -32,7 +33,7 @@ from mathspec._expression_parser import (
     parse_expression,
 )
 from mathspec.canonical import _factors, _signed_terms, canonical_text, laid_out, normalised
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, override, raw_of
 
 if TYPE_CHECKING:
     from mathspec._expression_parser import ArithmeticNode, ParsedNode
@@ -131,6 +132,108 @@ def test_the_declarations_of_a_section_are_sorted_by_name():
         override(DISPATCH_MODEL, **{'constraints.a_cap.dims': [], 'constraints.a_cap.expression': 'sum(p) >= 0'})
     ).to_yaml(canonical=True)
     assert dumped.index('a_cap:') < dumped.index('balance:'), 'a section reads in name order, not file order'
+
+
+#: The order the form writes the sections in, whatever order the file wrote
+#: them in. It is the order of the fields on `Spec`, pinned here so that a
+#: reordered field is a failing test rather than a quiet change to every diff.
+SECTIONS = [
+    'version',
+    'description',
+    'dimensions',
+    'relations',
+    'parameters',
+    'variables',
+    'constraints',
+    'objective',
+    'expressions',
+    'macros',
+    'piecewise',
+    'sos',
+    'assumptions',
+]
+
+
+def _written_backwards(raw: object, depth: int = 3) -> object:
+    """*raw* with every mapping down to *depth* levels written in reverse order.
+
+    Three levels reach the sections, the declarations of each section and the
+    keys of each declaration. They stop above a `cases:` block, whose regions
+    are a mapping that the form keeps in the file's order.
+    """
+    if depth == 0 or not isinstance(raw, dict):
+        return raw
+    return {key: _written_backwards(value, depth - 1) for key, value in reversed(raw.items())}
+
+
+@pytest.mark.parametrize('path', MODELS, ids=lambda path: path.stem)
+def test_a_file_written_backwards_writes_the_same_text(path):
+    """The section order, the declaration order in each section and the key
+    order in each declaration are spelling. A file that writes all three in
+    reverse is the same model, so it writes the same text."""
+    raw = raw_of(path)
+    backwards = ms.to_spec(_written_backwards(raw)).to_yaml(canonical=True)
+    assert backwards == ms.to_spec(raw).to_yaml(canonical=True), 'three orders reversed, one text'
+
+
+@pytest.mark.parametrize('path', MODELS, ids=lambda path: path.stem)
+def test_the_sections_come_in_one_order(path):
+    written = list(yaml.safe_load(ms.to_spec(path).to_yaml(canonical=True)))
+    assert written == [section for section in SECTIONS if section in written], (
+        f'the sections of {path.name} follow SECTIONS, not the file'
+    )
+
+
+@pytest.mark.parametrize('path', MODELS, ids=lambda path: path.stem)
+def test_every_section_is_sorted_by_name(path):
+    data = yaml.safe_load(ms.to_spec(path).to_yaml(canonical=True))
+    for section, declarations in data.items():
+        if isinstance(declarations, dict) and section != 'objective':
+            assert list(declarations) == sorted(declarations), f'{path.name}: `{section}` reads in name order'
+
+
+def _commitment_with_its_cases_reversed() -> dict[str, object]:
+    raw = raw_of(EXAMPLES / 'commitment.yaml')
+    cases = raw['expressions']['previous_status']['cases']
+    return override(raw, **{'expressions.previous_status.cases': dict(reversed(cases.items()))})
+
+
+def _piecewise_with_its_links_reversed() -> dict[str, object]:
+    raw = raw_of(EXAMPLES / 'piecewise.yaml')
+    return override(raw, **{'piecewise.cost_curve.links': raw['piecewise']['cost_curve']['links'][::-1]})
+
+
+@pytest.mark.parametrize(
+    ('written', 'reordered'),
+    [
+        pytest.param(
+            DISPATCH_MODEL,
+            override(DISPATCH_MODEL, **{'variables.p.dims': ['generator', 'snapshot']}),
+            id='a-declarations-dims',
+        ),
+        pytest.param(
+            raw_of(EXAMPLES / 'commitment.yaml'),
+            _commitment_with_its_cases_reversed(),
+            id='the-regions-of-a-cases-block',
+        ),
+        pytest.param(
+            raw_of(EXAMPLES / 'piecewise.yaml'),
+            _piecewise_with_its_links_reversed(),
+            id='the-links-of-a-piecewise-block',
+        ),
+        pytest.param(
+            override(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 and cost > 0'}),
+            override(DISPATCH_MODEL, **{'variables.p.where': 'cost > 0 and p_max > 0'}),
+            id='the-predicates-of-a-where',
+        ),
+    ],
+)
+def test_an_order_the_form_keeps_is_a_difference_in_the_text(written, reordered):
+    """The orders the form does not sort, each reversed alone. A change here
+    changes what a reviewer sees as a difference, so it is a decision."""
+    assert ms.to_spec(written).to_yaml(canonical=True) != ms.to_spec(reordered).to_yaml(canonical=True), (
+        'the form keeps this order as the file wrote it'
+    )
 
 
 def test_the_dump_that_keeps_the_file_as_written_is_unchanged():
