@@ -42,6 +42,7 @@ nav:
       - Fix a quantity that is data in one model and a decision in another: howto/pin-a-variable.md
       - Write a piecewise curve out by hand: howto/curve-by-hand.md
       - See what a curve or a set expands to: howto/see-an-expansion.md
+      - Compare two specs: howto/compare.md
   - Reference:
       - Language:
           - reference/language/index.md
