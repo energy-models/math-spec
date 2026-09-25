@@ -14,10 +14,11 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## 0.1.0 (2026-09-25)
 
-The first release on PyPI: `pip install mathspec`. It is 0.1.0rc1 with no
-change, published as the stable version. The
-[0.1.0rc1 notes](https://github.com/energy-models/mathspec/releases/tag/v0.1.0rc1)
-say what it holds.
+🎉 mathspec is officially on PyPI!
+
+```bash
+pip install mathspec
+```
 
 ## 0.1.0rc1 (2026-09-25)
 
