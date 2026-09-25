@@ -5,19 +5,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Changelog
 
-Written by [release-please](https://github.com/googleapis/release-please) from
-the conventional-commit subjects that land on `main` — see RELEASING.md. Do not
-write an entry by hand; the next release lands above whatever you put at the
-top. A released entry is never rewritten, so one that is wrong is corrected in
-place.
+Each pull request adds its line under `## Upcoming version`. A release pull
+request renames that heading to the version and the day, such as
+`## 0.1.0 (2026-10-01)`, and edits the section into the release notes. Merging
+it releases that version ([RELEASING.md](https://github.com/energy-models/mathspec/blob/main/RELEASING.md)).
 
-New releases are inserted directly below this paragraph, so nothing may sit
-between it and the first `##` heading. The Keep a Changelog skeleton that used
-to live here — a hand-maintained `## Unreleased` block, and a comment
-documenting the heading format — is what broke 0.0.0-alpha.1: that comment
-contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
-`##` it finds, and so the entire release landed inside the comment and rendered
-nowhere.
+## Upcoming version
+
+- refactor: the package installs, imports and runs as mathspec, rather than math-spec and math_spec ([#702](https://github.com/energy-models/mathspec/pull/702))
 
 ## [0.0.0-alpha.126](https://github.com/energy-models/mathspec/compare/v0.0.0-alpha.125...v0.0.0-alpha.126) (2026-09-25)
 

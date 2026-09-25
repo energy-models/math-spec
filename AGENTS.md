@@ -43,8 +43,10 @@ To learn what the project _is_, read [docs/](docs/index.md), and
   delete. No alias, deprecation cycle, `legacy_` path, or hand-written message
   for the old spelling. A test asserting the old behaviour is not a blocker;
   say in the PR where its coverage moved.
-- **A breaking marker in the PR title is refused** by the
-  `Conventional commit subject` check. Describe the break in the PR body.
+- **Every `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its
+  title under `## Upcoming version` in `CHANGELOG.md`**, with a link to the PR.
+  A version heading on top of that file releases on merge
+  ([RELEASING.md](RELEASING.md)), so write one only when told to cut a release.
 - **Never edit a generated file by hand.** Regenerate it and read the diff.
   Generated files are the schema, the golden typesetter output, and the pages
   in the `GENERATED` table of `tests/test_docs.py`, which include the README
