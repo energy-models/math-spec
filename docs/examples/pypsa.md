@@ -2545,7 +2545,7 @@ bind, in `Transformer-fix-s-lower` against a line outage and in
 | [`Line-fix-s-*-security-for-{c}-outage-in-sub-network-{n}`](#line-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Line-ext-s-*-security-…`](#line-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | PyPSA names a row per outaged component and sub-network; one block over the `outage` axis |
 | [`Transformer-fix-s-*-security-…`](#transformer-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Transformer-ext-s-*-security-…`](#transformer-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | the same for a transformer |
 | a branch not active in a period | done | PyPSA keeps the copy with that branch's flow dropped, so the file reads its flow as zero there; a copy left with no variable is not built here, where linopy counts it; no rung records it |
-| a security-constrained run over scenarios | out | PyPSA `1.3.0` raises, see [Refusals](#refusals) |
+| a security-constrained run over scenarios | diverges | rung 56, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942) |
 | `transmission_losses`, `linearized_unit_commitment` in a security-constrained run | done | PyPSA builds neither, so the copies carry no loss term and data prep feeds `transmission_losses` false; no rung, since rung 30 is lossless |
 
 <!-- reference:rung_30_security_constrained:begin -->
@@ -3480,9 +3480,9 @@ calm efficiency in both, to `16992.0`; with both calm values in both, to
 | --- | --- | --- |
 | [objective](#objective), [`Bus-nodal_balance`](#bus-nodal_balance) with a cost and an efficiency per scenario | done | `Generator_marginal_cost` and `Link_efficiency` over `scenario` |
 | a link `delay` or `cyclic_delay` that differs by scenario | diverges | rung 54, [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941) |
-| a transformer in a cycle on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the transformers of a cycle by name from a table indexed by scenario and name (`constraints.py:1654`). The file holds one phase shift for every scenario |
-| a committable component on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the status by snapshot and name where the first dimension is the scenario (`constraints.py:1872`, `:1942`). The file builds the rows per scenario |
-| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | out | PyPSA `1.3.0` fails: it reindexes the build by a table indexed by scenario and name (`constraints.py:1708`). The file builds the row per scenario |
+| a transformer in a cycle on a network with scenarios | diverges | rung 55, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942) |
+| a committable component on a network with scenarios | diverges | rung 58, [PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913) |
+| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | diverges | rung 57, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942) |
 
 <!-- reference:rung_41_scenario_operational_data:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `17964.0`, 96 rows.
@@ -4421,6 +4421,306 @@ def oracle():
 </details>
 <!-- reference:rung_54_scenario_delay:end -->
 
+### Rung 55 — a transformer cycle per scenario
+
+`n.set_scenarios(...)` with two transformers in parallel, a cycle. The file
+builds the Kirchhoff voltage row in every scenario. PyPSA `1.3.0` raises
+`KeyError`: it selects the transformers of a cycle by name from a table indexed
+by scenario and name (`constraints.py:1654`,
+[PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942)).
+
+The rung adds two transformers of reactance `0.1` and `0.2`, each rated `30`,
+to the spine. The row splits the flow two to one, so the first caps the pair at
+`45`. The two futures are identical. The oracle is the same network without
+scenarios, which PyPSA solves to `13105.0`. One transformer rated `60` solves to
+`11705.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) with a transformer on a network with scenarios | diverges | [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942); the row per scenario. The file holds one phase shift for every scenario |
+
+<!-- reference:rung_55_scenario_transformer_cycle:begin -->
+> ✘ `pypsa 1.3.0` raises `KeyError` on this rung's network, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942). The intended objective is `13105.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_55_scenario_transformer_cycle.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 55: a cycle of two transformers takes its Kirchhoff voltage row in every scenario.
+
+PyPSA 1.3.0 raises on a transformer in a cycle on a network with scenarios
+(PyPSA/PyPSA#1942). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1942
+
+
+def network():
+    """The spine plus two parallel transformers of unequal reactance, so the one that takes more flow caps the pair."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b'])
+    n.add('Generator', 'hydro55', bus='a', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'diesel55', bus='b', p_nom=100, marginal_cost=50)
+    n.add('Load', 'town55', bus='b', p_set=[50, 40, 55, 45])
+    n.add('Transformer', 't55', bus0='a', bus1='b', x=0.1, s_nom=30)
+    n.add('Transformer', 't55_2', bus0='a', bus1='b', x=0.2, s_nom=30)
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_55_scenario_transformer_cycle:end -->
+
+### Rung 56 — a security-constrained run per scenario
+
+`n.optimize.optimize_security_constrained(...)` on a network with scenarios.
+The file builds the outage copies in every scenario. PyPSA `1.3.0` raises
+`ValueError`. With outages named as a list, it finds none of them in the
+network (`abstract.py:427`). With no outages named, it fails to intersect the
+branches (`abstract.py:445`,
+[PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942)). With outages
+named as `(component, name)` pairs, it builds no copy and solves without them.
+
+The rung adds two parallel lines rated `30` and `35` to the spine, and outages
+each. Each line must carry the whole import alone, so the import falls to `30`.
+The two futures are identical. The oracle is the same network without
+scenarios, which PyPSA solves to `18205.0`. A plain `n.optimize()` solves to
+`11705.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Line-fix-s-*-security-for-{c}-outage-in-sub-network-{n}`](#line-fix-s-lower-security-for-c-outage-in-sub-network-n) on a network with scenarios | diverges | [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942); the copies per scenario |
+
+<!-- reference:rung_56_scenario_security_constrained:begin -->
+> ✘ `pypsa 1.3.0` raises `ValueError` on this rung's network, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942). The intended objective is `18205.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_56_scenario_security_constrained.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 56: a security-constrained run over scenarios copies its rows into every scenario.
+
+PyPSA 1.3.0 raises on a security-constrained run on a network with scenarios
+(PyPSA/PyPSA#1942). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1942
+BRANCH_OUTAGES = ['l56', 'l56_2']
+
+
+def network():
+    """The spine plus two parallel lines, so each must carry the whole import alone when the other is out."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b'])
+    n.add('Generator', 'hydro56', bus='a', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'diesel56', bus='b', p_nom=100, marginal_cost=50)
+    n.add('Load', 'town56', bus='b', p_set=[50, 40, 55, 45])
+    n.add('Line', 'l56', bus0='a', bus1='b', x=0.1, s_nom=30)
+    n.add('Line', 'l56_2', bus0='a', bus1='b', x=0.1, s_nom=35)
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_56_scenario_security_constrained:end -->
+
+### Rung 57 — a fixed build per scenario
+
+`n.set_scenarios(...)` with `p_nom_set` on an extendable unit. The file builds
+`Generator-p_nom_set` in every scenario. PyPSA `1.3.0` raises `TypeError`: it
+renames the scenario-and-name index of the set build with one name
+(`constraints.py:1708`,
+[PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942)). The same holds
+for every `*_nom_set`.
+
+The rung adds a cheap extendable wind unit to the spine, pinned to `20`. The
+two futures are identical. The oracle is the same network without scenarios,
+which PyPSA solves to `4800.0`. Without `p_nom_set`, the unit builds `67` and
+the network solves to `335.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | diverges | [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942); the row per scenario |
+
+<!-- reference:rung_57_scenario_nom_set:begin -->
+> ✘ `pypsa 1.3.0` raises `TypeError` on this rung's network, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942). The intended objective is `4800.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_57_scenario_nom_set.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 57: `p_nom_set` pins an extendable build on a network with scenarios.
+
+PyPSA 1.3.0 raises on any `*_nom_set` on a network with scenarios
+(PyPSA/PyPSA#1942). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1942
+
+
+def network():
+    """The spine plus a cheap extendable wind unit whose build is pinned below what it would choose."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'wind57',
+        bus='south',
+        p_nom_extendable=True,
+        p_nom_max=100,
+        capital_cost=5,
+        p_nom_set=20,
+    )
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_57_scenario_nom_set:end -->
+
+### Rung 58 — a committable unit per scenario
+
+`n.set_scenarios(...)` with a committable unit. The file builds the status
+rows in every scenario. PyPSA `1.3.0` raises `KeyError`: it selects the status
+by snapshot and name where the first dimension is the scenario
+(`constraints.py:1872`,
+[PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913)).
+
+The rung adds a cheap committable unit to the spine that cannot run below `40`
+% of its build, with a start-up cost of `100`. The two futures are identical.
+The oracle is the same network without scenarios, which PyPSA solves to
+`7430.0`. The same unit, not committable, solves to `7330.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| a committable component on a network with scenarios | diverges | [PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913); the rows per scenario |
+
+<!-- reference:rung_58_scenario_committable:begin -->
+> ✘ `pypsa 1.3.0` raises `KeyError` on this rung's network, [PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913). The intended objective is `7430.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_58_scenario_committable.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 58: a committable unit takes its status rows in every scenario.
+
+PyPSA 1.3.0 raises on a committable component on a network with scenarios
+(PyPSA/PyPSA#1913). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1913
+
+
+def network():
+    """The spine plus a cheap committable unit that cannot run below 40 % of its build."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'uc58',
+        bus='north',
+        committable=True,
+        p_nom=50,
+        marginal_cost=5,
+        p_min_pu=0.4,
+        min_up_time=2,
+        up_time_before=0,
+        start_up_cost=100,
+    )
+    n.add('Load', 'swing58', bus='north', p_set=[5, 45, 45, 10])
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_58_scenario_committable:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -4440,7 +4740,7 @@ where it should live — language, data prep, or harness — is one open questio
 | `UnboundLocalError`, `global_constraints.py:375`, `:602` | a `primary_energy` or `operational_limit` row that names an `investment_period` without `multi_investment_periods` | data prep, at `GlobalConstraint_counts_snapshot` | |
 | `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` and `Transformer_loss_max` | X4   |
 | `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
-| `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused | |
+| `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused: a PyPSA bug, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942), rung 56 | |
 | `NotImplementedError`, `global_constraints.py:66-68` | a `tech_capacity_expansion_limit` row on a network with scenarios | assumed where there is more than one scenario: [`GlobalConstraint_tech_capacity_expansion_limit_without_scenarios`](#globalconstraint_tech_capacity_expansion_limit_without_scenarios). The file cannot tell one scenario from none, which PyPSA also refuses | |
 | `ConsistencyError`, `consistency.py:1506-1560` | a maintainable component whose `maintenance_duration` or `maintenance_events` is not positive, whose events do not fit the weighted horizon, or that is extendable with `p_nom_max = inf` | assumed: [`Generator_maintenance_events_positive`](#generator_maintenance_events_positive), [`-duration_positive`](#generator_maintenance_duration_positive), [`-duration_fits_the_horizon`](#generator_maintenance_duration_fits_the_horizon), [`-events_fit_the_horizon`](#generator_maintenance_events_fit_the_horizon), [`-build_cap_is_finite`](#generator_maintenance_build_cap_is_finite), and the `Link` and `Process` ones | |
 | nothing; HiGHS refuses the model, `constraints.py:500-503` | a fixed modular committable maintainable build, whose module count `p_nom_max / p_nom_mod` is infinite | assumed: [`Generator_maintenance_module_count_is_finite`](#generator_maintenance_module_count_is_finite), and the `Link` and `Process` ones | |
