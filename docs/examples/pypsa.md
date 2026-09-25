@@ -3389,8 +3389,8 @@ network and the calm values in both futures, PyPSA solves to
 | PyPSA | status | note |
 | --- | --- | --- |
 | [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit), [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) with a constant and sense per scenario | done | `GlobalConstraint_constant` and `GlobalConstraint_sense` over `scenario` |
-| `transmission_expansion_cost_limit` on a network with scenarios | out | PyPSA `1.3.0` builds no row: it matches extendable names against a table indexed by scenario and name, and finds none (`global_constraints.py:916`). The file builds the row per scenario |
-| `transmission_volume_expansion_limit` on a network with scenarios and `multi_investment_periods` | out | PyPSA `1.3.0` builds no row: the active-asset filter reindexes a table indexed by scenario and name by the names alone, and keeps none (`global_constraints.py:828`, `descriptors.py:261-263`). The file builds the row per scenario |
+| `transmission_expansion_cost_limit` on a network with scenarios | diverges | rung 52, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939) |
+| `transmission_volume_expansion_limit` on a network with scenarios and `multi_investment_periods` | diverges | rung 53, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939) |
 | a `carrier_attribute` or `investment_period` per scenario | done | PyPSA reads both per scenario (`global_constraints.py:797-802`); the weights and `GlobalConstraint_counts_snapshot` span `scenario` |
 
 <!-- reference:rung_40_scenario_global_constraints:begin -->
@@ -4124,6 +4124,199 @@ def oracle():
 
 </details>
 <!-- reference:rung_51_growth_retired_asset:end -->
+
+### Rung 52 — a transmission cost limit per scenario
+
+`n.set_scenarios(...)` with a `transmission_expansion_cost_limit` row. The
+file builds the row in every scenario, as it builds every global constraint.
+PyPSA `1.3.0` builds no row: it matches the extendable names against a table
+indexed by scenario and name, and finds none (`global_constraints.py:916`,
+[PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939)).
+
+The rung adds an extendable DC link to the spine under a cost limit of `150`,
+so the link builds `15`. The two futures are identical. The oracle is the same
+network without scenarios, which PyPSA solves with the row to `15630.0`. With
+scenarios, PyPSA solves to `11890.0`, the objective of the network without the
+row.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) on a network with scenarios | diverges | [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939); the row per scenario |
+
+<!-- reference:rung_52_scenario_cost_limit:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `11890.0`, 84 rows, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939). The intended objective is `15630.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_52_scenario_cost_limit.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 52: a `transmission_expansion_cost_limit` row holds in every scenario.
+
+PyPSA 1.3.0 builds no such row on a network with scenarios (PyPSA/PyPSA#1939).
+The two futures are identical, so the oracle is the same network without
+scenarios, which PyPSA solves with the row.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1939
+
+
+def network():
+    """The spine plus an extendable DC link whose build a cost limit of 150 caps."""
+    n = spine.build()
+    n.add('Carrier', 'DC')
+    n.add(
+        'Link',
+        'hvdc52',
+        bus0='north',
+        bus1='south',
+        carrier='DC',
+        p_nom_extendable=True,
+        p_nom_max=100,
+        capital_cost=10,
+    )
+    n.add('Load', 'port52', bus='south', p_set=40)
+    n.add(
+        'GlobalConstraint',
+        'cost52',
+        type='transmission_expansion_cost_limit',
+        carrier_attribute='DC',
+        sense='<=',
+        constant=150,
+    )
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_52_scenario_cost_limit:end -->
+
+### Rung 53 — a transmission volume limit per scenario and period
+
+`n.set_scenarios(...)` and `n.optimize(multi_investment_periods=True)` with a
+`transmission_volume_expansion_limit` row. The file builds the row in every
+scenario. PyPSA `1.3.0` builds no row: the active-asset filter reindexes a table
+indexed by scenario and name by the names alone, and keeps none
+(`global_constraints.py:828`, `descriptors.py:263`,
+[PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939)). Without
+periods, PyPSA builds the row (rung 40).
+
+The rung is two periods with an extendable line of length `3` under a volume
+limit of `60`, so the line builds `20`. The two futures are identical. The
+oracle is the same network without scenarios, which PyPSA solves with the row to
+`15005.0`. With scenarios, PyPSA solves to `1465.0`, the objective of the
+network without the row.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) on a network with scenarios and `multi_investment_periods` | diverges | [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939); the row per scenario |
+
+<!-- reference:rung_53_scenario_period_volume_limit:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `1465.0`, 68 rows, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939). The intended objective is `15005.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_53_scenario_period_volume_limit.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 53: a `transmission_volume_expansion_limit` row holds in every scenario under `multi_investment_periods`.
+
+PyPSA 1.3.0 builds no such row on a network with scenarios and investment
+periods (PyPSA/PyPSA#1939). The two futures are identical, so the oracle is the
+same network without scenarios, which PyPSA solves with the row.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+ISSUE = 1939
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def network():
+    """Two periods, a cheap unit behind an extendable line whose volume a limit of 60 caps."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(2)] + [(2030, datetime(2030, 1, 1, t)) for t in range(2)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', ['hill', 'town'])
+    n.add('Carrier', 'AC')
+    n.add('Generator', 'hydro53', bus='hill', p_nom=100, marginal_cost=5)
+    n.add('Generator', 'diesel53', bus='town', p_nom=100, marginal_cost=90)
+    n.add(
+        'Line',
+        'tie53',
+        bus0='hill',
+        bus1='town',
+        x=0.1,
+        carrier='AC',
+        length=3,
+        s_nom_extendable=True,
+        s_nom_max=100,
+        capital_cost=1,
+        build_year=2020,
+        lifetime=30,
+    )
+    n.add('Load', 'town_load', bus='town', p_set=[40, 50, 60, 45])
+    n.add(
+        'GlobalConstraint',
+        'volume53',
+        type='transmission_volume_expansion_limit',
+        carrier_attribute='AC',
+        sense='<=',
+        constant=60,
+    )
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_53_scenario_period_volume_limit:end -->
 
 ## Refusals
 
