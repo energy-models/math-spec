@@ -12,6 +12,8 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+- docs(pypsa): a single spec covers every pypsa model class and component ([#620](https://github.com/energy-models/mathspec/pull/620))
+- docs(pypsa): the pypsa spec is also 24 topic files that merge back to it, each component adding its share of a sum by name ([#736](https://github.com/energy-models/mathspec/pull/736))
 - docs: the site follows the reader's light or dark setting, and a page shows where it sits in the navigation ([#727](https://github.com/energy-models/mathspec/pull/727))
 - feat(language): a spec is composed from files that each state part of it, and patched with files that each change part of it ([#732](https://github.com/energy-models/mathspec/pull/732))
 - refactor(language): a term prints as the definition it is, and one rule folds every reading ([#738](https://github.com/energy-models/mathspec/pull/738))

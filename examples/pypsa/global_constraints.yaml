@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  global_constraint:
+    description: PyPSA's `GlobalConstraint` rows, one label per declared limit
+
+parameters:
+  GlobalConstraint_type:
+    description: >-
+      which formula the row takes — `primary_energy`, `operational_limit`,
+      `transmission_volume_expansion_limit`,
+      `transmission_expansion_cost_limit` or
+      `tech_capacity_expansion_limit`
+    dims: [global_constraint]
+    dtype: str
+  GlobalConstraint_sense:
+    description: >-
+      which way the row binds in each scenario — `<=`, `>=` or `==`; PyPSA
+      reads a row's sense per scenario (`global_constraints.py:556`, `:748`,
+      `:860`)
+    dims: [scenario, global_constraint]
+    dtype: str
+  GlobalConstraint_constant:
+    description: >-
+      the constant the total is held against; what a variable cannot carry —
+      an initial charge, times its period's years for each counted period
+      where the storage reopens per period, or a non-extendable build — is
+      folded in here by data prep. PyPSA reads it per scenario
+      (`global_constraints.py:557`, `:749`, `:861`)
+    dims: [scenario, global_constraint]
+
+given:
+  parameters:
+    scenario_weight: { dims: [scenario] }
+  expressions:
+    primary_energy: { dims: [scenario, global_constraint] }
+    operational_limit: { dims: [scenario, global_constraint] }
+    transmission_volume_expansion: { dims: [scenario, global_constraint] }
+    transmission_expansion_cost: { dims: [scenario, global_constraint] }
+    tech_capacity_expansion: { dims: [global_constraint] }
+
+constraints:
+  GlobalConstraint_primary_energy_ub:
+    description: "`primary_energy` — its total, at most its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
+    expression: primary_energy <= GlobalConstraint_constant
+  GlobalConstraint_primary_energy_lb:
+    description: "`primary_energy` — its total, at least its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
+    expression: primary_energy >= GlobalConstraint_constant
+  GlobalConstraint_primary_energy_eq:
+    description: "`primary_energy` — its total, at its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
+    expression: primary_energy == GlobalConstraint_constant
+  GlobalConstraint_operational_limit_ub:
+    description: "`operational_limit` — its total, at most its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
+    expression: operational_limit <= GlobalConstraint_constant
+  GlobalConstraint_operational_limit_lb:
+    description: "`operational_limit` — its total, at least its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
+    expression: operational_limit >= GlobalConstraint_constant
+  GlobalConstraint_operational_limit_eq:
+    description: "`operational_limit` — its total, at its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
+    expression: operational_limit == GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_ub:
+    description: "`transmission_volume_expansion_limit` — its total, at most its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
+    expression: transmission_volume_expansion <= GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_lb:
+    description: "`transmission_volume_expansion_limit` — its total, at least its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
+    expression: transmission_volume_expansion >= GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_eq:
+    description: "`transmission_volume_expansion_limit` — its total, at its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
+    expression: transmission_volume_expansion == GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_ub:
+    description: "`transmission_expansion_cost_limit` — its total, at most its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
+    expression: transmission_expansion_cost <= GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_lb:
+    description: "`transmission_expansion_cost_limit` — its total, at least its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
+    expression: transmission_expansion_cost >= GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_eq:
+    description: "`transmission_expansion_cost_limit` — its total, at its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
+    expression: transmission_expansion_cost == GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_ub:
+    description: "`tech_capacity_expansion_limit` — its total, at most its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
+    expression: tech_capacity_expansion <= GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_lb:
+    description: "`tech_capacity_expansion_limit` — its total, at least its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
+    expression: tech_capacity_expansion >= GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_eq:
+    description: "`tech_capacity_expansion_limit` — its total, at its constant"
+    dims: [scenario, global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
+    expression: tech_capacity_expansion == GlobalConstraint_constant
+
+assumptions:
+  GlobalConstraint_tech_capacity_expansion_limit_without_scenarios:
+    holds: "GlobalConstraint_type != 'tech_capacity_expansion_limit'"
+    where: "count(scenario_weight, over=scenario) > 1"
+    description: >-
+      PyPSA does not build a `tech_capacity_expansion_limit` row on a
+      network with scenarios and refuses it
+      (`global_constraints.py:66-68`). The spec cannot tell a network with
+      one scenario from one with none, so it refuses only where there is
+      more than one scenario
