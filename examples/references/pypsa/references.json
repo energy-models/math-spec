@@ -1876,6 +1876,154 @@
       "Link-fix-p-upper": 4
     }
   },
+  "rung_51_growth_retired_asset": {
+    "columns": {
+      "Generator-p": 8,
+      "Generator-p_nom": 2
+    },
+    "diverges": {
+      "issue": 1938,
+      "objective": 5185.0
+    },
+    "global_constraints": {},
+    "objective": 3432.5,
+    "objective_constant": 0.0,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 4,
+      "Carrier-growth_limit": 2,
+      "Generator-ext-p-lower": 4,
+      "Generator-ext-p-upper": 4,
+      "Generator-ext-p_nom-lower": 2,
+      "Generator-ext-p_nom-upper": 2,
+      "Generator-fix-p-lower": 4,
+      "Generator-fix-p-upper": 4
+    }
+  },
+  "rung_52_scenario_cost_limit": {
+    "columns": {
+      "Generator-p": 16,
+      "Link-p": 16,
+      "Link-p_nom": 1
+    },
+    "diverges": {
+      "issue": 1939,
+      "objective": 11890.0
+    },
+    "global_constraints": {
+      "('calm', 'cost52')": {
+        "sense": "<=",
+        "type": "transmission_expansion_cost_limit"
+      },
+      "('stormy', 'cost52')": {
+        "sense": "<=",
+        "type": "transmission_expansion_cost_limit"
+      }
+    },
+    "objective": 15630.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 16,
+      "Generator-fix-p-lower": 16,
+      "Generator-fix-p-upper": 16,
+      "Link-ext-p-lower": 8,
+      "Link-ext-p-upper": 8,
+      "Link-ext-p_nom-lower": 2,
+      "Link-ext-p_nom-upper": 2,
+      "Link-fix-p-lower": 8,
+      "Link-fix-p-upper": 8
+    }
+  },
+  "rung_53_scenario_period_volume_limit": {
+    "columns": {
+      "Generator-p": 16,
+      "Line-s": 8,
+      "Line-s_nom": 1
+    },
+    "diverges": {
+      "issue": 1939,
+      "objective": 1465.0
+    },
+    "global_constraints": {
+      "('calm', 'volume53')": {
+        "sense": "<=",
+        "type": "transmission_volume_expansion_limit"
+      },
+      "('stormy', 'volume53')": {
+        "sense": "<=",
+        "type": "transmission_volume_expansion_limit"
+      }
+    },
+    "objective": 15005.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 16,
+      "Generator-fix-p-lower": 16,
+      "Generator-fix-p-upper": 16,
+      "Line-ext-s-lower": 8,
+      "Line-ext-s-upper": 8,
+      "Line-ext-s_nom-lower": 2,
+      "Line-ext-s_nom-upper": 2
+    }
+  },
+  "rung_54_scenario_delay": {
+    "columns": {
+      "Generator-p": 24,
+      "Link-p": 8,
+      "Process-p": 8
+    },
+    "diverges": {
+      "issue": 1941,
+      "objective": 9300.0
+    },
+    "global_constraints": {},
+    "objective": 9190.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 24,
+      "Generator-fix-p-lower": 24,
+      "Generator-fix-p-upper": 24,
+      "Link-fix-p-lower": 8,
+      "Link-fix-p-upper": 8,
+      "Process-fix-p-lower": 8,
+      "Process-fix-p-upper": 8
+    }
+  },
+  "rung_55_scenario_transformer_cycle": {
+    "diverges": {
+      "issue": 1942,
+      "raises": "KeyError"
+    },
+    "objective": 13105.0,
+    "pypsa": "1.3.0"
+  },
+  "rung_56_scenario_security_constrained": {
+    "diverges": {
+      "issue": 1942,
+      "raises": "ValueError"
+    },
+    "objective": 18205.0,
+    "pypsa": "1.3.0"
+  },
+  "rung_57_scenario_nom_set": {
+    "diverges": {
+      "issue": 1942,
+      "raises": "TypeError"
+    },
+    "objective": 4800.0,
+    "pypsa": "1.3.0"
+  },
+  "rung_58_scenario_committable": {
+    "diverges": {
+      "issue": 1913,
+      "raises": "KeyError"
+    },
+    "objective": 7430.0,
+    "pypsa": "1.3.0"
+  },
   "rung_60_efficiency_per_snapshot": {
     "columns": {
       "Generator-p": 20,

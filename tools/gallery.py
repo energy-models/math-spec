@@ -144,13 +144,25 @@ def _script(name: str) -> str:
     return f'`{name}.py`\n\n```python\n{(REFERENCES / f"{name}.py").read_text().strip()}\n```'
 
 
+def _banner(recorded: dict) -> str:
+    """What PyPSA solved the rung to; for a rung that records a PyPSA bug, also what the file intends and the issue."""
+    pypsa = f'`pypsa {recorded["pypsa"]}`'
+    if 'diverges' not in recorded:
+        return f"> ✔ {pypsa} solves this rung's network at objective `{recorded['objective']}`, {sum(recorded['rows'].values())} rows."
+    diverges = recorded['diverges']
+    issue = f'[PyPSA/PyPSA#{diverges["issue"]}](https://github.com/PyPSA/PyPSA/issues/{diverges["issue"]})'
+    gives = (
+        f"raises `{diverges['raises']}` on this rung's network"
+        if 'raises' in diverges
+        else f"solves this rung's network at objective `{diverges['objective']}`, {sum(recorded['rows'].values())} rows"
+    )
+    return f'> ✘ {pypsa} {gives}, {issue}. The intended objective is `{recorded["objective"]}`.'
+
+
 def reference_block(stem: str) -> str:
     """A rung's oracle: the recorded solve, then the PyPSA script that builds its network."""
-    recorded = RECORDED[stem]
-    rows = sum(recorded['rows'].values())
     return (
-        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's network at objective "
-        f'`{recorded["objective"]}`, {rows} rows.\n'
+        f'{_banner(RECORDED[stem])}\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>The network, as PyPSA code</summary>\n'

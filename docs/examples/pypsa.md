@@ -24,11 +24,15 @@ A row is **done** once the file states it as the one block PyPSA builds.
 **split** means the same feasible region and optimum under a different
 statement, such as several `where:` blocks. **open** means not stated yet.
 **out** means never stated, deliberately: emitted only under the keyword,
-scope or version the note names. A name carrying `{k}`, `{s}`, `{c}` or `{n}` stands
+scope or version the note names. **diverges** means the file states the
+intended math where PyPSA `1.3.0` has a bug; the note names the issue, and the
+rung records the intended objective and what PyPSA gives until the fix ships. A name carrying `{k}`, `{s}`, `{c}` or `{n}` stands
 for the family PyPSA numbers per segment, scenario, outaged component or
 sub-network.
 
-Each rung's banner states what PyPSA solved its reference network to.
+Each rung's banner states what PyPSA solved its reference network to. A
+rung that records a PyPSA bug, marked ✘, states what PyPSA gives beside the
+intended objective.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine attaches the network to the file, and what it makes of it, is that engine's own record.
@@ -2545,7 +2549,7 @@ bind, in `Transformer-fix-s-lower` against a line outage and in
 | [`Line-fix-s-*-security-for-{c}-outage-in-sub-network-{n}`](#line-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Line-ext-s-*-security-…`](#line-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | PyPSA names a row per outaged component and sub-network; one block over the `outage` axis |
 | [`Transformer-fix-s-*-security-…`](#transformer-fix-s-lower-security-for-c-outage-in-sub-network-n), [`Transformer-ext-s-*-security-…`](#transformer-ext-s-lower-security-for-c-outage-in-sub-network-n) | split | the same for a transformer |
 | a branch not active in a period | done | PyPSA keeps the copy with that branch's flow dropped, so the file reads its flow as zero there; a copy left with no variable is not built here, where linopy counts it; no rung records it |
-| a security-constrained run over scenarios | out | PyPSA `1.3.0` raises, see [Refusals](#refusals) |
+| a security-constrained run over scenarios | diverges | rung 56, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942) |
 | `transmission_losses`, `linearized_unit_commitment` in a security-constrained run | done | PyPSA builds neither, so the copies carry no loss term and data prep feeds `transmission_losses` false; no rung, since rung 30 is lossless |
 
 <!-- reference:rung_30_security_constrained:begin -->
@@ -3389,8 +3393,8 @@ network and the calm values in both futures, PyPSA solves to
 | PyPSA | status | note |
 | --- | --- | --- |
 | [`primary_energy`](#primary_energy), [`operational_limit`](#operational_limit), [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) with a constant and sense per scenario | done | `GlobalConstraint_constant` and `GlobalConstraint_sense` over `scenario` |
-| `transmission_expansion_cost_limit` on a network with scenarios | out | PyPSA `1.3.0` builds no row: it matches extendable names against a table indexed by scenario and name, and finds none (`global_constraints.py:916`). The file builds the row per scenario |
-| `transmission_volume_expansion_limit` on a network with scenarios and `multi_investment_periods` | out | PyPSA `1.3.0` builds no row: the active-asset filter reindexes a table indexed by scenario and name by the names alone, and keeps none (`global_constraints.py:828`, `descriptors.py:261-263`). The file builds the row per scenario |
+| `transmission_expansion_cost_limit` on a network with scenarios | diverges | rung 52, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939) |
+| `transmission_volume_expansion_limit` on a network with scenarios and `multi_investment_periods` | diverges | rung 53, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939) |
 | a `carrier_attribute` or `investment_period` per scenario | done | PyPSA reads both per scenario (`global_constraints.py:797-802`); the weights and `GlobalConstraint_counts_snapshot` span `scenario` |
 
 <!-- reference:rung_40_scenario_global_constraints:begin -->
@@ -3479,10 +3483,10 @@ calm efficiency in both, to `16992.0`; with both calm values in both, to
 | PyPSA | status | note |
 | --- | --- | --- |
 | [objective](#objective), [`Bus-nodal_balance`](#bus-nodal_balance) with a cost and an efficiency per scenario | done | `Generator_marginal_cost` and `Link_efficiency` over `scenario` |
-| a link `delay` or `cyclic_delay` that differs by scenario | out | PyPSA `1.3.0` groups the ports by delay over all scenarios and shifts each group in every scenario, so a delay of `0` in one future and `1` in the other solves below both uniform networks (`constraints.py:1269`). The file holds one delay for every scenario |
-| a transformer in a cycle on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the transformers of a cycle by name from a table indexed by scenario and name (`constraints.py:1654`). The file holds one phase shift for every scenario |
-| a committable component on a network with scenarios | out | PyPSA `1.3.0` fails: it selects the status by snapshot and name where the first dimension is the scenario (`constraints.py:1872`, `:1942`). The file builds the rows per scenario |
-| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | out | PyPSA `1.3.0` fails: it reindexes the build by a table indexed by scenario and name (`constraints.py:1708`). The file builds the row per scenario |
+| a link `delay` or `cyclic_delay` that differs by scenario | diverges | rung 54, [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941) |
+| a transformer in a cycle on a network with scenarios | diverges | rung 55, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942) |
+| a committable component on a network with scenarios | diverges | rung 58, [PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913) |
+| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | diverges | rung 57, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942) |
 
 <!-- reference:rung_41_scenario_operational_data:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `17964.0`, 96 rows.
@@ -4025,6 +4029,702 @@ def build():
 </details>
 <!-- reference:rung_50_inactive_load:end -->
 
+### Rung 51 — a growth limit after an asset retires
+
+`n.optimize(multi_investment_periods=True)` with a carrier that carries
+`max_growth`, and an extendable asset of that carrier that retires before the
+last period. The file counts a build in the first period it stands in only:
+`{c}_first_active` is one there and zero elsewhere. PyPSA `1.3.0` takes
+`active.cumsum() == 1`, which stays true after the asset retires, so it counts
+the asset again in every later period (`global_constraints.py:276`,
+[PyPSA/PyPSA#1938](https://github.com/PyPSA/PyPSA/issues/1938)).
+
+The rung builds two solar units under one carrier with `max_growth = 10`. The
+old one stands in 2020 only, the new one in 2030 only. Both build to `10` in
+the file. PyPSA holds the new one at `10` minus the old one's build, so it
+builds nothing in 2030 and solves to `5185.0`. The oracle is the same network
+with a carrier per unit, each with the same limit: each carrier has one asset,
+and the repeated row PyPSA builds for the old one repeats its own bound. It
+solves to `3432.5`. Without `max_growth`, the network solves to `248.75`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Carrier-growth_limit`](#carrier-growth_limit) with an asset that retires | diverges | [PyPSA/PyPSA#1938](https://github.com/PyPSA/PyPSA/issues/1938); `{c}_first_active` is zero after the first period an asset stands in |
+
+<!-- reference:rung_51_growth_retired_asset:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `5185.0`, 26 rows, [PyPSA/PyPSA#1938](https://github.com/PyPSA/PyPSA/issues/1938). The intended objective is `3432.5`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_51_growth_retired_asset.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 51: a carrier's growth limit counts an asset in the first period it stands in only, not again after it retires.
+
+PyPSA 1.3.0 counts an asset that retires in every later period too (PyPSA/PyPSA#1938).
+The oracle gives each build its own carrier with the same limit: each carrier
+then has one asset, which PyPSA counts in its first period, and a retired one
+counted again repeats a row it already has.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+ISSUE = 1938
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def network(carriers: dict[str, str]):
+    """Two periods, a solar unit that stands in 2020 only and one built in 2030, each under the carrier named for it."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(2)] + [(2030, datetime(2030, 1, 1, t)) for t in range(2)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', 'grid')
+    n.add('Carrier', 'gas')
+    for carrier in sorted(set(carriers.values())):
+        n.add('Carrier', carrier, max_growth=10)
+    for name, build_year in (('solar_old', 2020), ('solar_new', 2030)):
+        n.add(
+            'Generator',
+            name,
+            bus='grid',
+            carrier=carriers[name],
+            p_nom_extendable=True,
+            p_nom_max=50,
+            marginal_cost=1,
+            capital_cost=5,
+            build_year=build_year,
+            lifetime=10,
+        )
+    n.add('Generator', 'backup', bus='grid', carrier='gas', p_nom=100, marginal_cost=80)
+    n.add('Load', 'town', bus='grid', p_set=[15, 20, 15, 20])
+    return n
+
+
+def build():
+    """Both solar units under one carrier with `max_growth = 10`; the old one retires after 2020."""
+    return network({'solar_old': 'solar', 'solar_new': 'solar'})
+
+
+def oracle():
+    """The same network with a carrier per build: PyPSA counts each build in its first period only."""
+    return [(1.0, network({'solar_old': 'solar20', 'solar_new': 'solar30'}))]
+```
+
+</details>
+<!-- reference:rung_51_growth_retired_asset:end -->
+
+### Rung 52 — a transmission cost limit per scenario
+
+`n.set_scenarios(...)` with a `transmission_expansion_cost_limit` row. The
+file builds the row in every scenario, as it builds every global constraint.
+PyPSA `1.3.0` builds no row: it matches the extendable names against a table
+indexed by scenario and name, and finds none (`global_constraints.py:916`,
+[PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939)).
+
+The rung adds an extendable DC link to the spine under a cost limit of `150`,
+so the link builds `15`. The two futures are identical. The oracle is the same
+network without scenarios, which PyPSA solves with the row to `15630.0`. With
+scenarios, PyPSA solves to `11890.0`, the objective of the network without the
+row.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) on a network with scenarios | diverges | [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939); the row per scenario |
+
+<!-- reference:rung_52_scenario_cost_limit:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `11890.0`, 84 rows, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939). The intended objective is `15630.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_52_scenario_cost_limit.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 52: a `transmission_expansion_cost_limit` row holds in every scenario.
+
+PyPSA 1.3.0 builds no such row on a network with scenarios (PyPSA/PyPSA#1939).
+The two futures are identical, so the oracle is the same network without
+scenarios, which PyPSA solves with the row.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1939
+
+
+def network():
+    """The spine plus an extendable DC link whose build a cost limit of 150 caps."""
+    n = spine.build()
+    n.add('Carrier', 'DC')
+    n.add(
+        'Link',
+        'hvdc52',
+        bus0='north',
+        bus1='south',
+        carrier='DC',
+        p_nom_extendable=True,
+        p_nom_max=100,
+        capital_cost=10,
+    )
+    n.add('Load', 'port52', bus='south', p_set=40)
+    n.add(
+        'GlobalConstraint',
+        'cost52',
+        type='transmission_expansion_cost_limit',
+        carrier_attribute='DC',
+        sense='<=',
+        constant=150,
+    )
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_52_scenario_cost_limit:end -->
+
+### Rung 53 — a transmission volume limit per scenario and period
+
+`n.set_scenarios(...)` and `n.optimize(multi_investment_periods=True)` with a
+`transmission_volume_expansion_limit` row. The file builds the row in every
+scenario. PyPSA `1.3.0` builds no row: the active-asset filter reindexes a table
+indexed by scenario and name by the names alone, and keeps none
+(`global_constraints.py:828`, `descriptors.py:263`,
+[PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939)). Without
+periods, PyPSA builds the row (rung 40).
+
+The rung is two periods with an extendable line of length `3` under a volume
+limit of `60`, so the line builds `20`. The two futures are identical. The
+oracle is the same network without scenarios, which PyPSA solves with the row to
+`15005.0`. With scenarios, PyPSA solves to `1465.0`, the objective of the
+network without the row.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) on a network with scenarios and `multi_investment_periods` | diverges | [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939); the row per scenario |
+
+<!-- reference:rung_53_scenario_period_volume_limit:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `1465.0`, 68 rows, [PyPSA/PyPSA#1939](https://github.com/PyPSA/PyPSA/issues/1939). The intended objective is `15005.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_53_scenario_period_volume_limit.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 53: a `transmission_volume_expansion_limit` row holds in every scenario under `multi_investment_periods`.
+
+PyPSA 1.3.0 builds no such row on a network with scenarios and investment
+periods (PyPSA/PyPSA#1939). The two futures are identical, so the oracle is the
+same network without scenarios, which PyPSA solves with the row.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+ISSUE = 1939
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def network():
+    """Two periods, a cheap unit behind an extendable line whose volume a limit of 60 caps."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(2)] + [(2030, datetime(2030, 1, 1, t)) for t in range(2)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', ['hill', 'town'])
+    n.add('Carrier', 'AC')
+    n.add('Generator', 'hydro53', bus='hill', p_nom=100, marginal_cost=5)
+    n.add('Generator', 'diesel53', bus='town', p_nom=100, marginal_cost=90)
+    n.add(
+        'Line',
+        'tie53',
+        bus0='hill',
+        bus1='town',
+        x=0.1,
+        carrier='AC',
+        length=3,
+        s_nom_extendable=True,
+        s_nom_max=100,
+        capital_cost=1,
+        build_year=2020,
+        lifetime=30,
+    )
+    n.add('Load', 'town_load', bus='town', p_set=[40, 50, 60, 45])
+    n.add(
+        'GlobalConstraint',
+        'volume53',
+        type='transmission_volume_expansion_limit',
+        carrier_attribute='AC',
+        sense='<=',
+        constant=60,
+    )
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_53_scenario_period_volume_limit:end -->
+
+### Rung 54 — a delay per scenario
+
+`n.set_scenarios(...)` with a link `delay` and a process `delay1` that differ
+by scenario. The file states `Link_output_delay`, `Link_output_cyclic_delay`,
+`Process_output_delay` and `Process_output_cyclic_delay` over `scenario`, so
+each future shifts a port's flow by its own delay. The shifted flow already
+spans `scenario`, so the offset may too. PyPSA `1.3.0` groups the ports by
+delay over all scenarios and shifts each group in every scenario, so a port
+whose delay differs by scenario delivers its flow once per group
+(`constraints.py:1269-1276`,
+[PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941)). A plain run
+feeds one scenario, and the rows collapse to the standard ones.
+
+The rung is a capped source feeding two sinks, one through a link and one
+through a process. The calm future delivers at once. The stormy one delivers a
+snapshot late, cyclically on the link and with the first snapshot lost on the
+process. Nothing is extendable, so the futures do not interact. The oracle is
+each future solved alone, `7650.0` calm and `11500.0` stormy, weighted `0.6`
+and `0.4`: `9190.0`. PyPSA solves to `9300.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Link_output_arrival`](#link_output_arrival), [`Process_output_arrival`](#process_output_arrival) with a `delay` or `cyclic_delay` that differs by scenario | diverges | [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941); the delays span `scenario` |
+
+<!-- reference:rung_54_scenario_delay:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `9300.0`, 104 rows, [PyPSA/PyPSA#1941](https://github.com/PyPSA/PyPSA/issues/1941). The intended objective is `9190.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_54_scenario_delay.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 54: each scenario delays a link's and a process's flow by its own `delay`.
+
+PyPSA 1.3.0 groups the ports by delay over all scenarios and shifts every group
+in every scenario, so a port whose delay differs by scenario delivers twice
+(PyPSA/PyPSA#1941). Nothing is extendable, so the scenarios do not interact: the
+oracle is each future solved alone, weighted by its probability.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+ISSUE = 1941
+
+#: The `generators` weighting is uniform, as on rung 16, so a delay of `n` is a
+#: shift of exactly `n` positions. The `objective` column stays non-uniform.
+WEIGHTINGS = {'objective': [2.0, 1.5, 2.5, 3.0], 'generators': [1.0] * 4}
+DEMAND = [20.0, 35.0, 5.0, 30.0]
+SCENARIOS = {'calm': 0.6, 'stormy': 0.4}
+
+#: each future's own delay, per port: the calm one delivers at once, the stormy one a snapshot late
+DELAYS = {
+    'calm': {'pipe54': {'delay': 0, 'cyclic_delay': True}, 'conv54': {'delay1': 0, 'cyclic_delay1': True}},
+    'stormy': {'pipe54': {'delay': 1, 'cyclic_delay': True}, 'conv54': {'delay1': 1, 'cyclic_delay1': False}},
+}
+
+
+def network(delays: dict[str, dict[str, object]]):
+    """A capped source feeding two sinks, one through a link and one through a process, with the given delays."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.set_snapshots([datetime(2015, 1, 1, hour) for hour in range(4)])
+    for column, values in WEIGHTINGS.items():
+        n.snapshot_weightings[column] = values
+    n.add('Bus', ['source', 'sink_link', 'sink_process'])
+    n.add('Generator', 'spring54', bus='source', p_nom=50, marginal_cost=5)
+    n.add('Generator', 'backup_link54', bus='sink_link', p_nom=200, marginal_cost=100)
+    n.add('Generator', 'backup_process54', bus='sink_process', p_nom=200, marginal_cost=100)
+    n.add('Link', 'pipe54', bus0='source', bus1='sink_link', p_nom=30, **delays['pipe54'])
+    n.add('Process', 'conv54', bus0='source', bus1='sink_process', p_nom=30, **delays['conv54'])
+    n.add('Load', 'load_link54', bus='sink_link', p_set=DEMAND)
+    n.add('Load', 'load_process54', bus='sink_process', p_set=DEMAND)
+    return n
+
+
+def build():
+    """The network over two futures, each with its own delays."""
+    n = network(DELAYS['calm'])
+    n.set_scenarios(SCENARIOS)
+    for scenario, ports in DELAYS.items():
+        for name, values in ports.items():
+            component = n.c.links if name == 'pipe54' else n.c.processes
+            for column, value in values.items():
+                component.static.loc[(scenario, name), column] = value
+    return n
+
+
+def oracle():
+    """Each future alone, with its own delays, weighted by its probability."""
+    return [(weight, network(DELAYS[scenario])) for scenario, weight in SCENARIOS.items()]
+```
+
+</details>
+<!-- reference:rung_54_scenario_delay:end -->
+
+### Rung 55 — a transformer cycle per scenario
+
+`n.set_scenarios(...)` with two transformers in parallel, a cycle. The file
+builds the Kirchhoff voltage row in every scenario. PyPSA `1.3.0` raises
+`KeyError`: it selects the transformers of a cycle by name from a table indexed
+by scenario and name (`constraints.py:1654`,
+[PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942)).
+
+The rung adds two transformers of reactance `0.1` and `0.2`, each rated `30`,
+to the spine. The row splits the flow two to one, so the first caps the pair at
+`45`. The two futures are identical. The oracle is the same network without
+scenarios, which PyPSA solves to `13105.0`. One transformer rated `60` solves to
+`11705.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) with a transformer on a network with scenarios | diverges | [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942); the row per scenario. The file holds one phase shift for every scenario |
+
+<!-- reference:rung_55_scenario_transformer_cycle:begin -->
+> ✘ `pypsa 1.3.0` raises `KeyError` on this rung's network, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942). The intended objective is `13105.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_55_scenario_transformer_cycle.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 55: a cycle of two transformers takes its Kirchhoff voltage row in every scenario.
+
+PyPSA 1.3.0 raises on a transformer in a cycle on a network with scenarios
+(PyPSA/PyPSA#1942). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1942
+
+
+def network():
+    """The spine plus two parallel transformers of unequal reactance, so the one that takes more flow caps the pair."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b'])
+    n.add('Generator', 'hydro55', bus='a', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'diesel55', bus='b', p_nom=100, marginal_cost=50)
+    n.add('Load', 'town55', bus='b', p_set=[50, 40, 55, 45])
+    n.add('Transformer', 't55', bus0='a', bus1='b', x=0.1, s_nom=30)
+    n.add('Transformer', 't55_2', bus0='a', bus1='b', x=0.2, s_nom=30)
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_55_scenario_transformer_cycle:end -->
+
+### Rung 56 — a security-constrained run per scenario
+
+`n.optimize.optimize_security_constrained(...)` on a network with scenarios.
+The file builds the outage copies in every scenario. PyPSA `1.3.0` raises
+`ValueError`. With outages named as a list, it finds none of them in the
+network (`abstract.py:427`). With no outages named, it fails to intersect the
+branches (`abstract.py:445`,
+[PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942)). With outages
+named as `(component, name)` pairs, it builds no copy and solves without them.
+
+The rung adds two parallel lines rated `30` and `35` to the spine, and outages
+each. Each line must carry the whole import alone, so the import falls to `30`.
+The two futures are identical. The oracle is the same network without
+scenarios, which PyPSA solves to `18205.0`. A plain `n.optimize()` solves to
+`11705.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Line-fix-s-*-security-for-{c}-outage-in-sub-network-{n}`](#line-fix-s-lower-security-for-c-outage-in-sub-network-n) on a network with scenarios | diverges | [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942); the copies per scenario |
+
+<!-- reference:rung_56_scenario_security_constrained:begin -->
+> ✘ `pypsa 1.3.0` raises `ValueError` on this rung's network, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942). The intended objective is `18205.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_56_scenario_security_constrained.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 56: a security-constrained run over scenarios copies its rows into every scenario.
+
+PyPSA 1.3.0 raises on a security-constrained run on a network with scenarios
+(PyPSA/PyPSA#1942). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1942
+BRANCH_OUTAGES = ['l56', 'l56_2']
+
+
+def network():
+    """The spine plus two parallel lines, so each must carry the whole import alone when the other is out."""
+    n = spine.build()
+    n.add('Bus', ['a', 'b'])
+    n.add('Generator', 'hydro56', bus='a', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'diesel56', bus='b', p_nom=100, marginal_cost=50)
+    n.add('Load', 'town56', bus='b', p_set=[50, 40, 55, 45])
+    n.add('Line', 'l56', bus0='a', bus1='b', x=0.1, s_nom=30)
+    n.add('Line', 'l56_2', bus0='a', bus1='b', x=0.1, s_nom=35)
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_56_scenario_security_constrained:end -->
+
+### Rung 57 — a fixed build per scenario
+
+`n.set_scenarios(...)` with `p_nom_set` on an extendable unit. The file builds
+`Generator-p_nom_set` in every scenario. PyPSA `1.3.0` raises `TypeError`: it
+renames the scenario-and-name index of the set build with one name
+(`constraints.py:1708`,
+[PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942)). The same holds
+for every `*_nom_set`.
+
+The rung adds a cheap extendable wind unit to the spine, pinned to `20`. The
+two futures are identical. The oracle is the same network without scenarios,
+which PyPSA solves to `4800.0`. Without `p_nom_set`, the unit builds `67` and
+the network solves to `335.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`{c}-p_nom_set`](#generator-p_nom_set) on a network with scenarios | diverges | [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942); the row per scenario |
+
+<!-- reference:rung_57_scenario_nom_set:begin -->
+> ✘ `pypsa 1.3.0` raises `TypeError` on this rung's network, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942). The intended objective is `4800.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_57_scenario_nom_set.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 57: `p_nom_set` pins an extendable build on a network with scenarios.
+
+PyPSA 1.3.0 raises on any `*_nom_set` on a network with scenarios
+(PyPSA/PyPSA#1942). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1942
+
+
+def network():
+    """The spine plus a cheap extendable wind unit whose build is pinned below what it would choose."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'wind57',
+        bus='south',
+        p_nom_extendable=True,
+        p_nom_max=100,
+        capital_cost=5,
+        p_nom_set=20,
+    )
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_57_scenario_nom_set:end -->
+
+### Rung 58 — a committable unit per scenario
+
+`n.set_scenarios(...)` with a committable unit. The file builds the status
+rows in every scenario. PyPSA `1.3.0` raises `KeyError`: it selects the status
+by snapshot and name where the first dimension is the scenario
+(`constraints.py:1872`,
+[PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913)).
+
+The rung adds a cheap committable unit to the spine that cannot run below `40`
+% of its build, with a start-up cost of `100`. The two futures are identical.
+The oracle is the same network without scenarios, which PyPSA solves to
+`7430.0`. The same unit, not committable, solves to `7330.0`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| a committable component on a network with scenarios | diverges | [PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913); the rows per scenario |
+
+<!-- reference:rung_58_scenario_committable:begin -->
+> ✘ `pypsa 1.3.0` raises `KeyError` on this rung's network, [PyPSA/PyPSA#1913](https://github.com/PyPSA/PyPSA/issues/1913). The intended objective is `7430.0`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_58_scenario_committable.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 58: a committable unit takes its status rows in every scenario.
+
+PyPSA 1.3.0 raises on a committable component on a network with scenarios
+(PyPSA/PyPSA#1913). The two futures are identical, so the oracle is the same
+network without scenarios.
+"""
+
+from __future__ import annotations
+
+import spine
+
+ISSUE = 1913
+
+
+def network():
+    """The spine plus a cheap committable unit that cannot run below 40 % of its build."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'uc58',
+        bus='north',
+        committable=True,
+        p_nom=50,
+        marginal_cost=5,
+        p_min_pu=0.4,
+        min_up_time=2,
+        up_time_before=0,
+        start_up_cost=100,
+    )
+    n.add('Load', 'swing58', bus='north', p_set=[5, 45, 45, 10])
+    return n
+
+
+def build():
+    """The same network over two identical futures."""
+    n = network()
+    n.set_scenarios({'calm': 0.6, 'stormy': 0.4})
+    return n
+
+
+def oracle():
+    """The network without scenarios: the futures are identical, so the expected cost is its cost."""
+    return [(1.0, network())]
+```
+
+</details>
+<!-- reference:rung_58_scenario_committable:end -->
+
 ### Rung 60 — efficiencies per snapshot
 
 `n.optimize()` with a link, a process, a storage unit, a fuel unit and a
@@ -4175,7 +4875,7 @@ where it should live — language, data prep, or harness — is one open questio
 | `UnboundLocalError`, `global_constraints.py:375`, `:602` | a `primary_energy` or `operational_limit` row that names an `investment_period` without `multi_investment_periods` | data prep, at `GlobalConstraint_counts_snapshot` | |
 | `ValueError`, `constraints.py:2411`, `:2518` | an extendable lossy branch with `s_nom_max = inf`, either mode | data prep, at `Line_loss_max` and `Transformer_loss_max` | X4   |
 | `RuntimeError`, `constraints.py:2561`        | the secant loop passing `max_segments`            | data prep, at the `segment` axis | X4   |
-| `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused | |
+| `ValueError`, `abstract.py:427`, `:445`      | a security-constrained run over scenarios         | rows per scenario, not refused: a PyPSA bug, [PyPSA/PyPSA#1942](https://github.com/PyPSA/PyPSA/issues/1942), rung 56 | |
 | `NotImplementedError`, `global_constraints.py:66-68` | a `tech_capacity_expansion_limit` row on a network with scenarios | assumed where there is more than one scenario: [`GlobalConstraint_tech_capacity_expansion_limit_without_scenarios`](#globalconstraint_tech_capacity_expansion_limit_without_scenarios). The file cannot tell one scenario from none, which PyPSA also refuses | |
 | `ConsistencyError`, `consistency.py:1506-1560` | a maintainable component whose `maintenance_duration` or `maintenance_events` is not positive, whose events do not fit the weighted horizon, or that is extendable with `p_nom_max = inf` | assumed: [`Generator_maintenance_events_positive`](#generator_maintenance_events_positive), [`-duration_positive`](#generator_maintenance_duration_positive), [`-duration_fits_the_horizon`](#generator_maintenance_duration_fits_the_horizon), [`-events_fit_the_horizon`](#generator_maintenance_events_fit_the_horizon), [`-build_cap_is_finite`](#generator_maintenance_build_cap_is_finite), and the `Link` and `Process` ones | |
 | nothing; HiGHS refuses the model, `constraints.py:500-503` | a fixed modular committable maintainable build, whose module count `p_nom_max / p_nom_mod` is infinite | assumed: [`Generator_maintenance_module_count_is_finite`](#generator_maintenance_module_count_is_finite), and the `Link` and `Process` ones | |
@@ -4256,8 +4956,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\underline{\mathrm{f}}`$ | `Link_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — most flow, per unit of nominal power |
 | $`\eta`$ | `Link_efficiency` over $`\Xi \times \mathcal{T} \times \mathcal{O}`$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers. Read at the snapshot the flow arrives, so a delayed port delivers at its arrival snapshot's efficiency (`constraints.py:1522`) |
-| $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once. One for every scenario: PyPSA groups the ports by delay over all scenarios and shifts each group in every one (`constraints.py:1269`) |
-| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost. One for every scenario, as the delay |
+| $`\mathrm{d}^{f}`$ | `Link_output_delay` over $`\Xi \times \mathcal{O}`$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once. Each scenario takes its own. PyPSA `1.3.0` groups the ports by delay over all scenarios and shifts each group in every one, so a delay that differs by scenario delivers the flow twice (`constraints.py:1269-1276`, PyPSA/PyPSA\#1941) |
+| $`\mathrm{cyc}^{f}`$ | `Link_output_cyclic_delay` over $`\Xi \times \mathcal{O}`$ — whether a delayed port's flow wraps from the end of its investment period — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at each period's first snapshots is lost. Each scenario takes its own, as the delay |
 | $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
 | $`\mathrm{c}^{f,(2)}`$ | `Link_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{L}`$ — cost of the square of one unit of flow |
 | $`\mathrm{com}^{f}`$ | `Link_committable` over $`\mathcal{L}`$ — whether flow is gated by an on/off status decision |
@@ -4286,8 +4986,8 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\underline{\mathrm{z}}`$ | `Process_p_min_pu` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — least internal power, per unit of nominal power — negative for a process that runs both ways |
 | $`\overline{\mathrm{z}}`$ | `Process_p_max_pu` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — most internal power, per unit of nominal power |
 | $`\alpha`$ | `Process_rate` over $`\Xi \times \mathcal{T} \times \mathcal{R}`$ — the energy a port draws or delivers per unit of internal power, PyPSA's `rate0`, `rate1`, … read long — negative where the port withdraws, positive where it injects; a link is a process whose `bus0` rate is minus one and whose output rates are its efficiencies. Read at the snapshot the transfer arrives, so a delayed port transfers at its arrival snapshot's rate (`constraints.py:1522`) |
-| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once. One for every scenario, as a link's |
-| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost. One for every scenario, as the delay |
+| $`\mathrm{d}^{z}`$ | `Process_output_delay` over $`\Xi \times \mathcal{R}`$ — snapshots a port's transfer lags its process's internal power — PyPSA's `delay0`, `delay1`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that transfers at once. Each scenario takes its own, as a link's |
+| $`\mathrm{cyc}^{z}`$ | `Process_output_cyclic_delay` over $`\Xi \times \mathcal{R}`$ — whether a delayed port's transfer wraps from the end of its investment period — PyPSA's `cyclic_delay0`, `cyclic_delay1`, …; where it does not, the energy still in transit at each period's first snapshots is lost. Each scenario takes its own, as the delay |
 | $`\mathrm{c}^{z}`$ | `Process_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of one unit of internal power |
 | $`\mathrm{c}^{z,(2)}`$ | `Process_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — cost of the square of one unit of internal power |
 | $`\mathrm{ru}^{z}`$ | `Process_ramp_limit_up` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time |
@@ -4340,12 +5040,12 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{W}^{s}`$ | `Line_capital_weight` over $`\mathcal{K}`$ — the sum of period weights a line stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{z}`$ | `Process_capital_weight` over $`\mathcal{J}`$ — the sum of period weights a process stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{\sigma}`$ | `Transformer_capital_weight` over $`\mathcal{M}`$ — the sum of period weights a transformer stands in — PyPSA's `active * period_weighting`, summed, data prep |
-| $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{f}`$ | `Link_first_active` over $`\mathcal{Y} \times \mathcal{L}`$ — one in the first period a link stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{h}`$ | `StorageUnit_first_active` over $`\mathcal{Y} \times \mathcal{S}`$ — one in the first period a storage unit stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a generator that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{f}`$ | `Link_first_active` over $`\mathcal{Y} \times \mathcal{L}`$ — one in the first period a link stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a link that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{h}`$ | `StorageUnit_first_active` over $`\mathcal{Y} \times \mathcal{S}`$ — one in the first period a storage unit stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a storage unit that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a store that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a line that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a process that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
 | $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit. The least over the scenarios, as PyPSA takes it (`global_constraints.py:226-230`), data prep. PyPSA reads it only under `multi_investment_periods` (`global_constraints.py:219-220`), so data prep feeds no value otherwise |
 | $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top — the least over the scenarios, as PyPSA takes it, data prep |
 | $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
@@ -4384,7 +5084,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}`$ | `StorageUnit_cyclic_state_of_charge` over $`\Xi \times \mathcal{S}`$ — whether the horizon closes on itself instead of opening on the initial charge |
 | $`\mathrm{cyc}^{y}`$ | `StorageUnit_cyclic_state_of_charge_per_period` over $`\Xi \times \mathcal{S}`$ — whether each investment period closes on itself instead of carrying its charge on to the next; it overrides `cyclic_state_of_charge` and `state_of_charge_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{reset}`$ | `StorageUnit_state_of_charge_initial_per_period` over $`\Xi \times \mathcal{S}`$ — whether each investment period opens on the initial charge instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
-| $`\mathrm{open}`$ | `StorageUnit_opens_late` over $`\mathcal{T} \times \mathcal{S}`$ — whether a snapshot is the first a storage unit stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every unit stands throughout |
+| $`\mathrm{open}`$ | `StorageUnit_opens_late` over $`\mathcal{T} \times \mathcal{S}`$ — whether a snapshot is the first a storage unit stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` over the snapshots it stands in, past the first snapshot, data prep; false in a run where every unit stands throughout |
 | $`\mathrm{idle}`$ | `StorageUnit_inactive_snapshots` over $`\mathcal{S}`$ — how many snapshots a storage unit does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic unit reaches back this many snapshots further, so it closes on the last snapshot it stands in |
 | $`\mathrm{c}^{h}`$ | `StorageUnit_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of one unit of dispatch |
 | $`\mathrm{c}^{h,(2)}`$ | `StorageUnit_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of the square of one unit of dispatch; storing is not charged |
@@ -4404,7 +5104,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\Xi \times \mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
 | $`\mathrm{cyc}^{e,y}`$ | `Store_e_cyclic_per_period` over $`\Xi \times \mathcal{V}`$ — whether each investment period closes on itself instead of carrying its energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{reset}^{e}`$ | `Store_e_initial_per_period` over $`\Xi \times \mathcal{V}`$ — whether each investment period opens on the initial energy instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
-| $`\mathrm{open}^{e}`$ | `Store_opens_late` over $`\mathcal{T} \times \mathcal{V}`$ — whether a snapshot is the first a store stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every store stands throughout |
+| $`\mathrm{open}^{e}`$ | `Store_opens_late` over $`\mathcal{T} \times \mathcal{V}`$ — whether a snapshot is the first a store stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` over the snapshots it stands in, past the first snapshot, data prep; false in a run where every store stands throughout |
 | $`\mathrm{idle}^{e}`$ | `Store_inactive_snapshots` over $`\mathcal{V}`$ — how many snapshots a store does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic store reaches back this many snapshots further, so it closes on the last snapshot it stands in |
 | $`\mathrm{c}^{q}`$ | `Store_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of one unit of power delivered |
 | $`\mathrm{c}^{q,(2)}`$ | `Store_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of the square of the net power delivered, so charging costs as much as delivering |
@@ -9286,7 +9986,7 @@ Link_output_arrival:
 ```
 
 ```math
-\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,t,o} & \text{if } \mathrm{cyc}^{f}_{o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,t,o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
+\overrightarrow{f}_{\xi,t,o} = \begin{cases} f_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,t,o} & \text{if } \mathrm{cyc}^{f}_{\xi,o} \\ f_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{\xi,t,o} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ o \in \mathcal{O}
 ```
 
 ### `Process_output_arrival`
@@ -9310,7 +10010,7 @@ Process_output_arrival:
 ```
 
 ```math
-\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,t,r} & \text{if } \mathrm{cyc}^{z}_{r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,t,r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
+\overrightarrow{z}_{\xi,t,r} = \begin{cases} z_{\xi,t \ominus^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,t,r} & \text{if } \mathrm{cyc}^{z}_{\xi,r} \\ z_{\xi,t \boxminus_{0}^{\mathrm{snapshot\_period}(t)} \mathrm{d}^{z},\mathrm{Process\_output\_process}(r)} \cdot \alpha_{\xi,t,r} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ r \in \mathcal{R}
 ```
 
 ### `GlobalConstraint_energy_weight`
@@ -10505,7 +11205,8 @@ Generator_came_in_running_unless_committable:
     start-up ramp where another unit of the component is committable with a
     fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
     the attribute as read only for a committable unit and does not check
-    it. The spec does not state that row, so it refuses the data
+    it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+    spec does not state that row, so it refuses the data
 ```
 
 ```math
@@ -10525,7 +11226,8 @@ Link_came_in_running_unless_committable:
     start-up ramp where another link of the component is committable with a
     fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
     the attribute as read only for a committable link and does not check
-    it. The spec does not state that row, so it refuses the data
+    it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+    spec does not state that row, so it refuses the data
 ```
 
 ```math
@@ -10545,7 +11247,8 @@ Process_came_in_running_unless_committable:
     start-up ramp where another process of the component is committable with a
     fixed build (`constraints.py:1091-1094`, `1110-1112`). PyPSA documents
     the attribute as read only for a committable process and does not check
-    it. The spec does not state that row, so it refuses the data
+    it. PyPSA has not decided which row is intended (PyPSA/PyPSA#1943). The
+    spec does not state that row, so it refuses the data
 ```
 
 ```math
