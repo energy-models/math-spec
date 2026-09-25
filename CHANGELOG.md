@@ -12,7 +12,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
-- docs: a page says how the package version and the language version of a model file relate ([#708](https://github.com/energy-models/mathspec/pull/708))
+- docs: a page says how the package version and the language version of a model file relate ([#711](https://github.com/energy-models/mathspec/pull/711))
 - docs: the installation page and the PyPI project page say `pip install mathspec`, and the README's links resolve on PyPI ([#707](https://github.com/energy-models/mathspec/pull/707))
 - docs: every link to the documentation points at mathspec.readthedocs.io ([#706](https://github.com/energy-models/mathspec/pull/706))
 
