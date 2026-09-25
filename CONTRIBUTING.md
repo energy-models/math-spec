@@ -65,9 +65,9 @@ When opening a pull request, please provide a clear summary of your changes!
 decides where it goes, in the nav and in the tree**: a tutorial (`docs/`), a
 how-to guide (`docs/howto/`), reference (`docs/reference/`, and the model pages
 in `docs/examples/`) or explanation (`docs/about/`) — the four kinds of
-[Diátaxis](https://diataxis.fr) — and one page is one kind. The Development
-section of the nav is outside the four kinds, and holds proof-of-concept and
-contributor pages. The rules each kind has to meet, and the sentence-level
+[Diátaxis](https://diataxis.fr) — and one page is one kind. A page a model
+writer does not need goes under Development in the nav: building on
+math-spec, contributing, or a proof of concept. The rules each kind has to meet, and the sentence-level
 bar, are in
 [the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
 Every page needs a `nav:` entry in `mkdocs.yml`, links inside `docs/` are

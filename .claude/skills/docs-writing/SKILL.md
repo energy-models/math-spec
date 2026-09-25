@@ -45,25 +45,30 @@ Two questions decide it, and they work on a paragraph as well as a page:
 1. Does it inform **action** or **cognition**?
 2. Does it serve **acquiring** a skill or **applying** one?
 
-| Kind        | Informs   | Serves  | Answers                                                       | Nav section · folder                                                                          |
-| ----------- | --------- | ------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Tutorial    | action    | acquire | "Get me a first file that loads and prints"                   | Tutorials · `docs/`                                                                           |
-| How-to      | action    | apply   | "I have this task"                                            | How-to guides · `docs/howto/`                                                                 |
-| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?"         | Reference · `docs/reference/`, model pages in `docs/examples/`                                |
-| Explanation | cognition | acquire | "Why is it like this?"                                        | About · `docs/about/`                                                                         |
-| (none)      | —         | —       | "How do I contribute, and what does a proof of concept show?" | Development · `docs/contributing.md`, PyPSA pages in `docs/examples/`, module pages generated |
+| Kind        | Informs   | Serves  | Answers                                               | Section · folder                                               |
+| ----------- | --------- | ------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| Tutorial    | action    | acquire | "Get me a first file that loads and prints"           | Tutorials · `docs/`                                            |
+| How-to      | action    | apply   | "I have this task"                                    | How-to guides · `docs/howto/`                                  |
+| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`, model pages in `docs/examples/` |
+| Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                          |
 
-The nav and the tree are both arranged by kind. A new page goes in the folder
-of its kind and under the nav section of the same name; the first tutorial
-opens the `Tutorials:` section, above the how-to guides. The model pages sit at
-the end of the Reference section, after the pages a reader looks things up in.
-A worked example is neither a tutorial nor a how-to: it teaches no path and
-names no task, it shows that the language says a model.
+The nav and the tree are both arranged by kind, for someone who writes a
+model. A new page goes in the folder of its kind and under the nav section of
+the same name. The model pages sit at the end of the Reference section, after
+the pages a reader looks things up in. A worked example is neither a tutorial
+nor a how-to: it teaches no path and names no task, it shows that the language
+says a model.
 
-The Development section, last in the nav, is outside the four kinds. It holds
-proof-of-concept pages and contributor material, which a reader writing a
-model does not need. Its PyPSA pages stay in `docs/examples/`, where
-`tools/gallery.py` writes them.
+The Development section, last in the nav, holds every page a model writer does
+not need, in three groups:
+
+- **Building on math-spec** is for someone who writes a tool against `Spec`
+  and `Program`: an engine such as specsolve, a renderer, a checker.
+- **Contributing** is for someone who changes math-spec itself.
+- **Proofs of concept** holds the PyPSA pages. They stay in `docs/examples/`,
+  where `tools/gallery.py` writes them.
+
+A page in Development keeps the folder of its kind.
 
 Each kind has one job, and one thing it must not do:
 
@@ -97,7 +102,7 @@ section, saying why a reader would open it.
 `docs/reference/api.md` holds one `:::` entry per name in `math_spec.__all__`,
 and mkdocstrings renders each from its docstring. `docs/static/hooks.py`
 renders one page per module under `src/math_spec/`, and puts them in the
-Development section as `Modules`. The prose of both is the docstring rules in
+Contributing group of the Development section as `Modules`. The prose of both is the docstring rules in
 `AGENTS.md`.
 
 Mixing kinds is the most common failure. Rationale inside a reference section
@@ -111,7 +116,7 @@ prints from it. What a consumer does with a spec — the data it binds, how it
 solves, what it reads back — is that consumer's page, not this tree's
 ([what counts as language](../../../docs/about/what-counts-as-language.md)).
 A rule about a consumer says only what the file guarantees it
-([reading a loaded model](../../../docs/reference/language/reading.md)).
+([reading a loaded model](../../../docs/reference/reading.md)).
 
 Answer the two questions before starting. If a page needs two kinds, it is
 two sections with two headings, or two pages.

@@ -34,7 +34,7 @@ python -m math_spec markdown model.yaml
 ## Options
 
 The three functions take the same keywords, and the command line spells each as
-a flag.
+a flag. The [Python API](api.md#typesetting) gives each signature.
 
 |                      |                        |                                                                                                                                 |
 | -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
