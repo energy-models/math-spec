@@ -15,6 +15,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 - feat(language): a named expression may declare the frame it is read over ([#741](https://github.com/energy-models/mathspec/pull/741))
 - docs: code examples on the site are readable in light and dark mode, and a diagram shows what mathspec leaves to engines and other tools ([#730](https://github.com/energy-models/mathspec/pull/730))
 - docs: the site follows the reader's light or dark setting, and a page shows where it sits in the navigation ([#727](https://github.com/energy-models/mathspec/pull/727))
+- feat(language): two files that state the same spec write one text, and `canonical --check` fails a file that is not in it ([#731](https://github.com/energy-models/mathspec/pull/731))
 
 ## 0.2.0 (2026-09-25)
 
