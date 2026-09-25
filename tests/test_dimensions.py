@@ -15,7 +15,7 @@ from mathspec.errors import SchemaError
 from mathspec.program import Mask, RelationPairComparison
 from mathspec.resolution import Namespace
 from mathspec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, expression_of, override, schema_of, where_of
+from tests.fixtures import DISPATCH_MODEL, expression_of, schema_of, varied, where_of
 
 if TYPE_CHECKING:
     from mathspec.spec import Spec
@@ -453,7 +453,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
 
     def _refused(self, expression: str) -> str:
         """The message `to_spec` refuses *expression* with — a `SchemaError`, since every rule here is resolution's."""
-        raw = override(self.BASE, **{'constraints.k.expression': expression})
+        raw = varied(self.BASE, **{'constraints.k.expression': expression})
         with pytest.raises(SchemaError) as caught:
             to_spec(raw)
         return str(caught.value)
@@ -507,7 +507,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         literal zero vacates none, so there is nothing for an `edge=` to answer
         for. A *named* offset may be zero in the data and is not known here.
         """
-        to_spec(override(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, along=g, offset=0)'}))
+        to_spec(varied(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, along=g, offset=0)'}))
 
 
 # ---------------------------------------------------------------------------
@@ -612,7 +612,7 @@ def test_names_read_takes_both_sides_of_a_relation_pair():
 # ---------------------------------------------------------------------------
 
 #: A quantity that is one number per generator, read over every snapshot as well.
-FRAMED = override(
+FRAMED = varied(
     DISPATCH_MODEL,
     **{
         'variables.build': {'dims': ['generator']},
@@ -624,14 +624,14 @@ FRAMED = override(
 def test_a_declared_frame_is_the_frame_as_written():
     """A plain entry's frame was its body's, in declaration order; declared, it is the dims: as written."""
     spec = to_spec(
-        override(FRAMED, **{'expressions.limit': {'dims': ['generator', 'snapshot'], 'expression': 'build * p_max'}})
+        varied(FRAMED, **{'expressions.limit': {'dims': ['generator', 'snapshot'], 'expression': 'build * p_max'}})
     )
     assert spec.program.expressions['limit'].dims == ('generator', 'snapshot')
     assert spec.to_dict()['expressions']['limit']['dims'] == ['generator', 'snapshot'], 'and it round-trips'
 
 
 def test_a_body_outside_its_declared_frame_is_refused():
-    wide = override(DISPATCH_MODEL, **{'expressions.limit': {'dims': ['generator'], 'expression': 'p * p_max'}})
+    wide = varied(DISPATCH_MODEL, **{'expressions.limit': {'dims': ['generator'], 'expression': 'p * p_max'}})
     with pytest.raises(DimensionError, match=r"the body carries dims \['snapshot'\] outside the dims: \['generator'\]"):
         to_spec(wide)
 
@@ -639,7 +639,7 @@ def test_a_body_outside_its_declared_frame_is_refused():
 def test_a_declared_frame_is_read_at_every_coordinate_where_the_body_is_narrower():
     """The row would repeat across `snapshot` on the body's own frame; the declared frame says that is meant."""
     row = {'constraints.capped': {'dims': ['snapshot', 'generator'], 'expression': 'limit <= 10'}}
-    assert to_spec(override(FRAMED, **row)).program.constraints['capped'].dims == ('snapshot', 'generator')
-    undeclared = override(FRAMED, **row, **{'expressions.limit': 'build * p_max'})
+    assert to_spec(varied(FRAMED, **row)).program.constraints['capped'].dims == ('snapshot', 'generator')
+    undeclared = varied(FRAMED, **row, **{'expressions.limit': 'build * p_max'})
     with pytest.raises(DimensionError, match=r"would be repeated across \['snapshot'\]"):
         to_spec(undeclared)

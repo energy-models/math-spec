@@ -18,20 +18,20 @@ from mathspec.program import DimensionPosition
 from mathspec.resolution import Namespace
 from mathspec.typesetting import to_markdown
 from mathspec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override, where_of
+from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, varied, where_of
 
 if TYPE_CHECKING:
     from mathspec.spec import Spec
 
 
 def _schema(**patch) -> Spec:
-    return to_spec(override(SMALL_MODEL, **patch))
+    return to_spec(varied(SMALL_MODEL, **patch))
 
 
 def _refusal(model: dict[str, Any] = SMALL_MODEL, **patch: Any) -> str:
     """The message `to_spec` refuses *model* patched with — and it has to refuse."""
     with pytest.raises(LanguageError) as caught:
-        to_spec(override(model, **patch))
+        to_spec(varied(model, **patch))
     return str(caught.value)
 
 
@@ -193,7 +193,7 @@ class TestValidateExpressions:
         definition like any other — rather than degree-checking a declaration
         nothing consumes.
         """
-        model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
+        model = varied(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
         assert to_spec(model).program.expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
@@ -224,7 +224,7 @@ def _kwarg_model(expression: str, dims: list[str] | None = None) -> dict[str, An
 class TestDual:
     """`dual(c)`: a primitive legal only in an entry the math never reads, its argument a constraint name resolved against constraints alone."""
 
-    BASE = override(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
+    BASE = varied(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -284,13 +284,13 @@ class TestDual:
     )
     def test_a_dual_out_of_place_is_refused(self, patch, fragments):
         with pytest.raises(LanguageError) as exc:
-            to_spec(override(self.BASE, **patch))
+            to_spec(varied(self.BASE, **patch))
         for fragment in fragments:
             assert fragment in str(exc.value)
 
     def test_a_dual_loads_in_an_expressions_entry(self):
         """The one place it is legal: an ``expressions:`` entry naming a declared constraint, which nothing in the math reads."""
-        assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
+        assert to_spec(varied(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
 
 
 class TestDimensionKwargs:
@@ -2062,7 +2062,7 @@ def test_an_expression_too_deep_to_walk_fails_as_a_language_error(patch, nests):
     nothing naming the file, the declaration, or what to write instead.
     """
     with pytest.raises(LanguageError, match='past the 100 levels'):
-        to_spec(override(DISPATCH_MODEL, **patch))
+        to_spec(varied(DISPATCH_MODEL, **patch))
 
 
 def _chain(n: int, *, deepest_first: bool) -> dict[str, str]:
@@ -2084,24 +2084,22 @@ def test_a_chain_of_named_expressions_is_held_to_the_resolved_depth_and_costs_no
     """
     chain = _chain(150, deepest_first=deepest_first)
     constraint = {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) <= e149'}
-    spec = to_spec(override(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
+    spec = to_spec(varied(DISPATCH_MODEL, expressions=chain, **{'constraints.c': constraint}))
     to_markdown(spec.program and spec)
 
     with pytest.raises(LanguageError, match='nests 301 deep with every named expression it reads written in') as caught:
-        to_spec(override(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
+        to_spec(varied(DISPATCH_MODEL, expressions=_chain(151, deepest_first=deepest_first)))
     assert 'past the 300 levels' in str(caught.value)
     assert "Named expression 'e150'" in str(caught.value), 'refused at the first entry past the depth, by name'
 
     with pytest.raises(LanguageError, match='past the 300 levels'):
-        to_spec(override(DISPATCH_MODEL, expressions=_chain(400, deepest_first=deepest_first)))
+        to_spec(varied(DISPATCH_MODEL, expressions=_chain(400, deepest_first=deepest_first)))
 
 
 def test_a_name_may_open_with_an_underscore():
     """`expressions.md` said a name opens with a letter while the schema and the grammar both admitted `_`, so the page refused what the language accepts."""
     schema = to_spec(
-        override(
-            DISPATCH_MODEL, **{'parameters._reserve': {'dims': ['generator']}, 'variables.p.where': '_reserve > 0'}
-        )
+        varied(DISPATCH_MODEL, **{'parameters._reserve': {'dims': ['generator']}, 'variables.p.where': '_reserve > 0'})
     )
 
     assert '_reserve' in schema.parameters, 'a leading underscore is a name, as NAME and the schema both say'
@@ -2134,7 +2132,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
     spec = to_spec(
-        override(
+        varied(
             DISPATCH_MODEL,
             **{
                 'variables.p.where': 'p_max > 0',
@@ -2184,7 +2182,7 @@ def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_n
     """An entry nothing read loaded and failed only when printed, and one a constraint read was
     refused under the constraint's name. The program reads an entry's frame off its body at
     load, so the fault is the entry's, wherever it is read."""
-    model = override(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
+    model = varied(SMALL_MODEL, expressions={'bad': {'expression': 'sum(k, over=g)'}}, constraints=constraints)
     with pytest.raises(DimensionError, match=r"^Named expression 'bad': sum\(over=g\)"):
         to_spec(model)
 
@@ -2198,7 +2196,7 @@ def test_a_plain_entry_that_breaks_a_dim_rule_is_refused_at_load_under_its_own_n
 )
 def test_an_open_bound_is_null_in_the_file_and_in_the_program(upper):
     """`upper: null` was refused, though every other field a file may leave open takes `null`."""
-    spec = to_spec(override(DISPATCH_MODEL, **{'variables.p.bounds': {'lower': 0, **upper}}))
+    spec = to_spec(varied(DISPATCH_MODEL, **{'variables.p.bounds': {'lower': 0, **upper}}))
     assert spec.variables['p'].bounds.upper is None
     assert spec.program.variables['p'].upper is None, 'the program says the side is open rather than infinite'
     assert spec.to_dict()['variables']['p']['bounds'] == {'lower': 0}, 'an open bound is not written back out'

@@ -12,7 +12,7 @@ or keyword. For the rules a spec itself has to obey, read
 
 ## How a new construct enters
 
-A request for something new is one of three kinds, and the kind decides what it
+A request for something new is one of four kinds, and the kind decides what it
 costs to add.
 
 - **A macro** is a template with arguments, written in the file under `macros:`.
@@ -28,8 +28,14 @@ costs to add.
   constraints and assumptions, and no parameter, so
   [`spec.expand()`](../reference/language/piecewise.md#writing-a-formulation-out)
   writes it out with the data the spec already expects.
+- **A declaration section** is a block of declarations of one kind, such as
+  `variables:` or `given:`. One enters where it states something no section
+  states, where a file decides it without data, and where the typesetter prints
+  it. `given:` entered on all three. No other section says that a parameter,
+  a column, a named expression or a row family belongs to another file, and
+  that is what lets a component file load and print on its own.
 
-A request that is none of the three is refused, and the
+A request that is none of the four is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
 instead.
 

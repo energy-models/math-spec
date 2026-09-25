@@ -35,15 +35,53 @@ def advice(spec: str | Path | Mapping[str, object] | Spec | Program) -> tuple[Ad
             nothing expanded.
 
     Returns:
-        The never-an-axis advice in declaration order, then the unboundedness
-        advice; ``str()`` of each is its sentence.
+        The never-an-axis advice in declaration order, then one note per
+        declaration the program reads and does not build, then the
+        unboundedness advice; ``str()`` of each is its sentence.
 
     Raises:
         LanguageError: *spec* does not load; [`to_spec`][] says why.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
     program = spec if isinstance(spec, Program) else to_spec(spec).program
-    return tuple(_never_an_axis(program) + unbounded_notes(program))
+    return tuple(_never_an_axis(program) + _given(program) + unbounded_notes(program))
+
+
+def _given(program: Program) -> list[Advice]:
+    """One note per declaration the program reads and does not build.
+
+    A note rather than a refusal: the file is a spec somebody meant, and only
+    the consumer can tell whether the model it is layered onto provides the
+    name. An expression this file adds a term to is completed by `merge`
+    rather than by a host, so its note says that instead.
+    """
+    given = program.given
+    return [
+        *(Advice('given', name, _given_note('parameter', name)) for name in given.parameters),
+        *(Advice('given', name, _given_note('variable', name)) for name in given.variables),
+        *(
+            Advice('given', name, _term_note(name) if block.term is not None else _given_note('expression', name))
+            for name, block in given.expressions.items()
+        ),
+        *(Advice('given', name, _given_note('row family', name)) for name in given.constraints),
+    ]
+
+
+def _given_note(kind: str, name: str) -> str:
+    return (
+        f"{kind} '{name}' is read here and declared elsewhere: the model this one is layered onto "
+        f'provides it. A consumer checks that it does, on the same frame, and refuses the program where '
+        f'it does not. A fragment is composed instead: merge() folds this declaration into the one a '
+        f'sibling introduces.'
+    )
+
+
+def _term_note(name: str) -> str:
+    return (
+        f"expression '{name}' is read here and declared elsewhere, and this file adds a term to it: merge() "
+        f'sums the term with what the other files declare under the name. Until then, the program reads it '
+        f'and does not build it.'
+    )
 
 
 def _never_an_axis(program: Program) -> list[Advice]:
@@ -51,10 +89,20 @@ def _never_an_axis(program: Program) -> list[Advice]:
 
     A dimension a relation has a column over is reached: its members are the
     labels that column is checked against, and a ``where`` selects on them,
-    so it is in use even where nothing is indexed by it.
+    so it is in use even where nothing is indexed by it. A dimension only a
+    given declaration indexes is reached too: the column exists, in another
+    file.
     """
     reached: set[str] = set()
-    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
+    for declaration in (
+        *program.parameters.values(),
+        *program.variables.values(),
+        *program.constraints.values(),
+        *program.given.parameters.values(),
+        *program.given.variables.values(),
+        *program.given.expressions.values(),
+        *program.given.constraints.values(),
+    ):
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
     reached |= {dim for lk in program.relations.values() for dim in lk.dims}

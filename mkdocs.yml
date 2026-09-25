@@ -33,6 +33,7 @@ nav:
   # section, after the pages a reader looks things up in.
   - Tutorials:
       - Your first spec: first-spec.md
+      - A spec in several files: several-files.md
   - How-to guides:
       - Installation: howto/installation.md
       - Check a spec without data: howto/check.md
@@ -43,6 +44,7 @@ nav:
       - Write a piecewise curve out by hand: howto/curve-by-hand.md
       - See what a curve or a set expands to: howto/see-an-expansion.md
       - Compare two specs: howto/compare.md
+      - Compose a spec from several files: howto/compose.md
   - Reference:
       - Language:
           - reference/language/index.md
@@ -65,6 +67,12 @@ nav:
           - Least-cost dispatch: examples/dispatch.md
           - Unit commitment: examples/commitment.md
           - One construct per spec: examples/operators.md
+          - A component library:
+              - examples/library/index.md
+              - The coupling surface: examples/library/surface.md
+              - Generators: examples/library/generator.md
+              - Loads: examples/library/load.md
+              - The composed spec: examples/library/composed.md
   - About:
       - The limits: about/limits.md
       - Versions: about/versions.md

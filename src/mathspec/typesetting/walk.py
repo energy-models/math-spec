@@ -234,6 +234,8 @@ class Walk:
         #: Substitute each plain named expression where it is used, rather than
         #: printing its symbol there and its definition once.
         self.inline_expressions = inline_expressions
+        #: Every parameter the math reads, declared here or given.
+        self._parameters = {**program.parameters, **program.given.parameters}
 
     def _frame_of(self, name: str) -> list[str]:
         """The dims named expression *name* is read over, as its declaration carries them."""
@@ -326,10 +328,11 @@ class Walk:
             return self._number(node.value), _ATOM if node.value >= 0 else 1
 
         if isinstance(node, Parameter):
-            return ctx.indexed(self.symbols.name[node.name], list(self.program.parameters[node.name].dims)), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], list(self._parameters[node.name].dims)), _ATOM
 
         if isinstance(node, Variable):
-            return ctx.indexed(self.symbols.name[node.name], list(self.program.variables[node.name].dims)), _ATOM
+            frames = {**self.program.variables, **self.program.given.variables, **self.program.given.expressions}
+            return ctx.indexed(self.symbols.name[node.name], list(frames[node.name].dims)), _ATOM
 
         if isinstance(node, Negate):
             text, precedence = self._arithmetic(node.operand, ctx)
@@ -364,7 +367,8 @@ class Walk:
 
     def _dual(self, node: Dual, ctx: _Context) -> str:
         """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
-        frame = self._sorted(frozenset(self.program.constraints[node.constraint].dims))
+        frames = {**self.program.constraints, **self.program.given.constraints}
+        frame = self._sorted(frozenset(frames[node.constraint].dims))
         return self.format.subscript(
             self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
         )
@@ -528,7 +532,7 @@ class Walk:
 
         if isinstance(node, ParameterDefined):
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            if self.program.parameters[node.name].dtype == 'bool':
+            if self._parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
             return f'{indexed} {self.format.prose(" is defined")}', comparison
 
@@ -932,7 +936,7 @@ class Walk:
     def _bound(self, ctx: _Context, value: Expression) -> str:
         """A bound as the file wrote it: a number, or a parameter indexed over its dims."""
         if isinstance(value, Parameter):
-            return ctx.indexed(self.symbols.name[value.name], list(self.program.parameters[value.name].dims))
+            return ctx.indexed(self.symbols.name[value.name], list(self._parameters[value.name].dims))
         assert isinstance(value, Constant), 'a bound is a number or the name of a parameter'
         return self._number(value.value)
 

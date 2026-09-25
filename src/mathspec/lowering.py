@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from mathspec.dimensions import check_schema, dims_of
-from mathspec.errors import SchemaError, prefixed
+from mathspec.errors import SchemaError, did_you_mean, prefixed
 from mathspec.expansion import expand, parse_template
 from mathspec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, resolve_links
 from mathspec.program import (
@@ -28,6 +28,8 @@ from mathspec.program import (
     ConstraintDeclaration,
     DimensionDeclaration,
     ExpressionDeclaration,
+    GivenDeclaration,
+    GivenTargets,
     Link,
     Mask,
     Named,
@@ -37,6 +39,7 @@ from mathspec.program import (
     PiecewiseDeclaration,
     Program,
     SosDeclaration,
+    Variable,
     VariableDeclaration,
     VariableDefined,
     walk,
@@ -121,6 +124,30 @@ def lower(schema: Spec) -> Program:
         if node is not None:
             entries[ename] = node
 
+    terms: dict[str, Named] = {}
+    for gname, gdef in schema.given.expressions.items():
+        if gdef.term is None:
+            continue
+        context = f"Given expression '{gname}'"
+        if gdef.term not in schema.expressions:
+            errors.append(
+                f'{context}: its term {gdef.term!r} is no expression this file declares. A term is a named '
+                f"expression: declare it under 'expressions:', and write its name here. "
+                f'{did_you_mean(gdef.term, schema.expressions)}'
+            )
+            continue
+        term = resolve_expression_text(gdef.term, ns, context, errors, ceiling=2)
+        if term is None:
+            continue
+        assert isinstance(term, Named), 'a term is a name, and a name resolves to the entry it names'
+        if any(isinstance(node, Variable) and node.name == gname for node in walk(term)):
+            errors.append(
+                f"{context}: its term {gdef.term!r} reads '{gname}', the sum the term adds to, so the sum would "
+                f'define itself. A term is what this file puts in: write it in what this file declares.'
+            )
+            continue
+        terms[gname] = term
+
     variables = {}
     for vname, vdef in schema.variables.items():
         where = resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
@@ -175,6 +202,7 @@ def lower(schema: Spec) -> Program:
     if objective is not None:
         roots.append(objective.expression)
     roots.extend(link for links in curves.values() for link in links)
+    roots.extend(terms.values())
     in_math = frozenset(node.name for node in walk(*roots) if isinstance(node, Named))
 
     piecewise = {}
@@ -221,6 +249,22 @@ def lower(schema: Spec) -> Program:
             )
             for name, entry in entries.items()
         },
+        given=GivenTargets(
+            parameters={
+                name: ParameterDeclaration(tuple(g.dims), g.dtype, g.description)
+                for name, g in schema.given.parameters.items()
+            },
+            variables={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.variables.items()
+            },
+            constraints={
+                name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
+            },
+            expressions={
+                name: GivenDeclaration(tuple(g.dims), g.description, term=terms.get(name))
+                for name, g in schema.given.expressions.items()
+            },
+        ),
         description=schema.description,
     )
     if errors := emitted_name_errors(schema, program):

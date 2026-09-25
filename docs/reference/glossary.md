@@ -35,6 +35,12 @@ be checked only then, and the language checks none itself. The docs never say
 "bind" for it, so that **bound** means one thing: a lower or upper limit on a
 variable ([variables](language/declarations.md#variables)).
 
+**Provide**
+: What the host model, the model a file is layered onto, does for a name under
+`given:`. It holds a column or a row family of that name, on the same frame. A
+consumer checks that the host provides each given name
+([what a program does not build](reading.md#what-a-program-does-not-build)).
+
 **Consumer**
 : A tool that reads a spec: an **engine** that attaches data and builds the rows a
 solver takes, a **renderer** such as the typesetter, or a **checker**

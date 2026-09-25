@@ -86,17 +86,21 @@ class Namespace:
         #: dim-checked against, since macros, named expressions and the dim
         #: rules read declarations the flat listing below does not carry.
         self.schema = schema
-        self.variables = frozenset(schema.variables)
-        self.parameters = frozenset(schema.parameters)
+        variables = {**schema.variables, **schema.given.variables, **schema.given.expressions}
+        parameters = {**schema.parameters, **schema.given.parameters}
+        #: Every name an expression reads as a column: the variables, and the
+        #: given expressions, whose bodies another file holds.
+        self.variables = frozenset(variables)
+        self.parameters = frozenset(parameters)
         self.dimensions = frozenset(schema.dimensions)
         #: The declared constraint names, off the flat namespace: a bare name
         #: never reaches them, so a spec may name a constraint after a variable.
         #: Consulted only in ``dual()``'s argument position.
-        self.constraints = frozenset(schema.constraints)
+        self.constraints = frozenset({**schema.constraints, **schema.given.constraints})
         #: name -> declared dtype, for dimensions, parameters and relations alike;
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = {
-            **{p: pd.dtype for p, pd in schema.parameters.items()},
+            **{p: pd.dtype for p, pd in parameters.items()},
             **{d: dd.dtype for d, dd in schema.dimensions.items()},
         }
         #: relation name -> its columns and key, as declared.
@@ -107,8 +111,8 @@ class Namespace:
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a relation leaf carries ``over``.
         self.leaf_dims: dict[str, tuple[str, ...]] = {
-            **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
-            **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
+            **{p: tuple(pd.dims) for p, pd in parameters.items()},
+            **{v: tuple(vd.dims) for v, vd in variables.items()},
         }
         #: named expression -> its resolved node, or ``None``, and its refusals;
         #: filled the first time anything reads the name.
@@ -237,7 +241,8 @@ class Namespace:
         return (
             f"{context}: dual({name}): '{name}' is not a declared constraint{also}.\n"
             f'  Constraints: {sorted(self.constraints)}\n'
-            f"Check for typos, or declare '{name}' under 'constraints:'."
+            f"Check for typos, or declare '{name}': under 'constraints:' if this file builds the row, "
+            f"or under 'given: constraints:' if it reads the dual of a row another model builds."
         )
 
 
