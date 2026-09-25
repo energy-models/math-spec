@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-# The releases up to 0.0.0-alpha.126 keep the formatting release-please wrote,
+# The releases up to 0.0.0-alpha.127 keep the formatting release-please wrote,
 # and prettier would rewrite every one of them. A released entry is not
 # rewritten.
 CHANGELOG.md

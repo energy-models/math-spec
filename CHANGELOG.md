@@ -12,6 +12,13 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+## 0.1.0 (2026-09-25)
+
+The first release on PyPI: `pip install mathspec`. The package installs,
+imports and runs as `mathspec` since 0.0.0-alpha.127
+([#702](https://github.com/energy-models/mathspec/pull/702)). The
+`0.0.0-alpha.N` releases below were tags and GitHub releases only.
+
 - docs: the installation page and the PyPI project page say `pip install mathspec`, and the README's links resolve on PyPI ([#707](https://github.com/energy-models/mathspec/pull/707))
 - docs: every link to the documentation points at mathspec.readthedocs.io ([#706](https://github.com/energy-models/mathspec/pull/706))
 

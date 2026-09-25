@@ -39,10 +39,11 @@ To learn what the project _is_, read [docs/](docs/index.md), and
   </details>
   ```
 
-- **No compatibility promise on the `0.0.0-alphaN` stream.** Rename, move or
-  delete. No alias, deprecation cycle, `legacy_` path, or hand-written message
-  for the old spelling. A test asserting the old behaviour is not a blocker;
-  say in the PR where its coverage moved.
+- **No compatibility promise before 1.0.** Rename, move or delete. No alias,
+  deprecation cycle, `legacy_` path, or hand-written message for the old
+  spelling. A test asserting the old behaviour is not a blocker; say in the PR
+  where its coverage moved. A release that breaks a file or an import raises
+  the minor version, and its notes name the break.
 - **Every `feat`, `fix`, `perf`, `refactor`, `docs` or `revert` PR adds its
   title under `## Upcoming version` in `CHANGELOG.md`**, with a link to the PR.
   The label `no changelog` opts one out; only the user sets it.
