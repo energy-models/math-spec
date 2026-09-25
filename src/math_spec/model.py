@@ -828,7 +828,7 @@ class Spec(_StrictBlock):
         a curve, ``sos:`` states which members of a family may be nonzero — and
         expanding one writes those rows under names prefixed with the block's
         own, then drops the block. The math is the same afterwards, and so is
-        the data that binds it: neither a set nor a curve emits a parameter,
+        the data attached to it: neither a set nor a curve emits a parameter,
         and a curve's rows sit on ``where`` predicates over the file's own.
 
         Args:
@@ -841,7 +841,7 @@ class Spec(_StrictBlock):
         Returns:
             The model those blocks wrote out, or this one where it declares
             none of them. It is a model like any other: :meth:`to_yaml` writes
-            it, and the file binds the same data as the one it came from.
+            it, and the same data attaches to it as to the one it came from.
 
         Raises:
             ValueError: *kinds* names something that is not a formulation.

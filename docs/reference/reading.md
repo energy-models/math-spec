@@ -94,7 +94,7 @@ spec.expand('sos') is spec  # True
   written out too.
 - **The expansion is a different model.** It declares more variables and
   constraints, so it does not compare equal to the model it came from. It
-  declares the same dimensions and parameters, so the same data binds both.
+  declares the same dimensions and parameters, so the same data attaches to both.
 - **A model with nothing to write out comes back as itself.** So does an
   expansion asked for the same kinds again.
 - **The spec keeps no expansion.** A second call builds it again.
