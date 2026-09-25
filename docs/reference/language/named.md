@@ -152,7 +152,7 @@ keep the entry that carries it out of constraints, the objective, bounds and whe
 ```
 
 `dual(c)` is the rate at which the optimal objective improves as `c` is relaxed
-in the direction its comparator points, under the model's own `minimize` or
+in the direction its comparator points, under the spec's own `minimize` or
 `maximize`.
 
 A row that `c`'s `where:` deletes has no dual.
@@ -172,8 +172,8 @@ macros:
 
 - A template holds arithmetic, and no comparison.
 - An argument may itself use macros and named expressions.
-- Inside a template, the formal parameters shadow model names. A formal may not
-  collide with a declared dimension.
+- Inside a template, the formal parameters shadow the names the spec
+  declares. A formal may not collide with a declared dimension.
 - The number of arguments is checked at each call site. A cycle is reported with
   its reference chain.
 - Every template is held at load to every rule a call site is, whether or not it

@@ -4,7 +4,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "What the model assumes of its data: a predicate every coordinate it is checked at has to satisfy.\n\nWritten in YAML as a bare where string, or as a mapping once it carries a\n``where:`` or a ``description:``, and serialised back to whichever form it\nwas written in::\n\n    assumptions:\n      efficiency_is_a_fraction: \"efficiency > 0 AND efficiency <= 1\"\n      bounds_do_not_cross:\n        holds: \"p_min <= p_max\"\n        where: \"p_min\"\n        description: a unit with no minimum is unconstrained below\n\nThe language decides nothing about the numbers, so the consumer attaching\nthe data checks it, and refuses the data where it does not hold.",
+          "description": "What the spec assumes of its data: a predicate every coordinate it is checked at has to satisfy.\n\nWritten in YAML as a bare where string, or as a mapping once it carries a\n``where:`` or a ``description:``, and serialised back to whichever form it\nwas written in::\n\n    assumptions:\n      efficiency_is_a_fraction: \"efficiency > 0 AND efficiency <= 1\"\n      bounds_do_not_cross:\n        holds: \"p_min <= p_max\"\n        where: \"p_min\"\n        description: a unit with no minimum is unconstrained below\n\nThe language decides nothing about the numbers, so the consumer attaching\nthe data checks it, and refuses the data where it does not hold.",
           "properties": {
             "description": {
               "anyOf": [
@@ -272,7 +272,7 @@
     },
     "MacroBlock": {
       "additionalProperties": false,
-      "description": "A parameterised expression template, defined in the YAML itself.\n\nLanguage, not code: formals (``args`` positional, ``kwargs`` keyword)\nshadow model names inside the template, and every call site expands in\nthe syntax tree before resolution reads the expression.",
+      "description": "A parameterised expression template, defined in the YAML itself.\n\nLanguage, not code: formals (``args`` positional, ``kwargs`` keyword)\nshadow the spec's names inside the template, and every call site expands in\nthe syntax tree before resolution reads the expression.",
       "properties": {
         "args": {
           "default": [],
@@ -681,7 +681,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, [`model_validate`][], the constructor \u2014 runs\nevery load-time check, expression pass included, and raises\n[`LanguageError`][] on a model the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, three ways back out \u2014 [`to_dict`][] for the model as\ndata, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the\nmodel with its formulations written out as plain rows \u2014 and [`program`][], the\nmodel typed, which every reader after load walks. Everything else on this\nclass is pydantic's, not a contract this package keeps.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, [`model_validate`][], the constructor \u2014 runs\nevery load-time check, expression pass included, and raises\n[`LanguageError`][] on a spec the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, three ways back out \u2014 [`to_dict`][] for the spec as\ndata, [`to_yaml`][] for the file a reviewer reads, [`expand`][] for the\nspec with its formulations written out as plain rows \u2014 and [`program`][], the\nspec typed, which every reader after load walks. Everything else on this\nclass is pydantic's, not a contract this package keeps.",
   "properties": {
     "assumptions": {
       "additionalProperties": {

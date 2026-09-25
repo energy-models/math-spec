@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The seam between *what* a model says and *how* a format spells it.
+"""The seam between *what* a spec says and *how* a format spells it.
 
 The split, and each module's role in it, are in ``README.md`` beside this file.
 """
@@ -70,7 +70,7 @@ OperatorName = Literal[
 #: "∀ t ∈ T : condition", ``times`` sits between sets in the legend,
 #: ``maps_to`` is the → in a coordinate map, ``curve`` and ``hull`` are the two
 #: sets a ``piecewise:`` block states its links lie on, and the three
-#: translations are three models: plain leaves the vacated position absent,
+#: translations are three conventions: plain leaves the vacated position absent,
 #: ``cyclic_*`` wraps, ``edge_*`` fills it with the value it carries as a
 #: subscript.
 OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
@@ -116,7 +116,7 @@ OPERATOR_NAMES = frozenset(get_args(OperatorName))
 
 @dataclass(frozen=True)
 class Line:
-    """One typeset line of the model, split where a format may align it.
+    """One typeset line of the spec, split where a format may align it.
 
     ``left`` and ``right`` are the two sides of a relation — ``right`` carries
     the relation symbol, so a format aligns on the boundary between them

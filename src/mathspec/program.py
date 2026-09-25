@@ -375,7 +375,7 @@ class Named:
 #: *closed*: nothing registers into it, so a consumer that walks it ends in
 #: ``assert_never`` and a node added without a branch is a type error at the
 #: site that must grow one, rather than a ``LanguageError`` raised at the first
-#: model that uses it. The degree rules (``mathspec.degree``) hold on every
+#: spec that uses it. The degree rules (``mathspec.degree``) hold on every
 #: tree the math reads — [`Program.roots`][], a bound, and a named expression
 #: that is ``in_math`` — affine but where a [`QuadraticPosition`][] admits a
 #: [`Multiply`][] of two variable-carrying operands. A
@@ -689,11 +689,11 @@ class Link:
 class PiecewiseDeclaration:
     """A ``piecewise:`` block as the curve it states, which [`expand`][mathspec.spec.Spec.expand] writes out as rows.
 
-    A program of a model that still declares one carries it here, typed; a
-    program of the expanded model carries the rows instead, under
+    A program of a spec that still declares one carries it here, typed; a
+    program of the expanded spec carries the rows instead, under
     [`Program.variables`][] and [`Program.constraints`][], and what the
     method assumes of the breakpoints under [`Program.assumptions`][]. A
-    consumer building rows takes the expanded model.
+    consumer building rows takes the expanded spec.
 
     Attributes:
         over: The breakpoint dimension.
@@ -778,7 +778,7 @@ class Separability:
     over as the border every window shares. It cannot say whether the windowed
     answer is the one a whole-horizon solve would give — a store carried over
     one row windows cleanly, and a rolling solve of it is still a different
-    answer — which is the driver's design and not the model's.
+    answer — which is the driver's design and not the spec's.
 
     What a row reads *behind* is not reported. A window starts where the
     driver puts it, and what its first rows meet there is the edge policy:
@@ -790,10 +790,10 @@ class Separability:
             it builds to be complete — what a negative ``shift`` reads. ``0``
             is pointwise; a ``shift`` of ``-2`` is ``2``.
         coupled: Each declaration that ties the axis together, to what ties it
-            and the one modelling change that would not: a sum over the axis
+            and the one change to the spec that would not: a sum over the axis
             in a constraint, a grouping that consumes it, a wrapped
             translation, a set. No window satisfies these, and no rewrite here
-            would keep the model's meaning, so the remedy is named rather than
+            would keep the spec's meaning, so the remedy is named rather than
             applied.
         undecided: Each read along the axis whose reach only data can say —
             a named offset, a partition whose groups a window may cut, a read
@@ -801,7 +801,7 @@ class Separability:
             [`resolved`][] folds a parameter's values in.
         restarts: Each declaration counting a position along the axis, which a
             window restarts at its first row. Whether that is wanted — a seed
-            once per window, or once per horizon — is the modeller's, so it is
+            once per window, or once per horizon — is for the spec's author to decide, so it is
             reported rather than refused.
         linking_rows: Each constraint no one window holds whole, in declaration
             order: one the axis does not index, whose row stands in every
@@ -882,8 +882,8 @@ class Program:
     dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
     relations: Mapping[str, RelationDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
-    #: Each ``piecewise:`` block the model still declares, as the curve it
-    #: states; empty on a program of a model whose curves are written out.
+    #: Each ``piecewise:`` block the spec still declares, as the curve it
+    #: states; empty on a program of a spec whose curves are written out.
     piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
     #: What the data has to satisfy for the answer to mean anything, by the
     #: name a refusal quotes: every ``assumptions:`` entry the file wrote, then
@@ -1328,7 +1328,7 @@ def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
     Separate from the union because the load-time frame check reports per
     leaf. Closed by ``assert_never``: a predicate node added without a reading
     is a type error here, at the one place that has to grow a branch, rather
-    than a wrong dim set at the first model to use it.
+    than a wrong dim set at the first spec to use it.
     """
     match atom:
         case (
@@ -1361,7 +1361,7 @@ def _atom_names(atom: TypedPredicate) -> frozenset[str]:
     read, answered on the program's form of it since only a program mask is
     asked. ``assert_never``-closed for the reason [`_atom_dims`][] is: a predicate
     node added without a reading is a type error at this one branch rather
-    than a name silently dropped at the first model to use it.
+    than a name silently dropped at the first spec to use it.
     """
     match atom:
         case ParameterComparison() | ParameterDefined() | VariableDefined() | RelationComparison() | RelationDefined():

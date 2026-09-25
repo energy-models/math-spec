@@ -4,7 +4,7 @@
 
 """The front door, and the rules a declaration is held to against the others before any expression is read.
 
-[`to_spec`][] reads a model definition into a [`Spec`][].
+[`to_spec`][] reads a spec definition into a [`Spec`][].
 [`reference_errors`][] holds the rules one declaration is held to against
 the others — a name declared once, a frame over declared dimensions, a bound
 naming a numeric parameter, a set over one dim of one variable, a curve
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 def to_spec(spec: str | Path | Mapping[str, object] | Spec) -> Spec:
-    """Load and validate a model definition — the language's front door.
+    """Load and validate a spec definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
     rule one declaration is held to against the others, every expression and
@@ -58,7 +58,7 @@ def to_spec(spec: str | Path | Mapping[str, object] | Spec) -> Spec:
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
     if isinstance(spec, (list, tuple)):
-        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
+        msg = 'a spec is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
         raise SchemaError(msg)
     if isinstance(spec, Spec):
         return spec
@@ -248,7 +248,7 @@ def _sos_bounds(schema: Spec) -> Iterator[str]:
     """A set states what the binaries it expands to state: each side of a member carries a coefficient.
 
     The rewrite holds an unpicked member at zero from both sides, so a side
-    the model leaves open leaves the member free of it. Either coefficient
+    the spec leaves open leaves the member free of it. Either coefficient
     may be a parameter, because a row multiplies by it rather than reading
     it. Decided here rather than where the rewrite runs, so a set the
     language cannot state twice is refused before any data exists.

@@ -5,13 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Typeset the math
 
-`to_latex`, `to_typst` and `to_markdown` print a model as the equations it
+`to_latex`, `to_typst` and `to_markdown` print a spec as the equations it
 stands for, from the file alone. No data is attached, and no solver runs.
 
 ```python
 import mathspec as ms
 
-spec = ms.to_spec('model.yaml')  # read and checked once, then printed three ways
+spec = ms.to_spec('spec.yaml')  # read and checked once, then printed three ways
 
 print(ms.to_latex(spec))  # amsmath align
 print(ms.to_typst(spec))  # compiles without a TeX toolchain
@@ -20,10 +20,10 @@ print(ms.to_markdown(spec))  # renders as-is on GitHub
 
 Each function takes a path, the YAML, a mapping, a `Spec` or a `Program`, and
 prints the program: the one a spec holds, or the one it was handed.
-From a shell, `python -m mathspec latex model.yaml` prints the same, and
+From a shell, `python -m mathspec latex spec.yaml` prints the same, and
 `typst` or `markdown` in place of `latex` picks the format.
 
-[Print a model as math](../howto/print.md) is the recipe, and
+[Print a spec as math](../howto/print.md) is the recipe, and
 [every operator as math](language/operators.md#every-operator-as-math) shows
 what each operator prints.
 
@@ -43,14 +43,14 @@ a flag. The [Python API](api.md#typesetting) gives each signature.
 
 `-o FILE` writes to a file instead of stdout.
 
-- The model's `description:` opens the document.
+- The spec's `description:` opens the document.
 - A `piecewise:` block prints as one line: the curve it states, over the frame
   it states one curve per coordinate of. To print its rows, print
   [`spec.expand()`](api.md#mathspec.Spec.expand) or pass `--expand`
   ([see an expansion](../howto/see-an-expansion.md)).
 - An [`assumptions:`](language/assumptions.md) entry prints under an
   **Assumptions** heading, last, beside what each curve assumes of its
-  breakpoints. A model that assumes nothing of its data prints no such
+  breakpoints. A spec that assumes nothing of its data prints no such
   heading.
 - A [named expression](language/named.md) prints its symbol where it is used
   and its body once, under a **Definitions** heading, in declaration order. A
@@ -58,7 +58,7 @@ a flag. The [Python API](api.md#typesetting) gives each signature.
   keep their definition line under either `inline_expressions` setting.
 - Wherever the math moves an index, which every `shift` does, the document
   prints a line saying what that notation means.
-- A model that does not load does not print.
+- A file that does not load does not print.
 - Lines are not broken. A wide equation runs off the page.
 
 ## Markdown's delimiters
@@ -83,9 +83,9 @@ expression, constraint, assumption or variable, with its quantifier and without
 a document, a label, a number or math delimiters:
 
 ```python
-ms.typeset_declaration('model.yaml', 'spend', 'latex')
+ms.typeset_declaration('spec.yaml', 'spend', 'latex')
 # \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}
-ms.typeset_declaration('model.yaml', 'balance', 'latex')
+ms.typeset_declaration('spec.yaml', 'balance', 'latex')
 # \sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
@@ -94,7 +94,7 @@ optional `symbols` table. A Markdown line arrives without delimiters too, so put
 it inside the inline pair:
 
 ```python
-line = ms.typeset_declaration('model.yaml', 'balance', 'markdown')
+line = ms.typeset_declaration('spec.yaml', 'balance', 'markdown')
 print(f'The balance holds: $`{line}`$')
 ```
 
@@ -136,6 +136,6 @@ ms.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')
 
 Every spelling is printed as you wrote it, and nothing translates notation, so
 rendering a LaTeX table as Typst is refused. A key that names nothing in the
-model, and nothing a formulation of it emits, is an error with the near miss.
+spec, and nothing a formulation of it emits, is an error with the near miss.
 
 Nothing in a symbol table changes what the file means.

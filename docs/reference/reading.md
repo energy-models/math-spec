@@ -6,12 +6,12 @@ SPDX-License-Identifier: CC-BY-4.0
 # Reading a spec and its program
 
 This page is for whoever writes an engine that builds models, a renderer, or a
-checker. A tool reads the model through two objects, `Spec` and `Program`.
+checker. A tool reads the spec through two objects, `Spec` and `Program`.
 
 ## `Spec` and `Program`
 
 A `Spec` holds the file as written: its `macros:`, its descriptions, and a
-`piecewise:` block as one block. A `Program` holds the model the file builds:
+`piecewise:` block as one block. A `Program` holds what the file means:
 every macro expanded, every name typed, every operator resolved to a node, and
 every dimension and degree rule already checked. A curve stays one curve there
 until [`spec.expand()`](#formulations-written-out) writes it out. The
@@ -27,8 +27,9 @@ Each tool reads the object that holds what it needs:
 | A tool that rewrites files | the `Spec`, which alone holds the text      |
 
 The program keeps each curve as the one declaration the file states, so the
-typesetter and `advice` read the model the author wrote. A program does not
-hold its spec: a tool handed a bare `Program` has the model, not the file.
+typesetter and `advice` read the spec the author wrote. A program does not
+hold its spec: a tool handed a bare `Program` has what the file means, not the
+file.
 
 The curve below [expands](language/piecewise.md) into a weight per breakpoint,
 a convexity row and one row per link:
@@ -81,7 +82,7 @@ sorted(rows.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_spec` takes a path, the YAML, a mapping or a `Spec`. `spec.program` is the
-program built when the model loaded, so every ask on one model returns one
+program built when the spec loaded, so every ask on one spec returns one
 object. A `piecewise:` block is a curve under `program.piecewise`, typed, and a
 `sos:` block is a set under `program.sos`. Every parameter the program declares
 is one the file declared.
@@ -163,7 +164,7 @@ stands at a mask's root or nowhere. A `Region`'s `when` is a `Mask` too.
 
 ## Asking what a program uses
 
-`program.footprint` says which of the language's constructs one model uses.
+`program.footprint` says which of the language's constructs one program uses.
 It answers for the rows the program holds. A curve still on the program is not
 a row, so its constructs count on the program of the expansion:
 
@@ -176,14 +177,14 @@ sorted(footprint.sos_types)  # []
 sorted(kind.__name__ for kind in footprint.kinds)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
 ```
 
-Every field is a set, and an empty field means the model does not use the
+Every field is a set, and an empty field means the program does not use the
 construct. Whether a solver takes a construct is the engine's question
 ([what counts as language](../about/what-counts-as-language.md#what-each-tool-decides-for-itself)).
 Convexity is not reported: it depends on the numbers.
 
 ## Asking whether an axis can be cut
 
-`program.separability` says, per axis, whether every row of the model fits
+`program.separability` says, per axis, whether every row of the program fits
 inside one window along it: a storage balance that reads the previous snapshot
 does, and an annual emissions cap does not. Like the footprint, it answers for
 the rows the program holds. The curve's rows sum over `bp`, so only the rows

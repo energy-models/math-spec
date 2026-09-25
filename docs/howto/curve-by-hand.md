@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Write a piecewise curve out by hand
 
 Tie a number of flows to one curve where that number is data: a boiler ties two
-flows and a CHP unit ties three, in one model. A
+flows and a CHP unit ties three, in one spec. A
 [`piecewise:`](../reference/language/piecewise.md) block lists its links in the
 file, so it cannot say this. The formulation written out can.
 

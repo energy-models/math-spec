@@ -90,7 +90,7 @@ class Namespace:
         self.parameters = frozenset(schema.parameters)
         self.dimensions = frozenset(schema.dimensions)
         #: The declared constraint names, off the flat namespace: a bare name
-        #: never reaches them, so a model may name a constraint after a variable.
+        #: never reaches them, so a spec may name a constraint after a variable.
         #: Consulted only in ``dual()``'s argument position.
         self.constraints = frozenset(schema.constraints)
         #: name -> declared dtype, for dimensions, parameters and relations alike;

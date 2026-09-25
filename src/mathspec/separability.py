@@ -71,7 +71,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
     about the block — a sum over the axis couples a constraint row to the whole
     horizon and leaves an objective additively separable. A translation reads
     ahead for a negative offset; what one reads behind is the window's edge,
-    which is not asked. Each coupling carries the one modelling change that
+    which is not asked. Each coupling carries the one change to the spec that
     would lift it, after the dash.
 
     The border a decomposition cuts along falls out of the same walk, which is

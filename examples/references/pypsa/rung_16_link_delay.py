@@ -29,7 +29,7 @@ def build():
     ``pipe_lose`` delays by one and does not wrap, so the flow that would arrive
     in the first snapshot is lost and that snapshot's demand falls to the backup.
     The two links differ in both a per-link number (`delay`) and a per-link kind
-    (`cyclic_delay`), which is what the model's ``cases:`` block turns on.
+    (`cyclic_delay`), which is what the spec's ``cases:`` block turns on.
     """
     import pypsa
 

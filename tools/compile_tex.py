@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Compile every rendered model, so the LaTeX gate is a compile and not a lint.
+"""Compile every rendered spec, so the LaTeX gate is a compile and not a lint.
 
     pixi run compile-tex            # renders first, then compiles
     pixi run python -m tools.compile_tex build/tex

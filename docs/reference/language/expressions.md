@@ -230,7 +230,7 @@ relation's key, and the predicate carries every dimension the read consumes.
 
 ### The right-hand side of a comparison
 
-A bare name on the right is read as a string label when the model does not
+A bare name on the right is read as a string label when the spec does not
 declare it. A declared name there is a load error.
 
 Quote a label that is not an identifier, such as `'combined-cycle'`. A quoted

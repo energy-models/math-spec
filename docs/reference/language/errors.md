@@ -24,8 +24,8 @@ Check for typos, or ensure 'p_charge' is declared.
 
 ## What `advice` warns about
 
-`ms.advice(model)` returns a tuple of `ms.Advice`, one per warning, and
-`python -m mathspec check model.yaml` prints them. Advice is a warning: the file
+`ms.advice(spec)` returns a tuple of `ms.Advice`, one per warning, and
+`python -m mathspec check spec.yaml` prints them. Advice is a warning: the file
 loads.
 
 | `kind`          | The file has…                                                                                                     | The advice says…                                                      |
@@ -34,7 +34,7 @@ loads.
 | `unbounded`     | a variable that no constraint, set or curve uses, whose objective term pushes it towards a bound it does not have | give it a finite bound, or the constraint that was meant to define it |
 
 ```text
-Variable 'slack' makes this model unbounded: no constraint names it, and
+Variable 'slack' makes this spec unbounded: no constraint names it, and
 bounds.lower is open, which is the direction a +slack term improves a minimize
 objective in. No data can change that, so the solve would answer `unbounded`
 and name nothing.
@@ -47,12 +47,12 @@ variable with no constraint row.
 
 ## Which error you get
 
-| Class            | Subclass of     |                                                                                                                                  |
-| ---------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `MathSpecError`  | `ValueError`    | The root                                                                                                                         |
-| `LanguageError`  | `MathSpecError` | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
-| `SchemaError`    | `LanguageError` | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
-| `DimensionError` | `LanguageError` | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
+| Class            | Subclass of     |                                                                                                                                 |
+| ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `MathSpecError`  | `ValueError`    | The root                                                                                                                        |
+| `LanguageError`  | `MathSpecError` | Something in the spec: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
+| `SchemaError`    | `LanguageError` | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                           |
+| `DimensionError` | `LanguageError` | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                       |
 
 Every one of these is reproducible from the YAML alone.
 

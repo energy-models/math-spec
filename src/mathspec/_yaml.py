@@ -95,7 +95,7 @@ def read_yaml(path: Path | str) -> dict[str, object]:
 
 
 def read_spec(spec: str | Path) -> dict[str, object]:
-    """A model from a file or from its text — a newline decides which a ``str`` is.
+    """A spec from a file or from its text — a newline decides which a ``str`` is.
 
     A [`Path`][] names a file, and so does a ``str`` with no
     newline in it, since no path holds one; a ``str`` with a newline is the
@@ -136,6 +136,6 @@ def parse_yaml(text: str, origin: str = '<string>') -> dict[str, object]:
     if not data:
         return {}
     if not isinstance(data, dict):
-        msg = f'{origin}: a model file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
+        msg = f'{origin}: a spec file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
         raise SchemaError(msg)
     return data

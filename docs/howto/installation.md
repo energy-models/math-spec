@@ -49,7 +49,7 @@ then map the schema per workspace:
 
 ```jsonc
 // .vscode/settings.json
-"yaml.schemas": { "https://raw.githubusercontent.com/energy-models/mathspec/main/schema/mathspec.schema.json": ["*.model.yaml"] }
+"yaml.schemas": { "https://raw.githubusercontent.com/energy-models/mathspec/main/schema/mathspec.schema.json": ["*.spec.yaml"] }
 ```
 
 or per file, with a modeline on its first line:
@@ -63,7 +63,7 @@ or per file, with a modeline on its first line:
 For a pre-commit hook or a non-Python CI job:
 
 ```bash
-uvx check-jsonschema --schemafile https://raw.githubusercontent.com/energy-models/mathspec/main/schema/mathspec.schema.json model.yaml
+uvx check-jsonschema --schemafile https://raw.githubusercontent.com/energy-models/mathspec/main/schema/mathspec.schema.json spec.yaml
 ```
 
 The schema validates structure only. The math inside `expression:` and

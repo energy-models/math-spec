@@ -5,10 +5,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # What counts as language
 
-Several tools read the same model file. An engine builds the model and hands
-it to a solver. A renderer prints it as equations. A checker reads it in CI with
-no data. This page says which decisions the language makes for all of them, and
-which each tool makes for itself.
+Several tools read the same spec file. An engine attaches data, builds the
+model and hands it to a solver. A renderer prints the spec as equations. A
+checker reads the spec in CI with no data. This page says which decisions the
+language makes for all of them, and which each tool makes for itself.
 
 The test is one question:
 
@@ -41,7 +41,7 @@ writes it out the same way for every tool.
 
 ## What each tool decides for itself
 
-A tool can refuse a model for a reason of its own. One engine can only take
+A tool can refuse a spec for a reason of its own. One engine can only take
 a literal offset in `shift`. Another has no concept of a special-ordered set. A
 file format has no way to write a quadratic constraint. None of these is a
 disagreement about what the file means, so none of them is the language's to

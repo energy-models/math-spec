@@ -7,7 +7,7 @@
     pixi run python -m tools.spec_math           # rewrite the block
     pixi run python -m tools.spec_math --check   # fail if it has drifted
 
-Every cell comes from a **model**, one per row, under ``examples/operators/``:
+Every cell comes from a **spec**, one per row, under ``examples/operators/``:
 a row whose operator changed shape stops loading, in the same run that would
 otherwise have shipped the old math.
 """
@@ -24,7 +24,7 @@ PAGE = ROOT / 'docs' / 'reference' / 'language' / 'operators.md'
 PROBES = ROOT / 'examples' / 'operators'
 BEGIN, END = '<!-- operator-math:begin -->', '<!-- operator-math:end -->'
 
-#: The operator-table row -> the model that renders it. The key is that
+#: The operator-table row -> the spec that renders it. The key is that
 #: table's first cell verbatim.
 OPERATORS = {
     'sum(array)': 'sum_all',

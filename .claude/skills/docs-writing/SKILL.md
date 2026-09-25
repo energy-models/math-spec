@@ -45,28 +45,28 @@ Two questions decide it, and they work on a paragraph as well as a page:
 1. Does it inform **action** or **cognition**?
 2. Does it serve **acquiring** a skill or **applying** one?
 
-| Kind        | Informs   | Serves  | Answers                                               | Section · folder                                               |
-| ----------- | --------- | ------- | ----------------------------------------------------- | -------------------------------------------------------------- |
-| Tutorial    | action    | acquire | "Get me a first file that loads and prints"           | Tutorials · `docs/`                                            |
-| How-to      | action    | apply   | "I have this task"                                    | How-to guides · `docs/howto/`                                  |
-| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`, model pages in `docs/examples/` |
-| Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                          |
+| Kind        | Informs   | Serves  | Answers                                               | Section · folder                                                 |
+| ----------- | --------- | ------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| Tutorial    | action    | acquire | "Get me a first file that loads and prints"           | Tutorials · `docs/`                                              |
+| How-to      | action    | apply   | "I have this task"                                    | How-to guides · `docs/howto/`                                    |
+| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`, example pages in `docs/examples/` |
+| Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                            |
 
 The nav and the tree are both arranged by kind, for someone who writes a
-model. A new page goes in the folder of its kind and under the nav section of
-the same name. The model pages sit at the end of the Reference section, after
+spec. A new page goes in the folder of its kind and under the nav section of
+the same name. The example pages sit at the end of the Reference section, after
 the pages a reader looks things up in. A worked example is neither a tutorial
 nor a how-to: it teaches no path and names no task, it shows that the language
-says a model.
+says a spec.
 
-The Development section, last in the nav, holds every page a model writer does
+The Development section, last in the nav, holds every page a spec writer does
 not need, in three groups:
 
 - **Building on mathspec** is for someone who writes a tool against `Spec`
   and `Program`: an engine such as specsolve, a renderer, a checker.
 - **Contributing** is for someone who changes mathspec itself.
 - **Proofs of concept** holds the notation page, which renders the typesetting
-  test model, and the PyPSA pages. The PyPSA pages stay in `docs/examples/`,
+  test spec, and the PyPSA pages. The PyPSA pages stay in `docs/examples/`,
   where `tools/gallery.py` writes them.
 
 A page in Development keeps the folder of its kind.
@@ -85,15 +85,15 @@ Each kind has one job, and one thing it must not do:
 - **Explanation is the one place for why.** Context, alternatives and opinion
   live here and nowhere else, within what `AGENTS.md` sends to the PR.
 
-**A model page is reference in its own form.** It answers "can the language
+**An example page is reference in its own form.** It answers "can the language
 say my model, and what does the file mean?", and its shape is a witness rather
 than a table: a paragraph of the page's own, then the file verbatim and the
 math the typesetter prints from it. The block is written by `tools/gallery.py`
 between `<!-- gallery:begin -->` and `<!-- gallery:end -->`; the paragraph is
-the only prose on the page, and it says what the model is and the one or two
+the only prose on the page, and it says what the spec is and the one or two
 things worth reading for, which the `description:` line in the file does not.
 The PyPSA pages, in the Development section, add a generated block per rung,
-holding the reference script and what PyPSA solved it to. Every model is a
+holding the reference script and what PyPSA solved it to. Every example is a
 file under `examples/`, loaded by the suite and compiled by the LaTeX gate,
 and `tests/test_docs.py` holds each block to its generator byte for byte. The catalogue in
 `docs/examples/index.md` is hand-written: one bullet per page in the Examples
@@ -101,7 +101,7 @@ section, saying why a reader would open it.
 
 **The Python API is rendered from the docstrings.**
 `docs/reference/api.md` holds one `:::` entry per name in `mathspec.__all__`,
-for a model writer. `docs/reference/program.md` renders `mathspec.program`,
+for a spec writer. `docs/reference/program.md` renders `mathspec.program`,
 for whoever builds on the program. mkdocstrings renders both from the
 docstrings, so their prose is the docstring rules in `AGENTS.md`. No other
 module gets a page: an internal module is read in the source.
@@ -141,18 +141,18 @@ The obvious rule gets one sentence.
 - **Show the input and its result side by side.** YAML next to the maths it
   renders, a call next to its output. Never in a later subsection.
 - **Every generated block is checked; a hand-written fence is not.** The
-  model on an example page, the notation page, the operator table and the
-  home model come from a generator, and `tests/test_docs.py` holds them to
+  spec on an example page, the notation page, the operator table and the
+  home spec come from a generator, and `tests/test_docs.py` holds them to
   it. `reading.md` is run by `tests/test_reading_page.py`, which checks every
   `expression  # value` line. The `NAME` production on the expressions page
   is compared to the parser's. A YAML fence anywhere else is read by nothing,
   so load it before committing: write it to a file and run
-  `pixi run python -m mathspec check model.yaml`. Write the fragment as a
-  whole model where the page allows it; a fragment that cannot stand alone is
+  `pixi run python -m mathspec check spec.yaml`. Write the fragment as a
+  whole spec where the page allows it; a fragment that cannot stand alone is
   one the reader cannot run either.
 - **Quote error messages whole.** This language's messages name the rewrite,
   and a truncated quote drops exactly the half that teaches.
-- **Prefer the smallest example that still shows the point.** A model with two
+- **Prefer the smallest example that still shows the point.** A spec with two
   dimensions and one variable teaches; a realistic one hides the rule in
   scenery.
 - **Show the refused form too**, where the refusal is the lesson, with the
@@ -196,6 +196,9 @@ not
   _dimension_, _coordinate_, _frame_, _relation_, _absence_, _macro_, _named
   expression_, _reported expression_. One clause with a concrete
   instance: "one point of it, one generator in one snapshot, is a coordinate".
+- **A file states a spec; a model is a spec with data.** Write "model" only
+  for what an engine builds and a solver takes, never for the file or the
+  `Spec` in hand ([glossary](../../../docs/reference/glossary.md)).
 - **Gloss every acronym and domain term at first use**, in parentheses, six
   words or fewer.
 - **One word per concept, for the whole page.** _dims_, _dimensions_ and
@@ -237,11 +240,11 @@ The bar, and it is checkable:
    the grammar, which is usually free". A heading already labels the section, so
    a label under it says nothing twice.
 7. **A colon or a dash does not excuse a missing verb.** "The probes: for each
-   operator, the smallest model that declares it, beside the equation it
-   renders" is three noun phrases and no claim. So is "A dispatch model with a
+   operator, the smallest spec that declares it, beside the equation it
+   renders" is three noun phrases and no claim. So is "A dispatch spec with a
    start-up ramp — the formulation `cases:` exists for", which closes on a
    stranded preposition. Say who does what: "Each probe declares one operator in
-   the smallest model that can, and prints the equation beside it."
+   the smallest spec that can, and prints the equation beside it."
 8. **No fronted participles** that suspend the subject: "Having no mask to
    narrow its frame, it is the one that…".
 9. **No elided possessives**: "The dims of a cased one cannot", not "A cased
@@ -325,11 +328,11 @@ PY
 - **A rule of an engine.** How data is attached to a spec, how it is solved, or read back
   is a consumer's page. Here a consumer is named only for what the file
   guarantees it.
-- **Generated content.** The model and its math on every example page and the
+- **Generated content.** The spec and its math on every example page and the
   rung blocks on the PyPSA pages (`tools/gallery.py`), the table on
   `docs/reference/notation.md` (`tools/notation.py`), the operator table on
   `docs/reference/language/operators.md` (`tools/spec_math.py`), and the home
-  model on `docs/index.md` and in the README (`tools/home_math.py`) are
+  spec on `docs/index.md` and in the README (`tools/home_math.py`) are
   written by a tool between `<!-- …:begin -->` and `<!-- …:end -->` markers.
   Change the generator, then read the diff. `tests/test_docs.py`'s
   `GENERATED` table is the list.
@@ -366,5 +369,5 @@ pixi run pytest tests/test_docs.py tests/test_reading_page.py -q  # the generate
 pixi run lint                                                     # prettier, typos, reuse
 ```
 
-`pixi run compile-tex` too when a model under `examples/` changed. Say which
+`pixi run compile-tex` too when a file under `examples/` changed. Say which
 gate ran and what was left unrun.

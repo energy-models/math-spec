@@ -1710,7 +1710,7 @@ class TestTheFrontDoor:
             to_spec('{dimensions: {t: {dtype: int}}}')
 
     def test_a_text_that_is_not_a_model_says_how_a_string_was_read(self):
-        with pytest.raises(SchemaError, match='YAML text: a model file must be a mapping of sections'):
+        with pytest.raises(SchemaError, match='YAML text: a spec file must be a mapping of sections'):
             to_spec('- dimensions\n- variables\n')
 
     @pytest.mark.parametrize('probe', OPERATOR_PROBES, ids=[p.stem for p in OPERATOR_PROBES])

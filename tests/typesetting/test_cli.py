@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The shell front — `python -m mathspec <verb> model.yaml`.
+"""The shell front — `python -m mathspec <verb> spec.yaml`.
 
 `main` takes its argv and `parser` hands back the verbs, so none of this needs a
 subprocess or a scrape of help text.

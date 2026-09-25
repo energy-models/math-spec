@@ -10,10 +10,10 @@ This page shows every construct of the language beside the math that
 prints, or which construct printed a symbol.
 
 Each section shows the YAML of one construct, then its equation. Most fragments
-come from one test model,
+come from one test spec,
 [`tests/typesetting/golden/model.yaml`](https://github.com/energy-models/mathspec/blob/main/tests/typesetting/golden/model.yaml),
-which holds every construct and is not a sensible model. The curves come from
-the example models that their section names. What each operator does is on
+which holds every construct and is not a sensible spec. The curves come from
+the example specs that their section names. What each operator does is on
 [Operators](language/operators.md).
 
 The symbols are **derived** from the names in the file, so you see
@@ -24,7 +24,7 @@ nothing else.
 <!-- notation:begin -->
 ### Legend
 
-A dimension, a relation and a parameter declare no equation; what they print is the legend every model opens with.
+A dimension, a relation and a parameter declare no equation; what they print is the legend every spec opens with.
 
 ```yaml
 dimensions:
@@ -127,7 +127,7 @@ parameters:
 | $`\mathit{marginal\_price}`$ | `marginal_price` over $`\mathcal{T} \times \mathcal{B}`$ |
 | $`\mathrm{startup\_cost}`$ | `startup_cost` over $`\mathcal{T} \times \mathcal{G}`$ — what starting a unit in this snapshot costs, which the horizon's edge changes |
 
-Upright is what the model is given — a parameter such as $`\mathrm{p}^{\mathrm{max}}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`p`$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the data supplies — a parameter such as $`\mathrm{p}^{\mathrm{max}}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`p`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
@@ -920,7 +920,7 @@ constraints:
 
 ### Piecewise curves
 
-A curve prints as the curve it states, over the frame the block builds one per coordinate of, and its expansion prints the rows that curve stands for. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
+A curve prints as the curve it states, over the frame the block builds one per coordinate of, and its expansion prints the rows that curve stands for. One row per `method:`, each from the spec named under it, so the symbols in this section are that spec's.
 
 #### Adjacency method
 

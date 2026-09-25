@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 A [`piecewise:`](../reference/language/piecewise.md) block and a `sos:` block
 each stand for plain variables and constraints. Write them out to review a
-formulation, to teach one, or to hand the model to an engine that has no
+formulation, to teach one, or to hand the spec to an engine that has no
 concept of a set.
 
 ## 1. Write the formulation out

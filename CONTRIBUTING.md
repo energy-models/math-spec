@@ -64,9 +64,9 @@ When opening a pull request, please provide a clear summary of your changes!
 
 `docs/` is both the site and what you read on GitHub. **What a page is for
 decides where it goes, in the nav and in the tree**: a tutorial (`docs/`), a
-how-to guide (`docs/howto/`), reference (`docs/reference/`, and the model pages
+how-to guide (`docs/howto/`), reference (`docs/reference/`, and the example pages
 in `docs/examples/`) or explanation (`docs/about/`) — the four kinds of
-[Diátaxis](https://diataxis.fr) — and one page is one kind. A page a model
+[Diátaxis](https://diataxis.fr) — and one page is one kind. A page a spec
 writer does not need goes under Development in the nav: building on
 mathspec, contributing, or a proof of concept. The rules each kind has to meet, and the sentence-level
 bar, are in

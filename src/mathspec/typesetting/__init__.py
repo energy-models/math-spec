@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Typeset a validated model — a *reading* of the math.
+"""Typeset a validated spec — a *reading* of the math.
 
 Symbols are **derived** by default, aiming at unambiguous rather than
 beautiful, so it prints with no setup; a
@@ -13,15 +13,15 @@ Usage::
 
     import mathspec
 
-    print(mathspec.to_latex('model.yaml'))
-    print(mathspec.to_typst('model.yaml', standalone=True))
-    print(mathspec.to_markdown('model.yaml'))  # renders as-is on GitHub
-    print(mathspec.to_latex('model.yaml', symbols='model.symbols.yaml'))
+    print(mathspec.to_latex('spec.yaml'))
+    print(mathspec.to_typst('spec.yaml', standalone=True))
+    print(mathspec.to_markdown('spec.yaml'))  # renders as-is on GitHub
+    print(mathspec.to_latex('spec.yaml', symbols='spec.symbols.yaml'))
 
 or from a shell::
 
-    python -m mathspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
-    python -m mathspec typst model.yaml --standalone -o model.typ
+    python -m mathspec latex spec.yaml --symbols spec.symbols.yaml --standalone -o spec.tex
+    python -m mathspec typst spec.yaml --standalone -o spec.typ
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ def typeset(
     Args:
         spec: Anything [`mathspec.to_spec`][] accepts, or a
             [`Program`][]. A ``Spec`` or a ``Program``
-            is rendered as it stands, so printing one model in several formats
+            is rendered as it stands, so printing one spec in several formats
             reads and checks the file once rather than once per format, and a
             curve prints as the curve it states. Pass ``spec.expand()`` for the rows a solver holds
             instead.
@@ -124,7 +124,7 @@ def typeset(
             mapping. Names it does not carry are derived, and it must be
             written in *fmt*'s notation.
         standalone: Emit a compilable document rather than a fragment.
-        legend: Prepend the sets/parameters/variables table. The model's own
+        legend: Prepend the sets/parameters/variables table. The spec's own
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
         numbered: Number the equations.
@@ -138,8 +138,8 @@ def typeset(
 
     Raises:
         ValueError: *fmt* names no format.
-        LanguageError: A model that does not compile; it does not print.
-        SchemaError: A symbol table entry naming nothing in the model, or a
+        LanguageError: A spec that does not compile; it does not print.
+        SchemaError: A symbol table entry naming nothing in the spec, or a
             table written in a notation *fmt* does not read.
     """
     walk = _walk(spec, fmt, symbols, inline_expressions=inline_expressions)
@@ -174,7 +174,7 @@ def typeset_declaration(
 ) -> str:
     """Render one declaration as the bare line the document prints for it.
 
-    The line the whole-model render prints for it — a named expression's
+    The line the whole-spec render prints for it — a named expression's
     definition, a constraint, an assumption, a ``piecewise:`` curve, or a
     variable's domain, quantifier included —
     with no document, label, equation number or math delimiters around it, for
@@ -186,7 +186,7 @@ def typeset_declaration(
     Args:
         spec: Anything [`mathspec.to_spec`][] accepts, or a [`Program`][].
         name: A named expression, constraint, assumption, ``piecewise:``
-            block or variable the model declares.
+            block or variable the spec declares.
         fmt: What spells the math — a key of [`FORMATS`][].
         symbols: How names print; see [`typeset`][].
         inline_expressions: Substitute the plain named expressions the line uses, so it
@@ -199,10 +199,10 @@ def typeset_declaration(
 
     Raises:
         ValueError: *fmt* names no format.
-        LanguageError: A model that does not compile; it does not print.
+        LanguageError: A spec that does not compile; it does not print.
         SchemaError: *name* is declared as none of the five, or as two — a
             constraint may share a variable's name; or a symbol table entry
-            names nothing in the model.
+            names nothing in the spec.
     """
     walk = _walk(spec, fmt, symbols, inline_expressions=inline_expressions)
     return walk.format.equation(walk.line(name))

@@ -10,8 +10,8 @@ hide:
 
 # mathspec
 
-**Write an optimisation model as a YAML file. Check it and print it as math,
-with no data and no solver.**
+**Write the spec of an optimisation model as a YAML file. Check it and print it
+as math, with no data and no solver.**
 
 --8<-- "README.md:badges"
 
@@ -34,11 +34,11 @@ with no data and no solver.**
 
 --8<-- "README.md:engines"
 
-## A model is one file
+## A spec is one file
 
-A file declares four things: the axes the model runs over, the data it
+A file declares four things: the axes the spec runs over, the data it
 expects, the decisions the solver makes, and the rules those decisions obey.
-The file below is a complete model.
+The file below is a complete spec.
 
 --8<-- "README.md:model"
 
@@ -161,7 +161,7 @@ call.
     ```
 
     `symbols` gives every name its conventional spelling. Pass a dict, a YAML path
-    or a `SymbolTable`. It is optional: drop it and the same model prints from the
+    or a `SymbolTable`. It is optional: drop it and the same spec prints from the
     names in the file, as $\mathrm{load}_t$ and $\mathrm{capacity}_g$.
 
     Or from a shell, where the table is that same YAML on disk. `--standalone` emits
@@ -180,14 +180,14 @@ call.
 
 ## Where to next
 
-- [Your first model](first-model.md): write the file above one block at a
+- [Your first spec](first-spec.md): write the file above one block at a
   time, check it and print it.
 - [The language](reference/language/index.md): what a file may contain, and
   what it means.
-- [Examples](examples/index.md): whole models, each beside the math it prints.
-- [Print a model as math](howto/print.md): LaTeX, Typst or Markdown, from the
+- [Examples](examples/index.md): whole specs, each beside the math it prints.
+- [Print a spec as math](howto/print.md): LaTeX, Typst or Markdown, from the
   file alone.
-- [Check a model without data](howto/check.md): on your machine and in CI.
+- [Check a spec without data](howto/check.md): on your machine and in CI.
 - [Reading a spec and its program](reference/reading.md): for whoever writes an engine
   or a renderer.
 

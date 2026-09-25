@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # The sidecar symbol table for `examples/sos.yaml`. It spells both readings of
-# the model: the breakpoints the curve prints through, and the weights the
+# the spec: the breakpoints the curve prints through, and the weights the
 # expansion writes out, which are named after the block that declared them and
 # unreadable in an equation that names one six times. Papers write the
 # convex-combination weight as lambda, so this says so out loud rather than the
