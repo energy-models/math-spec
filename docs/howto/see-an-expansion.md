@@ -428,7 +428,7 @@ the set out too.
 <!-- expansion:curve:end -->
 <!-- prettier-ignore-end -->
 
-[`Spec.expand()`](../reference/reading.md#formulations-written-out) lists what
+[`Spec.expand()`](../reference/api.md#math_spec.Spec.expand) lists what
 the call accepts, and
 [writing a formulation out](../reference/language/piecewise.md#writing-a-formulation-out)
 says what each block emits.
