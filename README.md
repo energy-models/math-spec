@@ -11,7 +11,7 @@ SPDX-License-Identifier: CC-BY-4.0
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/mathspec?logoColor=white&logo=conda-forge&style=flat-square)](https://prefix.dev/channels/conda-forge/packages/mathspec)
 [![pypi-version](https://img.shields.io/pypi/v/mathspec.svg?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/mathspec)
 [![python-version](https://img.shields.io/pypi/pyversions/mathspec?logoColor=white&logo=python&style=flat-square)](https://pypi.org/project/mathspec)
-[![Documentation build status](https://readthedocs.org/projects/mathspec/badge/?version=latest&style=flat-square)](https://math-spec.readthedocs.io)
+[![Documentation build status](https://readthedocs.org/projects/mathspec/badge/?version=latest&style=flat-square)](https://mathspec.readthedocs.io)
 
 <!--- --8<-- [end:badges] -->
 
@@ -37,16 +37,16 @@ Support in both is work in progress.
 
 - **Check models in CI, with no data.** A wrong name or
   dimension fails when the file loads, and the error names the fix.
-  [Errors →](https://math-spec.readthedocs.io/en/latest/reference/language/errors/)
+  [Errors →](https://mathspec.readthedocs.io/en/latest/reference/language/errors/)
 - **Publish the math you solve.** The equations in the paper
   print from the file the solver reads.
-  [Typeset →](https://math-spec.readthedocs.io/en/latest/reference/typeset/)
+  [Typeset →](https://mathspec.readthedocs.io/en/latest/reference/typeset/)
 - **One model, many tools.** Engines, renderers and analysers read the model
   through one public API, so no two of them can read the file differently.
-  [Program API →](https://math-spec.readthedocs.io/en/latest/reference/program/)
+  [Program API →](https://mathspec.readthedocs.io/en/latest/reference/program/)
 - **Write full-size models.** PyPSA's `n.optimize()` model is
   one file, with stochastic, multi-period and quadratic variants.
-  [PyPSA in one file →](https://math-spec.readthedocs.io/en/latest/examples/pypsa/)
+  [PyPSA in one file →](https://mathspec.readthedocs.io/en/latest/examples/pypsa/)
 
 <!--- --8<-- [end:benefits] -->
 
@@ -185,7 +185,7 @@ conventional spelling, as in the folded block.
 
 ## Documentation
 
-The documentation is at <https://math-spec.readthedocs.io>.
+The documentation is at <https://mathspec.readthedocs.io>.
 
 ## Installation
 

@@ -4,7 +4,7 @@
 
 site_name: "mathspec"
 site_description: The language an optimisation model is written in — YAML math, checked before any data is bound, and printable as the math it means
-site_url: https://math-spec.readthedocs.io/en/latest/
+site_url: https://mathspec.readthedocs.io/en/latest/
 repo_url: https://github.com/energy-models/mathspec
 repo_name: energy-models/mathspec
 edit_uri: edit/main/docs/
