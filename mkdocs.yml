@@ -56,7 +56,6 @@ nav:
           - Assumptions: reference/language/assumptions.md
           - Absence and where: reference/language/absence.md
           - Errors and limits: reference/language/errors.md
-      - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
       - Python API: reference/api.md
       - Glossary: reference/glossary.md
@@ -71,8 +70,9 @@ nav:
   # Everything a model writer does not need, grouped by reader: whoever
   # writes a tool against `Spec` and `Program` (an engine such as specsolve, a
   # renderer, a checker), whoever changes math-spec itself, and the proofs of
-  # concept. The PyPSA pages stay in `docs/examples/`, where `tools/gallery.py`
-  # writes them. `docs/static/hooks.py` appends one page per module under
+  # concept: the notation page, which renders the typesetting test model, and
+  # the PyPSA pages. The PyPSA pages stay in `docs/examples/`, where
+  # `tools/gallery.py` writes them. `docs/static/hooks.py` appends one page per module under
   # `src/math_spec/` to Contributing, as `Modules`.
   - Development:
       - Building on math-spec:
@@ -83,6 +83,7 @@ nav:
           - contributing.md
           - What counts as public API: about/what-counts-as-public-api.md
       - Proofs of concept:
+          - Every construct, as math: reference/notation.md
           - PyPSA in one file: examples/pypsa.md
           - PyPSA, the quadratic class: examples/pypsa_quadratic.md
           - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md

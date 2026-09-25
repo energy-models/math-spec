@@ -65,7 +65,8 @@ not need, in three groups:
 - **Building on math-spec** is for someone who writes a tool against `Spec`
   and `Program`: an engine such as specsolve, a renderer, a checker.
 - **Contributing** is for someone who changes math-spec itself.
-- **Proofs of concept** holds the PyPSA pages. They stay in `docs/examples/`,
+- **Proofs of concept** holds the notation page, which renders the typesetting
+  test model, and the PyPSA pages. The PyPSA pages stay in `docs/examples/`,
   where `tools/gallery.py` writes them.
 
 A page in Development keeps the folder of its kind.
