@@ -20,7 +20,7 @@ only-include = ["src", "README.md", "LICENSE", "LICENSES"]
 
 [project]
 name = "mathspec"
-description = "YAML math specification and AST parsing for multi-dimensional linear programming problems"
+description = "Write an optimisation model as a YAML file. Check it and print it as math, with no data and no solver."
 authors = [
   { name = "Felix Bumann", email = "117816358+FBumann@users.noreply.github.com" },
   { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },
@@ -29,7 +29,17 @@ authors = [
 dynamic = ["version"]
 license = "MIT"
 license-files = ["LICENSE"]
+keywords = [
+  "optimisation",
+  "linear programming",
+  "energy system modelling",
+  "yaml",
+  "latex",
+]
 classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Mathematics",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -51,7 +61,10 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/energy-models/mathspec"
+Documentation = "https://mathspec.readthedocs.io"
+Repository = "https://github.com/energy-models/mathspec"
+Issues = "https://github.com/energy-models/mathspec/issues"
+Changelog = "https://github.com/energy-models/mathspec/blob/main/CHANGELOG.md"
 
 [project.scripts]
 

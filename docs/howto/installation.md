@@ -5,8 +5,27 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Installation
 
-`mathspec` needs Python 3.12 or above. Nothing is published yet, so install it
-from git:
+`mathspec` needs Python 3.12 or above. Install it from PyPI:
+
+=== "pip"
+
+    ```bash
+    pip install mathspec
+    ```
+
+=== "uv"
+
+    ```bash
+    uv add mathspec
+    ```
+
+=== "pixi"
+
+    ```bash
+    pixi add --pypi mathspec
+    ```
+
+The version on `main` installs from git:
 
 ```bash
 pip install git+https://github.com/energy-models/mathspec
