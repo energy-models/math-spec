@@ -140,7 +140,7 @@ def test_a_substituted_term_that_opens_with_a_minus_prints_as_a_subtraction():
     assert typeset_declaration(NEGATED_TERM, 'net', 'latex') == (
         r'\sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} '
         r'- \left( \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \right) '
-        r'+ \sum_{g \in \mathcal{G}} p_{t,g} = 0 \qquad \forall\, t \in \mathcal{T}'
+        r"+ \sum_{t' \in \mathcal{T},\ g \in \mathcal{G}} p_{t',g} = 0 \qquad \forall\, t \in \mathcal{T}"
     )
 
 
