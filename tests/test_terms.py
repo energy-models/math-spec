@@ -204,12 +204,34 @@ def test_a_composed_spec_takes_more_terms_in_a_second_merge():
     assert 'store_p' in extended.expressions['injection'].expression
 
 
-def test_terms_alone_define_a_name_nothing_reads():
-    composed = merge({'fleet': FLEET, 'demand': DEMAND})
-    assert composed.expressions['injection'].expression == (
-        '(-load) + (sum(gen_p, by=gen_bus, over=generator, into=bus))'
-    )
-    assert not composed.program.expressions['injection'].in_math
+@pytest.mark.parametrize(
+    ('fragments', 'message'),
+    [
+        pytest.param(
+            {'fleet': FLEET, 'demand': DEMAND},
+            r"fragments 'demand' and 'fleet' add a term to 'injection', which no fragment defines, reads or uses",
+            id='terms-and-nothing-else',
+        ),
+        pytest.param(
+            {
+                'balance': BALANCE,
+                'fleet': {**FLEET, 'given': {'expressions': {'injecton': FLEET['given']['expressions']['injection']}}},
+            },
+            r"fragment 'fleet' adds a term to 'injecton', which no fragment.*Did you mean 'injection'\?",
+            id='a-mistyped-name',
+        ),
+    ],
+)
+def test_terms_that_land_on_no_name_are_refused(fragments, message):
+    """Merge fills a reading or extends a definition; it never invents a name, which is what a typo would ask for."""
+    with pytest.raises(LanguageError, match=message):
+        merge(fragments)
+
+
+def test_a_term_lands_on_a_name_a_contributor_s_own_math_uses():
+    capped = {**FLEET, 'constraints': {'capped': {'dims': FRAME, 'expression': 'injection <= 10'}}}
+    composed = merge({'fleet': capped, 'demand': DEMAND})
+    assert composed.program.expressions['injection'].in_math
 
 
 def test_one_term_alone_is_carried_as_written():

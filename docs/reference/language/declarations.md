@@ -289,12 +289,16 @@ entry under _Given_, and the math prints the term under _Definitions_ as
 [`merge`](../../howto/compose.md#a-library-of-components) defines the name as
 the definition one fragment writes under `expressions:`, if any, plus every
 term, each in parentheses, in fragment-name order. Nothing declares that the
-name is a sum: a term adds to whatever the other files define, and a later
-merge adds to the composed definition the same way. A definition written as
-`cases:` is refused: name the cased body as its own expression, and define the
-name as that name. The definition keeps its own description, or takes the
-first a reader wrote. Two files that both define the name under `expressions:`
-are refused as a collision, and the message names `term:`.
+name is a sum: a term adds to whatever the other files define, as a
+fragment's objective adds to the objective, and a later merge adds to the
+composed definition the same way. A term has to land on a name another file
+has: one that defines it, reads it with no term of its own, or uses it in its
+math. Terms alone are refused, with the near miss named, since `merge` fills
+a reading or extends a definition and never invents a name. A definition
+written as `cases:` is refused: name the cased body as its own expression,
+and define the name as that name. The definition keeps its own description,
+or takes the first a reader wrote. Two files that both define the name under
+`expressions:` are refused as a collision, and the message names `term:`.
 
 ## `constraints`
 

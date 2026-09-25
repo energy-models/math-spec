@@ -30,7 +30,9 @@ What that means for each section:
   spec defines the name as the definition one fragment writes, if any, plus
   every term, each in parentheses, in the fragments' name order. A definition
   written as ``cases:`` is refused, since the terms are summed as written. A
-  later merge adds to the composed definition the same way.
+  later merge adds to the composed definition the same way. Terms that land
+  on a name no fragment defines, reads or uses are refused: merge fills a
+  reading or extends a definition, and never invents a name.
 * **A given declaration is folded** into the declaration that introduces the
   name, once the reader is checked to say the same as the introducer or less.
   A given expression's body may carry no dimension its reader does not state,
@@ -82,6 +84,7 @@ from pydantic import BaseModel, ValidationError
 from mathspec._yaml import read_spec
 from mathspec.dimensions import dims_of
 from mathspec.errors import LanguageError, did_you_mean, schema_error
+from mathspec.program import Variable, walk
 from mathspec.spec import GivenBlock, Spec
 from mathspec.validation import to_spec
 
@@ -162,7 +165,7 @@ def merge(fragments: Mapping[str, str | Path | Mapping[str, object] | Spec], des
     for section in OWNED_SECTIONS:
         if claimed := _claimed(read, section):
             merged[section] = claimed
-    if summed := _summed(read, _mapping(merged.get('expressions')), readings):
+    if summed := _summed(read, loaded, _mapping(merged.get('expressions')), readings):
         merged['expressions'] = {**_mapping(merged.get('expressions')), **summed}
     if given := _folded(read, merged, loaded, readings):
         merged['given'] = given
@@ -284,7 +287,10 @@ def _terms(read: Mapping[str, dict[str, object]], key: str) -> list[tuple[str, s
 
 
 def _summed(
-    read: Mapping[str, dict[str, object]], defined: Mapping[str, object], readings: Mapping[str, dict[str, object]]
+    read: Mapping[str, dict[str, object]],
+    loaded: Mapping[str, Spec],
+    defined: Mapping[str, object],
+    readings: Mapping[str, dict[str, object]],
 ) -> dict[str, object]:
     """Every name a fragment adds a term to, defined as the definition plus the terms.
 
@@ -299,6 +305,7 @@ def _summed(
         terms = _terms(read, key)
         if not terms:
             continue
+        _landed(read, loaded, defined, key, [name for name, _ in terms])
         bodies = [term for _, term in terms]
         block: dict[str, object] = {}
         if key in defined:
@@ -317,6 +324,47 @@ def _summed(
             block['description'] = entry['description']
         summed[key] = block
     return summed
+
+
+def _landed(
+    read: Mapping[str, dict[str, object]],
+    loaded: Mapping[str, Spec],
+    defined: Mapping[str, object],
+    key: str,
+    contributors: list[str],
+) -> None:
+    """Refuse terms that land on a name no fragment owns.
+
+    A term adds to a name another file has: a definition under
+    ``expressions:``, a reading under ``given:`` with no term of its own, or a
+    use in its math. Terms alone would define a name nothing asked for, which
+    is what a mistyped name looks like, so the refusal names the near miss.
+    """
+    if key in defined:
+        return
+    for spec in loaded.values():
+        reading = spec.given.expressions.get(key)
+        if reading is not None and reading.term is None:
+            return
+        program = spec.program
+        bodies = (entry.expression for entry in program.expressions.values())
+        if any(isinstance(node, Variable) and node.name == key for node in walk(*program.roots, *bodies)):
+            return
+    known = {
+        name
+        for sections in read.values()
+        for name in (
+            *_mapping(sections.get('expressions')),
+            *_mapping(_mapping(sections.get('given')).get('expressions')),
+        )
+    } - {key}
+    spelled = ', '.join(f"'{name}'" for name in contributors[:-1])
+    who = f"fragments {spelled} and '{contributors[-1]}' add" if spelled else f"fragment '{contributors[0]}' adds"
+    near = f' {did_you_mean(key, known)}' if known else ''
+    raise LanguageError(
+        f'{who} a term to {key!r}, which no fragment defines, reads or uses. A term adds to a name another '
+        f"file has: define it under 'expressions:', read it under 'given: expressions:', or fix the spelling.{near}"
+    )
 
 
 def _as_mapping(block: object) -> dict[str, object]:

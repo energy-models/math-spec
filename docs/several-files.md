@@ -336,17 +336,14 @@ False
 Merge the generators and the loads without the network:
 
 ```python
-spec = ms.merge({'generators': 'generators.yaml', 'loads': 'loads.yaml'})
-print(spec.expressions['injection'].expression)
-print(sorted(spec.constraints))
+ms.merge({'generators': 'generators.yaml', 'loads': 'loads.yaml'})
 ```
 
-`merge` accepts it. The two terms still sum to a definition, and no
-constraint reads it, because the balance is the network's:
+`merge` refuses it. A term adds to a name another file has, and without the
+network no file defines, reads or uses `injection`:
 
 ```text
-(sum(dispatch, by=gen_bus, over=generator, into=bus)) + (-demand)
-[]
+fragments 'generators' and 'loads' add a term to 'injection', which no fragment defines, reads or uses. A term adds to a name another file has: define it under 'expressions:', read it under 'given: expressions:', or fix the spelling.
 ```
 
 ## Where to next
