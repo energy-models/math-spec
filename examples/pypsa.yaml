@@ -106,11 +106,11 @@ parameters:
     dims: [generator]
     dtype: bool
   Generator_ramp_limit_up:
-    description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
-    dims: [scenario, generator]
+    description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, generator]
   Generator_ramp_limit_down:
-    description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
-    dims: [scenario, generator]
+    description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, generator]
   Generator_ramp_limit_start_up:
     description: most output in the snapshot a unit starts, per unit of nominal power
     dims: [scenario, generator]
@@ -201,11 +201,11 @@ parameters:
     dims: [scenario, snapshot, generator]
     dtype: bool
   Link_ramp_limit_up:
-    description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
-    dims: [scenario, link]
+    description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, link]
   Link_ramp_limit_down:
-    description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit
-    dims: [scenario, link]
+    description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, link]
   Link_p_nom:
     description: nominal power
     dims: [scenario, link]
@@ -384,11 +384,11 @@ parameters:
     description: cost of the square of one unit of internal power
     dims: [scenario, snapshot, process]
   Process_ramp_limit_up:
-    description: most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit
-    dims: [scenario, process]
+    description: most a process may raise its internal power between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, process]
   Process_ramp_limit_down:
-    description: most a process may lower its internal power between snapshots, per unit of nominal power; no value means no limit
-    dims: [scenario, process]
+    description: most a process may lower its internal power between snapshots, per unit of nominal power; no value means no limit — read at the later of the two snapshots, so the limit may change over time
+    dims: [scenario, snapshot, process]
   Process_p_set:
     description: a given internal power schedule; a process without one has no row here
     dims: [scenario, snapshot, process]
@@ -1614,7 +1614,7 @@ expressions:
     description: >-
       the ramp limit a unit's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [scenario, generator]
+    dims: [scenario, snapshot, generator]
     cases:
       given: { when: Generator_ramp_limit_up, expression: Generator_ramp_limit_up }
     otherwise: 1
@@ -1622,7 +1622,7 @@ expressions:
     description: >-
       the ramp limit a unit's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [scenario, generator]
+    dims: [scenario, snapshot, generator]
     cases:
       given: { when: Generator_ramp_limit_down, expression: Generator_ramp_limit_down }
     otherwise: 1
@@ -1705,7 +1705,7 @@ expressions:
     description: >-
       the ramp limit a link's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [scenario, link]
+    dims: [scenario, snapshot, link]
     cases:
       given: { when: Link_ramp_limit_up, expression: Link_ramp_limit_up }
     otherwise: 1
@@ -1713,7 +1713,7 @@ expressions:
     description: >-
       the ramp limit a link's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [scenario, link]
+    dims: [scenario, snapshot, link]
     cases:
       given: { when: Link_ramp_limit_down, expression: Link_ramp_limit_down }
     otherwise: 1
@@ -1796,7 +1796,7 @@ expressions:
     description: >-
       the ramp limit a process's up row reads — PyPSA's `ramp_limit_up`, or the
       full build where it has none, since a start-up ramp alone builds the row
-    dims: [scenario, process]
+    dims: [scenario, snapshot, process]
     cases:
       given: { when: Process_ramp_limit_up, expression: Process_ramp_limit_up }
     otherwise: 1
@@ -1804,7 +1804,7 @@ expressions:
     description: >-
       the ramp limit a process's down row reads — PyPSA's `ramp_limit_down`, or
       the full build where it has none, since a shut-down ramp alone builds the row
-    dims: [scenario, process]
+    dims: [scenario, snapshot, process]
     cases:
       given: { when: Process_ramp_limit_down, expression: Process_ramp_limit_down }
     otherwise: 1

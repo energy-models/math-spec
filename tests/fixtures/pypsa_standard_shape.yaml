@@ -551,12 +551,14 @@ parameters:
     - global_constraint
     - generator
   Generator_ramp_limit_down:
+    - snapshot
     - generator
   Generator_ramp_limit_shut_down:
     - generator
   Generator_ramp_limit_start_up:
     - generator
   Generator_ramp_limit_up:
+    - snapshot
     - generator
   Generator_shut_down_cost:
     - generator
@@ -674,12 +676,14 @@ parameters:
     - snapshot
     - link
   Link_ramp_limit_down:
+    - snapshot
     - link
   Link_ramp_limit_shut_down:
     - link
   Link_ramp_limit_start_up:
     - link
   Link_ramp_limit_up:
+    - snapshot
     - link
   Link_shut_down_cost:
     - link
@@ -753,12 +757,14 @@ parameters:
     - snapshot
     - process
   Process_ramp_limit_down:
+    - snapshot
     - process
   Process_ramp_limit_shut_down:
     - process
   Process_ramp_limit_start_up:
     - process
   Process_ramp_limit_up:
+    - snapshot
     - process
   Process_rate:
     - process_output
