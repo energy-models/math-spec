@@ -24,11 +24,15 @@ A row is **done** once the file states it as the one block PyPSA builds.
 **split** means the same feasible region and optimum under a different
 statement, such as several `where:` blocks. **open** means not stated yet.
 **out** means never stated, deliberately: emitted only under the keyword,
-scope or version the note names. A name carrying `{k}`, `{s}`, `{c}` or `{n}` stands
+scope or version the note names. **diverges** means the file states the
+intended math where PyPSA `1.3.0` has a bug; the note names the issue, and the
+rung records the intended objective and what PyPSA gives until the fix ships. A name carrying `{k}`, `{s}`, `{c}` or `{n}` stands
 for the family PyPSA numbers per segment, scenario, outaged component or
 sub-network.
 
-Each rung's banner states what PyPSA solved its reference network to.
+Each rung's banner states what PyPSA solved its reference network to. A
+rung that records a PyPSA bug, marked ✘, states what PyPSA gives beside the
+intended objective.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine attaches the network to the file, and what it makes of it, is that engine's own record.
@@ -4021,6 +4025,106 @@ def build():
 </details>
 <!-- reference:rung_50_inactive_load:end -->
 
+### Rung 51 — a growth limit after an asset retires
+
+`n.optimize(multi_investment_periods=True)` with a carrier that carries
+`max_growth`, and an extendable asset of that carrier that retires before the
+last period. The file counts a build in the first period it stands in only:
+`{c}_first_active` is one there and zero elsewhere. PyPSA `1.3.0` takes
+`active.cumsum() == 1`, which stays true after the asset retires, so it counts
+the asset again in every later period (`global_constraints.py:276`,
+[PyPSA/PyPSA#1938](https://github.com/PyPSA/PyPSA/issues/1938)).
+
+The rung builds two solar units under one carrier with `max_growth = 10`. The
+old one stands in 2020 only, the new one in 2030 only. Both build to `10` in
+the file. PyPSA holds the new one at `10` minus the old one's build, so it
+builds nothing in 2030 and solves to `5185.0`. The oracle is the same network
+with a carrier per unit, each with the same limit: each carrier has one asset,
+and the repeated row PyPSA builds for the old one repeats its own bound. It
+solves to `3432.5`. Without `max_growth`, the network solves to `248.75`.
+
+| PyPSA | status | note |
+| --- | --- | --- |
+| [`Carrier-growth_limit`](#carrier-growth_limit) with an asset that retires | diverges | [PyPSA/PyPSA#1938](https://github.com/PyPSA/PyPSA/issues/1938); `{c}_first_active` is zero after the first period an asset stands in |
+
+<!-- reference:rung_51_growth_retired_asset:begin -->
+> ✘ `pypsa 1.3.0` solves this rung's network at objective `5185.0`, 26 rows, [PyPSA/PyPSA#1938](https://github.com/PyPSA/PyPSA/issues/1938). The intended objective is `3432.5`.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_51_growth_retired_asset.py`
+
+```python
+# SPDX-FileCopyrightText: mathspec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 51: a carrier's growth limit counts an asset in the first period it stands in only, not again after it retires.
+
+PyPSA 1.3.0 counts an asset that retires in every later period too (PyPSA/PyPSA#1938).
+The oracle gives each build its own carrier with the same limit: each carrier
+then has one asset, which PyPSA counts in its first period, and a retired one
+counted again repeats a row it already has.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+ISSUE = 1938
+OPTIMIZE = {'multi_investment_periods': True}
+
+
+def network(carriers: dict[str, str]):
+    """Two periods, a solar unit that stands in 2020 only and one built in 2030, each under the carrier named for it."""
+    import pypsa
+
+    n = pypsa.Network()
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(2)] + [(2030, datetime(2030, 1, 1, t)) for t in range(2)]
+    )
+    n.investment_periods = [2020, 2030]
+    n.investment_period_weightings['objective'] = [1.0, 0.5]
+    n.investment_period_weightings['years'] = [10.0, 10.0]
+    n.snapshot_weightings['objective'] = [2.0, 1.5, 2.5, 2.0]
+    n.add('Bus', 'grid')
+    n.add('Carrier', 'gas')
+    for carrier in sorted(set(carriers.values())):
+        n.add('Carrier', carrier, max_growth=10)
+    for name, build_year in (('solar_old', 2020), ('solar_new', 2030)):
+        n.add(
+            'Generator',
+            name,
+            bus='grid',
+            carrier=carriers[name],
+            p_nom_extendable=True,
+            p_nom_max=50,
+            marginal_cost=1,
+            capital_cost=5,
+            build_year=build_year,
+            lifetime=10,
+        )
+    n.add('Generator', 'backup', bus='grid', carrier='gas', p_nom=100, marginal_cost=80)
+    n.add('Load', 'town', bus='grid', p_set=[15, 20, 15, 20])
+    return n
+
+
+def build():
+    """Both solar units under one carrier with `max_growth = 10`; the old one retires after 2020."""
+    return network({'solar_old': 'solar', 'solar_new': 'solar'})
+
+
+def oracle():
+    """The same network with a carrier per build: PyPSA counts each build in its first period only."""
+    return [(1.0, network({'solar_old': 'solar20', 'solar_new': 'solar30'}))]
+```
+
+</details>
+<!-- reference:rung_51_growth_retired_asset:end -->
+
 ## Refusals
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
@@ -4205,12 +4309,12 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{W}^{s}`$ | `Line_capital_weight` over $`\mathcal{K}`$ — the sum of period weights a line stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{z}`$ | `Process_capital_weight` over $`\mathcal{J}`$ — the sum of period weights a process stands in — PyPSA's `active * period_weighting`, summed, data prep |
 | $`\mathrm{W}^{\sigma}`$ | `Transformer_capital_weight` over $`\mathcal{M}`$ — the sum of period weights a transformer stands in — PyPSA's `active * period_weighting`, summed, data prep |
-| $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{f}`$ | `Link_first_active` over $`\mathcal{Y} \times \mathcal{L}`$ — one in the first period a link stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{h}`$ | `StorageUnit_first_active` over $`\mathcal{Y} \times \mathcal{S}`$ — one in the first period a storage unit stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
-| $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
+| $`\mathrm{new}`$ | `Generator_first_active` over $`\mathcal{Y} \times \mathcal{G}`$ — one in the first period a generator stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a generator that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{f}`$ | `Link_first_active` over $`\mathcal{Y} \times \mathcal{L}`$ — one in the first period a link stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a link that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{h}`$ | `StorageUnit_first_active` over $`\mathcal{Y} \times \mathcal{S}`$ — one in the first period a storage unit stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a storage unit that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{e}`$ | `Store_first_active` over $`\mathcal{Y} \times \mathcal{V}`$ — one in the first period a store stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a store that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{s}`$ | `Line_first_active` over $`\mathcal{Y} \times \mathcal{K}`$ — one in the first period a line stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a line that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
+| $`\mathrm{new}^{z}`$ | `Process_first_active` over $`\mathcal{Y} \times \mathcal{J}`$ — one in the first period a process stands in, zero elsewhere, data prep. PyPSA `1.3.0` takes `active.cumsum() == 1`, which also counts a process that has retired in every later period (`global_constraints.py:276`, PyPSA/PyPSA\#1938) |
 | $`\overline{\Delta}`$ | `Carrier_max_growth` over $`\mathcal{I}`$ — most capacity of a carrier that may be added in a period; no value means no limit. The least over the scenarios, as PyPSA takes it (`global_constraints.py:226-230`), data prep. PyPSA reads it only under `multi_investment_periods` (`global_constraints.py:219-220`), so data prep feeds no value otherwise |
 | $`\mathrm{r}`$ | `Carrier_max_relative_growth` over $`\mathcal{I}`$ — share of the previous period's additions that may be added on top — the least over the scenarios, as PyPSA takes it, data prep |
 | $`\mathrm{p}^{\mathrm{set}}`$ | `Generator_p_set` over $`\Xi \times \mathcal{T} \times \mathcal{G}`$ — a given output schedule; a generator without one has no row here |
@@ -4249,7 +4353,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}`$ | `StorageUnit_cyclic_state_of_charge` over $`\Xi \times \mathcal{S}`$ — whether the horizon closes on itself instead of opening on the initial charge |
 | $`\mathrm{cyc}^{y}`$ | `StorageUnit_cyclic_state_of_charge_per_period` over $`\Xi \times \mathcal{S}`$ — whether each investment period closes on itself instead of carrying its charge on to the next; it overrides `cyclic_state_of_charge` and `state_of_charge_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{reset}`$ | `StorageUnit_state_of_charge_initial_per_period` over $`\Xi \times \mathcal{S}`$ — whether each investment period opens on the initial charge instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
-| $`\mathrm{open}`$ | `StorageUnit_opens_late` over $`\mathcal{T} \times \mathcal{S}`$ — whether a snapshot is the first a storage unit stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every unit stands throughout |
+| $`\mathrm{open}`$ | `StorageUnit_opens_late` over $`\mathcal{T} \times \mathcal{S}`$ — whether a snapshot is the first a storage unit stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` over the snapshots it stands in, past the first snapshot, data prep; false in a run where every unit stands throughout |
 | $`\mathrm{idle}`$ | `StorageUnit_inactive_snapshots` over $`\mathcal{S}`$ — how many snapshots a storage unit does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic unit reaches back this many snapshots further, so it closes on the last snapshot it stands in |
 | $`\mathrm{c}^{h}`$ | `StorageUnit_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of one unit of dispatch |
 | $`\mathrm{c}^{h,(2)}`$ | `StorageUnit_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{S}`$ — cost of the square of one unit of dispatch; storing is not charged |
@@ -4269,7 +4373,7 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathrm{cyc}^{e}`$ | `Store_e_cyclic` over $`\Xi \times \mathcal{V}`$ — whether the horizon closes on itself instead of opening on the initial energy |
 | $`\mathrm{cyc}^{e,y}`$ | `Store_e_cyclic_per_period` over $`\Xi \times \mathcal{V}`$ — whether each investment period closes on itself instead of carrying its energy on to the next; it overrides `e_cyclic` and `e_initial_per_period`. PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
 | $`\mathrm{reset}^{e}`$ | `Store_e_initial_per_period` over $`\Xi \times \mathcal{V}`$ — whether each investment period opens on the initial energy instead of carrying the previous period's; PyPSA reads it only under `multi_investment_periods`, so data prep feeds false otherwise |
-| $`\mathrm{open}^{e}`$ | `Store_opens_late` over $`\mathcal{T} \times \mathcal{V}`$ — whether a snapshot is the first a store stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` past the first snapshot, data prep; false in a run where every store stands throughout |
+| $`\mathrm{open}^{e}`$ | `Store_opens_late` over $`\mathcal{T} \times \mathcal{V}`$ — whether a snapshot is the first a store stands in, where that is not the first of the horizon — PyPSA's `active.cumsum() == 1` over the snapshots it stands in, past the first snapshot, data prep; false in a run where every store stands throughout |
 | $`\mathrm{idle}^{e}`$ | `Store_inactive_snapshots` over $`\mathcal{V}`$ — how many snapshots a store does not stand in — PyPSA's `(~active).sum()`, data prep. A cyclic store reaches back this many snapshots further, so it closes on the last snapshot it stands in |
 | $`\mathrm{c}^{q}`$ | `Store_marginal_cost` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of one unit of power delivered |
 | $`\mathrm{c}^{q,(2)}`$ | `Store_marginal_cost_quadratic` over $`\Xi \times \mathcal{T} \times \mathcal{V}`$ — cost of the square of the net power delivered, so charging costs as much as delivering |

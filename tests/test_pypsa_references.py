@@ -38,11 +38,12 @@ COLUMNS_DECLARED = {
 #: those rows after each row's own label, so they are matched through the
 #: recorded type and sense instead of by name.
 GC_TYPES = {name for name in ROWS_DECLARED if not name[0].isupper()}
-RECORDED_ROWS: set[str] = set().union(*(record['rows'] for record in RECORDED.values()))
-RECORDED_COLUMNS: set[str] = set().union(*(record['columns'] for record in RECORDED.values()))
-GC_RECORDED: dict[str, dict] = {
-    label: gc for record in RECORDED.values() for label, gc in record['global_constraints'].items()
-}
+#: A rung that records a PyPSA bug PyPSA raises on has no rows, columns or global constraints of its own.
+BUILT = [record for record in RECORDED.values() if 'raises' not in record.get('diverges', {})]
+RECORDED_ROWS: set[str] = set().union(*(record['rows'] for record in BUILT))
+RECORDED_COLUMNS: set[str] = set().union(*(record['columns'] for record in BUILT))
+GC_RECORDED: dict[str, dict] = {label: gc for record in BUILT for label, gc in record['global_constraints'].items()}
+DIVERGED = {stem: record for stem, record in RECORDED.items() if 'diverges' in record}
 
 
 @pytest.mark.parametrize('key', ['spine', *RUNGS])
@@ -95,7 +96,22 @@ def test_the_record_is_from_the_pinned_pypsa(stem: str):
 def test_the_recorded_solve_is_usable_as_an_oracle(stem: str):
     recorded = RECORDED[stem]
     assert math.isfinite(recorded['objective']), 'an oracle needs a finite objective'
-    assert recorded['rows'], 'an oracle needs the row counts an engine would compare'
+    if recorded in BUILT:
+        assert recorded['rows'], 'an oracle needs the row counts an engine would compare'
+
+
+@pytest.mark.parametrize('stem', sorted(DIVERGED), ids=sorted(DIVERGED))
+def test_a_divergence_names_its_issue_and_what_pypsa_gives_instead(stem: str):
+    recorded = RECORDED[stem]
+    diverges = recorded['diverges']
+    module = (REFERENCES / f'{stem}.py').read_text()
+    assert f'ISSUE = {diverges["issue"]}' in module, 'the record names the issue its rung script names'
+    assert any(f'PyPSA/PyPSA#{diverges["issue"]}' in text for text in PAGE_TEXTS), (
+        'the page links the issue a rung records'
+    )
+    assert 'raises' in diverges or not math.isclose(diverges['objective'], recorded['objective'], rel_tol=1e-9), (
+        'a divergence records what PyPSA gives instead of the intended objective: an exception or another objective'
+    )
 
 
 def test_pypsa_builds_no_variable_the_files_do_not_declare():
