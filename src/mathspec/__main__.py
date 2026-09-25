@@ -4,9 +4,11 @@
 
 """``python -m mathspec <verb> spec.yaml`` — the shell front.
 
-``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off [`mathspec.typesetting.FORMATS`][]. Every verb
-reads the file as written, and nothing here writes a formulation out unasked.
+``check`` loads the file and prints the language's advice; ``canonical``
+writes the spec in the form two files that state the same spec share, or with
+``--check`` asks whether the file is already in that form; one further verb per
+typeset format, read off [`mathspec.typesetting.FORMATS`][]. Every verb reads
+the file as written, and nothing here writes a formulation out unasked.
 The typeset verbs take ``--expand``, because a shell cannot compose
 [`expand`][mathspec.spec.Spec.expand] the way a caller does and the rows are a
 different document; ``check`` has no such flag, because advice reads a block
@@ -33,6 +35,13 @@ def parser() -> argparse.ArgumentParser:
     check = verbs.add_parser('check', help='load a spec, and print what the language advises')
     check.add_argument('spec', help='path to a mathspec YAML file')
 
+    canonical = verbs.add_parser('canonical', help='write a spec in the form two files that state it share')
+    canonical.add_argument('spec', help='path to a mathspec YAML file')
+    target = canonical.add_mutually_exclusive_group()
+    target.add_argument('-o', '--out', help='write here instead of stdout')
+    target.add_argument('--write', action='store_true', help='rewrite the file in the form, dropping its comments')
+    target.add_argument('--check', action='store_true', help='exit 1 if the file is not in the form, writing nothing')
+
     for name in FORMATS:
         verb = verbs.add_parser(name, help=f'render a spec as {name}')
         verb.add_argument('spec', help='path to a mathspec YAML file')
@@ -52,10 +61,26 @@ def parser() -> argparse.ArgumentParser:
     return front
 
 
+def _checked(path: str, text: str) -> int:
+    """Exit status 0 if the file at *path* already holds *text*, the form, and 1 with the rewrite on stderr if not.
+
+    A CI job runs this, so it compares bytes and writes nothing: the job fails,
+    and the author runs the rewrite the message names.
+    """
+    if Path(path).read_text(encoding='utf-8') == text:
+        return 0
+    sys.stderr.write(
+        f'{path} is not in the canonical form. Run `python -m mathspec canonical --write {path}` to rewrite it.\n'
+    )
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run one verb; a refused file is its message on stderr and exit status 1.
 
-    Advice is not a refusal: ``check`` prints it and exits 0.
+    Advice is not a refusal: ``check`` prints it and exits 0. A file that
+    ``canonical --check`` finds out of the form exits 1, with the rewrite on
+    stderr.
     """
     args = parser().parse_args(argv)
     if args.verb == 'check':
@@ -66,16 +91,28 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         sys.stdout.write(''.join(f'{note}\n' for note in notes))
         return 0
-    spec = to_spec(args.spec).expand() if args.expand else args.spec
-    text = typeset(
-        spec,
-        args.verb,
-        symbols=args.symbols,
-        standalone=args.standalone,
-        legend=not args.no_legend,
-        numbered=not args.no_numbers,
-        inline_expressions=args.inline_expressions,
-    )
+    if args.verb == 'canonical':
+        try:
+            text = to_spec(args.spec).to_yaml(canonical=True)
+        except MathSpecError as e:
+            sys.stderr.write(f'{e}\n')
+            return 1
+        if args.check:
+            return _checked(args.spec, text)
+        if args.write:
+            Path(args.spec).write_text(text, encoding='utf-8')
+            return 0
+    else:
+        spec = to_spec(args.spec).expand() if args.expand else args.spec
+        text = typeset(
+            spec,
+            args.verb,
+            symbols=args.symbols,
+            standalone=args.standalone,
+            legend=not args.no_legend,
+            numbered=not args.no_numbers,
+            inline_expressions=args.inline_expressions,
+        )
     if args.out:
         Path(args.out).write_text(text, encoding='utf-8')
     else:
