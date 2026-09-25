@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from tools.changelog import LEGACY, PATH, ChangelogError, missing_entry, notes, order, pending, sections
+from tools.changelog import LEGACY, PATH, RELEASE, ChangelogError, missing_entry, notes, order, pending, sections
 
 PREAMBLE = '# Changelog\n\nProse the tool never reads.\n\n'
 HISTORY = '## [0.0.0-alpha.126](https://example.org/compare) (2026-09-25)\n\n* an old line\n'
@@ -110,12 +110,14 @@ def test_notes_for_a_version_with_no_heading_are_refused():
         notes(changelog(), '0.2.0')
 
 
-def test_the_repository_changelog_releases_nothing_while_its_history_is_tagged():
-    """The workflow reads this file on every push to main, so it has to parse."""
+def test_the_repository_changelog_is_one_the_workflow_can_read():
+    """The workflow reads this file on every push to main, and a release PR puts a new heading on top of it."""
     text = PATH.read_text()
     history = {f'v{m["version"]}' for s in sections(text) if (m := LEGACY.fullmatch(s.heading))}
     assert history, 'the release-please history is still in the file'
-    assert pending(text, history) is None, 'a changelog with nothing new above its tagged history releases nothing'
+    headings = {m['version'] for s in sections(text) if (m := RELEASE.fullmatch(s.heading))}
+    released = pending(text, history)
+    assert released is None or released in headings, 'the workflow releases nothing, or a version the file names'
 
 
 BASE = changelog('## Upcoming version\n\n- an earlier line\n\n')
