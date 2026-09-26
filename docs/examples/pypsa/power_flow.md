@@ -46,11 +46,11 @@ constraints:
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
 
-#### Given
+#### Definitions
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathit{Cycle\_angle\_sum}`$ | `Cycle_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$, a sum other files add terms to — the voltage angle differences around a cycle: every branch flow times its cycle weight, and every transformer phase shift |
+| $`\mathit{Cycle\_angle\_sum}`$ | `Cycle_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$ — the voltage angle differences around a cycle: every branch flow times its cycle weight, and every transformer phase shift |
 
 #### Subject to
 
@@ -58,5 +58,13 @@ constraints:
 
 ```math
 \mathit{Cycle\_angle\_sum}_{\xi,t,c} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
+```
+
+#### Definitions
+
+**`Cycle_angle_sum`**
+
+```math
+\mathit{Cycle\_angle\_sum}_{\xi,t,c} = \cdots \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
 ```
 <!-- gallery:end -->
