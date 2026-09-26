@@ -47,6 +47,7 @@ class LatexFormat:
     notation: ClassVar[Notation] = 'latex'
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
+    ellipsis: ClassVar[str] = r'\cdots'
 
     operators: ClassVar[Mapping[OperatorName, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
 

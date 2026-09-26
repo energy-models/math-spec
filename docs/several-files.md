@@ -11,9 +11,10 @@ other files. Do [your first spec](first-spec.md) first.
 
 ## The network
 
-Make a file `network.yaml`. It balances every bus, and it reads the injection
-at a bus under [`given:`](reference/language/declarations.md#given) rather
-than defining it:
+Make a file `network.yaml`. It balances every bus, and it declares the
+injection at a bus as a sum with a frame and no body: what the components
+put in is theirs to say, in
+[a term](reference/language/declarations.md#a-term-a-file-adds) each.
 
 ```yaml title="network.yaml"
 description: Every bus is balanced in every snapshot.
@@ -22,11 +23,10 @@ dimensions:
   snapshot: { dtype: int, description: dispatch periods }
   bus: { description: network nodes }
 
-given:
-  expressions:
-    injection:
-      dims: [snapshot, bus]
-      description: what the components put into a bus, less what they take out
+expressions:
+  injection:
+    dims: [snapshot, bus]
+    description: what the components put into a bus, less what they take out
 
 constraints:
   balance:
@@ -40,10 +40,10 @@ Check the file:
 python -m mathspec check network.yaml
 ```
 
-The check accepts it, and notes the expression it reads:
+The check accepts it, and notes the sum with no body yet:
 
 ```text
-expression 'injection' is read here and declared elsewhere: the model this one is layered onto provides it. A consumer checks that it does, on the same frame, and refuses the program where it does not. A fragment is composed instead: merge() folds this declaration into the one a sibling introduces.
+expression 'injection' is a sum this file declares and other files add terms to: merge() writes its body from their terms. Until then, the program reads it and does not build it.
 ```
 
 ## The generators
@@ -51,14 +51,16 @@ expression 'injection' is read here and declared elsewhere: the model this one i
 Make a file `generators.yaml`. It says what the fleet puts into a bus as a
 named expression, `generation`. It reads the injection too, and a
 [`term:`](reference/language/declarations.md#a-term-a-file-adds) on the entry
-names `generation` as what this file adds to it.
+names `generation` as what this file adds to it. The two dimensions it shares
+with the network it restates as a dtype and nothing else: a description is not
+a claim, and `merge` carries the network's.
 
 ```yaml title="generators.yaml"
 description: A generator fleet, each unit on one bus.
 
 dimensions:
-  snapshot: { dtype: int, description: dispatch periods }
-  bus: { description: network nodes }
+  snapshot: { dtype: int }
+  bus: { dtype: str }
   generator: { description: generating units }
 
 relations:
@@ -148,8 +150,8 @@ bus:
 description: The demand at every bus.
 
 dimensions:
-  snapshot: { dtype: int, description: dispatch periods }
-  bus: { description: network nodes }
+  snapshot: { dtype: int }
+  bus: { dtype: str }
 
 parameters:
   demand: { dims: [snapshot, bus], description: demand to be met }
@@ -185,13 +187,16 @@ Merge the three files in Python. Each name is what an error calls that file:
 ```python
 spec = ms.merge({'network': 'network.yaml', 'generators': 'generators.yaml', 'loads': 'loads.yaml'})
 print(spec.expressions['injection'].expression)
+print(spec.dimensions['snapshot'].description)
 ```
 
 The injection is the sum of the two terms by name, in the order of the file
-names. Each term stays a named expression of the merged spec:
+names. Each term stays a named expression of the merged spec. The dimension
+carries the one description written for it, the network's:
 
 ```text
 generation + consumption
+dispatch periods
 ```
 
 Print the math of the merged spec:
@@ -218,6 +223,12 @@ print(ms.to_markdown(spec, legend=False))
 
     #### Definitions
 
+    **`injection`**
+
+    ```math
+    \mathit{injection}_{t,b} = \mathit{generation}_{t,b} + \mathrm{consumption}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
+
     **`generation`**
 
     ```math
@@ -228,12 +239,6 @@ print(ms.to_markdown(spec, legend=False))
 
     ```math
     \mathrm{consumption}_{t,b} = -\mathrm{demand}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
-    ```
-
-    **`injection`**
-
-    ```math
-    \mathit{injection}_{t,b} = \mathit{generation}_{t,b} + \mathrm{consumption}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
     ```
 
     #### Variable domains
@@ -253,8 +258,8 @@ term to the objective:
 description: Power bought from outside the network, at a price.
 
 dimensions:
-  snapshot: { dtype: int, description: dispatch periods }
-  bus: { description: network nodes }
+  snapshot: { dtype: int }
+  bus: { dtype: str }
 
 parameters:
   import_limit: { dims: [bus], description: most a bus can import }
@@ -309,8 +314,8 @@ Make a file `emissions.yaml`. It caps what the fleet emits, and it reads
 description: A cap on what the fleet emits over the horizon.
 
 dimensions:
-  snapshot: { dtype: int, description: dispatch periods }
-  generator: { description: generating units }
+  snapshot: { dtype: int }
+  generator: { dtype: str }
 
 given:
   variables:
@@ -370,11 +375,11 @@ Merge the generators and the loads without the network:
 ms.merge({'generators': 'generators.yaml', 'loads': 'loads.yaml'})
 ```
 
-`merge` refuses it. A term adds to a name another file has, and without the
-network no file defines, reads or uses `injection`:
+`merge` refuses it. A term adds to a name another file declares, and without
+the network no file declares `injection`:
 
 ```text
-fragments 'generators' and 'loads' add a term to 'injection', which no fragment defines, reads or uses. A term adds to a name another file has: define it under 'expressions:', read it under 'given: expressions:', or fix the spelling.
+fragments 'generators' and 'loads' add a term to 'injection', which no fragment declares. A term adds to a name another file declares under 'expressions:': declare it there, with a `dims:` and no body where the files add every term, or fix the spelling.
 ```
 
 ## Where to next
