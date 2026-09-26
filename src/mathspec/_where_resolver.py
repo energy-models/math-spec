@@ -323,9 +323,9 @@ class WhereResolver:
             value = literal.value
         else:
             value = _side_name(right)
-            if value is not None and (value in ns.schema.expressions or ns.kind(value) == 'parameter'):
+            if value is not None and (value in ns.bodies or ns.kind(value) == 'parameter'):
                 return None
-        if name is None or value is None or name in ns.schema.expressions:
+        if name is None or value is None or name in ns.bodies:
             return None
         return _Plain(name, node.op, value, quoted)
 

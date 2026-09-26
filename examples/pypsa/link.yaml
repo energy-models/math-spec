@@ -233,10 +233,12 @@ expressions:
         when: Link_output_cyclic_delay
         expression: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap', by=snapshot_period, within=period)
     otherwise: shift(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0, by=snapshot_period, within=period)
-  Link_injection:
-    expression: >-
-      -sum(Link_p, by=Link_bus0, over=link, into=bus)
-      + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
+  Link_transmission_volume_expansion:
+    expression: sum(Link_p_nom_ext * Link_volume_weight, over=link)
+  Link_transmission_expansion_cost:
+    expression: sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+  Link_tech_capacity_expansion:
+    expression: sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
   Link_opex:
     expression: >-
       sum(sum(((Link_p * Link_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
@@ -244,9 +246,10 @@ expressions:
   Link_additions:
     expression: >-
       sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
-  Link_tech_capacity_expansion: sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
-  Link_transmission_volume_expansion: sum(Link_p_nom_ext * Link_volume_weight, over=link)
-  Link_transmission_expansion_cost: sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+  Link_injection:
+    expression: >-
+      -sum(Link_p, by=Link_bus0, over=link, into=bus)
+      + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
 
 constraints:
   Link_fix_p_lower:

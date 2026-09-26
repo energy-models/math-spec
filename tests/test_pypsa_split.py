@@ -8,8 +8,9 @@ Each fragment reads what another topic declares under `given:`. A sum every
 component adds to (the bus balance, the operating cost, the global
 constraints) is one each component adds a term to: a named expression of its
 own, such as `Generator_injection`, which the `term:` of its `given:` entry
-names. One fragment reads each sum with its description. So a component is a
-family of files, and leaving the family out leaves a whole model.
+names. One fragment declares each sum, with its frame and description and no
+body. So a component is a family of files, and leaving the family out leaves
+a whole model.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import pytest
 
 from mathspec import FORMATS, LanguageError, merge, to_spec, typeset
 from mathspec.canonical import canonical_yaml
-from tools.pypsa_split import SUM_HOME, Model, fragments, same_rows
+from tools.pypsa_split import SOURCE, SUM_HOME, Model, fragments
 
 FOLDER = Path(__file__).resolve().parent.parent / 'examples' / 'pypsa'
 PATHS = {path.stem: path for path in sorted(FOLDER.glob('*.yaml'))}
@@ -36,9 +37,9 @@ def test_a_fragment_loads_on_its_own(name):
     assert to_spec(PATHS[name]).program
 
 
-def test_the_fragments_merge_to_the_one_file_with_its_hubs_as_sums(model):
+def test_the_fragments_merge_to_the_one_file(model):
     merged = merge(PATHS, description=model.data['description'])
-    assert canonical_yaml(merged) == canonical_yaml(to_spec(model.data))
+    assert canonical_yaml(merged) == canonical_yaml(to_spec(SOURCE))
     assert not merged.program.given, 'every name a fragment reads, another fragment declares'
 
 
@@ -51,10 +52,6 @@ def test_each_sum_is_its_terms_by_name_and_each_term_stays(model):
     assert set(model.terms) <= set(merged.expressions), 'every term is a named expression of the composed spec'
 
 
-def test_the_one_file_with_its_hubs_as_sums_states_the_rows_of_pypsa_yaml(model):
-    assert same_rows(model.original, model.data) == [], 'each hub substituted back gives the rows the file wrote'
-
-
 def test_the_fragments_are_what_the_splitter_writes(model):
     written = fragments(model)
     assert sorted(written) == sorted(PATHS), 'one file per topic, and no stale one'
@@ -62,9 +59,9 @@ def test_the_fragments_are_what_the_splitter_writes(model):
 
 
 #: What a model may leave out, as the fragment names or name prefixes it
-#: drops. A component comes as a family; security reads the branches. A
-#: reader of a sum no model goes without is not listed: leaving it
-#: out leaves its terms nowhere to land, which the test below holds.
+#: drops. A component comes as a family; security reads the branches. The
+#: owner of a sum no model goes without is not listed: leaving it out leaves
+#: its terms nowhere to land, which the test below holds.
 OPTIONAL = [
     'carrier',
     'cost',
@@ -96,15 +93,17 @@ def test_leaving_a_topic_out_leaves_a_whole_model(dropped):
     assert not merge(kept).program.given, f'nothing that stays reads what {dropped} declares'
 
 
-def test_every_sum_is_read_with_its_description_in_one_fragment(model):
-    described = {
+def test_every_sum_is_declared_empty_with_its_description_in_one_fragment(model):
+    declared = {
         name: sorted(
-            stem for stem, path in PATHS.items() if (g := to_spec(path).given.expressions.get(name)) and g.description
+            stem
+            for stem, path in PATHS.items()
+            if (e := to_spec(path).expressions.get(name)) and e.expression is None and not e.cases and e.description
         )
         for name in model.sums
     }
-    assert described == {name: [SUM_HOME.get(name, 'core')] for name in model.sums}, (
-        'the reader of a sum no model goes without describes it, and core describes the rest'
+    assert declared == {name: [SUM_HOME.get(name, 'settings')] for name in model.sums}, (
+        'the reader of a sum no model goes without declares it, and settings declares the rest'
     )
 
 
@@ -115,10 +114,10 @@ def test_every_sum_is_read_with_its_description_in_one_fragment(model):
         pytest.param('power_flow', 'Cycle_angle_sum', id='kirchhoff-with-the-branches-kept'),
     ],
 )
-def test_leaving_out_a_reader_no_model_goes_without_is_refused(dropped, sum_name):
-    """Only the reader has the sum, so without it the terms land on no name rather than define one."""
+def test_leaving_out_the_owner_of_a_sum_no_model_goes_without_is_refused(dropped, sum_name):
+    """Only the owner declares the sum, so without it the terms land on no name rather than define one."""
     kept = {name: path for name, path in PATHS.items() if name != dropped}
-    with pytest.raises(LanguageError, match=rf"add a term to '{sum_name}', which no fragment defines, reads or uses"):
+    with pytest.raises(LanguageError, match=rf"add a term to '{sum_name}', which no fragment declares"):
         merge(kept)
 
 

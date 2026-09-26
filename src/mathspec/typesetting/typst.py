@@ -55,6 +55,7 @@ class TypstFormat:
     notation: ClassVar[Notation] = 'typst'
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
+    ellipsis: ClassVar[str] = 'dots.c'
 
     operators: ClassVar[Mapping[OperatorName, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 

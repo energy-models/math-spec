@@ -197,9 +197,12 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 #: `test_a_model_with_no_objective_prints_the_rest` covers it; that model
 #: declares no parameter, which is the legend's convention note with nothing
 #: to quote. A refusal of the name asked for renders nothing, and
-#: `test_declaration.py` pins both.
+#: `test_declaration.py` pins both. An empty sum draws advice until its terms
+#: arrive, and `check` accepts the fixture in silence, so the fixture declares
+#: none; `test_terms.py` prints one.
 UNREACHABLE = {
     walk: {
+        'rendered = self.format.ellipsis',
         'return self.format.cases(self._arms(node, ctx)), _ATOM',
         'assert_never(node)',
         'assert_never(check)',

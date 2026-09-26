@@ -12,6 +12,10 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 
 ## Upcoming version
 
+- docs: a file restates a shared dimension as its dtype alone, and `merge` carries the one description written for it ([#743](https://github.com/energy-models/mathspec/pull/743))
+- feat(language): a sum other files add terms to is declared as an expression with a frame and no body ([#742](https://github.com/energy-models/mathspec/pull/742))
+- feat(language): a named expression may declare the frame it is read over ([#741](https://github.com/energy-models/mathspec/pull/741))
+- docs: code examples on the site are readable in light and dark mode, and a diagram shows what mathspec leaves to engines and other tools ([#730](https://github.com/energy-models/mathspec/pull/730))
 - docs(pypsa): a single spec covers every pypsa model class and component ([#620](https://github.com/energy-models/mathspec/pull/620))
 - docs(pypsa): the pypsa spec is also 24 topic files that merge back to it, each component adding its share of a sum by name ([#736](https://github.com/energy-models/mathspec/pull/736))
 - docs: the site follows the reader's light or dark setting, and a page shows where it sits in the navigation ([#727](https://github.com/energy-models/mathspec/pull/727))
@@ -19,6 +23,7 @@ it releases that version ([RELEASING.md](https://github.com/energy-models/mathsp
 - refactor(language): a term prints as the definition it is, and one rule folds every reading ([#738](https://github.com/energy-models/mathspec/pull/738))
 - feat(language): two files that state the same spec write one text, and `canonical --check` fails a file that is not in it ([#731](https://github.com/energy-models/mathspec/pull/731))
 - fix(language): a merged spec's descriptions do not depend on the order the fragments are passed in, and a reader's fills one its owner left out ([#739](https://github.com/energy-models/mathspec/pull/739))
+- fix(typeset): a substituted term prints its leading minus as a subtraction, and the PyPSA split has a page per fragment ([#740](https://github.com/energy-models/mathspec/pull/740))
 
 ## 0.2.0 (2026-09-25)
 

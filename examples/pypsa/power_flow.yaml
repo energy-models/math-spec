@@ -11,21 +11,20 @@ dimensions:
   cycle:
     description: independent cycles of the passive network graph — the cycle basis, data prep
 
-given:
-  expressions:
-    Cycle_angle_sum:
-      dims: [scenario, snapshot, cycle]
-      description: >-
-        the voltage angle differences around a cycle: every branch flow times
-        its cycle weight, and every transformer phase shift
+expressions:
+  Cycle_angle_sum:
+    dims: [scenario, snapshot, cycle]
+    description: >-
+      the voltage angle differences around a cycle: every branch flow times
+      its cycle weight, and every transformer phase shift
 
 constraints:
   Kirchhoff_Voltage_Law:
     description: >-
       `Kirchhoff-Voltage-Law` — around every independent cycle the
       impedance-weighted flows sum to nothing, which is what makes the linear
-      power flow physical rather than transport. A transformer's flow weighs
-      its effective reactance, and its phase shift enters the cycle sum too: a
+      power flow physical rather than transport. A transformer's flow weighs its
+      effective reactance, and its phase shift enters the cycle sum too: a
       constant where the shift is fixed, or the shift decision times its cycle
       weight where the shift is a phase-shifting transformer's to choose
     dims: [scenario, snapshot, cycle]

@@ -32,8 +32,6 @@ as math, with no data and no solver.**
 
 </div>
 
---8<-- "README.md:engines"
-
 ## A spec is one file
 
 A file states one specification, or spec. A spec declares four things: the
@@ -178,6 +176,10 @@ call.
     loads.
 
 <!-- home-math:end -->
+
+## Engines and other tools
+
+--8<-- "README.md:engines"
 
 ## Where to next
 

@@ -19,6 +19,7 @@ Every spec is a file under `examples/` in the repository.
   composed page shows what `merge` returns.
 
 The PyPSA parity pages, from [PyPSA in one file](pypsa.md) on, are a proof of
-concept. They sit in the Development section.
+concept. They sit in the Development section, and
+[PyPSA in 24 files](pypsa/index.md) is the same spec composed from fragments.
 
 [Typeset the math](../reference/typeset.md) prints your own.

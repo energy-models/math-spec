@@ -24,7 +24,6 @@ from mathspec.piecewise import assumptions_of, curve_frame, lp_domain_refusal, r
 from mathspec.program import (
     Assumption,
     BooleanLiteral,
-    Cases,
     Constant,
     ConstraintDeclaration,
     DimensionDeclaration,
@@ -53,6 +52,7 @@ from mathspec.resolution import (
     resolve_expression_text,
     resolve_where_text,
 )
+from mathspec.spec import empty_sums
 from mathspec.validation import emitted_name_errors, reference_errors
 
 if TYPE_CHECKING:
@@ -119,7 +119,10 @@ def lower(schema: Spec) -> Program:
         resolve_expression(body_ast, ns, context, errors, formals=formals)
 
     entries: dict[str, Named] = {}
+    empty = empty_sums(schema)
     for ename in schema.expressions:
+        if ename in empty:
+            continue
         node, refusals = ns.named_entry(ename)
         errors.extend(refusals)
         if node is not None:
@@ -262,8 +265,11 @@ def lower(schema: Spec) -> Program:
                 name: GivenDeclaration(tuple(g.dims), g.description) for name, g in schema.given.constraints.items()
             },
             expressions={
-                name: GivenDeclaration(tuple(g.dims), g.description, term=terms.get(name))
-                for name, g in schema.given.expressions.items()
+                **{
+                    name: GivenDeclaration(tuple(g.dims), g.description, term=terms.get(name))
+                    for name, g in schema.given.expressions.items()
+                },
+                **{name: GivenDeclaration(tuple(e.dims or ()), e.description, owned=True) for name, e in empty.items()},
             },
         ),
         description=schema.description,
@@ -275,9 +281,10 @@ def lower(schema: Spec) -> Program:
 
 
 def _frame_of(name: str, entry: Named, schema: Spec) -> tuple[str, ...]:
-    """The dims an entry is read over, in declaration order: declared for a cased entry, the body's for a plain one."""
-    if isinstance(entry.body, Cases):
-        return tuple(schema.expressions[name].dims or ())
+    """The dims an entry is read over: the ``dims:`` it declares, as written, else the body's in declaration order."""
+    declared = schema.expressions[name].dims
+    if declared is not None:
+        return tuple(declared)
     carried = dims_of(entry.body, schema, f"Named expression '{name}'")
     return tuple(d for d in schema.dimensions if d in carried)
 

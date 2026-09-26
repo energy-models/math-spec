@@ -209,9 +209,8 @@ expressions:
         when: Process_output_cyclic_delay
         expression: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge='wrap', by=snapshot_period, within=period)
     otherwise: shift(at(Process_p, by=Process_output_process, over=process, into=process_output) * Process_rate, along=snapshot, offset=Process_output_delay, edge=0, by=snapshot_period, within=period)
-  Process_injection:
-    expression: >-
-      sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
+  Process_tech_capacity_expansion:
+    expression: sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
   Process_opex:
     expression: >-
       sum(sum(((Process_p * Process_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
@@ -219,7 +218,9 @@ expressions:
   Process_additions:
     expression: >-
       sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
-  Process_tech_capacity_expansion: sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
+  Process_injection:
+    expression: >-
+      sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
 
 constraints:
   Process_fix_p_lower:

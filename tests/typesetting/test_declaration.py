@@ -124,6 +124,26 @@ def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_
     )
 
 
+#: A row that adds a named term opening with a minus: substituted, the minus folds into the operator before it.
+NEGATED_TERM = varied(
+    PLAIN,
+    **{
+        'expressions.drawn': '-spend + total',
+        'constraints.net': {'dims': ['snapshot'], 'expression': 'spend + drawn == 0'},
+    },
+)
+
+
+def test_a_substituted_term_that_opens_with_a_minus_prints_as_a_subtraction():
+    """`spend + drawn` with `drawn: -spend + total` printed `spend + -spend + total` once substituted, where the
+    file written out prints `spend - spend + total`."""
+    assert typeset_declaration(NEGATED_TERM, 'net', 'latex') == (
+        r'\sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} '
+        r'- \left( \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \right) '
+        r"+ \sum_{t' \in \mathcal{T},\ g \in \mathcal{G}} p_{t',g} = 0 \qquad \forall\, t \in \mathcal{T}"
+    )
+
+
 #: A column and a row family this file reads, each named by something that prints.
 GIVEN = varied(
     PLAIN,

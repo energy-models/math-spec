@@ -1,0 +1,418 @@
+<!--
+SPDX-FileCopyrightText: mathspec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Processes, the maintenance
+
+One of the [24 fragments](index.md) of `examples/pypsa.yaml`: PyPSA's `Process`, the maintenance rows. It reads `Process_active`, `Process_committable`, `Process_p_nom_ext`, `Process_p_nom_extendable`, `Process_p_nom_max`, `Process_p_nom_min` and 3 more under [`given`](../../reference/language/declarations.md#given).
+
+<!-- gallery:begin -->
+```yaml
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: datetime
+  process:
+    description: generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate
+
+relations:
+  Process_maintenance_cover:
+    description: >-
+      the snapshots a maintenance event covers, by the snapshot it starts in —
+      in a scenario, the start and the snapshots after it, until their
+      generator weightings reach that scenario's `maintenance_duration`, data prep; no
+      rows for a process that is
+      not maintainable
+    key: { scenario: scenario, process: process, start: snapshot, covered: snapshot }
+
+parameters:
+  Process_maintainable:
+    description: >-
+      whether a process must be taken off for maintenance within the horizon — in
+      any scenario, as PyPSA takes the union over them (`components.py:1016-1019`)
+    dims: [process]
+    dtype: bool
+  Process_maintenance_pu:
+    description: the share of the build a maintenance event takes off
+    dims: [scenario, process]
+  Process_maintenance_events:
+    description: how many maintenance events the horizon holds
+    dims: [scenario, process]
+    dtype: int
+  Process_maintenance_duration:
+    description: >-
+      the hours of generator weightings one maintenance event covers —
+      PyPSA's `maintenance_duration`; no value where the process is not
+      maintainable. No row reads it: data prep turns it into
+      `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the
+      assumptions hold it to the horizon
+    dims: [scenario, process]
+  Process_maintenance_start_blocked:
+    description: >-
+      true where no maintenance event may start, because the snapshots it
+      would cover run past the end of the horizon or into one the process does
+      not stand in — PyPSA's `active & ~valid`, from `maintenance_duration`
+      and the generator weightings, data prep
+    dims: [scenario, snapshot, process]
+    dtype: bool
+
+variables:
+  Process_maintenance:
+    description: >-
+      `Process-maintenance` — whether a maintainable process is in maintenance:
+      continuous, and one exactly where an event covers the snapshot
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active
+    absence: zero
+    bounds:
+      lower: 0
+      upper: 1
+  Process_maintenance_start:
+    description: "`Process-maintenance_start` — whether a maintenance event starts in this snapshot"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active
+    absence: zero
+    domain: binary
+  Process_maintenance_capacity:
+    description: >-
+      `Process-maintenance_capacity` — the chosen build while in maintenance, zero
+      otherwise: the product the `maintcap` rows linearize
+    dims: [scenario, snapshot, process]
+    where: >-
+      Process_maintainable AND Process_p_nom_extendable
+      AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    absence: zero
+    bounds:
+      lower: 0
+  Process_maintenance_status:
+    description: >-
+      `Process-maintenance_status` — the status while in maintenance, zero
+      otherwise: the product the `maint-status` rows linearize, so a unit in
+      maintenance may also be off
+    dims: [scenario, snapshot, process]
+    where: >-
+      Process_maintainable AND Process_committable
+      AND NOT (Process_p_nom_extendable AND NOT (Process_p_nom_mod > 0)) AND Process_active
+    absence: zero
+    bounds:
+      lower: 0
+
+given:
+  parameters:
+    Process_p_nom_extendable: { dims: [process], dtype: bool }
+    Process_p_nom_min: { dims: [scenario, process] }
+    Process_p_nom_max: { dims: [scenario, process] }
+    Process_committable: { dims: [process], dtype: bool }
+    Process_p_nom_mod: { dims: [process] }
+    Process_active: { dims: [snapshot, process], dtype: bool }
+    snapshot_weightings_generators: { dims: [snapshot] }
+  variables:
+    Process_status: { dims: [scenario, snapshot, process], domain: integer }
+    Process_p_nom_ext: { dims: [process] }
+
+constraints:
+  Process_maint_event_count:
+    description: "`Process-maint-event-count` — a maintainable process holds its number of maintenance events over the horizon"
+    dims: [scenario, process]
+    where: Process_maintainable
+    expression: sum(Process_maintenance_start, over=snapshot) == Process_maintenance_events
+  Process_maint_window:
+    description: >-
+      `Process-maint-window` — a process is in maintenance exactly where an event it
+      started covers the snapshot; two events do not overlap, since the
+      maintenance status is at most one
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active
+    expression: Process_maintenance == sum(Process_maintenance_start, by=Process_maintenance_cover, over=start, into=covered)
+  Process_maint_start_horizon:
+    description: "`Process-maint-start-horizon` — no event starts where it could not run its whole duration"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_active AND Process_maintenance_start_blocked
+    expression: Process_maintenance_start == 0
+  Process_maintcap_upper:
+    description: >-
+      `Process-maintcap_upper` — the build taken off is at most the chosen build in
+      maintenance, and at most the build less its floor out of it
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    expression: Process_maintenance_capacity <= Process_p_nom_ext - Process_p_nom_min * (1 - Process_maintenance)
+  Process_maintcap_upper_nommax:
+    description: "`Process-maintcap_upper_nommax` — out of maintenance, no build is taken off"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    expression: Process_maintenance_capacity <= Process_p_nom_max * Process_maintenance
+  Process_maintcap_lower_nommax:
+    description: "`Process-maintcap_lower_nommax` — in maintenance, the whole chosen build is taken off"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active
+    expression: Process_maintenance_capacity >= Process_p_nom_ext - Process_p_nom_max * (1 - Process_maintenance)
+  Process_maintcap_lower_nommin:
+    description: "`Process-maintcap_lower_nommin` — in maintenance, at least the floor of the build is taken off"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_p_nom_extendable AND NOT (Process_committable AND Process_p_nom_mod > 0) AND Process_active AND Process_p_nom_min > 0
+    expression: Process_maintenance_capacity >= Process_p_nom_min * Process_maintenance
+  Process_maint_status_le_status:
+    description: "`Process-maint-status-le-status` — the status in maintenance is at most the status"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_active
+    expression: Process_maintenance_status <= Process_status
+  Process_maint_status_le_maint:
+    description: "`Process-maint-status-le-maint` — out of maintenance, the status in maintenance is zero"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_active
+    expression: Process_maintenance_status <= Process_maintenance
+  Process_maint_status_lb:
+    description: "`Process-maint-status-lb` — on and in maintenance, the status in maintenance is one"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_active
+    expression: Process_maintenance_status >= Process_status + Process_maintenance - 1
+  Process_maint_modstatus_le_status:
+    description: "`Process-maint-modstatus-le-status` — the modules on in maintenance are at most the modules on"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND Process_p_nom_mod > 0 AND Process_active
+    expression: Process_maintenance_status <= Process_status
+  Process_maint_modstatus_le_maint:
+    description: >-
+      `Process-maint-modstatus-le-maint` — out of maintenance, no module is on in
+      maintenance; in it, at most the modules the build cap holds
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND Process_p_nom_mod > 0 AND Process_active
+    expression: Process_maintenance_status <= Process_p_nom_max / Process_p_nom_mod * Process_maintenance
+  Process_maint_modstatus_lb:
+    description: "`Process-maint-modstatus-lb` — in maintenance, every module on is on in maintenance"
+    dims: [scenario, snapshot, process]
+    where: Process_maintainable AND Process_committable AND Process_p_nom_mod > 0 AND Process_active
+    expression: Process_maintenance_status >= Process_status - Process_p_nom_max / Process_p_nom_mod * (1 - Process_maintenance)
+
+assumptions:
+  Process_maintenance_events_positive:
+    holds: "Process_maintenance_events > 0"
+    where: "Process_maintainable"
+    description: >-
+      a maintainable process with no event schedules no maintenance —
+      PyPSA refuses it (`consistency.py:1516`)
+  Process_maintenance_duration_positive:
+    holds: "Process_maintenance_duration > 0"
+    where: "Process_maintainable"
+    description: >-
+      an event that covers no hours is no maintenance window — PyPSA
+      refuses it (`consistency.py:1506`)
+  Process_maintenance_duration_fits_the_horizon:
+    holds: "Process_maintenance_duration <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Process_maintainable"
+    description: >-
+      one event longer than the horizon, in generator weightings, blocks
+      every start and makes the event count infeasible — PyPSA refuses it
+      (`consistency.py:1527`)
+  Process_maintenance_events_fit_the_horizon:
+    holds: "Process_maintenance_duration * Process_maintenance_events <= sum(snapshot_weightings_generators, over=snapshot)"
+    where: "Process_maintainable"
+    description: >-
+      the events together longer than the horizon, in generator
+      weightings, cannot all be scheduled — PyPSA refuses it
+      (`consistency.py:1539`)
+  Process_maintenance_build_cap_is_finite:
+    holds: "Process_p_nom_max < inf"
+    where: "Process_maintainable AND Process_p_nom_extendable"
+    description: >-
+      the `maintcap` rows hold the chosen build in maintenance against
+      `p_nom_max`, so an infinite cap is an infinite coefficient — PyPSA
+      refuses it (`consistency.py:1551`)
+  Process_maintenance_module_count_is_finite:
+    holds: "Process_p_nom_max < inf"
+    where: "Process_maintainable AND Process_committable AND NOT Process_p_nom_extendable AND Process_p_nom_mod > 0"
+    description: >-
+      the `maint-modstatus` rows bound the modules on in maintenance by
+      `p_nom_max / p_nom_mod`, so an infinite cap is an infinite
+      coefficient. PyPSA does not check it, and HiGHS refuses the model
+      (`constraints.py:500-503`)
+```
+
+#### Sets
+
+| Symbol | Meaning |
+|---|---|
+| $`\Xi`$ | index $`\xi`$ — `scenario` with $`\mathrm{Process\_maintenance\_cover} \subseteq \Xi \times \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — the futures dispatch is chosen in, each with a weight |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{Process\_maintenance\_cover} \subseteq \Xi \times \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — dispatch periods |
+| $`\mathcal{J}`$ | index $`j`$ — `process` with $`\mathrm{Process\_maintenance\_cover} \subseteq \Xi \times \mathcal{J} \times \mathcal{T} \times \mathcal{T}`$ — generalized multi-port converters, each with an internal power that every port draws or delivers at its own rate |
+
+#### Parameters
+
+| Symbol | Meaning |
+|---|---|
+| $`\mathrm{mnt}^{z}`$ | `Process_maintainable` over $`\mathcal{J}`$ — whether a process must be taken off for maintenance within the horizon — in any scenario, as PyPSA takes the union over them (`components.py:1016-1019`) |
+| $`\gamma^{z}`$ | `Process_maintenance_pu` over $`\Xi \times \mathcal{J}`$ — the share of the build a maintenance event takes off |
+| $`\mathrm{n}^{z,\mathrm{mnt}}`$ | `Process_maintenance_events` over $`\Xi \times \mathcal{J}`$ — how many maintenance events the horizon holds |
+| $`\tau^{z,\mathrm{mnt}}`$ | `Process_maintenance_duration` over $`\Xi \times \mathcal{J}`$ — the hours of generator weightings one maintenance event covers — PyPSA's `maintenance_duration`; no value where the process is not maintainable. No row reads it: data prep turns it into `Process_maintenance_cover` and `Process_maintenance_start_blocked`, and the assumptions hold it to the horizon |
+| $`\mathrm{blk}^{z}`$ | `Process_maintenance_start_blocked` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — true where no maintenance event may start, because the snapshots it would cover run past the end of the horizon or into one the process does not stand in — PyPSA's `active & ~valid`, from `maintenance_duration` and the generator weightings, data prep |
+
+#### Variables
+
+| Symbol | Meaning |
+|---|---|
+| $`\mu^{z}`$ | `Process_maintenance` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-maintenance` — whether a maintainable process is in maintenance: continuous, and one exactly where an event covers the snapshot |
+| $`\mu^{z,\mathrm{up}}`$ | `Process_maintenance_start` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-maintenance_start` — whether a maintenance event starts in this snapshot |
+| $`\mu^{z,\mathrm{nom}}`$ | `Process_maintenance_capacity` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-maintenance_capacity` — the chosen build while in maintenance, zero otherwise: the product the `maintcap` rows linearize |
+| $`\mu^{z,u}`$ | `Process_maintenance_status` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ — `Process-maintenance_status` — the status while in maintenance, zero otherwise: the product the `maint-status` rows linearize, so a unit in maintenance may also be off |
+
+#### Given
+
+| Symbol | Meaning |
+|---|---|
+| $`\mathrm{ext}^{z}`$ | `Process_p_nom_extendable` over $`\mathcal{J}`$, data another file declares |
+| $`\underline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_min` over $`\Xi \times \mathcal{J}`$, data another file declares |
+| $`\overline{\mathrm{z}}^{\mathrm{nom}}`$ | `Process_p_nom_max` over $`\Xi \times \mathcal{J}`$, data another file declares |
+| $`\mathrm{com}^{z}`$ | `Process_committable` over $`\mathcal{J}`$, data another file declares |
+| $`\mathrm{z}^{\mathrm{mod}}`$ | `Process_p_nom_mod` over $`\mathcal{J}`$, data another file declares |
+| $`\mathrm{on}^{z}`$ | `Process_active` over $`\mathcal{T} \times \mathcal{J}`$, data another file declares |
+| $`\mathrm{w}^{\mathrm{gen}}`$ | `snapshot_weightings_generators` over $`\mathcal{T}`$, data another file declares |
+| $`u^{z}`$ | `Process_status` over $`\Xi \times \mathcal{T} \times \mathcal{J}`$ |
+| $`Z`$ | `Process_p_nom_ext` over $`\mathcal{J}`$ |
+
+#### Subject to
+
+**`Process_maint_event_count`**
+
+```math
+\sum_{t \in \mathcal{T}} \mu^{z,\mathrm{up}}_{\xi,t,j} = \mathrm{n}^{z,\mathrm{mnt}}_{\xi,j} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+```
+
+**`Process_maint_window`**
+
+```math
+\mu^{z}_{\xi,t,j} = \sum_{t' \in \mathcal{T} \,:\, \left( \xi,\ j,\ t',\ t \right) \in \mathrm{Process\_maintenance\_cover}} \mu^{z,\mathrm{up}}_{\xi,t',j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maint_start_horizon`**
+
+```math
+\mu^{z,\mathrm{up}}_{\xi,t,j} = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j} \wedge \mathrm{blk}^{z}_{\xi,t,j}
+```
+
+**`Process_maintcap_upper`**
+
+```math
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \le Z_{j} - \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maintcap_upper_nommax`**
+
+```math
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \le \overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maintcap_lower_nommax`**
+
+```math
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge Z_{j} - \overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maintcap_lower_nommin`**
+
+```math
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j} \wedge \underline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} > 0
+```
+
+**`Process_maint_status_le_status`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \le u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maint_status_le_maint`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \le \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maint_status_lb`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \ge u^{z}_{\xi,t,j} + \mu^{z}_{\xi,t,j} - 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maint_modstatus_le_status`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \le u^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maint_modstatus_le_maint`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \le \frac{\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j}}{\mathrm{z}^{\mathrm{mod}}_{j}} \cdot \mu^{z}_{\xi,t,j} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maint_modstatus_lb`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \ge u^{z}_{\xi,t,j} - \frac{\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j}}{\mathrm{z}^{\mathrm{mod}}_{j}} \cdot \left( 1 - \mu^{z}_{\xi,t,j} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \wedge \mathrm{on}^{z}_{t,j}
+```
+
+#### Variable domains
+
+**`Process_maintenance`**
+
+```math
+0 \le \mu^{z}_{\xi,t,j} \le 1 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maintenance_start`**
+
+```math
+\mu^{z,\mathrm{up}}_{\xi,t,j} \in \{0, 1\} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maintenance_capacity`**
+
+```math
+\mu^{z,\mathrm{nom}}_{\xi,t,j} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{com}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+**`Process_maintenance_status`**
+
+```math
+\mu^{z,u}_{\xi,t,j} \ge 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \left( \mathrm{ext}^{z}_{j} \wedge \neg \left( \mathrm{z}^{\mathrm{mod}}_{j} > 0 \right) \right) \wedge \mathrm{on}^{z}_{t,j}
+```
+
+#### Assumptions
+
+**`Process_maintenance_events_positive`**
+
+```math
+\mathrm{n}^{z,\mathrm{mnt}}_{\xi,j} > 0 \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+```
+
+**`Process_maintenance_duration_positive`**
+
+```math
+\tau^{z,\mathrm{mnt}}_{\xi,j} > 0 \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+```
+
+**`Process_maintenance_duration_fits_the_horizon`**
+
+```math
+\tau^{z,\mathrm{mnt}}_{\xi,j} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+```
+
+**`Process_maintenance_events_fit_the_horizon`**
+
+```math
+\tau^{z,\mathrm{mnt}}_{\xi,j} \cdot \mathrm{n}^{z,\mathrm{mnt}}_{\xi,j} \le \sum_{t \in \mathcal{T}} \mathrm{w}^{\mathrm{gen}}_{t} \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j}
+```
+
+**`Process_maintenance_build_cap_is_finite`**
+
+```math
+\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} < \infty \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{ext}^{z}_{j}
+```
+
+**`Process_maintenance_module_count_is_finite`**
+
+```math
+\overline{\mathrm{z}}^{\mathrm{nom}}_{\xi,j} < \infty \qquad \forall\, \xi \in \Xi,\ j \in \mathcal{J} \,:\, \mathrm{mnt}^{z}_{j} \wedge \mathrm{com}^{z}_{j} \wedge \neg \mathrm{ext}^{z}_{j} \wedge \mathrm{z}^{\mathrm{mod}}_{j} > 0
+```
+<!-- gallery:end -->

@@ -55,7 +55,8 @@ a flag. The [Python API](api.md#typesetting) gives each signature.
 - A [named expression](language/named.md) prints its symbol where it is used
   and its body once, under a **Definitions** heading, in declaration order. A
   `cases:` block and a [reported entry](language/named.md#reported-expressions)
-  keep their definition line under either `inline_expressions` setting.
+  keep their definition line under either `inline_expressions` setting. An
+  [empty sum](language/named.md#expressions) prints last, as `symbol = ⋯`.
 - Wherever the math moves an index, which every `shift` does, the document
   prints a line saying what that notation means.
 - A file that does not load does not print.

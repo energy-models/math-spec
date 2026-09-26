@@ -5124,18 +5124,60 @@ A plain `n.optimize()`, and its multi-period and stochastic classes, in one file
 | $`\mathit{last}`$ | `GlobalConstraint_snapshot_closes` over $`\Xi \times \mathcal{I} \times \mathcal{T}`$ — one at the last snapshot a row counts, and zero elsewhere |
 | $`\mathit{w}^{h}`$ | `StorageUnit_closing_weight` over $`\Xi \times \mathcal{I} \times \mathcal{T} \times \mathcal{S}`$ — what the charge a unit holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the unit reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
 | $`\mathit{w}^{e}`$ | `Store_closing_weight` over $`\Xi \times \mathcal{I} \times \mathcal{T} \times \mathcal{V}`$ — what the energy a store holds at a snapshot counts for in a row as its closing level — the years of the period at the last snapshot of each counted period where the store reopens per period, one at the last counted snapshot where it does not, and nothing elsewhere |
+| $`\mathit{Generator\_primary\_energy}`$ | `Generator_primary_energy` over $`\Xi \times \mathcal{I}`$ |
+| $`\mathit{StorageUnit\_primary\_energy}`$ | `StorageUnit_primary_energy` over $`\Xi \times \mathcal{I}`$ |
+| $`\mathit{Store\_primary\_energy}`$ | `Store_primary_energy` over $`\Xi \times \mathcal{I}`$ |
 | $`\mathit{primary\_energy}`$ | `primary_energy` over $`\Xi \times \mathcal{I}`$ — what a `primary_energy` row totals — weighted generator energy over the snapshots it counts, less the charge left in weighted storage at the close; the initial charge it is compared against is folded into the row's constant |
+| $`\mathit{Generator\_operational\_limit}`$ | `Generator_operational_limit` over $`\Xi \times \mathcal{I}`$ |
+| $`\mathit{StorageUnit\_operational\_limit}`$ | `StorageUnit_operational_limit` over $`\Xi \times \mathcal{I}`$ |
+| $`\mathit{Store\_operational\_limit}`$ | `Store_operational_limit` over $`\Xi \times \mathcal{I}`$ |
 | $`\mathit{operational\_limit}`$ | `operational_limit` over $`\Xi \times \mathcal{I}`$ — what an `operational_limit` row totals — the weighted energy its generators deliver over the snapshots it counts, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $`\mathit{Line\_transmission\_volume\_expansion}`$ | `Line_transmission_volume_expansion` over $`\Xi \times \mathcal{I}`$ |
+| $`\mathit{Link\_transmission\_volume\_expansion}`$ | `Link_transmission_volume_expansion` over $`\Xi \times \mathcal{I}`$ |
 | $`\mathit{transmission\_volume\_expansion}`$ | `transmission_volume_expansion` over $`\Xi \times \mathcal{I}`$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
+| $`\mathit{Line\_transmission\_expansion\_cost}`$ | `Line_transmission_expansion_cost` over $`\Xi \times \mathcal{I}`$ |
+| $`\mathit{Link\_transmission\_expansion\_cost}`$ | `Link_transmission_expansion_cost` over $`\Xi \times \mathcal{I}`$ |
 | $`\mathit{transmission\_expansion\_cost}`$ | `transmission_expansion_cost` over $`\Xi \times \mathcal{I}`$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
+| $`\mathit{Generator\_tech\_capacity\_expansion}`$ | `Generator_tech_capacity_expansion` over $`\mathcal{I}`$ |
+| $`\mathit{Line\_tech\_capacity\_expansion}`$ | `Line_tech_capacity_expansion` over $`\mathcal{I}`$ |
+| $`\mathit{Link\_tech\_capacity\_expansion}`$ | `Link_tech_capacity_expansion` over $`\mathcal{I}`$ |
+| $`\mathit{Process\_tech\_capacity\_expansion}`$ | `Process_tech_capacity_expansion` over $`\mathcal{I}`$ |
+| $`\mathit{StorageUnit\_tech\_capacity\_expansion}`$ | `StorageUnit_tech_capacity_expansion` over $`\mathcal{I}`$ |
+| $`\mathit{Store\_tech\_capacity\_expansion}`$ | `Store_tech_capacity_expansion` over $`\mathcal{I}`$ |
 | $`\mathit{tech\_capacity\_expansion}`$ | `tech_capacity_expansion` over $`\mathcal{I}`$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
+| $`\mathit{Generator\_opex}`$ | `Generator_opex` over $`\Xi`$ |
+| $`\mathit{Generator\_commitment\_opex}`$ | `Generator_commitment_opex` over $`\Xi`$ |
+| $`\mathit{Link\_opex}`$ | `Link_opex` over $`\Xi`$ |
+| $`\mathit{Link\_commitment\_opex}`$ | `Link_commitment_opex` over $`\Xi`$ |
+| $`\mathit{Process\_opex}`$ | `Process_opex` over $`\Xi`$ |
+| $`\mathit{Process\_commitment\_opex}`$ | `Process_commitment_opex` over $`\Xi`$ |
+| $`\mathit{StorageUnit\_opex}`$ | `StorageUnit_opex` over $`\Xi`$ |
+| $`\mathit{Store\_opex}`$ | `Store_opex` over $`\Xi`$ |
 | $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\Xi`$ — what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight; a start and a stop cost what they cost, unweighted, as PyPSA adds them (`optimize.py:414-429`) |
+| $`\mathit{Generator\_additions}`$ | `Generator_additions` over $`\mathcal{Y} \times \mathcal{I}`$ |
+| $`\mathit{Line\_additions}`$ | `Line_additions` over $`\mathcal{Y} \times \mathcal{I}`$ |
+| $`\mathit{Link\_additions}`$ | `Link_additions` over $`\mathcal{Y} \times \mathcal{I}`$ |
+| $`\mathit{Process\_additions}`$ | `Process_additions` over $`\mathcal{Y} \times \mathcal{I}`$ |
+| $`\mathit{StorageUnit\_additions}`$ | `StorageUnit_additions` over $`\mathcal{Y} \times \mathcal{I}`$ |
+| $`\mathit{Store\_additions}`$ | `Store_additions` over $`\mathcal{Y} \times \mathcal{I}`$ |
 | $`\mathit{Carrier\_additions}`$ | `Carrier_additions` over $`\mathcal{Y} \times \mathcal{I}`$ — what a carrier adds in a period — every extendable component of that carrier, counting each build in the first period it stands in. Like PyPSA, it sums only the components that carry a carrier attribute, so a transformer, which has none, counts in no carrier |
 | $`\mathrm{r}^{+}`$ | `Carrier_relative_growth` over $`\mathcal{I}`$ — the share of the previous period's additions a carrier's growth limit reads — PyPSA's `max_relative_growth` clipped at zero, so a negative share adds nothing and never tightens the limit |
 | $`\check{\mathrm{load}}`$ | `Load_demand` over $`\Xi \times \mathcal{T} \times \mathcal{D}`$ — what a load draws from its bus's balance — its demand times its sign where it is active, nothing where it is not, since PyPSA drops an inactive load from the balance (`constraints.py:1537-1538`) |
 | $`\check{s}`$ | `Line_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{K}`$ — the flow a line's post-contingency rows read — its flow where it stands, nothing where it does not, since PyPSA builds those rows for every branch of the sub-network in every snapshot |
 | $`\check{\sigma}`$ | `Transformer_s_monitored` over $`\Xi \times \mathcal{T} \times \mathcal{M}`$ — the flow a transformer's post-contingency rows read, as a line's |
 | $`\hat{s}`$ | `Outage_s` over $`\Xi \times \mathcal{T} \times \mathcal{K}^{\mathrm{out}}`$ — the flow an outage takes off its branch — the outaged line's or transformer's flow before it goes out |
+| $`\mathit{Generator\_injection}`$ | `Generator_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{Line\_injection}`$ | `Line_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{Link\_injection}`$ | `Link_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathrm{Load\_injection}`$ | `Load_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{Process\_injection}`$ | `Process_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{StorageUnit\_injection}`$ | `StorageUnit_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{Store\_injection}`$ | `Store_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{Transformer\_injection}`$ | `Transformer_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ |
+| $`\mathit{Bus\_injection}`$ | `Bus_injection` over $`\Xi \times \mathcal{T} \times \mathcal{N}`$ — what every component puts into a bus, less what it takes out of it; PyPSA writes each term into the balance, and a load on its right-hand side |
+| $`\mathit{Line\_angle\_sum}`$ | `Line_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$ |
+| $`\mathit{Transformer\_angle\_sum}`$ | `Transformer_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$ |
+| $`\mathit{Cycle\_angle\_sum}`$ | `Cycle_angle_sum` over $`\Xi \times \mathcal{T} \times \mathcal{C}`$ — the voltage angle differences around a cycle: every branch flow times its cycle weight, and every transformer phase shift |
 
 Upright is what the data supplies — a parameter such as $`\mathrm{Transformer\_phase\_shift\_varying}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{Transformer\_phase\_shift}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
@@ -8256,11 +8298,7 @@ Kirchhoff_Voltage_Law:
     constant where the shift is fixed, or the shift decision times its cycle
     weight where the shift is a phase-shifting transformer's to choose
   dims: [scenario, snapshot, cycle]
-  expression: >-
-    sum(Line_s * Line_cycle_weight, over=line)
-    + sum(Transformer_s * Transformer_cycle_weight, over=transformer)
-    + sum(Transformer_phase_shift_weight, over=transformer)
-    + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer) == 0
+  expression: Cycle_angle_sum == 0
 ```
 
 ```math
@@ -9126,26 +9164,11 @@ Bus_nodal_balance:
     an inactive load not at all. A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
   dims: [scenario, snapshot, bus]
-  expression: >-
-    sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
-    + sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
-    + sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
-    - sum(Link_p, by=Link_bus0, over=link, into=bus)
-    + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
-    + sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
-    - sum(Line_s, by=Line_bus0, over=line, into=bus)
-    + sum(Line_s, by=Line_bus1, over=line, into=bus)
-    - 0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus)
-    - 0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus)
-    - sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
-    + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
-    - 0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus)
-    - 0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus)
-    == -sum(Load_demand, by=Load_bus, over=load, into=bus)
+  expression: Bus_injection == 0
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} \mathrm{sgn}_{g} \cdot p_{\xi,t,g} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \mathrm{sgn}^{h}_{s} \cdot \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} \mathrm{sgn}^{q}_{v} \cdot q_{\xi,t,v} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) = -\left( \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \check{\mathrm{load}}_{\xi,t,d} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} \mathrm{sgn}_{g} \cdot p_{\xi,t,g} - \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} + \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \check{\mathrm{load}}_{\xi,t,d} + \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \mathrm{sgn}^{h}_{s} \cdot \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} \mathrm{sgn}^{q}_{v} \cdot q_{\xi,t,v} - \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) = 0 \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
 ```
 
 ### `Carrier-growth_limit`
@@ -9961,144 +9984,504 @@ Store_closing_weight:
 \mathit{w}^{e}_{\xi,i,t,v} = \begin{cases} \mathrm{w}^{\mathrm{yr}}_{\mathrm{snapshot\_period}(t)} & \text{if } \mathrm{reset}^{e}_{\xi,v} \wedge \mathrm{in}_{\xi,i,t} \wedge \mathrm{pos}_{\mathrm{snapshot\_period}(t)}(t) = \lvert \mathcal{T}_{\mathrm{snapshot\_period}(t)} \rvert - 1 \\ \mathit{last}_{\xi,i,t} & \text{if } \neg \mathrm{reset}^{e}_{\xi,v} \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I},\ t \in \mathcal{T},\ v \in \mathcal{V}
 ```
 
+### `Generator_primary_energy`
+
+```yaml
+Generator_primary_energy:
+  expression: >-
+    sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_primary_energy_weight, over=snapshot), over=generator)
+```
+
+```math
+\mathit{Generator\_primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{\xi,i,t} \cdot \mathrm{a}_{\xi,i,g} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `StorageUnit_primary_energy`
+
+```yaml
+StorageUnit_primary_energy:
+  expression: >-
+    -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+```
+
+```math
+\mathit{StorageUnit\_primary\_energy}_{\xi,i} = -\left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{\xi,i,t,s} \cdot \mathrm{a}^{h}_{\xi,i,s} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Store_primary_energy`
+
+```yaml
+Store_primary_energy:
+  expression: >-
+    -sum(sum((Store_e * Store_closing_weight) * Store_primary_energy_weight, over=snapshot), over=store)
+```
+
+```math
+\mathit{Store\_primary\_energy}_{\xi,i} = -\left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{\xi,i,t,v} \cdot \mathrm{a}^{e}_{\xi,i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
 ### `primary_energy`
 
 ```yaml
 primary_energy:
+  dims: [scenario, global_constraint]
+  expression: Generator_primary_energy + StorageUnit_primary_energy + Store_primary_energy
   description: >-
     what a `primary_energy` row totals — weighted generator energy over the
     snapshots it counts, less the charge left in weighted storage at the
     close; the initial charge it is compared against is folded into the
     row's constant
-  expression: >-
-    sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_primary_energy_weight, over=snapshot), over=generator)
-    - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
-    - sum(sum(Store_e * Store_closing_weight * Store_primary_energy_weight, over=snapshot), over=store)
 ```
 
 ```math
-\mathit{primary\_energy}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{\xi,i,t} \cdot \mathrm{a}_{\xi,i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{\xi,i,t,s} \cdot \mathrm{a}^{h}_{\xi,i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{\xi,i,t,v} \cdot \mathrm{a}^{e}_{\xi,i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{primary\_energy}_{\xi,i} = \mathit{Generator\_primary\_energy}_{\xi,i} + \mathit{StorageUnit\_primary\_energy}_{\xi,i} + \mathit{Store\_primary\_energy}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Generator_operational_limit`
+
+```yaml
+Generator_operational_limit:
+  expression: >-
+    sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_operational_limit_weight, over=snapshot), over=generator)
+```
+
+```math
+\mathit{Generator\_operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{\xi,i,t} \cdot \mathrm{b}_{\xi,i,g} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `StorageUnit_operational_limit`
+
+```yaml
+StorageUnit_operational_limit:
+  expression: >-
+    -sum(sum((StorageUnit_state_of_charge * StorageUnit_closing_weight) * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+```
+
+```math
+\mathit{StorageUnit\_operational\_limit}_{\xi,i} = -\left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{\xi,i,t,s} \cdot \mathrm{b}^{h}_{\xi,i,s} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Store_operational_limit`
+
+```yaml
+Store_operational_limit:
+  expression: >-
+    -sum(sum((Store_e * Store_closing_weight) * Store_operational_limit_weight, over=snapshot), over=store)
+```
+
+```math
+\mathit{Store\_operational\_limit}_{\xi,i} = -\left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{\xi,i,t,v} \cdot \mathrm{b}^{e}_{\xi,i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `operational_limit`
 
 ```yaml
 operational_limit:
+  dims: [scenario, global_constraint]
+  expression: >-
+    Generator_operational_limit
+    + StorageUnit_operational_limit
+    + Store_operational_limit
   description: >-
     what an `operational_limit` row totals — the weighted energy its
     generators deliver over the snapshots it counts, plus what its
     non-cyclic storage draws down; the initial charge it draws from is
     folded into the row's constant
-  expression: >-
-    sum(sum(Generator_p * GlobalConstraint_energy_weight * Generator_operational_limit_weight, over=snapshot), over=generator)
-    - sum(sum(StorageUnit_state_of_charge * StorageUnit_closing_weight * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-    - sum(sum(Store_e * Store_closing_weight * Store_operational_limit_weight, over=snapshot), over=store)
 ```
 
 ```math
-\mathit{operational\_limit}_{\xi,i} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{\xi,t,g} \cdot \mathit{w}^{\mathrm{gc}}_{\xi,i,t} \cdot \mathrm{b}_{\xi,i,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{\xi,t,s} \cdot \mathit{w}^{h}_{\xi,i,t,s} \cdot \mathrm{b}^{h}_{\xi,i,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{\xi,t,v} \cdot \mathit{w}^{e}_{\xi,i,t,v} \cdot \mathrm{b}^{e}_{\xi,i,v} \right) \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{operational\_limit}_{\xi,i} = \mathit{Generator\_operational\_limit}_{\xi,i} + \mathit{StorageUnit\_operational\_limit}_{\xi,i} + \mathit{Store\_operational\_limit}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Line_transmission_volume_expansion`
+
+```yaml
+Line_transmission_volume_expansion:
+  expression: sum(Line_s_nom_ext * Line_volume_weight, over=line)
+```
+
+```math
+\mathit{Line\_transmission\_volume\_expansion}_{\xi,i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{\xi,i,k} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Link_transmission_volume_expansion`
+
+```yaml
+Link_transmission_volume_expansion:
+  expression: sum(Link_p_nom_ext * Link_volume_weight, over=link)
+```
+
+```math
+\mathit{Link\_transmission\_volume\_expansion}_{\xi,i} = \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{\xi,i,l} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `transmission_volume_expansion`
 
 ```yaml
 transmission_volume_expansion:
-  description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
-  expression: >-
-    sum(Line_s_nom_ext * Line_volume_weight, over=line)
-    + sum(Link_p_nom_ext * Link_volume_weight, over=link)
+  dims: [scenario, global_constraint]
+  expression: Line_transmission_volume_expansion + Link_transmission_volume_expansion
+  description: >-
+    what a `transmission_volume_expansion_limit` row totals — length times
+    the chosen build of the row's branches
 ```
 
 ```math
-\mathit{transmission\_volume\_expansion}_{\xi,i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{\xi,i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{\xi,i,l} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{transmission\_volume\_expansion}_{\xi,i} = \mathit{Line\_transmission\_volume\_expansion}_{\xi,i} + \mathit{Link\_transmission\_volume\_expansion}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Line_transmission_expansion_cost`
+
+```yaml
+Line_transmission_expansion_cost:
+  expression: sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+```
+
+```math
+\mathit{Line\_transmission\_expansion\_cost}_{\xi,i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{\xi,i,k} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Link_transmission_expansion_cost`
+
+```yaml
+Link_transmission_expansion_cost:
+  expression: sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+```
+
+```math
+\mathit{Link\_transmission\_expansion\_cost}_{\xi,i} = \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{\xi,i,l} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
 ```
 
 ### `transmission_expansion_cost`
 
 ```yaml
 transmission_expansion_cost:
-  description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
-  expression: >-
-    sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
-    + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+  dims: [scenario, global_constraint]
+  expression: Line_transmission_expansion_cost + Link_transmission_expansion_cost
+  description: >-
+    what a `transmission_expansion_cost_limit` row totals — capital cost
+    times the chosen build of the row's branches
 ```
 
 ```math
-\mathit{transmission\_expansion\_cost}_{\xi,i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{\xi,i,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{\xi,i,l} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+\mathit{transmission\_expansion\_cost}_{\xi,i} = \mathit{Line\_transmission\_expansion\_cost}_{\xi,i} + \mathit{Link\_transmission\_expansion\_cost}_{\xi,i} \qquad \forall\, \xi \in \Xi,\ i \in \mathcal{I}
+```
+
+### `Generator_tech_capacity_expansion`
+
+```yaml
+Generator_tech_capacity_expansion:
+  expression: sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+```
+
+```math
+\mathit{Generator\_tech\_capacity\_expansion}_{i} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{i,g} \qquad \forall\, i \in \mathcal{I}
+```
+
+### `Line_tech_capacity_expansion`
+
+```yaml
+Line_tech_capacity_expansion:
+  expression: sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
+```
+
+```math
+\mathit{Line\_tech\_capacity\_expansion}_{i} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{i,k} \qquad \forall\, i \in \mathcal{I}
+```
+
+### `Link_tech_capacity_expansion`
+
+```yaml
+Link_tech_capacity_expansion:
+  expression: sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+```
+
+```math
+\mathit{Link\_tech\_capacity\_expansion}_{i} = \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{i,l} \qquad \forall\, i \in \mathcal{I}
+```
+
+### `Process_tech_capacity_expansion`
+
+```yaml
+Process_tech_capacity_expansion:
+  expression: sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
+```
+
+```math
+\mathit{Process\_tech\_capacity\_expansion}_{i} = \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{m}^{z}_{i,j} \qquad \forall\, i \in \mathcal{I}
+```
+
+### `StorageUnit_tech_capacity_expansion`
+
+```yaml
+StorageUnit_tech_capacity_expansion:
+  expression: sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+```
+
+```math
+\mathit{StorageUnit\_tech\_capacity\_expansion}_{i} = \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{i,s} \qquad \forall\, i \in \mathcal{I}
+```
+
+### `Store_tech_capacity_expansion`
+
+```yaml
+Store_tech_capacity_expansion:
+  expression: sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
+```
+
+```math
+\mathit{Store\_tech\_capacity\_expansion}_{i} = \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{i,v} \qquad \forall\, i \in \mathcal{I}
 ```
 
 ### `tech_capacity_expansion`
 
 ```yaml
 tech_capacity_expansion:
-  description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
+  dims: [global_constraint]
   expression: >-
-    sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
-    + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
-    + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
-    + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
-    + sum(Process_p_nom_ext * Process_tech_capacity_weight, over=process)
+    Generator_tech_capacity_expansion
+    + Line_tech_capacity_expansion
+    + Link_tech_capacity_expansion
+    + Process_tech_capacity_expansion
+    + StorageUnit_tech_capacity_expansion
+    + Store_tech_capacity_expansion
+  description: >-
+    what a `tech_capacity_expansion_limit` row totals — the chosen build of
+    the row's carrier-and-bus set
 ```
 
 ```math
-\mathit{tech\_capacity\_expansion}_{i} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{i,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{i,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{i,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{i,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{i,v} + \sum_{j \in \mathcal{J}} Z_{j} \cdot \mathrm{m}^{z}_{i,j} \qquad \forall\, i \in \mathcal{I}
+\mathit{tech\_capacity\_expansion}_{i} = \mathit{Generator\_tech\_capacity\_expansion}_{i} + \mathit{Line\_tech\_capacity\_expansion}_{i} + \mathit{Link\_tech\_capacity\_expansion}_{i} + \mathit{Process\_tech\_capacity\_expansion}_{i} + \mathit{StorageUnit\_tech\_capacity\_expansion}_{i} + \mathit{Store\_tech\_capacity\_expansion}_{i} \qquad \forall\, i \in \mathcal{I}
+```
+
+### `Generator_opex`
+
+```yaml
+Generator_opex:
+  expression: >-
+    sum(sum(((Generator_p * Generator_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum((((Generator_p * Generator_p) * Generator_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+```
+
+```math
+\mathit{Generator\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+```
+
+### `Generator_commitment_opex`
+
+```yaml
+Generator_commitment_opex:
+  expression: >-
+    sum(sum(((Generator_status * Generator_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
+    + sum(sum(Generator_start_up * Generator_start_up_cost, over=generator), over=snapshot)
+    + sum(sum(Generator_shut_down * Generator_shut_down_cost, over=generator), over=snapshot)
+```
+
+```math
+\mathit{Generator\_commitment\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{\xi,g} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{\xi,g} \qquad \forall\, \xi \in \Xi
+```
+
+### `Link_opex`
+
+```yaml
+Link_opex:
+  expression: >-
+    sum(sum(((Link_p * Link_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum((((Link_p * Link_p) * Link_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+```
+
+```math
+\mathit{Link\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+```
+
+### `Link_commitment_opex`
+
+```yaml
+Link_commitment_opex:
+  expression: >-
+    sum(sum(((Link_status * Link_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
+    + sum(sum(Link_start_up * Link_start_up_cost, over=link), over=snapshot)
+    + sum(sum(Link_shut_down * Link_shut_down_cost, over=link), over=snapshot)
+```
+
+```math
+\mathit{Link\_commitment\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{\xi,l} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{\xi,l} \qquad \forall\, \xi \in \Xi
+```
+
+### `Process_opex`
+
+```yaml
+Process_opex:
+  expression: >-
+    sum(sum(((Process_p * Process_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+    + sum(sum((((Process_p * Process_p) * Process_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+```
+
+```math
+\mathit{Process\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot z_{\xi,t,j} \cdot \mathrm{c}^{z,(2)}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+```
+
+### `Process_commitment_opex`
+
+```yaml
+Process_commitment_opex:
+  expression: >-
+    sum(sum(((Process_status * Process_stand_by_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
+    + sum(sum(Process_start_up * Process_start_up_cost, over=process), over=snapshot)
+    + sum(sum(Process_shut_down * Process_shut_down_cost, over=process), over=snapshot)
+```
+
+```math
+\mathit{Process\_commitment\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} u^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{on}}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{up}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{up}}_{\xi,j} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{dn}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{dn}}_{\xi,j} \qquad \forall\, \xi \in \Xi
+```
+
+### `StorageUnit_opex`
+
+```yaml
+StorageUnit_opex:
+  expression: >-
+    sum(sum(((StorageUnit_p_dispatch * StorageUnit_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+    + sum(sum((((StorageUnit_p_dispatch * StorageUnit_p_dispatch) * StorageUnit_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+    + sum(sum(((StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+    + sum(sum(((StorageUnit_spill * StorageUnit_spill_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
+```
+
+```math
+\mathit{StorageUnit\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h,(2)}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
+```
+
+### `Store_opex`
+
+```yaml
+Store_opex:
+  expression: >-
+    sum(sum(((Store_p * Store_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+    + sum(sum((((Store_p * Store_p) * Store_marginal_cost_quadratic) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+    + sum(sum(((Store_e * Store_marginal_cost_storage) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
+```
+
+```math
+\mathit{Store\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot q_{\xi,t,v} \cdot \mathrm{c}^{q,(2)}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} \qquad \forall\, \xi \in \Xi
 ```
 
 ### `scenario_opex`
 
 ```yaml
 scenario_opex:
-  description: what a future costs to run — every operating term, weighted by the snapshot's hours and its period, before the scenario's own weight; a start and a stop cost what they cost, unweighted, as PyPSA adds them (`optimize.py:414-429`)
+  dims: [scenario]
   expression: >-
-    sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-    + sum(sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-    + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-    + sum(sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-    + sum(sum(Process_p * Process_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-    + sum(sum(Process_p * Process_p * Process_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-    + sum(sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-    + sum(sum(StorageUnit_p_dispatch * StorageUnit_p_dispatch * StorageUnit_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-    + sum(sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-    + sum(sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=storage_unit), over=snapshot)
-    + sum(sum(Store_p * Store_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
-    + sum(sum(Store_p * Store_p * Store_marginal_cost_quadratic * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
-    + sum(sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
-    + sum(sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
-    + sum(sum(Generator_start_up * Generator_start_up_cost, over=generator), over=snapshot)
-    + sum(sum(Generator_shut_down * Generator_shut_down_cost, over=generator), over=snapshot)
-    + sum(sum(Link_status * Link_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=link), over=snapshot)
-    + sum(sum(Link_start_up * Link_start_up_cost, over=link), over=snapshot)
-    + sum(sum(Link_shut_down * Link_shut_down_cost, over=link), over=snapshot)
-    + sum(sum(Process_status * Process_stand_by_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=process), over=snapshot)
-    + sum(sum(Process_start_up * Process_start_up_cost, over=process), over=snapshot)
-    + sum(sum(Process_shut_down * Process_shut_down_cost, over=process), over=snapshot)
+    Generator_opex
+    + Generator_commitment_opex
+    + Link_opex
+    + Link_commitment_opex
+    + Process_opex
+    + Process_commitment_opex
+    + StorageUnit_opex
+    + Store_opex
+  description: >-
+    what a future costs to run — every operating term, weighted by the
+    snapshot's hours and its period, before the scenario's own weight; a
+    start and a stop cost what they cost, unweighted, as PyPSA adds them
+    (`optimize.py:414-429`)
 ```
 
 ```math
-\mathit{scenario\_opex}_{\xi} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot \mathrm{c}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{\xi,t,g} \cdot p_{\xi,t,g} \cdot \mathrm{c}^{(2)}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot \mathrm{c}^{f}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{\xi,t,l} \cdot f_{\xi,t,l} \cdot \mathrm{c}^{f,(2)}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot \mathrm{c}^{z}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} z_{\xi,t,j} \cdot z_{\xi,t,j} \cdot \mathrm{c}^{z,(2)}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} h^{+}_{\xi,t,s} \cdot h^{+}_{\xi,t,s} \cdot \mathrm{c}^{h,(2)}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{soc}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{s \in \mathcal{S}} \mathit{spill}_{\xi,t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{\xi,t,s} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot \mathrm{c}^{q}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} q_{\xi,t,v} \cdot q_{\xi,t,v} \cdot \mathrm{c}^{q,(2)}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{v \in \mathcal{V}} e_{\xi,t,v} \cdot \mathrm{c}^{e}_{\xi,t,v} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} u_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{on}}_{\xi,t,g} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{up}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{up}}_{\xi,g} + \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} \mathit{dn}_{\xi,t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{\xi,g} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} u^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{on}}_{\xi,t,l} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{up}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{up}}_{\xi,l} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} \mathit{dn}^{f}_{\xi,t,l} \cdot \mathrm{c}^{f,\mathrm{dn}}_{\xi,l} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} u^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{on}}_{\xi,t,j} \cdot \mathrm{w}_{t} \cdot \mathrm{w}^{y}_{\mathrm{snapshot\_period}(t)} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{up}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{up}}_{\xi,j} + \sum_{t \in \mathcal{T}} \sum_{j \in \mathcal{J}} \mathit{dn}^{z}_{\xi,t,j} \cdot \mathrm{c}^{z,\mathrm{dn}}_{\xi,j} \qquad \forall\, \xi \in \Xi
+\mathit{scenario\_opex}_{\xi} = \mathit{Generator\_opex}_{\xi} + \mathit{Generator\_commitment\_opex}_{\xi} + \mathit{Link\_opex}_{\xi} + \mathit{Link\_commitment\_opex}_{\xi} + \mathit{Process\_opex}_{\xi} + \mathit{Process\_commitment\_opex}_{\xi} + \mathit{StorageUnit\_opex}_{\xi} + \mathit{Store\_opex}_{\xi} \qquad \forall\, \xi \in \Xi
+```
+
+### `Generator_additions`
+
+```yaml
+Generator_additions:
+  expression: >-
+    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
+```
+
+```math
+\mathit{Generator\_additions}_{y,i} = \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `Line_additions`
+
+```yaml
+Line_additions:
+  expression: >-
+    sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
+```
+
+```math
+\mathit{Line\_additions}_{y,i} = \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_carrier}(k) = i} S_{k} \cdot \mathrm{new}^{s}_{y,k} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `Link_additions`
+
+```yaml
+Link_additions:
+  expression: >-
+    sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
+```
+
+```math
+\mathit{Link\_additions}_{y,i} = \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_carrier}(l) = i} F_{l} \cdot \mathrm{new}^{f}_{y,l} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `Process_additions`
+
+```yaml
+Process_additions:
+  expression: >-
+    sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
+```
+
+```math
+\mathit{Process\_additions}_{y,i} = \sum_{j \in \mathcal{J} \,:\, \mathrm{Process\_carrier}(j) = i} Z_{j} \cdot \mathrm{new}^{z}_{y,j} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `StorageUnit_additions`
+
+```yaml
+StorageUnit_additions:
+  expression: >-
+    sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
+```
+
+```math
+\mathit{StorageUnit\_additions}_{y,i} = \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_carrier}(s) = i} H_{s} \cdot \mathrm{new}^{h}_{y,s} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+```
+
+### `Store_additions`
+
+```yaml
+Store_additions:
+  expression: >-
+    sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
+```
+
+```math
+\mathit{Store\_additions}_{y,i} = \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_carrier}(v) = i} E_{v} \cdot \mathrm{new}^{e}_{y,v} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
 ```
 
 ### `Carrier_additions`
 
 ```yaml
 Carrier_additions:
+  dims: [period, carrier]
+  expression: >-
+    Generator_additions
+    + Line_additions
+    + Link_additions
+    + Process_additions
+    + StorageUnit_additions
+    + Store_additions
   description: >-
     what a carrier adds in a period — every extendable component of that
-    carrier, counting each build in the first period it stands in. Like PyPSA,
-    it sums only the components that carry a carrier attribute, so a
+    carrier, counting each build in the first period it stands in. Like
+    PyPSA, it sums only the components that carry a carrier attribute, so a
     transformer, which has none, counts in no carrier
-  expression: >-
-    sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-    + sum(Link_p_nom_ext * Link_first_active, by=Link_carrier, over=link, into=carrier)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_first_active, by=StorageUnit_carrier, over=storage_unit, into=carrier)
-    + sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
-    + sum(Line_s_nom_ext * Line_first_active, by=Line_carrier, over=line, into=carrier)
-    + sum(Process_p_nom_ext * Process_first_active, by=Process_carrier, over=process, into=carrier)
 ```
 
 ```math
-\mathit{Carrier\_additions}_{y,i} = \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_carrier}(g) = i} P_{g} \cdot \mathrm{new}_{y,g} + \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_carrier}(l) = i} F_{l} \cdot \mathrm{new}^{f}_{y,l} + \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_carrier}(s) = i} H_{s} \cdot \mathrm{new}^{h}_{y,s} + \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_carrier}(v) = i} E_{v} \cdot \mathrm{new}^{e}_{y,v} + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_carrier}(k) = i} S_{k} \cdot \mathrm{new}^{s}_{y,k} + \sum_{j \in \mathcal{J} \,:\, \mathrm{Process\_carrier}(j) = i} Z_{j} \cdot \mathrm{new}^{z}_{y,j} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
+\mathit{Carrier\_additions}_{y,i} = \mathit{Generator\_additions}_{y,i} + \mathit{Line\_additions}_{y,i} + \mathit{Link\_additions}_{y,i} + \mathit{Process\_additions}_{y,i} + \mathit{StorageUnit\_additions}_{y,i} + \mathit{Store\_additions}_{y,i} \qquad \forall\, y \in \mathcal{Y},\ i \in \mathcal{I}
 ```
 
 ### `Carrier_relative_growth`
@@ -10185,6 +10568,167 @@ Outage_s:
 
 ```math
 \hat{s}_{\xi,t,\kappa} = \begin{cases} \check{s}_{\xi,t,\mathrm{Outage\_line}(\kappa)} & \text{if } \mathrm{Outage\_line}(\kappa) \text{ is defined} \\ \check{\sigma}_{\xi,t,\mathrm{Outage\_transformer}(\kappa)} & \text{otherwise} \end{cases} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ \kappa \in \mathcal{K}^{\mathrm{out}}
+```
+
+### `Generator_injection`
+
+```yaml
+Generator_injection:
+  expression: sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
+```
+
+```math
+\mathit{Generator\_injection}_{\xi,t,n} = \sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} \mathrm{sgn}_{g} \cdot p_{\xi,t,g} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Line_injection`
+
+```yaml
+Line_injection:
+  expression: >-
+    -sum(Line_s, by=Line_bus0, over=line, into=bus)
+    + sum(Line_s, by=Line_bus1, over=line, into=bus)
+    - (0.5 * sum(Line_loss, by=Line_bus0, over=line, into=bus))
+    - (0.5 * sum(Line_loss, by=Line_bus1, over=line, into=bus))
+```
+
+```math
+\mathit{Line\_injection}_{\xi,t,n} = -\left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} s_{\xi,t,k} \right) + \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} s_{\xi,t,k} - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus0}(k) = n} \ell_{\xi,t,k} \right) - 0.5 \cdot \left( \sum_{k \in \mathcal{K} \,:\, \mathrm{Line\_bus1}(k) = n} \ell_{\xi,t,k} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Link_injection`
+
+```yaml
+Link_injection:
+  expression: >-
+    -sum(Link_p, by=Link_bus0, over=link, into=bus)
+    + sum(Link_output_arrival, by=Link_output_bus, over=link_output, into=bus)
+```
+
+```math
+\mathit{Link\_injection}_{\xi,t,n} = -\left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{\xi,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{\xi,t,o} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Load_injection`
+
+```yaml
+Load_injection: sum(Load_demand, by=Load_bus, over=load, into=bus)
+```
+
+```math
+\mathrm{Load\_injection}_{\xi,t,n} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \check{\mathrm{load}}_{\xi,t,d} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Process_injection`
+
+```yaml
+Process_injection:
+  expression: >-
+    sum(Process_output_arrival, by=Process_output_bus, over=process_output, into=bus)
+```
+
+```math
+\mathit{Process\_injection}_{\xi,t,n} = \sum_{r \in \mathcal{R} \,:\, \mathrm{Process\_output\_bus}(r) = n} \overrightarrow{z}_{\xi,t,r} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `StorageUnit_injection`
+
+```yaml
+StorageUnit_injection:
+  expression: >-
+    sum(StorageUnit_sign * (StorageUnit_p_dispatch - StorageUnit_p_store), by=StorageUnit_bus, over=storage_unit, into=bus)
+```
+
+```math
+\mathit{StorageUnit\_injection}_{\xi,t,n} = \sum_{s \in \mathcal{S} \,:\, \mathrm{StorageUnit\_bus}(s) = n} \mathrm{sgn}^{h}_{s} \cdot \left( h^{+}_{\xi,t,s} - h^{-}_{\xi,t,s} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Store_injection`
+
+```yaml
+Store_injection: sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
+```
+
+```math
+\mathit{Store\_injection}_{\xi,t,n} = \sum_{v \in \mathcal{V} \,:\, \mathrm{Store\_bus}(v) = n} \mathrm{sgn}^{q}_{v} \cdot q_{\xi,t,v} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Transformer_injection`
+
+```yaml
+Transformer_injection:
+  expression: >-
+    -sum(Transformer_s, by=Transformer_bus0, over=transformer, into=bus)
+    + sum(Transformer_s, by=Transformer_bus1, over=transformer, into=bus)
+    - (0.5 * sum(Transformer_loss, by=Transformer_bus0, over=transformer, into=bus))
+    - (0.5 * sum(Transformer_loss, by=Transformer_bus1, over=transformer, into=bus))
+```
+
+```math
+\mathit{Transformer\_injection}_{\xi,t,n} = -\left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \sigma_{\xi,t,m} \right) + \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \sigma_{\xi,t,m} - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus0}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) - 0.5 \cdot \left( \sum_{m \in \mathcal{M} \,:\, \mathrm{Transformer\_bus1}(m) = n} \ell^{\sigma}_{\xi,t,m} \right) \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Bus_injection`
+
+```yaml
+Bus_injection:
+  dims: [scenario, snapshot, bus]
+  expression: >-
+    Generator_injection
+    + Line_injection
+    + Link_injection
+    + Load_injection
+    + Process_injection
+    + StorageUnit_injection
+    + Store_injection
+    + Transformer_injection
+  description: >-
+    what every component puts into a bus, less what it takes out of it;
+    PyPSA writes each term into the balance, and a load on its right-hand
+    side
+```
+
+```math
+\mathit{Bus\_injection}_{\xi,t,n} = \mathit{Generator\_injection}_{\xi,t,n} + \mathit{Line\_injection}_{\xi,t,n} + \mathit{Link\_injection}_{\xi,t,n} + \mathrm{Load\_injection}_{\xi,t,n} + \mathit{Process\_injection}_{\xi,t,n} + \mathit{StorageUnit\_injection}_{\xi,t,n} + \mathit{Store\_injection}_{\xi,t,n} + \mathit{Transformer\_injection}_{\xi,t,n} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
+
+### `Line_angle_sum`
+
+```yaml
+Line_angle_sum: sum(Line_s * Line_cycle_weight, over=line)
+```
+
+```math
+\mathit{Line\_angle\_sum}_{\xi,t,c} = \sum_{k \in \mathcal{K}} s_{\xi,t,k} \cdot \mathrm{x}_{k,c} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
+```
+
+### `Transformer_angle_sum`
+
+```yaml
+Transformer_angle_sum:
+  expression: >-
+    sum(Transformer_s * Transformer_cycle_weight, over=transformer)
+    + sum(Transformer_phase_shift_weight, over=transformer)
+    + sum(Transformer_phase_shift * Transformer_phase_shift_cycle_weight, over=transformer)
+```
+
+```math
+\mathit{Transformer\_angle\_sum}_{\xi,t,c} = \sum_{m \in \mathcal{M}} \sigma_{\xi,t,m} \cdot \mathrm{x}^{\sigma}_{m,c} + \sum_{m \in \mathcal{M}} \vartheta_{m,c} + \sum_{m \in \mathcal{M}} \mathit{Transformer\_phase\_shift}_{\xi,t,m} \cdot \mathrm{Transformer\_phase\_shift\_cycle\_weight}_{m,c} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
+```
+
+### `Cycle_angle_sum`
+
+```yaml
+Cycle_angle_sum:
+  dims: [scenario, snapshot, cycle]
+  expression: Line_angle_sum + Transformer_angle_sum
+  description: >-
+    the voltage angle differences around a cycle: every branch flow times
+    its cycle weight, and every transformer phase shift
+```
+
+```math
+\mathit{Cycle\_angle\_sum}_{\xi,t,c} = \mathit{Line\_angle\_sum}_{\xi,t,c} + \mathit{Transformer\_angle\_sum}_{\xi,t,c} \qquad \forall\, \xi \in \Xi,\ t \in \mathcal{T},\ c \in \mathcal{C}
 ```
 
 #### Variable domains

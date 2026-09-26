@@ -204,14 +204,15 @@ def typeset_declaration(
         SchemaError: *name* is declared as none of the five, as two — a
             constraint may share a variable's name — or under ``given:``, which
             prints in the legend rather than as a line; or a symbol table entry
-            names nothing in the spec.
+            names nothing in the spec. A sum this file declares with no body
+            prints its line, ``symbol = ⋯``.
     """
     walk = _walk(spec, fmt, symbols, inline_expressions=inline_expressions)
     given = walk.program.given
     givens = {
         'parameter': given.parameters,
         'variable': given.variables,
-        'expression': given.expressions,
+        'expression': {n: block for n, block in given.expressions.items() if not block.owned},
         'constraint': given.constraints,
     }
     given_kind = next((kind for kind, group in givens.items() if name in group), None)

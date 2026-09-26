@@ -60,7 +60,15 @@ def _given(program: Program) -> list[Advice]:
         *(Advice('given', name, _given_note('parameter', name)) for name in given.parameters),
         *(Advice('given', name, _given_note('variable', name)) for name in given.variables),
         *(
-            Advice('given', name, _term_note(name) if block.term is not None else _given_note('expression', name))
+            Advice(
+                'given',
+                name,
+                _sum_note(name)
+                if block.owned
+                else _term_note(name)
+                if block.term is not None
+                else _given_note('expression', name),
+            )
             for name, block in given.expressions.items()
         ),
         *(Advice('given', name, _given_note('row family', name)) for name in given.constraints),
@@ -73,6 +81,13 @@ def _given_note(kind: str, name: str) -> str:
         f'provides it. A consumer checks that it does, on the same frame, and refuses the program where '
         f'it does not. A fragment is composed instead: merge() folds this declaration into the one a '
         f'sibling introduces.'
+    )
+
+
+def _sum_note(name: str) -> str:
+    return (
+        f"expression '{name}' is a sum this file declares and other files add terms to: merge() writes its "
+        f'body from their terms. Until then, the program reads it and does not build it.'
     )
 
 

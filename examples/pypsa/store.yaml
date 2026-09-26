@@ -228,7 +228,14 @@ expressions:
         when: NOT Store_e_initial_per_period
         expression: GlobalConstraint_snapshot_closes
     otherwise: 0
-  Store_injection: sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
+  Store_primary_energy:
+    expression: >-
+      -sum(sum((Store_e * Store_closing_weight) * Store_primary_energy_weight, over=snapshot), over=store)
+  Store_operational_limit:
+    expression: >-
+      -sum(sum((Store_e * Store_closing_weight) * Store_operational_limit_weight, over=snapshot), over=store)
+  Store_tech_capacity_expansion:
+    expression: sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
   Store_opex:
     expression: >-
       sum(sum(((Store_p * Store_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=store), over=snapshot)
@@ -237,13 +244,7 @@ expressions:
   Store_additions:
     expression: >-
       sum(Store_e_nom_ext * Store_first_active, by=Store_carrier, over=store, into=carrier)
-  Store_primary_energy:
-    expression: >-
-      -sum(sum((Store_e * Store_closing_weight) * Store_primary_energy_weight, over=snapshot), over=store)
-  Store_operational_limit:
-    expression: >-
-      -sum(sum((Store_e * Store_closing_weight) * Store_operational_limit_weight, over=snapshot), over=store)
-  Store_tech_capacity_expansion: sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
+  Store_injection: sum(Store_sign * Store_p, by=Store_bus, over=store, into=bus)
 
 constraints:
   Store_fix_e_lower:

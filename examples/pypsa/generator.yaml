@@ -182,7 +182,14 @@ expressions:
     cases:
       modular_build: { when: Generator_p_nom_extendable AND Generator_p_nom_mod > 0, expression: Generator_p_nom_mod }
     otherwise: Generator_p_nom
-  Generator_injection: sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
+  Generator_primary_energy:
+    expression: >-
+      sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_primary_energy_weight, over=snapshot), over=generator)
+  Generator_operational_limit:
+    expression: >-
+      sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_operational_limit_weight, over=snapshot), over=generator)
+  Generator_tech_capacity_expansion:
+    expression: sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
   Generator_opex:
     expression: >-
       sum(sum(((Generator_p * Generator_marginal_cost) * snapshot_weightings_objective) * at(period_weight_objective, by=snapshot_period, over=period, into=snapshot), over=generator), over=snapshot)
@@ -190,13 +197,8 @@ expressions:
   Generator_additions:
     expression: >-
       sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier, over=generator, into=carrier)
-  Generator_primary_energy:
-    expression: >-
-      sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_primary_energy_weight, over=snapshot), over=generator)
-  Generator_operational_limit:
-    expression: >-
-      sum(sum((Generator_p * GlobalConstraint_energy_weight) * Generator_operational_limit_weight, over=snapshot), over=generator)
-  Generator_tech_capacity_expansion: sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+  Generator_injection:
+    expression: sum(Generator_sign * Generator_p, by=Generator_bus, over=generator, into=bus)
 
 constraints:
   Generator_fix_p_lower:

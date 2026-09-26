@@ -182,7 +182,7 @@ class ExpressionResolver:
         """
         if node.name in self.formals:
             return None
-        if node.name in self.ns.schema.expressions:
+        if node.name in self.ns.bodies:
             try:
                 return cast('Expression', self.ns.named(node.name, self.context))
             except SchemaError as e:
