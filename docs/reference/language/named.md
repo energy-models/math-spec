@@ -47,9 +47,10 @@ An entry with a `dims:` and no body at all is an **empty sum**: a quantity
 this file declares and other files add terms to, through
 [`merge`](../../howto/compose.md#a-library-of-components). Alone, the file
 reads it as a column over the frame, the way it reads a
-[given expression](declarations.md#given-expressions), and the legend says
-so. [A term a file adds](declarations.md#a-term-a-file-adds) is the other
-half.
+[given expression](declarations.md#given-expressions), and its definition
+prints as `injection = ⋯`: the name is declared here, and the body is what
+the other files add. [A term a file adds](declarations.md#a-term-a-file-adds)
+is the other half.
 
 Where the objective or a constraint names it, the body is substituted there,
 and the [degree limit](expressions.md#where-a-product-of-two-variables-is-allowed)

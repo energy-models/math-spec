@@ -395,25 +395,22 @@ def test_the_legend_names_the_term_the_file_adds():
     assert 'an expression this file adds `demand_injection` to' in given
 
 
-def test_the_legend_says_the_owner_s_sum_has_no_body_yet():
-    given = to_markdown(NETWORK).split('#### Given')[1]
-    assert '`injection`' in given and 'a sum other files add terms to' in given
+def test_the_owner_s_sum_prints_as_a_definition_with_no_body():
+    """The owner declares the name, so it prints under Definitions as ``symbol = ⋯``, and not under Given."""
+    rendered = to_markdown(NETWORK)
+    assert '#### Given' not in rendered, 'the file declares the sum rather than reading one another file defines'
+    assert '`injection` over' in rendered.split('#### Definitions')[1]
+    assert typeset_declaration(NETWORK, 'injection', 'latex') == (
+        r'\mathit{injection}_{t,b} = \cdots \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}'
+    )
 
 
-READS_IT = r"'injection' is a given expression, and a given declaration prints no line"
-
-
-@pytest.mark.parametrize(
-    ('spec', 'message'),
-    [
-        pytest.param(BALANCE, READS_IT, id='a-reader'),
-        pytest.param(FLEET, READS_IT, id='a-contributor'),
-        pytest.param(NETWORK, r"'injection' is a sum other files add terms to, and it has no body yet", id='an-owner'),
-    ],
-)
-def test_a_given_expression_prints_no_line_of_its_own(spec, message):
-    """The term prints as the definition it is; the name it adds to prints in the legend, with or without a body."""
-    with pytest.raises(LanguageError, match=message):
+@pytest.mark.parametrize('spec', [BALANCE, FLEET], ids=['a-reader', 'a-contributor'])
+def test_a_given_expression_prints_no_line_of_its_own(spec):
+    """The term prints as the definition it is; the name it adds to prints in the legend."""
+    with pytest.raises(
+        LanguageError, match=r"'injection' is a given expression, and a given declaration prints no line"
+    ):
         typeset_declaration(spec, 'injection', 'latex')
 
 

@@ -173,15 +173,14 @@ class Legend:
                     self.symbols.name[g],
                     f'{fmt.mono(g)}{self._over(list(block.dims))}, '
                     + (
-                        'a sum other files add terms to'
-                        if block.owned
-                        else f'an expression this file adds {fmt.mono(block.term.name)} to'
+                        f'an expression this file adds {fmt.mono(block.term.name)} to'
                         if block.term is not None
                         else 'an expression another file defines'
                     ),
                     block.description,
                 )
                 for g, block in program.given.expressions.items()
+                if not block.owned
             ),
             *(
                 self._entry(
@@ -193,9 +192,10 @@ class Legend:
             ),
         ]
         shown = set(defined)
+        owned = {e: block for e, block in program.given.expressions.items() if block.owned}
         definitions = [
             self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(list(block.dims))}', block.description)
-            for e, block in program.expressions.items()
+            for e, block in {**program.expressions, **owned}.items()
             if e in shown
         ]
         groups = (
