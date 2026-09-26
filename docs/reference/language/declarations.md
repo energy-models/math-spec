@@ -250,8 +250,8 @@ only reads the name writes no term.
 
 The name is an `expressions:` block of one other file. Where that file has
 nothing of its own to put in, it declares the sum with a frame and no body,
-an [empty sum](named.md#expressions), and reads it as a column until the
-terms arrive:
+an [empty sum](named.md#expressions), reads it as a column until the terms
+arrive, and prints its definition as `injection = ⋯`:
 
 ```yaml
 # fleet.yaml adds a term

@@ -161,6 +161,8 @@ class Format(Protocol):
     operators: ClassVar[Mapping[OperatorName, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
+    #: The body of a sum other files add terms to, which this file leaves open.
+    ellipsis: ClassVar[str]
 
     # -- atoms -------------------------------------------------------------
 
